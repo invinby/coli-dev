@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  🚀 launchd-сервис для coli-dev Orchestrator
+
+  Установка (однократно):
+    cp 03_Resources/com.coli-dev.orchestrator.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.coli-dev.orchestrator.plist
+
+  Управление:
+    launchctl start   com.coli-dev.orchestrator   # принудительный запуск
+    launchctl stop    com.coli-dev.orchestrator   # остановить
+    launchctl unload  ~/Library/LaunchAgents/com.coli-dev.orchestrator.plist  # удалить
+
+  Логи:
+    tail -f ~/Library/Logs/coli-dev/orchestrator.log
+    tail -f ~/Library/Logs/coli-dev/orchestrator.err.log
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.coli-dev.orchestrator</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/macstore.uz/Desktop/coli-dev/.venv/bin/python</string>
+        <string>/Users/macstore.uz/Desktop/coli-dev/01_Projects/orchestrator.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/macstore.uz/Desktop/coli-dev</string>
+
+    <!-- PATH для корректного поиска утилит -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/macstore.uz/Desktop/coli-dev/.venv/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>DEV_MODE</key>
+        <string>false</string>
+    </dict>
+
+    <!-- Автостарт при загрузке системы -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Автоперезапуск при падении -->
+    <key>KeepAlive</key>
+    <true/>
+
+    <!-- Throttle: если падает чаще чем раз в 10 секунд — ждать -->
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <!-- Лимит памяти: 512 MB — процесс не сожрёт всю ОЗУ на M1 -->
+    <key>SoftResourceLimits</key>
+    <dict>
+        <key>MemoryLimit</key>
+        <integer>512</integer>
+    </dict>
+
+    <!-- Логи stdout -->
+    <key>StandardOutPath</key>
+    <string>/Users/macstore.uz/Library/Logs/coli-dev/orchestrator.log</string>
+
+    <!-- Логи stderr -->
+    <key>StandardErrorPath</key>
+    <string>/Users/macstore.uz/Library/Logs/coli-dev/orchestrator.err.log</string>
+
+    <!-- Не выгружать при выходе пользователя из системы -->
+    <key>AbandonProcessGroup</key>
+    <true/>
+</dict>
+</plist>

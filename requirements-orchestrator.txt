@@ -1,0 +1,7 @@
+# Минимальные зависимости для coli-dev Orchestrator v2.0
+# Установка: .venv/bin/pip install -r requirements-orchestrator.txt
+
+fastapi>=0.110.0          # Веб-фреймворк
+uvicorn[standard]>=0.29.0  # ASGI-сервер
+httpx>=0.27.0             # Асинхронный HTTP-клиент (OpenRouter + Ollama)
+python-dotenv>=1.0.0      # Загрузка .env
