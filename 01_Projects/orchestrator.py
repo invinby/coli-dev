@@ -58,13 +58,17 @@ load_dotenv(_env_path)
 
 # ─── Config ────────────────────────────────────────────
 
-# OpenRouter → Gemini + Mimo + Kimi
+# OpenRouter → Gemini + Mimo (через OpenRouter)
 OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_MODEL_GEMINI_FLASH = os.getenv("GEMINI_FLASH_MODEL", "google/gemini-3.5-flash")
 OPENROUTER_MODEL_GEMINI_PRO = os.getenv("GEMINI_PRO_MODEL", "google/gemini-3.1-pro")
 OPENROUTER_MODEL_MIMO = os.getenv("MIMO_MODEL", "mimo/mimo-v2.5")
-OPENROUTER_MODEL_KIMI_K3 = os.getenv("KIMI_K3_MODEL", "moonshotai/kimi-k3")
+
+# Moonshot AI → Kimi K3 (Верховный Судья, напрямую)
+KIMI_KEY = os.getenv("KIMI_API_KEY", "")
+KIMI_URL = "https://api.moonshot.cn/v1/chat/completions"
+KIMI_MODEL = os.getenv("KIMI_MODEL", "moonshot-v1-auto")
 
 # Z.ai GLM 5.2 (Zhipu AI — OpenAI-совместимый API)
 ZHIPU_API_URL = os.getenv("ZHIPU_API_URL", "https://open.bigmodel.cn/api/paas/v4/chat/completions")
@@ -558,8 +562,8 @@ class ConsiliumEngine:
         )
 
         t1 = datetime.now(timezone.utc)
-        cloud_position = await self._ask_openrouter(kimi_prompt, self.RUSSIAN_SYSTEM,
-                                                    OPENROUTER_MODEL_KIMI_K3, "kimi")
+        cloud_position = await self._ask_kimi(kimi_prompt, self.RUSSIAN_SYSTEM,
+                                                 KIMI_MODEL, "kimi")
         kimi_duration = int((datetime.now(timezone.utc) - t1).total_seconds() * 1000)
 
         self.log.add("cloud-code", "gemini-flash",
@@ -708,7 +712,9 @@ class ConsiliumEngine:
 
     async def _ask_openrouter(self, message: str, system_prompt: str,
                                model: str, agent_tag: str) -> str:
-        """Запрос к любой модели через OpenRouter (Gemini, Mimo и др.)."""
+        """Запрос к модели через OpenRouter (Gemini, Mimo и др.)."""
+        if not OPENROUTER_KEY:
+            return f"[OpenRouter key not set: {agent_tag}]"
         payload = {
             "model": model,
             "max_tokens": 2048,
@@ -738,6 +744,40 @@ class ConsiliumEngine:
         except Exception as exc:
             logger.error(f"OpenRouter error ({agent_tag})", extra={"error": str(exc)[:150]})
             return f"[Ошибка: {str(exc)[:100]}]"
+
+    async def _ask_kimi(self, message: str, system_prompt: str,
+                         model: str, agent_tag: str) -> str:
+        """Запрос к Kimi K3 через Moonshot AI (напрямую, не через OpenRouter)."""
+        if not KIMI_KEY:
+            return f"[KIMI_API_KEY not set: {agent_tag}]"
+        payload = {
+            "model": model,
+            "max_tokens": 2048,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": message},
+            ],
+        }
+        headers = {
+            "Authorization": f"Bearer {KIMI_KEY}",
+            "Content-Type": "application/json",
+        }
+        try:
+            resp = await self.http.post(KIMI_URL, json=payload, headers=headers,
+                                         timeout=HTTP_TIMEOUT)
+            resp.raise_for_status()
+            data = resp.json()
+            return data["choices"][0]["message"]["content"]
+        except httpx.TimeoutException:
+            logger.warning(f"Kimi K3 timeout ({agent_tag})")
+            return f"[Таймаут: Kimi K3 не ответил за {HTTP_TIMEOUT}s]"
+        except httpx.HTTPStatusError as exc:
+            body = exc.response.text[:200]
+            logger.error(f"Kimi K3 HTTP error ({agent_tag})", extra={"status": exc.response.status_code, "body": body})
+            return f"[Ошибка HTTP {exc.response.status_code}: Kimi K3]"
+        except Exception as exc:
+            logger.error(f"Kimi K3 error ({agent_tag})", extra={"error": str(exc)[:150]})
+            return f"[Ошибка Kimi K3: {str(exc)[:100]}]"
 
     async def _ask_glm(self, message: str, system_prompt: str, agent_tag: str) -> str:
         """Запрос к GLM 5.2 (Zhipu AI). Если ключ не настроен — пропускаем."""
@@ -1029,20 +1069,35 @@ async def log_requests(request: Request, call_next) -> Response:
 
 
 async def _check_network() -> bool:
+    """Проверка доступности облачных API: OpenRouter или Moonshot."""
     if state.http_client is None:
         return False
+    # Проверяем OpenRouter (для Gemini/Mimo)
     try:
         resp = await state.http_client.get(
-            "https://openrouter.ai/api/v1/auth/key",
+            "https://openrouter.ai/api/v1/models",
             headers={"Authorization": f"Bearer {OPENROUTER_KEY}"},
             timeout=NET_CHECK_TIMEOUT,
         )
-        ok = resp.status_code < 500
-        logger.debug("Network check", extra={"result": "ONLINE" if ok else "DOWN", "status": resp.status_code})
-        return ok
-    except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError) as exc:
-        logger.debug("Network check", extra={"result": "OFFLINE", "error": exc.__class__.__name__})
-        return False
+        if resp.status_code < 500:
+            logger.debug("Network check: OpenRouter ONLINE")
+            return True
+    except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError):
+        pass
+    # Проверяем Moonshot (для Kimi K3)
+    try:
+        resp = await state.http_client.get(
+            "https://api.moonshot.cn/v1/models",
+            headers={"Authorization": f"Bearer {KIMI_KEY}"},
+            timeout=NET_CHECK_TIMEOUT,
+        )
+        if resp.status_code < 500:
+            logger.debug("Network check: Moonshot ONLINE")
+            return True
+    except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError):
+        pass
+    logger.debug("Network check: OFFLINE")
+    return False
 
 
 async def _check_ollama() -> dict:
