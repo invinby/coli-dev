@@ -159,6 +159,7 @@ struct OrchestratorHealth: Decodable {
     let ollamaAvailable: Bool
     let ollamaModel: String
     let ollamaModelReady: Bool?
+    let geminiKeyConfigured: Bool?
     let ollamaEndpointLocal: Bool?
     let obsidianEndpointLocal: Bool?
     let sessionMode: String?
@@ -169,6 +170,7 @@ struct OrchestratorHealth: Decodable {
 
     var isOllamaEndpointLocal: Bool { ollamaEndpointLocal ?? false }
     var isObsidianEndpointLocal: Bool { obsidianEndpointLocal ?? false }
+    var hasGroundedSearch: Bool { online && geminiKeyConfigured == true && hasCloudSession }
     var hasLocalModel: Bool { isOllamaEndpointLocal && ollamaAvailable && (ollamaModelReady ?? false) }
     var displayKnowledgeIndexCheckedAt: String? {
         guard let knowledgeIndexCheckedAt else { return nil }
@@ -189,6 +191,7 @@ struct OrchestratorHealth: Decodable {
         case ollamaAvailable = "ollama_available"
         case ollamaModel = "ollama_model"
         case ollamaModelReady = "ollama_model_ready"
+        case geminiKeyConfigured = "gemini_key_configured"
         case ollamaEndpointLocal = "ollama_endpoint_local"
         case obsidianEndpointLocal = "obsidian_endpoint_local"
         case sessionMode = "session_mode"
@@ -232,11 +235,15 @@ private struct TutorRequest: Encodable {
     let language: String
     let mode: String
     let retrievalQuery: String
+    let useWebSearch: Bool
+    let groundingAgeConfirmed: Bool
 
     enum CodingKeys: String, CodingKey {
         case message, language, mode
         case systemPrompt = "system_prompt"
         case retrievalQuery = "retrieval_query"
+        case useWebSearch = "use_web_search"
+        case groundingAgeConfirmed = "grounding_age_confirmed"
     }
 }
 
@@ -277,10 +284,13 @@ private struct TutorEvent: Decodable {
     let model: String?
     let durationMS: Int?
     let sources: [TutorSource]?
+    let googleSearchSuggestions: String?
+    let error: String?
 
     enum CodingKeys: String, CodingKey {
-        case type, content, provider, model, sources
+        case type, content, provider, model, sources, error
         case durationMS = "duration_ms"
+        case googleSearchSuggestions = "google_search_suggestions"
     }
 }
 
@@ -289,6 +299,7 @@ struct TutorCompletion {
     let model: String
     let durationMS: Int
     let sources: [TutorSource]
+    let googleSearchSuggestions: String?
 }
 
 @MainActor
@@ -296,7 +307,7 @@ enum OrchestratorClient {
     enum ClientError: Error {
         case invalidResponse
         case unavailable
-        case serverError
+        case serverError(String)
         case incompleteStream
     }
 
@@ -362,6 +373,8 @@ enum OrchestratorClient {
         retrievalQuery: String,
         language: AppLanguage,
         mode: AIRoutingMode,
+        useWebSearch: Bool = false,
+        groundingAgeConfirmed: Bool = false,
         onToken: @MainActor (String) -> Void
     ) async throws -> TutorCompletion {
         guard let url = URL(string: LearningStore.orchestratorBaseURL + "/chat/stream") else {
@@ -377,7 +390,9 @@ enum OrchestratorClient {
             systemPrompt: systemPrompt,
             language: language.rawValue,
             mode: mode.rawValue,
-            retrievalQuery: retrievalQuery
+            retrievalQuery: retrievalQuery,
+            useWebSearch: useWebSearch,
+            groundingAgeConfirmed: groundingAgeConfirmed
         ))
 
         let (bytes, response) = try await URLSession.shared.bytes(for: request)
@@ -396,13 +411,14 @@ enum OrchestratorClient {
             case "token":
                 if let content = event.content { onToken(content) }
             case "error":
-                throw ClientError.serverError
+                throw ClientError.serverError(event.error ?? "The server could not answer this request.")
             case "done":
                 completion = TutorCompletion(
                     provider: event.provider ?? "AI",
                     model: event.model ?? "",
                     durationMS: event.durationMS ?? 0,
-                    sources: event.sources ?? []
+                    sources: event.sources ?? [],
+                    googleSearchSuggestions: event.googleSearchSuggestions
                 )
             default:
                 // Keep internal debate_log HTML out of the learner-facing chat.
@@ -420,6 +436,9 @@ struct TutorMessage: Identifiable {
     let id = UUID()
     let role: Role
     var text: String
+    var sources: [TutorSource] = []
+    var googleSearchSuggestions: String? = nil
+    var isGoogleGrounded = false
 }
 
 @MainActor
@@ -428,7 +447,6 @@ final class TutorChatModel: ObservableObject {
     @Published private(set) var isSending = false
     @Published private(set) var errorMessage: String?
     @Published private(set) var completionLabel: String?
-    @Published private(set) var retrievedSources: [TutorSource] = []
     private var requestTask: Task<Void, Never>?
 
     let subject: Subject
@@ -443,13 +461,16 @@ final class TutorChatModel: ObservableObject {
         self.mode = mode
     }
 
-    func send(_ rawText: String) {
+    func send(
+        _ rawText: String,
+        useWebSearch: Bool = false,
+        groundingAgeConfirmed: Bool = false
+    ) {
         let question = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !question.isEmpty, !isSending else { return }
 
         errorMessage = nil
         completionLabel = nil
-        retrievedSources = []
         messages.append(TutorMessage(role: .learner, text: question))
         let reply = TutorMessage(role: .tutor, text: "")
         messages.append(reply)
@@ -479,13 +500,15 @@ final class TutorChatModel: ObservableObject {
             """
         }
 
-        let recentConversation = messages.dropLast().suffix(12).map { message in
+        let recentConversation = messages.dropLast().suffix(12)
+            .filter { !($0.role == .tutor && $0.isGoogleGrounded) }
+            .map { message in
             let speaker = message.role == .learner
                 ? (language == .ru ? "Ученик" : "Learner")
                 : (language == .ru ? "Тьютор" : "Tutor")
             return "\(speaker): \(message.text.prefix(1600))"
         }.joined(separator: "\n")
-        let requestMessage = recentConversation.isEmpty ? question : recentConversation
+        let requestMessage = useWebSearch || recentConversation.isEmpty ? question : recentConversation
 
         requestTask = Task {
             do {
@@ -495,12 +518,20 @@ final class TutorChatModel: ObservableObject {
                     retrievalQuery: "\(subjectName) \(lesson.title) \(question)",
                     language: language,
                     mode: mode,
+                    useWebSearch: useWebSearch,
+                    groundingAgeConfirmed: groundingAgeConfirmed,
                     onToken: { [weak self] token in self?.append(token, to: reply.id) }
                 )
                 completionLabel = [result.provider, result.model].filter { !$0.isEmpty }.joined(separator: " · ")
-                retrievedSources = result.sources
+                if let index = messages.firstIndex(where: { $0.id == reply.id }) {
+                    messages[index].sources = result.sources
+                    messages[index].googleSearchSuggestions = result.googleSearchSuggestions
+                    messages[index].isGoogleGrounded = result.googleSearchSuggestions != nil
+                }
             } catch is CancellationError {
                 // Keep a partial answer visible when the learner stops generation.
+            } catch OrchestratorClient.ClientError.serverError(let message) {
+                errorMessage = message
             } catch {
                 errorMessage = language == .ru
                     ? "Не удалось получить ответ. Проверь, запущен ли локальный оркестратор."

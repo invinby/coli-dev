@@ -41,7 +41,7 @@ from contextvars import ContextVar
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Literal
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 import httpx
 from dotenv import load_dotenv
@@ -91,6 +91,127 @@ def _is_loopback_http_url(url: str) -> bool:
     if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
         return address.ipv4_mapped.is_loopback
     return address.is_loopback
+
+
+def _safe_grounding_url(url: str) -> bool:
+    if not isinstance(url, str) or len(url) > 2048:
+        return False
+    try:
+        parsed = urlsplit(url.strip())
+        parsed.port
+    except ValueError:
+        return False
+    if not (
+        parsed.scheme.lower() in {"http", "https"}
+        and bool(parsed.hostname)
+        and parsed.username is None
+        and parsed.password is None
+    ):
+        return False
+    hostname = parsed.hostname.lower()
+    if hostname.endswith("."):
+        hostname = hostname[:-1]
+    if hostname.endswith("."):
+        return False
+    if hostname == "localhost" or hostname.endswith((".localhost", ".local", ".internal")):
+        return False
+    try:
+        return ipaddress.ip_address(hostname).is_global
+    except ValueError:
+        try:
+            ascii_hostname = hostname.encode("idna").decode("ascii")
+        except UnicodeError:
+            return False
+        labels = ascii_hostname.split(".")
+        return (
+            len(ascii_hostname) <= 253
+            and len(labels) >= 2
+            and all(
+                1 <= len(label) <= 63
+                and label[0].isalnum()
+                and label[-1].isalnum()
+                and all(character.isalnum() or character == "-" for character in label)
+                for label in labels
+            )
+        )
+
+
+def _grounding_sources(candidate: dict[str, Any]) -> tuple[list[dict[str, str]], str | None]:
+    metadata = candidate.get("groundingMetadata")
+    if not isinstance(metadata, dict):
+        return [], None
+    chunks = metadata.get("groundingChunks") or []
+    if not isinstance(chunks, list):
+        return [], None
+    retrieved_at = datetime.now(timezone.utc).isoformat()
+    sources: list[dict[str, str]] = []
+    seen_urls: set[str] = set()
+    for index, chunk in enumerate(chunks[:5]):
+        if not isinstance(chunk, dict):
+            continue
+        web = chunk.get("web") or {}
+        if not isinstance(web, dict):
+            continue
+        raw_url = web.get("uri")
+        if not isinstance(raw_url, str):
+            continue
+        url = raw_url.strip()
+        if not _safe_grounding_url(url) or url in seen_urls:
+            continue
+        seen_urls.add(url)
+        title = str(web.get("title") or urlsplit(url).hostname or "Web source").strip()[:200]
+        sources.append({
+            "id": str(index + 1),
+            "title": title,
+            "excerpt": "",
+            "retrieved_at": retrieved_at,
+            "path": url,
+            "source_type": "google_grounding",
+        })
+    search_entry_point = metadata.get("searchEntryPoint") or {}
+    entry_point = search_entry_point.get("renderedContent") if isinstance(search_entry_point, dict) else None
+    if not isinstance(entry_point, str) or not entry_point.strip() or len(entry_point) > 100_000:
+        entry_point = None
+    return sources, entry_point
+
+
+def _add_grounding_citations(text: str, candidate: dict[str, Any]) -> str:
+    metadata = candidate.get("groundingMetadata")
+    if not isinstance(metadata, dict):
+        return text
+    chunks = metadata.get("groundingChunks") or []
+    supports = metadata.get("groundingSupports") or []
+    if not isinstance(chunks, list) or not isinstance(supports, list):
+        return text
+    insertions: list[tuple[int, str]] = []
+    for support in supports:
+        if not isinstance(support, dict):
+            continue
+        segment = support.get("segment") or {}
+        if not isinstance(segment, dict):
+            continue
+        end_index = segment.get("endIndex")
+        indices = support.get("groundingChunkIndices") or []
+        if not isinstance(end_index, int) or not 0 <= end_index <= len(text):
+            continue
+        citation_ids = []
+        for index in indices:
+            if not isinstance(index, int) or not 0 <= index < min(len(chunks), 5):
+                continue
+            if not isinstance(chunks[index], dict):
+                continue
+            web = chunks[index].get("web") or {}
+            if not isinstance(web, dict):
+                continue
+            url = web.get("uri")
+            if isinstance(url, str) and _safe_grounding_url(url):
+                escaped_url = quote(url, safe=":/?#[]@!$&'*+,;=%-._~")
+                citation_ids.append(f"[{index + 1}](<{escaped_url}>)")
+        if citation_ids:
+            insertions.append((end_index, " " + " ".join(citation_ids)))
+    for end_index, citation in sorted(insertions, key=lambda item: item[0], reverse=True):
+        text = text[:end_index] + citation + text[end_index:]
+    return text
 
 # Moonshot AI → Kimi draft model
 KIMI_KEY = os.getenv("KIMI_API_KEY", "")
@@ -332,6 +453,8 @@ class ChatRequest(BaseModel):
     language: Literal["ru", "en"] = "ru"
     mode: Literal["auto", "local"] = "auto"
     retrieval_query: str | None = None
+    use_web_search: bool = False
+    grounding_age_confirmed: bool = False
 
 
 class HealthResponse(BaseModel):
@@ -344,6 +467,7 @@ class HealthResponse(BaseModel):
     ollama_version: str | None = None
     ollama_models: list[str] | None = None
     ollama_model_ready: bool | None = None
+    gemini_key_configured: bool = False
     ollama_endpoint_local: bool = False
     obsidian_endpoint_local: bool = False
     uptime_sec: int
@@ -637,6 +761,8 @@ class ConsiliumEngine:
         self.ollama_http = ollama_client or http_client
         self.language = language if language in {"ru", "en"} else "ru"
         self.log = DebateLog()
+        self.web_sources: list[dict[str, str]] = []
+        self.search_entry_point_html: str | None = None
 
     @property
     def output_language(self) -> str:
@@ -693,11 +819,23 @@ class ConsiliumEngine:
 
         return final_answer, self.log
 
+    async def run_grounded(self, message: str, system_prompt: str) -> str:
+        """Return one directly grounded Gemini answer without forwarding or saving it."""
+        self.web_sources = []
+        self.search_entry_point_html = None
+        return await self._ask_gemini(
+            message,
+            self.agent_system(system_prompt),
+            GEMINI_FLASH_URL,
+            "google-search",
+            use_google_search=True,
+        )
+
     @staticmethod
     def _is_provider_error(response: str) -> bool:
         return response.lstrip().startswith((
             "[Ошибка", "[Таймаут", "[Gemini:", "[KIMI_API_KEY not set",
-            "[GEMINI_API_KEY not set",
+            "[GEMINI_API_KEY not set", "[Google Search:",
         ))
 
     # ─── УРОВЕНЬ 1: Генераторы + Верховный Судья (Kimi K3) ──
@@ -938,7 +1076,8 @@ class ConsiliumEngine:
             return f"[Ошибка Kimi K3: {str(exc)[:100]}]"
 
     async def _ask_gemini(self, message: str, system_prompt: str,
-                           url: str, agent_tag: str) -> str:
+                           url: str, agent_tag: str,
+                           use_google_search: bool = False) -> str:
         """Запрос к Gemini через Google API (напрямую)."""
         if not GEMINI_KEY:
             return f"[GEMINI_API_KEY not set: {agent_tag}]"
@@ -950,6 +1089,8 @@ class ConsiliumEngine:
                 "maxOutputTokens": 2048,
             },
         }
+        if use_google_search:
+            payload["tools"] = [{"google_search": {}}]
         try:
             resp = await self.http.post(url, json=payload,
                                          headers={"Content-Type": "application/json",
@@ -959,7 +1100,23 @@ class ConsiliumEngine:
             data = resp.json()
             candidates = data.get("candidates", [])
             if candidates and candidates[0].get("content", {}).get("parts"):
-                return candidates[0]["content"]["parts"][0]["text"]
+                candidate = candidates[0]
+                answer_parts = [
+                    part.get("text", "")
+                    for part in candidate["content"]["parts"]
+                    if isinstance(part, dict) and isinstance(part.get("text"), str)
+                ]
+                answer = "\n".join(part for part in answer_parts if part).strip()
+                if not answer:
+                    return "[Gemini: пустой ответ]"
+                if use_google_search:
+                    self.web_sources, self.search_entry_point_html = _grounding_sources(candidate)
+                    if not self.web_sources or not self.search_entry_point_html:
+                        return "[Google Search: grounded response or required search suggestions were missing]"
+                    answer = _add_grounding_citations(answer, candidate)
+                return answer
+            if use_google_search:
+                return "[Google Search: Gemini returned no grounded answer]"
             return "[Gemini: пустой ответ]"
         except httpx.TimeoutException:
             logger.warning(f"Gemini timeout ({agent_tag})")
@@ -1411,10 +1568,12 @@ async def _stream_answer_debate(
     provider: str,
     model: str,
     sources: list[dict[str, str]] | None = None,
+    google_search_suggestions: str | None = None,
 ):
     """Универсальный SSE-стример: сначала лог дебатов, затем токены ответа."""
-    # Сначала лог дебатов
-    yield f"data: {json.dumps({'type': 'debate_log', 'html': debate_html}, ensure_ascii=False)}\n\n"
+    # Grounded web answers are displayed directly and never pass through debate agents.
+    if debate_html:
+        yield f"data: {json.dumps({'type': 'debate_log', 'html': debate_html}, ensure_ascii=False)}\n\n"
 
     # Потом стримим ответ слово за словом
     started = datetime.now(timezone.utc)
@@ -1429,14 +1588,15 @@ async def _stream_answer_debate(
         elapsed = int((datetime.now(timezone.utc) - started).total_seconds() * 1000)
         yield f"data: {json.dumps({'type': 'done', 'provider': provider, 'model': model,
                                      'duration_ms': elapsed, 'tokens': tokens,
-                                     'sources': sources or []})}\n\n"
+                                     'sources': sources or [],
+                                     'google_search_suggestions': google_search_suggestions})}\n\n"
     except Exception as exc:
         logger.error("Stream error", extra={"error": str(exc)[:200]})
         yield f"data: {json.dumps({'type': 'error', 'error': str(exc)[:300], 'provider': provider})}\n\n"
 
 
-def _error_stream_response(language: str) -> StreamingResponse:
-    message = (
+def _error_stream_response(language: str, message: str | None = None) -> StreamingResponse:
+    message = message or (
         "Не удалось получить ответ ни от облачного маршрута, ни от локальной модели. Проверьте доступность Ollama."
         if language == "ru" else
         "Neither the cloud route nor the local model returned an answer. Check that Ollama is available."
@@ -1638,6 +1798,7 @@ async def health():
         ollama_version=ollama_info["version"],
         ollama_models=ollama_info["models"],
         ollama_model_ready=ollama_info["model_ready"],
+        gemini_key_configured=bool(GEMINI_KEY),
         ollama_endpoint_local=_is_loopback_http_url(OLLAMA_BASE),
         obsidian_endpoint_local=_is_loopback_http_url(OBSIDIAN_URL),
         uptime_sec=state.uptime_sec,
@@ -1666,6 +1827,70 @@ async def reset_session():
 # ─── Streaming Chat (Consilium) ────────────────────────
 
 
+async def _handle_grounded_web_search(req: ChatRequest) -> StreamingResponse:
+    """Use Gemini Search as a direct result; never pass it through other agents or storage."""
+    def message(ru: str, en: str) -> str:
+        return ru if req.language == "ru" else en
+
+    if req.mode != "auto":
+        return _error_stream_response(
+            req.language,
+            message("Веб-поиск работает только в режиме «Авто».", "Web search is available only in Auto mode."),
+        )
+    if not req.grounding_age_confirmed:
+        return _error_stream_response(
+            req.language,
+            message(
+                "Google Search grounding доступен только после подтверждения, что пользователю исполнилось 18 лет.",
+                "Google Search grounding requires confirmation that the user is at least 18 years old.",
+            ),
+        )
+    if not GEMINI_KEY:
+        return _error_stream_response(
+            req.language,
+            message("Для веб-поиска нужен настроенный Gemini API key.", "Web search requires a configured Gemini API key."),
+        )
+    if not session_tracker.can_start_session():
+        return _error_stream_response(
+            req.language,
+            message("Онлайн-лимит на сегодня исчерпан; веб-поиск не выполнен.", "Today's online session limit is used; web search was not run."),
+        )
+    state.online = await _check_network()
+    if not state.online:
+        return _error_stream_response(
+            req.language,
+            message("Нет соединения для Google Search. Вопрос не отправлен.", "Google Search is unavailable offline. The question was not sent."),
+        )
+
+    session_tracker.start_session()
+    engine = ConsiliumEngine(state.http_client, req.language, state.ollama_client)
+    answer = await engine.run_grounded(req.message, req.system_prompt)
+    if ConsiliumEngine._is_provider_error(answer):
+        return _error_stream_response(
+            req.language,
+            message(
+                "Gemini не вернул подтверждённый веб-ответ. Проверь доступ Gemini API и квоту поиска.",
+                "Gemini did not return a grounded web answer. Check Gemini API access and search quota.",
+            ),
+        )
+    return StreamingResponse(
+        _stream_answer_debate(
+            answer,
+            "",
+            "gemini-grounded",
+            GEMINI_FLASH_URL.rsplit("/models/", 1)[-1].split(":", 1)[0],
+            engine.web_sources,
+            engine.search_entry_point_html,
+        ),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @app.post("/chat/stream")
 @limiter.limit(CHAT_RATE_LIMIT)
 async def chat_stream(request: Request, req: ChatRequest):
@@ -1677,6 +1902,9 @@ async def chat_stream(request: Request, req: ChatRequest):
 
     Если лимит сессий исчерпан → автономный локальный режим (Qwen 3).
     """
+    if req.use_web_search:
+        return await _handle_grounded_web_search(req)
+
     retrieval_query = (req.retrieval_query or req.message).strip()
     course_sources, obsidian_sources = await asyncio.gather(
         _retrieve_local_course_sources(retrieval_query),

@@ -274,6 +274,7 @@ class TestAPIEndpoints:
         assert response.status_code == 200
         assert response.json()["ollama_endpoint_local"] is False
         assert response.json()["obsidian_endpoint_local"] is False
+        assert response.json()["gemini_key_configured"] is True
 
     def test_remote_obsidian_key_save_is_rejected(self, client, monkeypatch):
         monkeypatch.setattr(orchestrator, "OBSIDIAN_URL", "https://vault.example/api")
@@ -568,6 +569,111 @@ class TestStreamingChat:
             assert done["sources"][0]["path"] == "02_Areas/python/hello.md"
             assert done["sources"][0]["modified_at"] == "2026-10-04T12:00:00Z"
 
+    def test_grounded_web_search_is_direct_and_skips_local_retrieval(self, client):
+        source = {
+            "id": "1",
+            "title": "Official source",
+            "excerpt": "",
+            "retrieved_at": "2026-10-05T12:00:00Z",
+            "path": "https://vertexaisearch.cloud.google.com/redirect?q=1",
+            "source_type": "google_grounding",
+        }
+        instances = []
+        class StubEngine(orchestrator.ConsiliumEngine):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                instances.append(self)
+                self.web_sources = [source]
+                self.search_entry_point_html = "<a>Google Search</a>"
+                self.run_grounded = AsyncMock(return_value="Current answer. [1](<https://example.org>)")
+
+        with (
+            patch("orchestrator.ConsiliumEngine", StubEngine),
+            patch("orchestrator._retrieve_local_course_sources", AsyncMock()) as local_search,
+            patch("orchestrator._retrieve_obsidian_sources", AsyncMock()) as obsidian_search,
+        ):
+            response = client.post("/chat/stream", json={
+                "message": "What changed this year?",
+                "system_prompt": "Lesson context",
+                "use_web_search": True,
+                "grounding_age_confirmed": True,
+            })
+
+        assert response.status_code == 200
+        events = _parse_sse(response.text)
+        done = next(event for event in events if event["type"] == "done")
+        assert done["provider"] == "gemini-grounded"
+        assert done["sources"] == [source]
+        assert done["google_search_suggestions"] == "<a>Google Search</a>"
+        assert "debate_log" not in [event["type"] for event in events]
+        instances[0].run_grounded.assert_awaited_once_with(
+            "What changed this year?", "Lesson context"
+        )
+        local_search.assert_not_awaited()
+        obsidian_search.assert_not_awaited()
+
+    @pytest.mark.parametrize(("mode", "online"), [("local", True), ("auto", False)])
+    def test_grounded_web_search_requires_auto_and_network(self, client, monkeypatch, mode, online):
+        monkeypatch.setattr(orchestrator, "_check_network", AsyncMock(return_value=online))
+        with patch("orchestrator.ConsiliumEngine") as engine_factory:
+            response = client.post("/chat/stream", json={
+                "message": "Find current information",
+                "mode": mode,
+                "use_web_search": True,
+                "grounding_age_confirmed": True,
+            })
+
+        assert response.status_code == 200
+        events = _parse_sse(response.text)
+        assert any(event["type"] == "error" for event in events)
+        engine_factory.assert_not_called()
+
+    def test_grounded_web_search_requires_age_confirmation(self, client):
+        with patch("orchestrator.ConsiliumEngine") as engine_factory:
+            response = client.post("/chat/stream", json={
+                "message": "Find current information",
+                "use_web_search": True,
+            })
+
+        assert response.status_code == 200
+        events = _parse_sse(response.text)
+        error = next(event for event in events if event["type"] == "error")
+        assert "18" in error["error"]
+        engine_factory.assert_not_called()
+
+    def test_grounded_web_search_requires_gemini_key(self, client, monkeypatch):
+        monkeypatch.setattr(orchestrator, "GEMINI_KEY", "")
+        with patch("orchestrator.ConsiliumEngine") as engine_factory:
+            response = client.post("/chat/stream", json={
+                "message": "Find current information",
+                "language": "en",
+                "use_web_search": True,
+                "grounding_age_confirmed": True,
+            })
+
+        events = _parse_sse(response.text)
+        error = next(event for event in events if event["type"] == "error")
+        assert "Gemini API key" in error["error"]
+        engine_factory.assert_not_called()
+
+    def test_grounded_web_search_respects_daily_session_limit(self, client, monkeypatch):
+        monkeypatch.setattr(orchestrator.session_tracker, "can_start_session", lambda: False)
+        network_check = AsyncMock()
+        monkeypatch.setattr(orchestrator, "_check_network", network_check)
+        with patch("orchestrator.ConsiliumEngine") as engine_factory:
+            response = client.post("/chat/stream", json={
+                "message": "Find current information",
+                "language": "en",
+                "use_web_search": True,
+                "grounding_age_confirmed": True,
+            })
+
+        events = _parse_sse(response.text)
+        error = next(event for event in events if event["type"] == "error")
+        assert "online session limit" in error["error"]
+        network_check.assert_not_awaited()
+        engine_factory.assert_not_called()
+
     def test_stream_local_mode(self, client_offline):
         """В offline-режиме стрим идёт через Digital Twin (Qwen)."""
         mock_answer = "Локальный ответ"
@@ -630,6 +736,99 @@ class TestConsiliumEngine:
 
         assert sources == []
         mock_obsidian.search.assert_not_awaited()
+
+    def test_google_grounding_keeps_only_public_http_sources_and_cites_them(self):
+        candidate = {
+            "groundingMetadata": {
+                "searchEntryPoint": {"renderedContent": "<a>Google Search</a>"},
+                "groundingChunks": [
+                    {"web": {
+                        "uri": "https://vertexaisearch.cloud.google.com/redirect?x=1&y=2",
+                        "title": "Example source",
+                    }},
+                    {"web": {"uri": "file:///private/key", "title": "local file"}},
+                    {"web": {"uri": "https://127.0.0.1/private", "title": "local service"}},
+                ],
+                "groundingSupports": [
+                    {"segment": {"endIndex": 13}, "groundingChunkIndices": [0, 1, 2]},
+                ],
+            },
+        }
+
+        sources, suggestions = orchestrator._grounding_sources(candidate)
+        cited = orchestrator._add_grounding_citations("Current fact.", candidate)
+
+        assert [source["id"] for source in sources] == ["1"]
+        assert sources[0]["source_type"] == "google_grounding"
+        assert suggestions == "<a>Google Search</a>"
+        assert cited == "Current fact. [1](<https://vertexaisearch.cloud.google.com/redirect?x=1&y=2>)"
+
+    @pytest.mark.parametrize(("url", "expected"), [
+        ("https://example.org/source", True),
+        ("https://xn--e1afmkfd.xn--p1ai/source", True),
+        ("https://localhost/source", False),
+        ("http://127.0.0.1/source", False),
+        ("https://[::1]/source", False),
+        ("https://example.org:bad/source", False),
+        ("https://bad domain.example/source", False),
+        ("https://bad..example/source", False),
+    ])
+    def test_google_grounding_url_policy(self, url, expected):
+        assert orchestrator._safe_grounding_url(url) is expected
+
+    def test_grounded_gemini_request_requires_sources_and_search_suggestions(self, monkeypatch):
+        monkeypatch.setattr(orchestrator, "GEMINI_KEY", "test-gemini-key")
+        response = MagicMock()
+        response.raise_for_status = MagicMock()
+        response.json.return_value = {
+            "candidates": [{
+                "content": {"parts": [{"text": "The current fact is supported."}]},
+                "groundingMetadata": {
+                    "searchEntryPoint": {"renderedContent": "<a>Google Search</a>"},
+                    "groundingChunks": [{"web": {
+                        "uri": "https://vertexaisearch.cloud.google.com/redirect?q=1",
+                        "title": "Official source",
+                    }}],
+                    "groundingSupports": [{
+                        "segment": {"endIndex": 30},
+                        "groundingChunkIndices": [0],
+                    }],
+                },
+            }],
+        }
+        client = MagicMock(spec=httpx.AsyncClient)
+        client.post = AsyncMock(return_value=response)
+        engine = orchestrator.ConsiliumEngine(client)
+
+        answer = asyncio.run(engine.run_grounded("What is current?", "Tutor context"))
+
+        request = client.post.await_args.kwargs
+        assert request["json"]["tools"] == [{"google_search": {}}]
+        assert answer.startswith("The current fact is supported. [1](<https://")
+        assert engine.web_sources[0]["title"] == "Official source"
+        assert engine.search_entry_point_html == "<a>Google Search</a>"
+
+    def test_grounded_gemini_rejects_unattributed_answer(self, monkeypatch):
+        monkeypatch.setattr(orchestrator, "GEMINI_KEY", "test-gemini-key")
+        response = MagicMock()
+        response.raise_for_status = MagicMock()
+        response.json.return_value = {
+            "candidates": [{"content": {"parts": [{"text": "An ungrounded answer."}]}}],
+        }
+        client = MagicMock(spec=httpx.AsyncClient)
+        client.post = AsyncMock(return_value=response)
+        engine = orchestrator.ConsiliumEngine(client)
+
+        answer = asyncio.run(engine.run_grounded("Question", "Tutor context"))
+
+        assert answer.startswith("[Google Search:")
+        assert engine.web_sources == []
+        assert engine.search_entry_point_html is None
+
+    def test_malformed_grounding_metadata_is_ignored_safely(self):
+        assert orchestrator._grounding_sources({"groundingMetadata": []}) == ([], None)
+        assert orchestrator._grounding_sources({"groundingMetadata": {"groundingChunks": [None]}}) == ([], None)
+        assert orchestrator._add_grounding_citations("unchanged", {"groundingMetadata": "bad"}) == "unchanged"
 
     def test_lifespan_never_connects_to_remote_obsidian(self, monkeypatch):
         monkeypatch.setattr(orchestrator, "OBSIDIAN_URL", "https://vault.example/api")

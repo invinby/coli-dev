@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import WebKit
 
 struct LessonSessionView: View {
     @EnvironmentObject private var store: LearningStore
@@ -457,6 +458,9 @@ private struct TutorChatView: View {
     @EnvironmentObject private var store: LearningStore
     @StateObject private var chat: TutorChatModel
     @State private var draft = ""
+    @State private var useWebSearch = false
+    @State private var hasConfirmedGoogleSearchAge = false
+    @State private var showGoogleSearchAgeConfirmation = false
     let language: AppLanguage
 
     init(subject: Subject, lesson: LessonContent, language: AppLanguage, mode: AIRoutingMode) {
@@ -521,6 +525,49 @@ private struct TutorChatView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text(L10n.text(chat.mode == .localOnly ? "tutor.localPrivacy" : "tutor.privacy", language))
                     .font(.caption).foregroundStyle(.secondary)
+                if chat.mode == .automatic {
+                    Toggle(isOn: Binding(
+                        get: { useWebSearch },
+                        set: { enabled in
+                            guard enabled else {
+                                useWebSearch = false
+                                return
+                            }
+                            if hasConfirmedGoogleSearchAge {
+                                useWebSearch = true
+                            } else {
+                                showGoogleSearchAgeConfirmation = true
+                            }
+                        }
+                    )) {
+                        Label(L10n.text("tutor.webSearchToggle", language), systemImage: "globe")
+                    }
+                    .toggleStyle(.checkbox)
+                    .disabled(chat.isSending)
+                    .alert(L10n.text("tutor.webSearchAgeTitle", language), isPresented: $showGoogleSearchAgeConfirmation) {
+                        Button(L10n.text("tutor.webSearchCancel", language), role: .cancel) {}
+                        Button(L10n.text("tutor.webSearchAgeConfirm", language)) {
+                            hasConfirmedGoogleSearchAge = true
+                            useWebSearch = true
+                        }
+                    } message: {
+                        Text(L10n.text("tutor.webSearchAgeMessage", language))
+                    }
+                    if useWebSearch {
+                        Text(L10n.text("tutor.webSearchPrivacy", language))
+                            .font(.caption2).foregroundStyle(.secondary)
+                        if store.aiHealth?.geminiKeyConfigured != true {
+                            Label(L10n.text("tutor.webSearchNeedsGeminiKey", language), systemImage: "exclamationmark.triangle.fill")
+                                .font(.caption).foregroundStyle(.orange)
+                        } else if store.aiHealth?.hasGroundedSearch != true {
+                            Label(L10n.text("tutor.webSearchUnavailable", language), systemImage: "exclamationmark.triangle.fill")
+                                .font(.caption).foregroundStyle(.orange)
+                        }
+                    }
+                } else {
+                    Label(L10n.text("tutor.webSearchAutoOnly", language), systemImage: "wifi.slash")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
                 if store.aiHealth == nil {
                     Text(L10n.text("tutor.unavailable", language))
                         .font(.caption.monospaced()).foregroundStyle(.secondary)
@@ -564,26 +611,46 @@ private struct TutorChatView: View {
             VStack(alignment: .leading, spacing: 5) {
                 Text(L10n.text(message.role == .learner ? "tutor.learner" : "tutor.assistant", language))
                     .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                Text(message.text.isEmpty && chat.isSending ? "…" : message.text)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                if message.role == .tutor, let label = chat.completionLabel, message.id == chat.messages.last?.id {
+                if message.isGoogleGrounded {
+                    Text((try? AttributedString(markdown: message.text)) ?? AttributedString(message.text))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    Text(message.text.isEmpty && chat.isSending ? "…" : message.text)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if message.role == .tutor, !message.isGoogleGrounded,
+                   let label = chat.completionLabel, message.id == chat.messages.last?.id {
                     Text(label).font(.caption2).foregroundStyle(.tertiary)
                 }
                 if message.role == .tutor,
-                   message.id == chat.messages.last?.id,
-                   let source = chat.retrievedSources.first {
+                   message.isGoogleGrounded,
+                   let suggestions = message.googleSearchSuggestions {
+                    GoogleSearchSuggestionsView(html: suggestions)
+                        .frame(height: 54)
+                        .accessibilityLabel(L10n.text("tutor.googleSearchSuggestions", language))
+                }
+                if message.role == .tutor, let source = message.sources.first {
                     VStack(alignment: .leading, spacing: 6) {
                         Label(L10n.text("tutor.sources", language), systemImage: "books.vertical")
                             .font(.caption.weight(.semibold))
                         Text("\(L10n.text("tutor.retrievedAt", language)): \(source.displayRetrievedAt)")
                             .font(.caption2).foregroundStyle(.secondary)
-                        ForEach(chat.retrievedSources) { item in
+                        ForEach(message.sources) { item in
                             VStack(alignment: .leading, spacing: 3) {
-                                Text("[\(item.id)] \(item.title)")
-                                    .font(.caption.weight(.medium))
-                                    .textSelection(.enabled)
-                                if let path = item.path, path != item.title {
+                                if item.sourceType == "google_grounding",
+                                   let path = item.path,
+                                   let url = URL(string: path),
+                                   ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
+                                    Link("[\(item.id)] \(item.title)", destination: url)
+                                        .font(.caption.weight(.medium))
+                                } else {
+                                    Text("[\(item.id)] \(item.title)")
+                                        .font(.caption.weight(.medium))
+                                        .textSelection(.enabled)
+                                }
+                                if let path = item.path, path != item.title, item.sourceType != "google_grounding" {
                                     Text(path)
                                         .font(.caption2).foregroundStyle(.tertiary)
                                         .textSelection(.enabled)
@@ -599,10 +666,12 @@ private struct TutorChatView: View {
                                     Text(L10n.text("tutor.modifiedDateUnavailable", language))
                                         .font(.caption2).foregroundStyle(.tertiary)
                                 }
-                                Text(item.excerpt)
-                                    .font(.caption2).foregroundStyle(.secondary)
-                                    .lineLimit(4)
-                                    .textSelection(.enabled)
+                                if !item.excerpt.isEmpty {
+                                    Text(item.excerpt)
+                                        .font(.caption2).foregroundStyle(.secondary)
+                                        .lineLimit(4)
+                                        .textSelection(.enabled)
+                                }
                             }
                         }
                     }
@@ -618,6 +687,7 @@ private struct TutorChatView: View {
 
     private var canSend: Bool {
         guard let health = store.aiHealth else { return false }
+        if useWebSearch { return chat.mode == .automatic && health.hasGroundedSearch }
         return chat.mode == .automatic ? health.hasAutomaticRoute : health.hasLocalModel
     }
 
@@ -634,6 +704,58 @@ private struct TutorChatView: View {
         guard canSend, !chat.isSending else { return }
         let message = draft
         draft = ""
-        chat.send(message)
+        chat.send(
+            message,
+            useWebSearch: useWebSearch,
+            groundingAgeConfirmed: hasConfirmedGoogleSearchAge
+        )
+    }
+}
+
+private struct GoogleSearchSuggestionsView: NSViewRepresentable {
+    let html: String
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeNSView(context: Context) -> WKWebView {
+        let view = WKWebView()
+        view.underPageBackgroundColor = .clear
+        view.navigationDelegate = context.coordinator
+        context.coordinator.load(html, into: view)
+        return view
+    }
+
+    func updateNSView(_ view: WKWebView, context: Context) {
+        context.coordinator.load(html, into: view)
+    }
+
+    final class Coordinator: NSObject, WKNavigationDelegate {
+        private var loadedHTML: String?
+
+        func load(_ html: String, into view: WKWebView) {
+            guard loadedHTML != html else { return }
+            loadedHTML = html
+            view.loadHTMLString(html, baseURL: nil)
+        }
+
+        func webView(
+            _ webView: WKWebView,
+            decidePolicyFor navigationAction: WKNavigationAction,
+            decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+        ) {
+            guard navigationAction.navigationType == .linkActivated else {
+                decisionHandler(.allow)
+                return
+            }
+            guard let url = navigationAction.request.url,
+                  ["http", "https"].contains(url.scheme?.lowercased() ?? "") else {
+                decisionHandler(.cancel)
+                return
+            }
+            NSWorkspace.shared.open(url)
+            decisionHandler(.cancel)
+        }
     }
 }
