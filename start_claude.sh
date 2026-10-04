@@ -1,15 +1,15 @@
 #!/bin/bash
 # ============================================================
-# start_claude.sh — Запуск Claude Code через LiteLLM + Gemini
+# start_claude.sh — Запуск Claude Code через Gemini 3.5 Flash
 # ============================================================
 # Как это работает:
 #   Claude Code → Anthropic формат → LiteLLM (localhost:4000)
-#                                   → Google Gemini API
+#                                   → Google Gemini API (напрямую)
 #
 # LiteLLM — прокси, переводящий форматы между Claude и Gemini.
 #
 # Требуется:
-#   1. GEMINI_API_KEY в .env (уже есть)
+#   1. GEMINI_API_KEY в .env (ключ Google AI Studio)
 #   2. litellm установлен: .venv/bin/pip install 'litellm[proxy]'
 # ============================================================
 
@@ -40,7 +40,8 @@ fi
 # Проверяем GEMINI_API_KEY
 if [ -z "${GEMINI_API_KEY:-}" ]; then
     echo "  ❌ GEMINI_API_KEY не найден в .env!"
-    echo "  📋 Вставь свой Gemini API-ключ в .env"
+    echo "  📋 Получи ключ: https://aistudio.google.com/app/apikey"
+    echo "  📋 Добавь в .env: GEMINI_API_KEY=\"твой_ключ\""
     exit 1
 fi
 
@@ -52,10 +53,16 @@ if ! command -v claude &>/dev/null; then
 fi
 
 # ============================================================
-# ✅ Проверка LiteLLM
+# ✅ Проверка .venv
 # ============================================================
 LITELLM_PORT=4000
 VENV_PYTHON=".venv/bin/python"
+
+if [ ! -f "$VENV_PYTHON" ]; then
+    echo "  ❌ .venv не найден!"
+    echo "  📋 Создай: python3 -m venv .venv && source .venv/bin/activate"
+    exit 1
+fi
 
 if ! $VENV_PYTHON -c "import litellm" 2>/dev/null; then
     echo "  ⚠️  LiteLLM не установлен. Устанавливаю..."
@@ -68,7 +75,19 @@ if ! $VENV_PYTHON -c "import litellm" 2>/dev/null; then
 fi
 
 # ============================================================
-# 🚀 Запуск LiteLLM в фоне
+# 🧹 Cleanup при выходе
+# ============================================================
+cleanup() {
+    echo ""
+    echo "  🛑 Останавливаю LiteLLM..."
+    kill $LITELLM_PID 2>/dev/null || true
+    wait $LITELLM_PID 2>/dev/null || true
+    echo "  ✅ Готово!"
+}
+trap cleanup EXIT INT TERM
+
+# ============================================================
+# 🚀 Запуск LiteLLM в фоне (напрямую к Google Gemini)
 # ============================================================
 echo "  🚀 Запускаю LiteLLM на порту $LITELLM_PORT..."
 $VENV_PYTHON -m litellm \
@@ -95,27 +114,21 @@ for i in $(seq 1 15); do
 done
 
 # ============================================================
-# 🚀 Настройка Claude Code на LiteLLM
+# 🚀 Настройка Claude Code на LiteLLM + Google Gemini
 # ============================================================
 export ANTHROPIC_BASE_URL="http://127.0.0.1:$LITELLM_PORT"
 export ANTHROPIC_API_KEY="$GEMINI_API_KEY"
 export ANTHROPIC_MODEL="gemini/gemini-3.5-flash"
 
 echo "======================================"
-echo "  🚀 Запуск Claude Code через LiteLLM"
+echo "  🚀 Запуск Claude Code + Gemini 3.5 Flash"
 echo "======================================"
-echo "  Модель: Gemini 3.5 Flash"
-echo "  Прокси: http://127.0.0.1:$LITELLM_PORT"
-echo "  Key:    ${GEMINI_API_KEY:0:12}..."
+echo "  Модель:   Gemini 3.5 Flash (Google AI)"
+echo "  Прокси:   http://127.0.0.1:$LITELLM_PORT"
+echo "  API Key:  ${GEMINI_API_KEY:0:12}..."
+echo "  Папка:    $(pwd)"
 echo "======================================"
 echo ""
 
 # Запускаем Claude Code
 claude "$@"
-
-# Когда Claude Code закрывается — останавливаем LiteLLM
-echo ""
-echo "  🛑 Останавливаю LiteLLM..."
-kill $LITELLM_PID 2>/dev/null || true
-wait $LITELLM_PID 2>/dev/null || true
-echo "  ✅ Готово!"

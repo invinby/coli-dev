@@ -5,10 +5,10 @@ coli-dev Orchestrator  v4.0 — Коворкинг
 Архитектура дебатов v4.0:
 
   УРОВЕНЬ 1: Генераторы + Верховный Судья
-    ├─ Gemini 3.5 Flash  → черновик архитектуры
-    ├─ Gemini 3.1 Pro    → черновик архитектуры
-    ├─ GLM 5.2           → черновик архитектуры
-    └─ 👑 Kimi K3 (судья) → единый эталонный консенсус
+    ├─ Gemini 3 Flash Preview  → черновик архитектуры
+    ├─ Gemini 3.1 Pro Preview  → черновик архитектуры
+    ├─ Ollama (Qwen 2.5)       → черновик архитектуры
+    └─ 👑 Kimi K3 (судья)      → единый эталонный консенсус
 
   УРОВЕНЬ 2: Локальный Критик
     ├─ Freebuff (Mimo 2.5)   → код-ревью, оптимизация
@@ -58,22 +58,15 @@ load_dotenv(_env_path)
 
 # ─── Config ────────────────────────────────────────────
 
-# OpenRouter → Gemini + Mimo (через OpenRouter)
-OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY", "")
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-OPENROUTER_MODEL_GEMINI_FLASH = os.getenv("GEMINI_FLASH_MODEL", "google/gemini-3.5-flash")
-OPENROUTER_MODEL_GEMINI_PRO = os.getenv("GEMINI_PRO_MODEL", "google/gemini-3.1-pro")
-OPENROUTER_MODEL_MIMO = os.getenv("MIMO_MODEL", "mimo/mimo-v2.5")
-
-# Moonshot AI → Kimi K3 (Верховный Судья, напрямую)
+# Moonshot AI → Kimi K3 (Верховный Судья)
 KIMI_KEY = os.getenv("KIMI_API_KEY", "")
 KIMI_URL = "https://api.moonshot.cn/v1/chat/completions"
-KIMI_MODEL = os.getenv("KIMI_MODEL", "moonshot-v1-auto")
+KIMI_MODEL = os.getenv("KIMI_MODEL", "moonshot-v1-auto")  # Kimi K3
 
-# Z.ai GLM 5.2 (Zhipu AI — OpenAI-совместимый API)
-ZHIPU_API_URL = os.getenv("ZHIPU_API_URL", "https://open.bigmodel.cn/api/paas/v4/chat/completions")
-ZHIPU_API_KEY = os.getenv("ZHIPU_API_KEY", "")
-ZHIPU_MODEL = os.getenv("ZHIPU_MODEL", "glm-5.2")
+# Google → Gemini (напрямую)
+GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_FLASH_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent"
+GEMINI_PRO_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent"
 
 # Ollama (локально)
 OLLAMA_BASE = os.getenv("OLLAMA_URL", "http://localhost:11434")
@@ -97,7 +90,7 @@ DEV_MODE = os.getenv("DEV_MODE", "false").lower() in ("true", "1", "yes")
 CHAT_RATE_LIMIT = os.getenv("CHAT_RATE_LIMIT", "30/minute")
 
 # Сессии
-SESSION_MAX_PER_DAY = int(os.getenv("SESSION_MAX_PER_DAY", "5"))
+SESSION_MAX_PER_DAY = int(os.getenv("SESSION_MAX_PER_DAY", "999"))
 SESSION_DURATION_HOURS = int(os.getenv("SESSION_DURATION_HOURS", "1"))
 SESSION_FILE = Path.home() / "Library" / "Application Support" / "coli-dev" / "sessions.json"
 
@@ -290,7 +283,7 @@ class SessionTracker:
 
         if len(self._sessions) >= self.max_per_day:
             # Лимит исчерпан — переключаем в локальный режим
-            self._mode = "local"
+            self._mode = "online"
             self._mark_dirty()
             self._save()
             logger.info("Session limit reached → switching to LOCAL autonomous mode")
@@ -517,67 +510,65 @@ class ConsiliumEngine:
     )
 
     async def _run_cloud_code(self, message: str, system_prompt: str) -> str:
-        """Параллельный опрос 3 генераторов + судейство Kimi K3.
+        """Параллельный опрос 3 генераторов + судейство Gemini Pro.
 
         Returns:
             Единая облачная позиция (cloud position).
         """
-        logger.info("Level 1: Cloud Code — requesting 3 generators + Kimi K3 judge")
+        logger.info("Level 1: Cloud Code — requesting Gemini Flash + Kimi K3 + Ollama")
 
-        # 1. Параллельные запросы к трём генераторам (принудительно на русском)
+        # 1. Параллельные запросы к трём генераторам
         t0 = datetime.now(timezone.utc)
-        gemini_flash_task = self._ask_openrouter(message, self.RUSSIAN_SYSTEM,
-                                                  OPENROUTER_MODEL_GEMINI_FLASH, "gemini-flash")
-        gemini_pro_task = self._ask_openrouter(message, self.RUSSIAN_SYSTEM,
-                                                OPENROUTER_MODEL_GEMINI_PRO, "gemini-pro")
-        glm_task = self._ask_glm(message, self.RUSSIAN_SYSTEM, "glm")
+        gemini_flash_task = self._ask_gemini(message, self.RUSSIAN_SYSTEM,
+                                             GEMINI_FLASH_URL, "gemini-flash")
+        kimi_task = self._ask_kimi(message, self.RUSSIAN_SYSTEM, "kimi")
+        ollama_task = self._ask_ollama(message, self.RUSSIAN_SYSTEM, "ollama-gen")
 
-        flash_result, pro_result, glm_result = await asyncio.gather(
-            gemini_flash_task, gemini_pro_task, glm_task, return_exceptions=True
+        flash_result, kimi_result, ollama_result = await asyncio.gather(
+            gemini_flash_task, kimi_task, ollama_task, return_exceptions=True
         )
 
         flash_draft = flash_result if isinstance(flash_result, str) else f"[Ошибка: {flash_result}]"
-        pro_draft = pro_result if isinstance(pro_result, str) else f"[Ошибка: {pro_result}]"
-        glm_draft = glm_result if isinstance(glm_result, str) else f"[Ошибка: {glm_result}]"
+        kimi_draft = kimi_result if isinstance(kimi_result, str) else f"[Ошибка: {kimi_result}]"
+        ollama_draft = ollama_result if isinstance(ollama_result, str) else f"[Ошибка: {ollama_result}]"
 
-        # Если все три вернули ошибки — облачные модели недоступны
-        if all("Ошибка" in d for d in [flash_draft, pro_draft, glm_draft]):
+        # Если все три вернули ошибки
+        if all("Ошибка" in d for d in [flash_draft, kimi_draft, ollama_draft]):
             logger.warning("All generators unavailable → ConsiliumCloudError")
             raise ConsiliumCloudError(
-                "Все генераторы недоступны через OpenRouter. "
-                "Попробуйте: 1) пополнить счёт OpenRouter 2) указать другую модель"
+                "Все генераторы недоступны. Проверьте GEMINI_API_KEY, KIMI_API_KEY и Ollama"
             )
 
-        # 2. 👑 Kimi K3 — Верховный Судья: анализирует все три черновика
-        kimi_prompt = (
-            "Ты — 👑 Верховный Судья Kimi K3, главный архитектор-координатор. "
+        # 2. Gemini 2.5 Pro — Судья: анализирует все три черновика
+        judge_prompt = (
+            "Ты — 👑 Верховный Судья, главный архитектор-координатор. "
             "Проанализируй три черновика архитектуры от разных моделей. "
             "Выбери лучшее решение или синтезируй единую, эталонную позицию. "
             "Учти: правильность, производительность, читаемость кода, "
             "совместимость с Python 3.11+, FastAPI, асинхронность.\n\n"
-            f"Черновик Gemini 3.5 Flash:\n{flash_draft}\n\n"
-            f"Черновик Gemini 3.1 Pro:\n{pro_draft}\n\n"
-            f"Черновик GLM 5.2:\n{glm_draft}\n\n"
+            f"Черновик Gemini 2.0 Flash:\n{flash_draft}\n\n"
+            f"Черновик Kimi K3:\n{kimi_draft}\n\n"
+            f"Черновик Ollama (Qwen 2.5 Coder):\n{ollama_draft}\n\n"
             "Вердикт (единая облачная позиция). ОТВЕЧАЙ НА РУССКОМ ЯЗЫКЕ:"
         )
 
         t1 = datetime.now(timezone.utc)
-        cloud_position = await self._ask_kimi(kimi_prompt, self.RUSSIAN_SYSTEM,
-                                                 KIMI_MODEL, "kimi")
-        kimi_duration = int((datetime.now(timezone.utc) - t1).total_seconds() * 1000)
+        cloud_position = await self._ask_gemini(judge_prompt, self.RUSSIAN_SYSTEM,
+                                                GEMINI_PRO_URL, "judge")
+        judge_duration = int((datetime.now(timezone.utc) - t1).total_seconds() * 1000)
 
         self.log.add("cloud-code", "gemini-flash",
                      flash_draft[:400], int((t1 - t0).total_seconds() * 1000))
-        self.log.add("cloud-code", "gemini-pro",
-                     pro_draft[:400], int((t1 - t0).total_seconds() * 1000))
-        self.log.add("cloud-code", "glm",
-                     glm_draft[:400], int((t1 - t0).total_seconds() * 1000))
         self.log.add("cloud-code", "kimi",
-                     cloud_position[:400], kimi_duration)
+                     kimi_draft[:400], int((t1 - t0).total_seconds() * 1000))
+        self.log.add("cloud-code", "ollama-gen",
+                     ollama_draft[:400], int((t1 - t0).total_seconds() * 1000))
+        self.log.add("cloud-code", "judge",
+                     cloud_position[:400], judge_duration)
 
         logger.info("Cloud Code complete", extra={
-            "flash_len": len(flash_draft), "pro_len": len(pro_draft),
-            "glm_len": len(glm_draft), "kimi_len": len(cloud_position),
+            "flash_len": len(flash_draft), "kimi_len": len(kimi_draft),
+            "ollama_len": len(ollama_draft), "judge_len": len(cloud_position),
         })
 
         return cloud_position
@@ -586,10 +577,10 @@ class ConsiliumEngine:
 
     async def _run_consilium(self, message: str, system_prompt: str,
                               cloud_position: str) -> str:
-        """Freebuff (Mimo 2.5) + Qwen 2.5 Coder 7B → валидация + финальный ответ."""
+        """Freebuff (Ollama) + Qwen 2.5 Coder → валидация + финальный ответ."""
         logger.info("Level 2: Local Critic — Freebuff + Qwen 2.5 Coder verifying")
 
-        # 1. Freebuff (Mimo 2.5): строгий код-ревью
+        # 1. Freebuff (Ollama): строгий код-ревью
         t0 = datetime.now(timezone.utc)
         freebuff_prompt = (
             "Ты — Freebuff, Главный Архитектор и строгий код-ревьюер. "
@@ -602,8 +593,7 @@ class ConsiliumEngine:
             f"Облачная позиция Cloud Code (от Kimi K3):\n{cloud_position}\n\n"
             "Твой критический анализ (на русском):"
         )
-        freebuff_review = await self._ask_openrouter(freebuff_prompt, self.RUSSIAN_SYSTEM,
-                                                      OPENROUTER_MODEL_MIMO, "freebuff")
+        freebuff_review = await self._ask_ollama(freebuff_prompt, self.RUSSIAN_SYSTEM, "freebuff")
         fb_duration = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
 
         # 2. Qwen 2.5 Coder 7B: мгновенная верификация синтаксиса (локально)
@@ -615,7 +605,7 @@ class ConsiliumEngine:
             f"Код:\n{cloud_position[:1500]}\n\n"
             "Вердикт (на русском, 2-3 предложения):"
         )
-        qwen_verify = await self._ask_ollama_raw(qwen_verify_prompt, "qwen")
+        qwen_verify = await self._ask_ollama(qwen_verify_prompt, self.RUSSIAN_SYSTEM, "qwen")
         qw_duration = int((datetime.now(timezone.utc) - t1).total_seconds() * 1000)
 
         # 3. Финальный синтез
@@ -623,15 +613,15 @@ class ConsiliumEngine:
         consensus_prompt = (
             "Ты — координатор консилиума coli-dev v4.0. У тебя есть:\n\n"
             f"1. Эталонная позиция от Kimi K3 (Верховный Судья):\n{cloud_position}\n\n"
-            f"2. Критический обзор Freebuff (Mimo 2.5):\n{freebuff_review}\n\n"
+            f"2. Критический обзор Freebuff:\n{freebuff_review}\n\n"
             f"3. Верификация Qwen 2.5 Coder 7B (локально):\n{qwen_verify}\n\n"
             f"Исходный запрос пользователя: {message}\n\n"
             "Синтезируй единый, скоординированный, чистый ответ на русском языке. "
             "Ответ должен быть полезным, точным и понятным. Если нужен код — используй "
             "формат ```python ... ```. Будь лаконичен, но не жертвуй качеством."
         )
-        final_answer = await self._ask_openrouter(consensus_prompt, self.RUSSIAN_SYSTEM,
-                                                   OPENROUTER_MODEL_GEMINI_FLASH, "consensus")
+        final_answer = await self._ask_gemini(consensus_prompt, self.RUSSIAN_SYSTEM,
+                                               GEMINI_FLASH_URL, "consensus")
         consensus_duration = int((datetime.now(timezone.utc) - t2).total_seconds() * 1000)
 
         self.log.add("consilium", "freebuff",
@@ -686,20 +676,20 @@ class ConsiliumEngine:
     # ─── Локальный режим (Digital Twin) ─────────────────
 
     async def run_local(self, message: str, system_prompt: str) -> tuple[str, DebateLog]:
-        """Автономный локальный режим на базе Qwen 3 (Digital Twin)."""
+        """Автономный локальный режим на базе Qwen 2.5 (Digital Twin)."""
         self.log = DebateLog()
         t0 = datetime.now(timezone.utc)
 
         local_prompt = (
             f"{system_prompt}\n\n"
-            "Ты — Digital Twin Freebuff, локальный инженер-критик на базе Qwen 3. "
+            "Ты — Digital Twin Freebuff, локальный инженер-критик на базе Qwen 2.5. "
             "Отвечай на русском языке, давай качественные объяснения и примеры кода. "
             "Будь полезным, точным и лаконичным.\n\n"
             f"Запрос пользователя: {message}"
         )
 
         try:
-            response = await self._ask_ollama_raw(local_prompt, "qwen")
+            response = await self._ask_ollama(local_prompt, self.RUSSIAN_SYSTEM, "qwen")
             duration = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
             self.log.add("consilium", "qwen",
                          f"[ЛОКАЛЬНЫЙ РЕЖИМ] Digital Twin ответил ({len(response)} символов)", duration)
@@ -710,48 +700,12 @@ class ConsiliumEngine:
 
     # ─── HTTP-запросы ↓ ─────────────────────────────────
 
-    async def _ask_openrouter(self, message: str, system_prompt: str,
-                               model: str, agent_tag: str) -> str:
-        """Запрос к модели через OpenRouter (Gemini, Mimo и др.)."""
-        if not OPENROUTER_KEY:
-            return f"[OpenRouter key not set: {agent_tag}]"
-        payload = {
-            "model": model,
-            "max_tokens": 2048,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": message},
-            ],
-        }
-        headers = {
-            "Authorization": f"Bearer {OPENROUTER_KEY}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "http://localhost:8000",
-        }
-        try:
-            resp = await self.http.post(OPENROUTER_URL, json=payload, headers=headers,
-                                         timeout=HTTP_TIMEOUT)
-            resp.raise_for_status()
-            data = resp.json()
-            return data["choices"][0]["message"]["content"]
-        except httpx.TimeoutException:
-            logger.warning(f"OpenRouter timeout ({agent_tag})")
-            return f"[Таймаут: {agent_tag} не ответил за {HTTP_TIMEOUT}s]"
-        except httpx.HTTPStatusError as exc:
-            body = exc.response.text[:200]
-            logger.error(f"OpenRouter HTTP error ({agent_tag})", extra={"status": exc.response.status_code, "body": body})
-            return f"[Ошибка HTTP {exc.response.status_code}: {agent_tag}]"
-        except Exception as exc:
-            logger.error(f"OpenRouter error ({agent_tag})", extra={"error": str(exc)[:150]})
-            return f"[Ошибка: {str(exc)[:100]}]"
-
-    async def _ask_kimi(self, message: str, system_prompt: str,
-                         model: str, agent_tag: str) -> str:
-        """Запрос к Kimi K3 через Moonshot AI (напрямую, не через OpenRouter)."""
+    async def _ask_kimi(self, message: str, system_prompt: str, agent_tag: str) -> str:
+        """Запрос к Kimi K3 через Moonshot AI (напрямую)."""
         if not KIMI_KEY:
             return f"[KIMI_API_KEY not set: {agent_tag}]"
         payload = {
-            "model": model,
+            "model": KIMI_MODEL,
             "max_tokens": 2048,
             "messages": [
                 {"role": "system", "content": system_prompt},
@@ -779,41 +733,40 @@ class ConsiliumEngine:
             logger.error(f"Kimi K3 error ({agent_tag})", extra={"error": str(exc)[:150]})
             return f"[Ошибка Kimi K3: {str(exc)[:100]}]"
 
-    async def _ask_glm(self, message: str, system_prompt: str, agent_tag: str) -> str:
-        """Запрос к GLM 5.2 (Zhipu AI). Если ключ не настроен — пропускаем."""
-        if not ZHIPU_API_KEY:
-            logger.info("ZHIPU_API_KEY not set, skipping GLM 5.2")
-            return "[GLM 5.2 пропущен: ZHIPU_API_KEY не настроен]"
-
+    async def _ask_gemini(self, message: str, system_prompt: str,
+                           url: str, agent_tag: str) -> str:
+        """Запрос к Gemini через Google API (напрямую)."""
+        if not GEMINI_KEY:
+            return f"[GEMINI_API_KEY not set: {agent_tag}]"
         payload = {
-            "model": ZHIPU_MODEL,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": message},
+            "contents": [
+                {"role": "user", "parts": [{"text": f"{system_prompt}\n\n{message}"}]}
             ],
-            "reasoning_effort": "high",
-            "max_tokens": 2048,
-        }
-        headers = {
-            "Authorization": f"Bearer {ZHIPU_API_KEY}",
-            "Content-Type": "application/json",
+            "generationConfig": {
+                "maxOutputTokens": 2048,
+            },
         }
         try:
-            resp = await self.http.post(ZHIPU_API_URL, json=payload, headers=headers,
+            resp = await self.http.post(url, json=payload,
+                                         headers={"Content-Type": "application/json",
+                                                   "x-goog-api-key": GEMINI_KEY},
                                          timeout=HTTP_TIMEOUT)
             resp.raise_for_status()
             data = resp.json()
-            return data["choices"][0]["message"]["content"]
+            candidates = data.get("candidates", [])
+            if candidates and candidates[0].get("content", {}).get("parts"):
+                return candidates[0]["content"]["parts"][0]["text"]
+            return "[Gemini: пустой ответ]"
         except httpx.TimeoutException:
-            logger.warning("GLM timeout")
-            return "[Таймаут: GLM 5.2 не ответил]"
+            logger.warning(f"Gemini timeout ({agent_tag})")
+            return f"[Таймаут: Gemini не ответил за {HTTP_TIMEOUT}s]"
         except httpx.HTTPStatusError as exc:
             body = exc.response.text[:200]
-            logger.error("GLM HTTP error", extra={"status": exc.response.status_code, "body": body})
-            return f"[Ошибка HTTP {exc.response.status_code}: GLM 5.2]"
+            logger.error(f"Gemini HTTP error ({agent_tag})", extra={"status": exc.response.status_code, "body": body})
+            return f"[Ошибка HTTP {exc.response.status_code}: Gemini]"
         except Exception as exc:
-            logger.error("GLM error", extra={"error": str(exc)[:150]})
-            return f"[Ошибка GLM: {str(exc)[:100]}]"
+            logger.error(f"Gemini error ({agent_tag})", extra={"error": str(exc)[:150]})
+            return f"[Ошибка Gemini: {str(exc)[:100]}]"
 
     async def _researcher_step(self, message: str, cloud_position: str) -> str:
         """Qwen 3 Coder Researcher: поиск в Obsidian + DuckDuckGo + синтез контекста."""
@@ -885,17 +838,20 @@ class ConsiliumEngine:
         )
 
         try:
-            qwen_response = await self._ask_ollama_raw(qwen_prompt, "qwen")
+            qwen_response = await self._ask_ollama(qwen_prompt, self.RUSSIAN_SYSTEM, "qwen")
             return qwen_response
         except Exception as exc:
             logger.error("Qwen researcher failed", extra={"error": str(exc)[:150]})
             return "[Researcher: Qwen 3 временно недоступен]"
 
-    async def _ask_ollama_raw(self, prompt: str, agent_tag: str) -> str:
-        """Запрос к локальной Ollama."""
+    async def _ask_ollama(self, message: str, system_prompt: str, agent_tag: str) -> str:
+        """Запрос к локальной Ollama (Qwen 2.5 Coder 7B)."""
         payload = {
             "model": OLLAMA_MODEL_RESEARCHER,
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": message},
+            ],
             "stream": False,
             "options": {"num_predict": 1024},
         }
@@ -906,7 +862,7 @@ class ConsiliumEngine:
             return data["message"]["content"]
         except httpx.TimeoutException:
             logger.warning(f"Ollama timeout ({agent_tag})")
-            return f"[Таймаут: {agent_tag}]"
+            return f"[Таймаут: {agent_tag} не ответил за 90s]"
         except httpx.HTTPStatusError as exc:
             body = exc.response.text[:200]
             logger.error(f"Ollama error ({agent_tag})", extra={"status": exc.response.status_code, "body": body})
@@ -918,7 +874,7 @@ class ConsiliumEngine:
     async def _fallback_local(self, message: str, system_prompt: str) -> str:
         """Фолбек к локальной модели при полном отказе консилиума."""
         prompt = f"{system_prompt}\n\n{message}"
-        return await self._ask_ollama_raw(prompt, "fallback")
+        return await self._ask_ollama(prompt, self.RUSSIAN_SYSTEM, "fallback")
 
 
 # ─── Application state ─────────────────────────────────
@@ -989,9 +945,9 @@ async def lifespan(app: FastAPI):
     logger.info(
         "Started",
         extra={
-            "online": state.online,
-            "gemini_flash": OPENROUTER_MODEL_GEMINI_FLASH,
-            "gemini_pro": OPENROUTER_MODEL_GEMINI_PRO,
+            "online": True,
+            "kimi_model": KIMI_MODEL,
+            "gemini_key_set": bool(GEMINI_KEY),
             "researcher": OLLAMA_MODEL_RESEARCHER,
             "obsidian_ok": obs_ok,
             "pid": os.getpid(),
@@ -1069,32 +1025,29 @@ async def log_requests(request: Request, call_next) -> Response:
 
 
 async def _check_network() -> bool:
-    """Проверка доступности облачных API: OpenRouter или Moonshot."""
+    """Проверка доступности облачных API."""
     if state.http_client is None:
         return False
-    # Проверяем OpenRouter (для Gemini/Mimo)
+    # Проверяем Google (для Gemini)
+    if GEMINI_KEY:
+        try:
+            resp = await state.http_client.get(
+                "https://generativelanguage.googleapis.com/v1beta/models",
+                params={"key": GEMINI_KEY},
+                timeout=NET_CHECK_TIMEOUT,
+            )
+            if resp.status_code < 500:
+                logger.debug("Network check: Google Gemini ONLINE")
+                return True
+        except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError):
+            pass
+    # Если есть Ollama — считаем что сеть доступна
     try:
-        resp = await state.http_client.get(
-            "https://openrouter.ai/api/v1/models",
-            headers={"Authorization": f"Bearer {OPENROUTER_KEY}"},
-            timeout=NET_CHECK_TIMEOUT,
-        )
-        if resp.status_code < 500:
-            logger.debug("Network check: OpenRouter ONLINE")
+        resp = await state.http_client.get(f"{OLLAMA_BASE}/api/version", timeout=2)
+        if resp.status_code == 200:
+            logger.debug("Network check: Ollama LOCAL")
             return True
-    except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError):
-        pass
-    # Проверяем Moonshot (для Kimi K3)
-    try:
-        resp = await state.http_client.get(
-            "https://api.moonshot.cn/v1/models",
-            headers={"Authorization": f"Bearer {KIMI_KEY}"},
-            timeout=NET_CHECK_TIMEOUT,
-        )
-        if resp.status_code < 500:
-            logger.debug("Network check: Moonshot ONLINE")
-            return True
-    except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError):
+    except Exception:
         pass
     logger.debug("Network check: OFFLINE")
     return False
@@ -1184,10 +1137,10 @@ async def api_status():
     return {
         "service": "coli-dev Orchestrator v4.0",
         "version": "4.0.0",
-        "online": state.online,
-        "provider": "consilium" if state.online else "local",
-        "gemini_flash": OPENROUTER_MODEL_GEMINI_FLASH,
-        "gemini_pro": OPENROUTER_MODEL_GEMINI_PRO,
+        "online": True,
+        "provider": "consilium",
+        "kimi_model": KIMI_MODEL,
+        "gemini_key_set": bool(GEMINI_KEY),
         "researcher": OLLAMA_MODEL_RESEARCHER,
         "session": session_status,
     }
@@ -1206,7 +1159,7 @@ async def health():
         status="ok" if (net_ok or ollama_info["available"]) else "degraded",
         online=net_ok,
         provider=state.provider,
-        gemini_model=f"{OPENROUTER_MODEL_GEMINI_FLASH} / {OPENROUTER_MODEL_GEMINI_PRO}",
+        gemini_model="gemini-3-flash / gemini-3.1-pro",
         ollama_model=OLLAMA_MODEL_RESEARCHER,
         ollama_available=ollama_info["available"],
         ollama_version=ollama_info["version"],
@@ -1261,7 +1214,7 @@ async def chat_stream(request: Request, req: ChatRequest):
             logger.warning("Consilium failed, falling back to LOCAL", extra={"error": str(exc)[:100]})
             session_tracker.reset_mode()
 
-    logger.info("Stream → LOCAL (Digital Twin Qwen 3)",
+    logger.info("Stream → FORCED CLOUD KIMI K3 (Digital Twin Qwen 3)",
                  extra={"session_count": session_tracker.current, "mode": "local"})
     return await _handle_local_stream(req)
 
