@@ -93,6 +93,7 @@ final class LearningStore: ObservableObject {
     }
     @Published private(set) var aiHealth: OrchestratorHealth?
     @Published private(set) var isCheckingAI = false
+    @Published private(set) var providerSecretStatuses: [String: ProviderSecretStatus] = [:]
     @Published var aiMode: AIRoutingMode {
         didSet { UserDefaults.standard.set(aiMode.rawValue, forKey: "colidev.aiMode") }
     }
@@ -115,6 +116,27 @@ final class LearningStore: ObservableObject {
         } catch {
             aiHealth = nil
         }
+    }
+
+    func refreshProviderSecretStatuses() async {
+        do {
+            let statuses = try await OrchestratorClient.providerSecretStatuses()
+            providerSecretStatuses = Dictionary(uniqueKeysWithValues: statuses.map { ($0.provider, $0) })
+        } catch {
+            providerSecretStatuses = [:]
+        }
+    }
+
+    func saveProviderSecret(_ apiKey: String, for provider: String) async throws {
+        let status = try await OrchestratorClient.saveProviderSecret(apiKey, for: provider)
+        providerSecretStatuses[provider] = status
+        await refreshAIStatus()
+    }
+
+    func deleteProviderSecret(for provider: String) async throws {
+        let status = try await OrchestratorClient.deleteProviderSecret(for: provider)
+        providerSecretStatuses[provider] = status
+        await refreshAIStatus()
     }
 
     func isComplete(_ subject: Subject) -> Bool {
@@ -168,6 +190,26 @@ struct OrchestratorHealth: Decodable {
         case sessionMax = "session_max"
         case knowledgeDocumentCount = "knowledge_document_count"
         case knowledgeIndexCheckedAt = "knowledge_index_checked_at"
+    }
+}
+
+struct ProviderSecretStatus: Decodable, Identifiable {
+    let provider: String
+    let configured: Bool
+    let source: String
+
+    var id: String { provider }
+}
+
+private struct ProviderSecretStatusResponse: Decodable {
+    let providers: [ProviderSecretStatus]
+}
+
+private struct ProviderSecretInput: Encodable {
+    let apiKey: String
+
+    enum CodingKeys: String, CodingKey {
+        case apiKey = "api_key"
     }
 }
 
@@ -263,6 +305,49 @@ enum OrchestratorClient {
             throw ClientError.unavailable
         }
         return try JSONDecoder().decode(OrchestratorHealth.self, from: data)
+    }
+
+    static func providerSecretStatuses() async throws -> [ProviderSecretStatus] {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/settings/api-keys") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 8
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(ProviderSecretStatusResponse.self, from: data).providers
+    }
+
+    static func saveProviderSecret(_ apiKey: String, for provider: String) async throws -> ProviderSecretStatus {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/settings/api-keys/\(provider)") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.timeoutInterval = 15
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(ProviderSecretInput(apiKey: apiKey))
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(ProviderSecretStatus.self, from: data)
+    }
+
+    static func deleteProviderSecret(for provider: String) async throws -> ProviderSecretStatus {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/settings/api-keys/\(provider)") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.timeoutInterval = 15
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(ProviderSecretStatus.self, from: data)
     }
 
     static func streamChat(

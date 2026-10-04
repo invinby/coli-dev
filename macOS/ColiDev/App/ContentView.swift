@@ -278,7 +278,10 @@ private struct SettingsView: View {
                     }
                     Spacer()
                     Button(L10n.text("settings.aiRefresh", store.language)) {
-                        Task { await store.refreshAIStatus() }
+                        Task {
+                            await store.refreshAIStatus()
+                            await store.refreshProviderSecretStatuses()
+                        }
                     }
                 }
                 VStack(alignment: .leading, spacing: 5) {
@@ -290,6 +293,15 @@ private struct SettingsView: View {
                 Text(L10n.text("settings.aiTitle", store.language))
             }
             Section {
+                ProviderKeyEntryView(provider: "gemini", title: "Gemini")
+                ProviderKeyEntryView(provider: "kimi", title: "Kimi")
+                ProviderKeyEntryView(provider: "obsidian", title: "Obsidian Local REST API")
+            } header: {
+                Text(L10n.text("settings.keysTitle", store.language))
+            } footer: {
+                Text(L10n.text("settings.keysPrivacy", store.language))
+            }
+            Section {
                 Label { Text(L10n.text("settings.localBody", store.language)) } icon: { Image(systemName: "internaldrive") }
                     .foregroundStyle(.secondary)
             } header: {
@@ -299,7 +311,10 @@ private struct SettingsView: View {
                 LabeledContent { Text(L10n.text("settings.preview", store.language)) } label: { Text(L10n.text("settings.version", store.language)) }
             }
         }
-        .task { await store.refreshAIStatus() }
+        .task {
+            await store.refreshAIStatus()
+            await store.refreshProviderSecretStatuses()
+        }
         .formStyle(.grouped)
         .padding(24)
         .frame(maxWidth: 720, alignment: .leading)
@@ -314,5 +329,96 @@ private struct SettingsView: View {
         if health.hasCloudSession { return L10n.text("settings.aiOnlineRoute", store.language) }
         if health.hasLocalModel { return L10n.text("settings.aiLocalRoute", store.language) }
         return L10n.text("settings.aiNoRoute", store.language)
+    }
+}
+
+private struct ProviderKeyEntryView: View {
+    @EnvironmentObject private var store: LearningStore
+    let provider: String
+    let title: String
+
+    @State private var apiKey = ""
+    @State private var isSaving = false
+    @State private var feedback: String?
+    @State private var feedbackIsError = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.headline)
+            HStack(spacing: 8) {
+                SecureField(L10n.text("settings.keyPlaceholder", store.language), text: $apiKey)
+                    .textFieldStyle(.roundedBorder)
+                    .disabled(isSaving)
+                Button {
+                    Task { await saveKey() }
+                } label: {
+                    if isSaving {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Text(L10n.text("settings.keySave", store.language))
+                    }
+                }
+                .disabled(isSaving || apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            HStack {
+                Text(statusLabel)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if store.providerSecretStatuses[provider]?.source == "keychain" {
+                    Button(L10n.text("settings.keyRemove", store.language), role: .destructive) {
+                        Task { await removeKey() }
+                    }
+                    .disabled(isSaving)
+                }
+            }
+            if let feedback {
+                Text(feedback)
+                    .font(.caption)
+                    .foregroundStyle(feedbackIsError ? Color.red : Color.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var statusLabel: String {
+        let key: String
+        switch store.providerSecretStatuses[provider]?.source {
+        case "keychain": key = "settings.keyStatusKeychain"
+        case "environment": key = "settings.keyStatusEnvironment"
+        case "missing": key = "settings.keyStatusMissing"
+        case "unavailable", .none: key = "settings.keyStatusUnavailable"
+        default: key = "settings.keyStatusUnavailable"
+        }
+        return L10n.text(key, store.language)
+    }
+
+    @MainActor
+    private func saveKey() async {
+        isSaving = true
+        defer { isSaving = false }
+        do {
+            try await store.saveProviderSecret(apiKey, for: provider)
+            apiKey = ""
+            feedback = L10n.text("settings.keySaved", store.language)
+            feedbackIsError = false
+        } catch {
+            feedback = L10n.text("settings.keyFailed", store.language)
+            feedbackIsError = true
+        }
+    }
+
+    @MainActor
+    private func removeKey() async {
+        isSaving = true
+        defer { isSaving = false }
+        do {
+            try await store.deleteProviderSecret(for: provider)
+            feedback = L10n.text("settings.keyRemoved", store.language)
+            feedbackIsError = false
+        } catch {
+            feedback = L10n.text("settings.keyFailed", store.language)
+            feedbackIsError = true
+        }
     }
 }

@@ -49,6 +49,16 @@ jobs:
       - name: Show Xcode version
         run: xcodebuild -version
 
+      - name: Set up Python for the Keychain backend
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install and verify the macOS Keychain provider
+        run: |
+          python -m pip install 'keyring>=25.0.0'
+          python -c 'from keyring.backends.macOS import Keyring; assert Keyring'
+
       - name: Build ColiDev for macOS
         run: >-
           xcodebuild

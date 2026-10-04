@@ -6,3 +6,4 @@ uvicorn[standard]>=0.29.0  # ASGI-сервер
 httpx>=0.27.0             # Асинхронный HTTP-клиент для провайдеров и Obsidian
 python-dotenv>=1.0.0      # Загрузка .env
 slowapi>=0.1.9             # Ограничение частоты API-запросов
+keyring>=25.0.0            # macOS Keychain для секретов провайдеров

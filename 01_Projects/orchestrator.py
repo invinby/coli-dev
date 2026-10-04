@@ -29,10 +29,12 @@ Idle потребление: ~35-50 MB RSS, 0% CPU на Mac M1 16GB
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import json
 import logging
 import os
 import re
+import sys
 import uuid
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
@@ -80,6 +82,117 @@ NET_CHECK_TIMEOUT = float(os.getenv("NET_CHECK_TIMEOUT", "4"))
 # Obsidian
 OBSIDIAN_URL = os.getenv("OBSIDIAN_URL", "http://127.0.0.1:27123")
 OBSIDIAN_API_KEY = os.getenv("OBSIDIAN_API_KEY", "")
+
+# Provider secrets can be overridden by macOS Keychain. Environment values are
+# retained as a development fallback and are never returned by the settings API.
+PROVIDER_ENV_NAMES = {
+    "gemini": "GEMINI_API_KEY",
+    "kimi": "KIMI_API_KEY",
+    "obsidian": "OBSIDIAN_API_KEY",
+}
+_ENV_PROVIDER_VALUES = {
+    "GEMINI_API_KEY": GEMINI_KEY,
+    "KIMI_API_KEY": KIMI_KEY,
+    "OBSIDIAN_API_KEY": OBSIDIAN_API_KEY,
+}
+_PROVIDER_SOURCES = {
+    provider: ("environment" if _ENV_PROVIDER_VALUES[env_name] else "unavailable")
+    for provider, env_name in PROVIDER_ENV_NAMES.items()
+}
+_KEYCHAIN_SERVICE = "ColiDev"
+
+
+class SecretStorageUnavailable(RuntimeError):
+    """Raised when macOS Keychain cannot be reached or updated."""
+
+
+def _macos_keychain_backend():
+    if sys.platform != "darwin":
+        raise SecretStorageUnavailable
+    try:
+        from keyring.backends.macOS import Keyring
+        return Keyring()
+    except Exception as exc:
+        raise SecretStorageUnavailable from exc
+
+
+def _load_provider_secrets() -> None:
+    """Load Keychain values at backend startup, falling back to .env values."""
+    keychain_backend = None
+    try:
+        keychain_backend = _macos_keychain_backend()
+    except SecretStorageUnavailable:
+        pass
+
+    for provider, env_name in PROVIDER_ENV_NAMES.items():
+        fallback = _ENV_PROVIDER_VALUES.get(env_name, "")
+        secret = None
+        source = "unavailable" if keychain_backend is None else "missing"
+        if keychain_backend is not None:
+            try:
+                secret = keychain_backend.get_password(_KEYCHAIN_SERVICE, env_name)
+            except Exception:
+                logger.warning("Could not read provider secret from macOS Keychain", extra={"provider": provider})
+                source = "unavailable"
+
+        if secret:
+            source = "keychain"
+        elif fallback:
+            secret = fallback
+            source = "environment"
+        else:
+            secret = ""
+
+        if provider == "gemini":
+            globals()["GEMINI_KEY"] = secret
+        elif provider == "kimi":
+            globals()["KIMI_KEY"] = secret
+        else:
+            globals()["OBSIDIAN_API_KEY"] = secret
+        _PROVIDER_SOURCES[provider] = source
+
+
+def _write_keychain_secret(provider: str, secret: str) -> None:
+    try:
+        _macos_keychain_backend().set_password(_KEYCHAIN_SERVICE, PROVIDER_ENV_NAMES[provider], secret)
+    except Exception as exc:
+        raise SecretStorageUnavailable from exc
+
+
+def _delete_keychain_secret(provider: str) -> None:
+    try:
+        keychain_backend = _macos_keychain_backend()
+        account = PROVIDER_ENV_NAMES[provider]
+        if keychain_backend.get_password(_KEYCHAIN_SERVICE, account) is not None:
+            keychain_backend.delete_password(_KEYCHAIN_SERVICE, account)
+    except Exception as exc:
+        raise SecretStorageUnavailable from exc
+
+
+def _provider_secret_value(provider: str) -> str:
+    if provider == "gemini":
+        return GEMINI_KEY
+    if provider == "kimi":
+        return KIMI_KEY
+    return OBSIDIAN_API_KEY
+
+
+def _set_provider_secret_value(provider: str, value: str) -> None:
+    if provider == "gemini":
+        globals()["GEMINI_KEY"] = value
+    elif provider == "kimi":
+        globals()["KIMI_KEY"] = value
+    else:
+        globals()["OBSIDIAN_API_KEY"] = value
+
+
+def _provider_secret_status(provider: str) -> dict[str, Any]:
+    source = _PROVIDER_SOURCES.get(provider, "unavailable")
+    return {
+        "provider": provider,
+        "configured": bool(_provider_secret_value(provider)),
+        "source": source,
+    }
 
 # Сервер
 HOST = os.getenv("HOST", "127.0.0.1")
@@ -959,6 +1072,7 @@ knowledge_index = KnowledgeIndex(Path(__file__).resolve().parent.parent)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await asyncio.to_thread(_load_provider_secrets)
     state.http_client = httpx.AsyncClient(
         timeout=httpx.Timeout(HTTP_TIMEOUT),
         limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
@@ -1309,6 +1423,117 @@ async def chat_ui():
 
 
 # ─── API Endpoints ─────────────────────────────────────
+
+
+def _require_local_settings_request(request: Request) -> None:
+    host = request.client.host if request.client else ""
+    try:
+        if not ipaddress.ip_address(host).is_loopback:
+            raise HTTPException(status_code=403, detail="Local requests only")
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Local requests only") from None
+
+    origin = request.headers.get("origin")
+    if origin:
+        allowed_origins = {
+            f"http://127.0.0.1:{PORT}",
+            f"http://localhost:{PORT}",
+            f"http://[::1]:{PORT}",
+        }
+        if origin.rstrip("/") not in allowed_origins:
+            raise HTTPException(status_code=403, detail="Cross-origin settings requests are not allowed")
+
+
+async def _read_provider_secret_request(request: Request) -> str:
+    content_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+    if content_type != "application/json":
+        raise HTTPException(status_code=415, detail="Expected a JSON request")
+
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            declared_length = int(content_length)
+            if declared_length < 0:
+                raise HTTPException(status_code=400, detail="Invalid Content-Length")
+            if declared_length > 8192:
+                raise HTTPException(status_code=413, detail="Request is too large")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid Content-Length") from None
+
+    body = bytearray()
+    async for chunk in request.stream():
+        if len(body) + len(chunk) > 8192:
+            raise HTTPException(status_code=413, detail="Request is too large")
+        body.extend(chunk)
+    try:
+        payload = json.loads(body)
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        raise HTTPException(status_code=400, detail="Invalid JSON request") from None
+    if not isinstance(payload, dict) or set(payload) != {"api_key"} or not isinstance(payload["api_key"], str):
+        raise HTTPException(status_code=400, detail="Request must contain one string api_key field")
+
+    secret = payload["api_key"].strip()
+    if not secret:
+        raise HTTPException(status_code=422, detail="API key cannot be blank")
+    if len(secret) > 4096:
+        raise HTTPException(status_code=413, detail="API key is too large")
+    return secret
+
+
+async def _replace_obsidian_worker() -> None:
+    previous = state.obsidian
+    base_url = getattr(previous, "base_url", None) or OBSIDIAN_URL
+    replacement = ObsidianWorker(base_url=base_url, api_key=OBSIDIAN_API_KEY)
+    state.obsidian = replacement
+    if previous:
+        try:
+            await previous.close()
+        except Exception:
+            logger.warning("Could not close the previous Obsidian client")
+
+
+@app.get("/settings/api-keys")
+async def provider_secret_statuses(request: Request):
+    _require_local_settings_request(request)
+    return {"providers": [_provider_secret_status(provider) for provider in PROVIDER_ENV_NAMES]}
+
+
+@app.put("/settings/api-keys/{provider}")
+async def save_provider_secret(provider: str, request: Request):
+    _require_local_settings_request(request)
+    if provider not in PROVIDER_ENV_NAMES:
+        raise HTTPException(status_code=404, detail="Unknown provider")
+    secret = await _read_provider_secret_request(request)
+
+    try:
+        await asyncio.to_thread(_write_keychain_secret, provider, secret)
+    except SecretStorageUnavailable:
+        raise HTTPException(status_code=503, detail="macOS Keychain is unavailable") from None
+
+    _set_provider_secret_value(provider, secret)
+    _PROVIDER_SOURCES[provider] = "keychain"
+    if provider == "obsidian":
+        await _replace_obsidian_worker()
+    return _provider_secret_status(provider)
+
+
+@app.delete("/settings/api-keys/{provider}")
+async def delete_provider_secret(provider: str, request: Request):
+    _require_local_settings_request(request)
+    if provider not in PROVIDER_ENV_NAMES:
+        raise HTTPException(status_code=404, detail="Unknown provider")
+
+    try:
+        await asyncio.to_thread(_delete_keychain_secret, provider)
+    except SecretStorageUnavailable:
+        raise HTTPException(status_code=503, detail="macOS Keychain is unavailable") from None
+
+    fallback = _ENV_PROVIDER_VALUES.get(PROVIDER_ENV_NAMES[provider], "")
+    _set_provider_secret_value(provider, fallback)
+    _PROVIDER_SOURCES[provider] = "environment" if fallback else "missing"
+    if provider == "obsidian":
+        await _replace_obsidian_worker()
+    return _provider_secret_status(provider)
 
 
 @app.get("/api/status")

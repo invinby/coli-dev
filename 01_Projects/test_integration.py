@@ -46,6 +46,12 @@ def _reset(monkeypatch, tmp_path):
     """Сброс состояния перед каждым тестом."""
     monkeypatch.setattr(orchestrator, "GEMINI_KEY", "test-gemini-key")
     monkeypatch.setattr(orchestrator, "KIMI_KEY", "test-kimi-key")
+    monkeypatch.setattr(orchestrator, "OBSIDIAN_API_KEY", "")
+    monkeypatch.setattr(orchestrator, "_ENV_PROVIDER_VALUES", {
+        "GEMINI_API_KEY": "test-gemini-key",
+        "KIMI_API_KEY": "test-kimi-key",
+        "OBSIDIAN_API_KEY": "",
+    })
     monkeypatch.setattr(orchestrator.state, "obsidian", None)
     monkeypatch.setattr(session_tracker, "_file", tmp_path / "sessions.json")
     monkeypatch.setattr(session_tracker, "max_per_day", 5)
@@ -79,7 +85,7 @@ def client_online(mock_obsidian):
         patch.object(orchestrator.state, "obsidian", mock_obsidian),
     ):
         orchestrator.logger.disabled = True
-        with TestClient(app) as c:
+        with TestClient(app, client=("127.0.0.1", 50000)) as c:
             yield c
 
 
@@ -94,7 +100,7 @@ def client_offline(mock_obsidian):
         patch.object(orchestrator.state, "obsidian", mock_obsidian),
     ):
         orchestrator.logger.disabled = True
-        with TestClient(app) as c:
+        with TestClient(app, client=("127.0.0.1", 50000)) as c:
             yield c
 
 

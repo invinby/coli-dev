@@ -21,7 +21,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import psutil
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
+from starlette.requests import Request
 
 # ─── Поднимаем проект в sys.path — он в подпапке ───
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -41,6 +43,17 @@ FAKE_ANSWER = "print('Hello, world!')"
 PROC = psutil.Process(os.getpid())
 
 
+def _mock_keyring(monkeypatch):
+    passwords = {}
+    fake = MagicMock()
+    fake.get_password.side_effect = lambda service, account: passwords.get((service, account))
+    fake.set_password.side_effect = lambda service, account, value: passwords.__setitem__((service, account), value)
+    fake.delete_password.side_effect = lambda service, account: passwords.pop((service, account), None)
+    monkeypatch.setattr(orchestrator.sys, "platform", "darwin")
+    monkeypatch.setattr(orchestrator, "_macos_keychain_backend", lambda: fake)
+    return fake, passwords
+
+
 # ─── Fixtures ──────────────────────────────────────────
 
 
@@ -49,6 +62,12 @@ def _reset_session_tracker(monkeypatch, tmp_path):
     """Сброс сессий перед каждым тестом."""
     monkeypatch.setattr(orchestrator, "GEMINI_KEY", "test-gemini-key")
     monkeypatch.setattr(orchestrator, "KIMI_KEY", "test-kimi-key")
+    monkeypatch.setattr(orchestrator, "OBSIDIAN_API_KEY", "")
+    monkeypatch.setattr(orchestrator, "_ENV_PROVIDER_VALUES", {
+        "GEMINI_API_KEY": "test-gemini-key",
+        "KIMI_API_KEY": "test-kimi-key",
+        "OBSIDIAN_API_KEY": "",
+    })
     monkeypatch.setattr(orchestrator.state, "obsidian", None)
     monkeypatch.setattr(session_tracker, "_file", tmp_path / "sessions.json")
     monkeypatch.setattr(session_tracker, "max_per_day", 5)
@@ -78,7 +97,7 @@ def client():
         patch.object(orchestrator.state, "obsidian", mock_obsidian),
     ):
         orchestrator.logger.disabled = True
-        with TestClient(app) as c:
+        with TestClient(app, client=("127.0.0.1", 50000)) as c:
             yield c
 
 
@@ -97,7 +116,7 @@ def client_offline():
         patch.object(orchestrator.state, "obsidian", mock_obsidian),
     ):
         orchestrator.logger.disabled = True
-        with TestClient(app) as c:
+        with TestClient(app, client=("127.0.0.1", 50000)) as c:
             yield c
 
 
@@ -157,6 +176,90 @@ class TestAPIEndpoints:
         )
 
         assert "access-control-allow-origin" not in response.headers
+
+    def test_provider_secret_status_does_not_return_values(self, client):
+        response = client.get("/settings/api-keys")
+
+        assert response.status_code == 200
+        providers = {item["provider"]: item for item in response.json()["providers"]}
+        assert providers["gemini"] == {
+            "provider": "gemini", "configured": True, "source": "environment",
+        }
+        assert providers["obsidian"]["configured"] is False
+        assert "test-gemini-key" not in response.text
+
+    def test_keychain_value_takes_precedence_over_environment(self, monkeypatch):
+        _, passwords = _mock_keyring(monkeypatch)
+        passwords[("ColiDev", "KIMI_API_KEY")] = "keychain-kimi-secret"
+
+        orchestrator._load_provider_secrets()
+
+        assert orchestrator.KIMI_KEY == "keychain-kimi-secret"
+        assert orchestrator._PROVIDER_SOURCES["kimi"] == "keychain"
+        assert orchestrator.GEMINI_KEY == "test-gemini-key"
+        assert orchestrator._PROVIDER_SOURCES["gemini"] == "environment"
+
+    def test_provider_secret_endpoints_reject_non_loopback_clients(self):
+        request = Request({
+            "type": "http",
+            "method": "GET",
+            "path": "/settings/api-keys",
+            "headers": [],
+            "client": ("203.0.113.10", 50000),
+        })
+
+        with pytest.raises(HTTPException) as error:
+            orchestrator._require_local_settings_request(request)
+
+        assert error.value.status_code == 403
+
+    def test_provider_secret_is_saved_to_keychain_without_echoing_it(self, client, monkeypatch):
+        fake, passwords = _mock_keyring(monkeypatch)
+        secret = "keyring-test-secret-483"
+
+        response = client.put("/settings/api-keys/gemini", json={"api_key": f" {secret} "})
+
+        assert response.status_code == 200
+        assert response.json() == {"provider": "gemini", "configured": True, "source": "keychain"}
+        assert passwords[("ColiDev", "GEMINI_API_KEY")] == secret
+        assert orchestrator.GEMINI_KEY == secret
+        assert secret not in response.text
+        fake.set_password.assert_called_once_with("ColiDev", "GEMINI_API_KEY", secret)
+
+    def test_invalid_secret_requests_never_echo_submitted_values(self, client):
+        oversized = "private-input-" * 350
+        response = client.put("/settings/api-keys/gemini", json={"api_key": oversized})
+        assert response.status_code == 413
+        assert oversized not in response.text
+
+        wrong_type_secret = "private-wrong-type-input"
+        response = client.put("/settings/api-keys/gemini", json={"api_key": [wrong_type_secret]})
+        assert response.status_code == 400
+        assert wrong_type_secret not in response.text
+
+    def test_deleting_keychain_secret_restores_environment_fallback(self, client, monkeypatch):
+        fake, passwords = _mock_keyring(monkeypatch)
+        passwords[("ColiDev", "GEMINI_API_KEY")] = "stored-keychain-secret"
+        orchestrator.GEMINI_KEY = "stored-keychain-secret"
+        orchestrator._PROVIDER_SOURCES["gemini"] = "keychain"
+
+        response = client.delete("/settings/api-keys/gemini")
+
+        assert response.status_code == 200
+        assert response.json() == {"provider": "gemini", "configured": True, "source": "environment"}
+        assert orchestrator.GEMINI_KEY == "test-gemini-key"
+        assert ("ColiDev", "GEMINI_API_KEY") not in passwords
+        fake.delete_password.assert_called_once_with("ColiDev", "GEMINI_API_KEY")
+
+    def test_provider_secret_rejects_foreign_browser_origin(self, client):
+        response = client.put(
+            "/settings/api-keys/gemini",
+            json={"api_key": "not-stored"},
+            headers={"Origin": "https://attacker.example"},
+        )
+
+        assert response.status_code == 403
+        assert orchestrator.GEMINI_KEY == "test-gemini-key"
 
     def test_api_session_returns_status(self, client):
         """/api/session возвращает статус сессий."""

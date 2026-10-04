@@ -28,7 +28,7 @@ python 01_Projects/orchestrator.py
 
 On Windows PowerShell, use `py -3 -m venv .venv`, activate with `\.venv\Scripts\Activate.ps1`, and copy the template with `Copy-Item .env.example .env`.
 
-The server binds to `127.0.0.1:8000` by default. Add the API keys you choose to `.env`. For local-only chat, install Ollama, pull the model named by `OLLAMA_RESEARCHER`, and keep `OLLAMA_URL` pointed to a service on this Mac if the request must stay on-device. Automatic mode may send the learner's question and retrieved snippets to configured cloud providers. The SwiftUI client does not start the backend automatically yet.
+The server binds to `127.0.0.1:8000` by default. On macOS, start the backend and save Gemini, Kimi, and Obsidian credentials from Settings; the backend stores them in macOS Keychain. `.env` remains a development fallback and can also configure Ollama and other backend options. For local-only chat, install Ollama, pull the model named by `OLLAMA_RESEARCHER`, and keep `OLLAMA_URL` pointed to a service on this Mac if the request must stay on-device. Automatic mode may send the learner's question and retrieved snippets to configured cloud providers. The SwiftUI client does not start the backend automatically yet.
 
 ## Open the macOS app
 
@@ -45,6 +45,6 @@ The tests use mocked provider calls. They do not consume API credits or verify l
 
 ## Configuration and private data
 
-`.env` is ignored by Git. Never commit real provider or Obsidian credentials. Keep the backend bound to loopback unless network exposure is deliberately designed and protected; the service has no user-account authentication. The local database and lesson progress are stored on the user's device.
+Keys saved from macOS Settings are stored in the system Keychain; their values are never returned to the client. `.env` is ignored by Git and remains a development fallback. Never commit real provider or Obsidian credentials. Keep the backend bound to loopback unless network exposure is deliberately designed and protected; the local service has no user-account authentication. The local database and lesson progress are stored on the user's device.
 
 Earlier prototype launch scripts remain in the repository for reference; the native learning client uses `01_Projects/orchestrator.py` as its backend.
