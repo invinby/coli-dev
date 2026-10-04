@@ -556,5 +556,6 @@ enum AppSection: Hashable {
     case today
     case subjects
     case subject(Subject)
+    case lesson(Subject)
     case settings
 }

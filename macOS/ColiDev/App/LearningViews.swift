@@ -2,9 +2,100 @@ import SwiftUI
 import AppKit
 import WebKit
 
+struct SubjectOverviewView: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var levels: [CurriculumLevel] = []
+
+    let subject: Subject
+    let startLesson: () -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(L10n.text("roadmap.eyebrow", store.language))
+                        .font(.caption.weight(.semibold))
+                        .tracking(1.3)
+                        .foregroundStyle(subject.tint)
+                    Text(subject.title(in: store.language))
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                    Text(subject.subtitle(in: store.language))
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+                    Text(L10n.text("roadmap.title", store.language))
+                        .font(.title2.weight(.semibold))
+                        .padding(.top, 6)
+                    Text(L10n.text("roadmap.description", store.language))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(action: startLesson) {
+                        Label {
+                            Text(L10n.text("roadmap.start", store.language))
+                        } icon: {
+                            Image(systemName: "play.fill")
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(subject.tint)
+                    .padding(.top, 4)
+                }
+                .padding(.top, 26)
+
+                if levels.isEmpty {
+                    Label {
+                        Text(L10n.text("roadmap.unavailable", store.language))
+                    } icon: {
+                        Image(systemName: "doc.questionmark")
+                    }
+                    .foregroundStyle(.secondary)
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
+                } else {
+                    ForEach(levels) { level in
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack(alignment: .firstTextBaseline) {
+                                Text(level.title.value(in: store.language))
+                                    .font(.title2.weight(.semibold))
+                                Spacer()
+                                Text(L10n.text("roadmap.topicCount", store.language) + "\(level.topics.count)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            ForEach(level.topics) { topic in
+                                VStack(alignment: .leading, spacing: 5) {
+                                    Text(topic.name.value(in: store.language))
+                                        .font(.headline)
+                                    Text(topic.learningOutcome.value(in: store.language))
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                                .padding(14)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(.background, in: RoundedRectangle(cornerRadius: 14))
+                                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(.quaternary, lineWidth: 1))
+                            }
+                        }
+                        .padding(18)
+                        .background(subject.tint.opacity(0.07), in: RoundedRectangle(cornerRadius: 18))
+                    }
+                }
+            }
+            .padding(.horizontal, 30)
+            .padding(.bottom, 32)
+            .frame(maxWidth: 900, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .navigationTitle(Text(subject.title(in: store.language)))
+        .onAppear { levels = CurriculumCatalog.roadmap(for: subject) }
+    }
+}
+
 struct LessonSessionView: View {
     @EnvironmentObject private var store: LearningStore
     let subject: Subject
+    let showRoadmap: () -> Void
 
     @State private var selectedAnswer: Int?
     @State private var learnerConfirmed = false
@@ -33,6 +124,10 @@ struct LessonSessionView: View {
                     Text(subject.title(in: store.language) + " · " + subject.subtitle(in: store.language))
                         .font(.headline)
                         .foregroundStyle(.secondary)
+                    Button(action: showRoadmap) {
+                        Label(L10n.text("roadmap.open", store.language), systemImage: "list.bullet.rectangle")
+                    }
+                    .buttonStyle(.borderless)
                 }
                 .padding(.top, 24)
 

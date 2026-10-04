@@ -10,6 +10,8 @@
 		A10000000000000000000003 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* L10n.swift */; };
 		A10000000000000000000004 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* ContentView.swift */; };
 		A10000000000000000000005 /* LearningViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* LearningViews.swift */; };
+		A10000000000000000000006 /* CurriculumCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* CurriculumCatalog.swift */; };
+		A10000000000000000000007 /* 02_Areas in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007 /* 02_Areas */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -18,6 +20,8 @@
 		A20000000000000000000003 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
 		A20000000000000000000004 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A20000000000000000000005 /* LearningViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearningViews.swift; sourceTree = "<group>"; };
+		A20000000000000000000006 /* CurriculumCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurriculumCatalog.swift; sourceTree = "<group>"; };
+		A20000000000000000000007 /* 02_Areas */ = {isa = PBXFileReference; lastKnownFileType = folder; name = 02_Areas; path = ../../02_Areas; sourceTree = "<group>"; };
 		A30000000000000000000001 /* ColiDev.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ColiDev.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -26,8 +30,8 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		A50000000000000000000001 = {isa = PBXGroup; children = (A50000000000000000000002 /* App */, A50000000000000000000003 /* Products */, ); sourceTree = "<group>"; };
-		A50000000000000000000002 /* App */ = {isa = PBXGroup; children = (A20000000000000000000001 /* ColiDevApp.swift */, A20000000000000000000002 /* AppModels.swift */, A20000000000000000000003 /* L10n.swift */, A20000000000000000000004 /* ContentView.swift */, A20000000000000000000005 /* LearningViews.swift */, ); path = App; sourceTree = "<group>"; };
+		A50000000000000000000001 = {isa = PBXGroup; children = (A50000000000000000000002 /* App */, A20000000000000000000007 /* 02_Areas */, A50000000000000000000003 /* Products */, ); sourceTree = "<group>"; };
+		A50000000000000000000002 /* App */ = {isa = PBXGroup; children = (A20000000000000000000001 /* ColiDevApp.swift */, A20000000000000000000002 /* AppModels.swift */, A20000000000000000000003 /* L10n.swift */, A20000000000000000000004 /* ContentView.swift */, A20000000000000000000005 /* LearningViews.swift */, A20000000000000000000006 /* CurriculumCatalog.swift */, ); path = App; sourceTree = "<group>"; };
 		A50000000000000000000003 /* Products */ = {isa = PBXGroup; children = (A30000000000000000000001 /* ColiDev.app */, ); name = Products; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
@@ -40,11 +44,11 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		A70000000000000000000002 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A70000000000000000000002 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000007 /* 02_Areas in Resources */, ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		A70000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000001 /* ColiDevApp.swift in Sources */, A10000000000000000000002 /* AppModels.swift in Sources */, A10000000000000000000003 /* L10n.swift in Sources */, A10000000000000000000004 /* ContentView.swift in Sources */, A10000000000000000000005 /* LearningViews.swift in Sources */, ); runOnlyForDeploymentPostprocessing = 0; };
+		A70000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000001 /* ColiDevApp.swift in Sources */, A10000000000000000000002 /* AppModels.swift in Sources */, A10000000000000000000003 /* L10n.swift in Sources */, A10000000000000000000004 /* ContentView.swift in Sources */, A10000000000000000000005 /* LearningViews.swift in Sources */, A10000000000000000000006 /* CurriculumCatalog.swift in Sources */, ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */

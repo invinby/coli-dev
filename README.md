@@ -9,6 +9,7 @@ ColiDev is being built as a native macOS learning platform with a local Python b
 - An explicit, opt-in Google Search grounding path in Auto mode when a Gemini key is configured. It returns inline citations and Google's Search Suggestions directly; it bypasses local retrieval and agent debate, and is not saved to Obsidian.
 - An offline SQLite index for Markdown in `02_Areas/` and Markdown/text cheat sheets in `03_Resources/Cheatsheets/`. It always supports lexical search and can add optional Ollama embeddings for semantic retrieval; vectors stay in the local SQLite database. Search results can cite file paths and line spans. Indexing metadata does not prove that course facts are current or verified.
 - Six Russian/English curriculum roadmaps now cover foundations, intermediate topics, advanced topics, and practice ideas for mathematics, English, physics, biology, zoology, and programming. They are indexed by local RAG as outlines; they are not complete, source-verified courses.
+- The macOS app bundles the same `02_Areas/` materials and now displays each priority subject's bilingual foundation-to-advanced roadmap before its starter lesson. The displayed roadmap remains an outline, not a completed course.
 - Optional Obsidian search and session-summary saving when its Local REST API is configured.
 - GitHub Actions checks the backend suite and attempts a real Xcode macOS build after changes reach `main`.
 

@@ -68,3 +68,10 @@ jobs:
           -derivedDataPath "$RUNNER_TEMP/ColiDevDerivedData"
           CODE_SIGNING_ALLOWED=NO
           build
+
+      - name: Verify bundled curriculum roadmaps
+        run: |
+          resources="$RUNNER_TEMP/ColiDevDerivedData/Build/Products/Debug/ColiDev.app/Contents/Resources/02_Areas"
+          for subject in Mathematics English Physics Biology Zoology Programming; do
+            test -s "$resources/$subject/curriculum.md"
+          done

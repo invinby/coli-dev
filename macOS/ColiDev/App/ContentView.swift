@@ -41,7 +41,13 @@ struct ContentView: View {
                 case .subjects:
                     SubjectCatalogView(open: open)
                 case .subject(let subject):
-                    LessonSessionView(subject: subject)
+                    SubjectOverviewView(subject: subject) {
+                        selection = .lesson(subject)
+                    }
+                case .lesson(let subject):
+                    LessonSessionView(subject: subject) {
+                        selection = .subject(subject)
+                    }
                 case .settings:
                     SettingsView()
                 }
