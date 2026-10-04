@@ -285,6 +285,13 @@ private struct SettingsView: View {
                                 Text(L10n.text("settings.aiKnowledgeUnknown", store.language))
                                     .font(.caption2).foregroundStyle(.tertiary)
                             }
+                            if let embeddingModel = health.ollamaEmbeddingModel {
+                                Text(String(format: L10n.text("settings.aiSemanticConfigured", store.language), embeddingModel))
+                                    .font(.caption2).foregroundStyle(.secondary)
+                            } else {
+                                Text(L10n.text("settings.aiSemanticKeyword", store.language))
+                                    .font(.caption2).foregroundStyle(.tertiary)
+                            }
                         }
                     } else {
                         Label(L10n.text("settings.aiOffline", store.language), systemImage: "wifi.slash")

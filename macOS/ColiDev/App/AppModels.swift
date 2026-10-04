@@ -158,6 +158,7 @@ struct OrchestratorHealth: Decodable {
     let provider: String
     let ollamaAvailable: Bool
     let ollamaModel: String
+    let ollamaEmbeddingModel: String?
     let ollamaModelReady: Bool?
     let geminiKeyConfigured: Bool?
     let ollamaEndpointLocal: Bool?
@@ -190,6 +191,7 @@ struct OrchestratorHealth: Decodable {
         case status, online, provider
         case ollamaAvailable = "ollama_available"
         case ollamaModel = "ollama_model"
+        case ollamaEmbeddingModel = "ollama_embedding_model"
         case ollamaModelReady = "ollama_model_ready"
         case geminiKeyConfigured = "gemini_key_configured"
         case ollamaEndpointLocal = "ollama_endpoint_local"

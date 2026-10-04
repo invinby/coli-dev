@@ -160,6 +160,7 @@ class TestAPIEndpoints:
         assert "provider" in data
         assert "gemini_model" in data
         assert "ollama_model" in data
+        assert "ollama_embedding_model" in data
         assert "ollama_available" in data
         assert "uptime_sec" in data
         assert "session_mode" in data

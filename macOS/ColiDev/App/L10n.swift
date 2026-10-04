@@ -97,6 +97,8 @@ enum L10n {
         "settings.aiKnowledgeCount": ("Локальных документов в индексе: ", "Local documents indexed: "),
         "settings.aiKnowledgeChecked": ("Индекс проверен: ", "Index checked: "),
         "settings.aiKnowledgeUnknown": ("Статус локального индекса недоступен на этой версии сервера.", "Local index status is unavailable from this server version."),
+        "settings.aiSemanticConfigured": ("Семантический поиск настроен: %@. При недоступности модели остаётся поиск по ключевым словам.", "Semantic search is configured for %@. Keyword search remains available if the model is unavailable."),
+        "settings.aiSemanticKeyword": ("Семантическая модель не настроена; поиск работает по ключевым словам.", "No semantic model is configured; keyword search is active."),
         "tutor.title": ("ИИ-тьютор", "AI tutor"),
         "tutor.subtitle": ("Вопросы по текущему уроку", "Ask about this lesson"),
         "tutor.empty": ("Спроси, объясни ли иначе или попроси подсказку к практике.", "Ask a question, request another explanation, or get a hint for the practice."),

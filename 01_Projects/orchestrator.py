@@ -464,6 +464,7 @@ class HealthResponse(BaseModel):
     provider: str
     gemini_model: str
     ollama_model: str
+    ollama_embedding_model: str | None = None
     ollama_available: bool
     ollama_version: str | None = None
     ollama_models: list[str] | None = None
@@ -1803,6 +1804,9 @@ async def health():
         provider=state.provider,
         gemini_model="gemini-3-flash / gemini-3.1-pro",
         ollama_model=OLLAMA_MODEL_RESEARCHER,
+        ollama_embedding_model=(
+            _embedding_provider.model_name if _embedding_provider is not None else None
+        ),
         ollama_available=ollama_info["available"],
         ollama_version=ollama_info["version"],
         ollama_models=ollama_info["models"],
