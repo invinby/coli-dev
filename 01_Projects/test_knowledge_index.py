@@ -1,10 +1,27 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from knowledge_index import KnowledgeIndex
+from knowledge_index import KnowledgeIndex, OllamaEmbeddingProvider
+
+
+class FakeEmbeddingProvider:
+    model = "test-embedding-model"
+
+    def __init__(self) -> None:
+        self.calls: list[list[str]] = []
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        self.calls.append(texts)
+        return [
+            [1.0, 0.0] if "optimization methods" in text.casefold()
+            or "calculus" in text.casefold()
+            else [0.0, 1.0]
+            for text in texts
+        ]
 
 
 def test_local_index_searches_russian_and_english_and_reports_file_metadata(tmp_path: Path) -> None:
@@ -92,4 +109,94 @@ def test_priority_curriculum_roadmaps_are_retrievable(
     assert any(
         source["path"] == f"02_Areas/{expected_path}/curriculum.md"
         for source in results
+    )
+
+
+def test_local_embeddings_find_semantic_match_and_cache_document_vectors(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    math = project / "02_Areas" / "Mathematics"
+    physics = project / "02_Areas" / "Physics"
+    math.mkdir(parents=True)
+    physics.mkdir(parents=True)
+    (math / "calculus.md").write_text(
+        "# Differential calculus\n\nDerivatives measure local rates of change.\n",
+        encoding="utf-8",
+    )
+    (physics / "fields.md").write_text(
+        "# Electromagnetic fields\n\nElectric and magnetic fields propagate waves.\n",
+        encoding="utf-8",
+    )
+    provider = FakeEmbeddingProvider()
+    index = KnowledgeIndex(
+        project,
+        tmp_path / "state" / "knowledge.sqlite3",
+        embedding_provider=provider,
+    )
+
+    result = index.refresh_and_search("optimization methods", limit=1)
+    assert result[0]["path"] == "02_Areas/Mathematics/calculus.md"
+    assert len(provider.calls) == 2  # One document batch and one query.
+
+    result = index.refresh_and_search("optimization methods", limit=1)
+    assert result[0]["path"] == "02_Areas/Mathematics/calculus.md"
+    assert len(provider.calls) == 3  # Cached document vectors; only the query is embedded.
+
+
+def test_embeddings_fail_safely_to_lexical_search(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    course = project / "02_Areas" / "Biology"
+    course.mkdir(parents=True)
+    (course / "cells.md").write_text(
+        "# Cell membranes\n\nMembranes regulate the movement of molecules.\n",
+        encoding="utf-8",
+    )
+
+    class OfflineEmbeddingProvider:
+        model = "offline-model"
+
+        def __init__(self) -> None:
+            self.call_count = 0
+
+        def embed(self, texts: list[str]) -> list[list[float]]:
+            self.call_count += 1
+            raise ConnectionError("Ollama is offline")
+
+    provider = OfflineEmbeddingProvider()
+    index = KnowledgeIndex(
+        project,
+        tmp_path / "state" / "knowledge.sqlite3",
+        embedding_provider=provider,
+    )
+    assert index.refresh_and_search("membranes molecules")[0]["path"] == "02_Areas/Biology/cells.md"
+    assert index.refresh_and_search("membranes molecules")
+    assert provider.call_count == 1  # Avoid a slow local timeout on every question.
+
+
+def test_ollama_embedding_provider_rejects_remote_endpoints() -> None:
+    with pytest.raises(ValueError, match="loopback"):
+        OllamaEmbeddingProvider("https://example.com", "embeddinggemma")
+
+
+def test_ollama_embedding_provider_accepts_loopback_without_network_call() -> None:
+    provider = OllamaEmbeddingProvider("http://127.0.0.1:11434", "embeddinggemma")
+    assert provider.model.endswith(":embeddinggemma")
+
+
+def test_ollama_embedding_provider_uses_local_embed_api_without_proxy() -> None:
+    provider = OllamaEmbeddingProvider("http://127.0.0.1:11434", "embeddinggemma")
+    response = MagicMock()
+    response.json.return_value = {"embeddings": [[0.2, 0.8]]}
+    client = MagicMock()
+    client.__enter__.return_value = client
+    client.post.return_value = response
+
+    with patch("httpx.Client", return_value=client) as client_factory:
+        assert provider.embed(["local study text"]) == [[0.2, 0.8]]
+
+    client_factory.assert_called_once()
+    assert client_factory.call_args.kwargs["trust_env"] is False
+    assert client_factory.call_args.kwargs["follow_redirects"] is False
+    client.post.assert_called_once_with(
+        "http://127.0.0.1:11434/api/embed",
+        json={"model": "embeddinggemma", "input": ["local study text"]},
     )

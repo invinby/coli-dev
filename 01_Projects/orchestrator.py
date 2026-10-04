@@ -46,7 +46,7 @@ from urllib.parse import quote, urlsplit
 import httpx
 from dotenv import load_dotenv
 
-from knowledge_index import KnowledgeIndex
+from knowledge_index import KnowledgeIndex, OllamaEmbeddingProvider
 from obsidian_worker import ObsidianWorker
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
@@ -227,6 +227,7 @@ GEMINI_PRO_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini
 OLLAMA_BASE = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
 OLLAMA_CHAT_URL = f"{OLLAMA_BASE}/api/chat"
 OLLAMA_MODEL_RESEARCHER = os.getenv("OLLAMA_RESEARCHER", "qwen2.5-coder:7b")
+OLLAMA_EMBEDDING_MODEL = os.getenv("OLLAMA_EMBEDDING_MODEL", "").strip()
 
 # Таймауты
 HTTP_TIMEOUT = float(os.getenv("HTTP_TIMEOUT", "90"))
@@ -1265,7 +1266,15 @@ class AppState:
 
 
 state = AppState()
-knowledge_index = KnowledgeIndex(Path(__file__).resolve().parent.parent)
+_embedding_provider = None
+if OLLAMA_EMBEDDING_MODEL and _is_loopback_http_url(OLLAMA_BASE):
+    _embedding_provider = OllamaEmbeddingProvider(OLLAMA_BASE, OLLAMA_EMBEDDING_MODEL)
+elif OLLAMA_EMBEDDING_MODEL:
+    logger.warning("Local embeddings disabled because OLLAMA_URL is not a loopback URL")
+knowledge_index = KnowledgeIndex(
+    Path(__file__).resolve().parent.parent,
+    embedding_provider=_embedding_provider,
+)
 
 # ─── Lifespan ──────────────────────────────────────────
 
