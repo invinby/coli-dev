@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from knowledge_index import KnowledgeIndex
 
 
@@ -68,3 +70,26 @@ def test_index_refreshes_changed_and_removed_files_and_ignores_unapproved_roots(
     (cheat_root / "linear-algebra.txt").unlink()
     assert index.refresh_and_search("eigenvectors") == []
     assert index.status()["document_count"] == 0
+
+
+@pytest.mark.parametrize(("query", "expected_path"), [
+    ("derivatives integrals calculus", "Mathematics"),
+    ("pronunciation listening vocabulary", "English"),
+    ("electromagnetic induction", "Physics"),
+    ("DNA genomics gene expression", "Biology"),
+    ("ethology animal behavior", "Zoology"),
+    ("programming concurrency async", "Programming"),
+])
+def test_priority_curriculum_roadmaps_are_retrievable(
+    tmp_path: Path, query: str, expected_path: str
+) -> None:
+    project = Path(__file__).resolve().parent.parent
+    index = KnowledgeIndex(project, tmp_path / "knowledge.sqlite3")
+
+    results = index.refresh_and_search(query, limit=4)
+
+    assert results
+    assert any(
+        source["path"] == f"02_Areas/{expected_path}/curriculum.md"
+        for source in results
+    )
