@@ -52,6 +52,7 @@ enum L10n {
         "lab.force": ("Сила", "Force"),
         "lab.mass": ("Масса", "Mass"),
         "lab.acceleration": ("Ускорение", "Acceleration"),
+        "lab.force3DHint": ("Перетаскивай сцену, чтобы вращать её. Размер блока показывает массу, длина стрелки — силу.", "Drag to orbit the scene. Box size represents mass; arrow length represents force."),
         "lab.buildSentence": ("Собери предложение, нажимая на слова:", "Build the sentence by tapping the words:"),
         "lab.clear": ("Сбросить", "Reset"),
         "lab.selected": ("Твоё предложение", "Your sentence"),

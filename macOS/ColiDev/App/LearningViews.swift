@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import SceneKit
 import WebKit
 
 struct SubjectOverviewView: View {
@@ -428,6 +429,13 @@ private struct ForceLab: View {
 
     var body: some View {
         LabCard {
+            Force3DVisualization(force: force, mass: mass)
+                .frame(height: 190)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .accessibilityLabel(Text(L10n.text("lab.force3DHint", store.language)))
+            Text(L10n.text("lab.force3DHint", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
             HStack(alignment: .center, spacing: 20) {
                 Image(systemName: "shippingbox.fill")
                     .font(.system(size: 42))
@@ -464,6 +472,107 @@ private struct ForceLab: View {
                     .foregroundStyle(.secondary)
             }
             Slider(value: value, in: range, step: 1)
+        }
+    }
+}
+
+private struct Force3DVisualization: View {
+    let force: Double
+    let mass: Double
+    @State private var scene: SCNScene
+
+    init(force: Double, mass: Double) {
+        self.force = force
+        self.mass = mass
+        _scene = State(initialValue: Self.makeScene(force: force, mass: mass))
+    }
+
+    var body: some View {
+        SceneView(scene: scene, options: [.allowsCameraControl])
+            .background(Color(nsColor: .windowBackgroundColor))
+            .onChange(of: force) { _ in updateScene() }
+            .onChange(of: mass) { _ in updateScene() }
+    }
+
+    private static func makeScene(force: Double, mass: Double) -> SCNScene {
+        let scene = SCNScene()
+        scene.background.contents = NSColor.windowBackgroundColor
+
+        let box = SCNBox(width: 1, height: 0.72, length: 0.72, chamferRadius: 0.08)
+        let boxMaterial = SCNMaterial()
+        boxMaterial.diffuse.contents = NSColor.systemBlue
+        boxMaterial.metalness.contents = 0.08
+        boxMaterial.roughness.contents = 0.42
+        box.materials = [boxMaterial]
+        let boxNode = SCNNode(geometry: box)
+        boxNode.name = "mass-block"
+        scene.rootNode.addChildNode(boxNode)
+
+        let ground = SCNBox(width: 4.5, height: 0.06, length: 2.6, chamferRadius: 0.02)
+        ground.firstMaterial?.diffuse.contents = NSColor.tertiaryLabelColor
+        let groundNode = SCNNode(geometry: ground)
+        groundNode.position = SCNVector3(0, -0.04, 0)
+        scene.rootNode.addChildNode(groundNode)
+
+        let arrowColor = NSColor.systemOrange
+
+        let shaft = SCNCylinder(radius: 0.045, height: 1)
+        shaft.firstMaterial?.diffuse.contents = arrowColor
+        let shaftNode = SCNNode(geometry: shaft)
+        shaftNode.name = "force-shaft"
+        scene.rootNode.addChildNode(shaftNode)
+
+        let arrowHead = SCNCone(topRadius: 0, bottomRadius: 0.14, height: 0.28)
+        arrowHead.firstMaterial?.diffuse.contents = arrowColor
+        let arrowHeadNode = SCNNode(geometry: arrowHead)
+        arrowHeadNode.name = "force-head"
+        scene.rootNode.addChildNode(arrowHeadNode)
+
+        let camera = SCNCamera()
+        camera.fieldOfView = 48
+        let cameraNode = SCNNode()
+        cameraNode.camera = camera
+        cameraNode.position = SCNVector3(2.5, 2.0, 4.7)
+        cameraNode.look(at: SCNVector3(0.1, 0.45, 0))
+        scene.rootNode.addChildNode(cameraNode)
+
+        let keyLight = SCNLight()
+        keyLight.type = .directional
+        keyLight.intensity = 850
+        let keyLightNode = SCNNode()
+        keyLightNode.light = keyLight
+        keyLightNode.eulerAngles = SCNVector3(-0.75, 0.7, 0)
+        scene.rootNode.addChildNode(keyLightNode)
+
+        scene.lightingEnvironment.intensity = 0.7
+        update(scene: scene, force: force, mass: mass)
+        return scene
+    }
+
+    private func updateScene() {
+        Self.update(scene: scene, force: force, mass: mass)
+    }
+
+    private static func update(scene: SCNScene, force: Double, mass: Double) {
+        let massScale = CGFloat(0.75 + mass * 0.05)
+        let arrowLength = CGFloat(0.55 + force / 30)
+        let arrowBaseX = -0.65 + 0.58 * massScale
+        let arrowY = 0.36 * massScale
+
+        if let box = scene.rootNode.childNode(withName: "mass-block", recursively: false) {
+            box.scale = SCNVector3(Float(massScale), Float(massScale), Float(massScale))
+            box.position = SCNVector3(-0.65, Float(arrowY), 0)
+        }
+        if let shaft = scene.rootNode.childNode(withName: "force-shaft", recursively: false) {
+            let geometry = SCNCylinder(radius: 0.045, height: arrowLength)
+            geometry.firstMaterial?.diffuse.contents = NSColor.systemOrange
+            shaft.geometry = geometry
+            shaft.eulerAngles.z = -.pi / 2
+            shaft.position = SCNVector3(Float(arrowBaseX + arrowLength / 2), Float(arrowY), 0)
+        }
+        if let head = scene.rootNode.childNode(withName: "force-head", recursively: false) {
+            head.eulerAngles.z = -.pi / 2
+            head.position = SCNVector3(Float(arrowBaseX + arrowLength + 0.12), Float(arrowY), 0)
         }
     }
 }
