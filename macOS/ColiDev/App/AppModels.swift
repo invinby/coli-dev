@@ -166,10 +166,29 @@ private struct TutorRequest: Encodable {
     let systemPrompt: String
     let language: String
     let mode: String
+    let retrievalQuery: String
 
     enum CodingKeys: String, CodingKey {
         case message, language, mode
         case systemPrompt = "system_prompt"
+        case retrievalQuery = "retrieval_query"
+    }
+}
+
+struct TutorSource: Decodable, Identifiable {
+    let id: String
+    let title: String
+    let excerpt: String
+    let retrievedAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, excerpt
+        case retrievedAt = "retrieved_at"
+    }
+
+    var displayRetrievedAt: String {
+        guard let date = ISO8601DateFormatter().date(from: retrievedAt) else { return retrievedAt }
+        return DateFormatter.localizedString(from: date, dateStyle: .short, timeStyle: .short)
     }
 }
 
@@ -179,9 +198,10 @@ private struct TutorEvent: Decodable {
     let provider: String?
     let model: String?
     let durationMS: Int?
+    let sources: [TutorSource]?
 
     enum CodingKeys: String, CodingKey {
-        case type, content, provider, model
+        case type, content, provider, model, sources
         case durationMS = "duration_ms"
     }
 }
@@ -190,6 +210,7 @@ struct TutorCompletion {
     let provider: String
     let model: String
     let durationMS: Int
+    let sources: [TutorSource]
 }
 
 @MainActor
@@ -217,6 +238,7 @@ enum OrchestratorClient {
     static func streamChat(
         message: String,
         systemPrompt: String,
+        retrievalQuery: String,
         language: AppLanguage,
         mode: AIRoutingMode,
         onToken: @MainActor (String) -> Void
@@ -233,7 +255,8 @@ enum OrchestratorClient {
             message: message,
             systemPrompt: systemPrompt,
             language: language.rawValue,
-            mode: mode.rawValue
+            mode: mode.rawValue,
+            retrievalQuery: retrievalQuery
         ))
 
         let (bytes, response) = try await URLSession.shared.bytes(for: request)
@@ -257,7 +280,8 @@ enum OrchestratorClient {
                 completion = TutorCompletion(
                     provider: event.provider ?? "AI",
                     model: event.model ?? "",
-                    durationMS: event.durationMS ?? 0
+                    durationMS: event.durationMS ?? 0,
+                    sources: event.sources ?? []
                 )
             default:
                 // Keep internal debate_log HTML out of the learner-facing chat.
@@ -283,6 +307,7 @@ final class TutorChatModel: ObservableObject {
     @Published private(set) var isSending = false
     @Published private(set) var errorMessage: String?
     @Published private(set) var completionLabel: String?
+    @Published private(set) var retrievedSources: [TutorSource] = []
     private var requestTask: Task<Void, Never>?
 
     let subject: Subject
@@ -303,6 +328,7 @@ final class TutorChatModel: ObservableObject {
 
         errorMessage = nil
         completionLabel = nil
+        retrievedSources = []
         messages.append(TutorMessage(role: .learner, text: question))
         let reply = TutorMessage(role: .tutor, text: "")
         messages.append(reply)
@@ -339,11 +365,13 @@ final class TutorChatModel: ObservableObject {
                 let result = try await OrchestratorClient.streamChat(
                     message: requestMessage,
                     systemPrompt: systemPrompt,
+                    retrievalQuery: "\(subjectName) \(lesson.title) \(question)",
                     language: language,
                     mode: mode,
                     onToken: { [weak self] token in self?.append(token, to: reply.id) }
                 )
                 completionLabel = [result.provider, result.model].filter { !$0.isEmpty }.joined(separator: " · ")
+                retrievedSources = result.sources
             } catch is CancellationError {
                 // Keep a partial answer visible when the learner stops generation.
             } catch {

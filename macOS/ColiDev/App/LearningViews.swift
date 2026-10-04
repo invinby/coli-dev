@@ -518,6 +518,29 @@ private struct TutorChatView: View {
                 if message.role == .tutor, let label = chat.completionLabel, message.id == chat.messages.last?.id {
                     Text(label).font(.caption2).foregroundStyle(.tertiary)
                 }
+                if message.role == .tutor,
+                   message.id == chat.messages.last?.id,
+                   let source = chat.retrievedSources.first {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label(L10n.text("tutor.sources", language), systemImage: "books.vertical")
+                            .font(.caption.weight(.semibold))
+                        Text("\(L10n.text("tutor.retrievedAt", language)): \(source.displayRetrievedAt)")
+                            .font(.caption2).foregroundStyle(.secondary)
+                        ForEach(chat.retrievedSources) { item in
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("[\(item.id)] \(item.title)")
+                                    .font(.caption.weight(.medium))
+                                    .textSelection(.enabled)
+                                Text(item.excerpt)
+                                    .font(.caption2).foregroundStyle(.secondary)
+                                    .lineLimit(4)
+                                    .textSelection(.enabled)
+                            }
+                        }
+                    }
+                    .padding(9)
+                    .background(Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 9))
+                }
             }
             .padding(12)
             .background(message.role == .learner ? Color.accentColor.opacity(0.12) : Color.secondary.opacity(0.09), in: RoundedRectangle(cornerRadius: 14))

@@ -71,6 +71,11 @@ class ObsidianWorker:
         return self._api_key_ok and self._working_url is not None
 
     @property
+    def configured(self) -> bool:
+        """Проверить, задан ли API-ключ, даже если Obsidian пока не запущен."""
+        return self._api_key_ok
+
+    @property
     def base_url(self) -> str | None:
         """Рабочий URL (после авто-подбора)."""
         return self._working_url
@@ -181,6 +186,10 @@ class ObsidianWorker:
         Возвращает JSON-ответ.
         Рейзит ConnectionError с понятным сообщением при ошибке.
         """
+        if self._api_key_ok and not self._working_url:
+            connected = await self.ping()
+            if not connected:
+                self._check_ready()
         self._check_ready()
         url = f"{self._working_url}/{endpoint.lstrip('/')}"
         headers = self._headers()
@@ -247,13 +256,19 @@ class ObsidianWorker:
 
     # ─── Поиск ────────────────────────────────────────
 
-    async def search(self, query: str) -> list[dict[str, Any]]:
-        """Полнотекстовый поиск по vault."""
+    async def search(self, query: str, context_length: int = 200) -> list[dict[str, Any]]:
+        """Полнотекстовый поиск по vault с контекстом вокруг совпадений."""
+        normalized_query = query.strip()
+        if not normalized_query:
+            return []
+
         result = await self._request(
             "POST",
             "search/simple/",
-            json={"query": query},
-            headers={"Content-Type": "application/json"},
+            params={
+                "query": normalized_query,
+                "contextLength": max(40, min(int(context_length), 1000)),
+            },
         )
         return result if isinstance(result, list) else []
 
