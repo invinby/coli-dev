@@ -21,6 +21,17 @@ enum Subject: String, CaseIterable, Identifiable, Hashable {
     var id: String { rawValue }
     var lessonID: String { "intro.\(rawValue)" }
 
+    var starterRoadmapTopic: String {
+        switch self {
+        case .mathematics: return "Coordinates, graphs, functions"
+        case .english: return "Aspect, modal verbs, conditionals"
+        case .physics: return "Forces and Newton's laws"
+        case .biology: return "Cells, membranes, metabolism"
+        case .zoology: return "Habitat, adaptation, behavior"
+        case .programming: return "Conditionals, loops, functions"
+        }
+    }
+
     func title(in language: AppLanguage) -> String {
         L10n.text("subject.\(rawValue)", language)
     }

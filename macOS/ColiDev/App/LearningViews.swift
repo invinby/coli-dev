@@ -70,6 +70,17 @@ struct SubjectOverviewView: View {
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
                                         .fixedSize(horizontal: false, vertical: true)
+                                    if topic.name.english == subject.starterRoadmapTopic {
+                                        Button(action: startLesson) {
+                                            Label {
+                                                Text(L10n.text("roadmap.moduleLesson", store.language))
+                                            } icon: {
+                                                Image(systemName: "play.circle")
+                                            }
+                                        }
+                                        .buttonStyle(.borderless)
+                                        .padding(.top, 3)
+                                    }
                                 }
                                 .padding(14)
                                 .frame(maxWidth: .infinity, alignment: .leading)
