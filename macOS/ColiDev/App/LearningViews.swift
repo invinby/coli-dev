@@ -210,12 +210,29 @@ struct LessonSessionView: View {
                     .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
 
                     Button {
-                        store.markComplete(subject)
+                        if store.isComplete(subject) {
+                            store.recordReview(for: subject)
+                        } else {
+                            store.markComplete(subject)
+                        }
                     } label: {
-                        Label { Text(store.isComplete(subject) ? L10n.text("session.completed", store.language) : L10n.text("session.complete", store.language)) } icon: { Image(systemName: store.isComplete(subject) ? "checkmark.circle.fill" : "checkmark") }
+                        let title = store.hasPendingReview(subject)
+                            ? "session.reviewSaved"
+                            : (store.isComplete(subject)
+                                ? (store.isReviewDue(subject) ? "session.recordReview" : "session.completed")
+                                : "session.complete")
+                        Label {
+                            Text(L10n.text(title, store.language))
+                        } icon: {
+                            Image(systemName: store.isComplete(subject) ? "checkmark.circle.fill" : "checkmark")
+                        }
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(store.isComplete(subject) || !learnerConfirmed)
+                    .disabled(
+                        !learnerConfirmed
+                            || store.hasPendingReview(subject)
+                            || (store.isComplete(subject) && !store.isReviewDue(subject))
+                    )
                     .padding(.bottom, 32)
                 }
             }

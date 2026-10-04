@@ -29,6 +29,7 @@ from starlette.requests import Request
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import orchestrator  # noqa: E402
+from learning_progress import StudyProgressStore  # noqa: E402
 from orchestrator import (
     DebateLog,
     SessionTracker,
@@ -73,6 +74,11 @@ def _reset_session_tracker(monkeypatch, tmp_path):
     })
     monkeypatch.setattr(orchestrator.state, "obsidian", None)
     monkeypatch.setattr(orchestrator.state, "ollama_client", None)
+    monkeypatch.setattr(
+        orchestrator,
+        "study_progress_store",
+        StudyProgressStore(tmp_path / "learning-progress.sqlite3"),
+    )
     monkeypatch.setattr(session_tracker, "_file", tmp_path / "sessions.json")
     monkeypatch.setattr(session_tracker, "max_per_day", 5)
     session_tracker.reset_mode()
@@ -136,6 +142,45 @@ class TestAPIEndpoints:
         assert resp.status_code == 200
         assert "text/html" in resp.headers.get("content-type", "")
         assert "coli-dev" in resp.text
+
+    def test_learning_progress_and_reviews_are_local_and_persistent(self, client):
+        event_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        saved = client.post(
+            "/learning/reviews",
+            json={"event_id": event_id, "lesson_id": "intro.physics", "quality": 4},
+        )
+        assert saved.status_code == 200
+        assert saved.json()["completed"] is True
+        assert saved.json()["interval_days"] == 1
+
+        progress = client.get("/learning/progress")
+        assert progress.status_code == 200
+        assert progress.json()["records"] == [saved.json()]
+        assert progress.json()["due_count"] == 0
+
+        replay = client.post(
+            "/learning/reviews",
+            json={"event_id": event_id, "lesson_id": "intro.physics", "quality": 4},
+        )
+        assert replay.status_code == 200
+        assert replay.json() == saved.json()
+        assert client.get("/learning/progress").json()["records"][0]["review_count"] == 1
+
+    def test_learning_review_rejects_invalid_payload_and_cross_origin_requests(self, client):
+        invalid = client.post(
+            "/learning/reviews",
+            json={
+                "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+                "lesson_id": "../../secrets",
+                "quality": 4,
+            },
+        )
+        assert invalid.status_code == 422
+
+        wrong_origin = client.get(
+            "/learning/progress", headers={"Origin": "https://attacker.example"}
+        )
+        assert wrong_origin.status_code == 403
 
 
 

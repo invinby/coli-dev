@@ -66,6 +66,7 @@ struct ContentView: View {
                 }
             }
         }
+        .task { await store.syncStudyProgress() }
     }
 
     private func open(_ subject: Subject) {
@@ -149,13 +150,25 @@ private struct TodayView: View {
                 Text(L10n.text("home.subjectCount", store.language))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                if store.dueReviewCount > 0 {
+                    Text(L10n.text("home.dueReviews", store.language)
+                        .replacingOccurrences(of: "%@", with: "\(store.dueReviewCount)"))
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(Color.accentColor)
+                }
             }
             Spacer(minLength: 0)
             Button {
-                let next = Subject.allCases.first(where: { !store.isComplete($0) }) ?? .mathematics
+                let next = store.nextDueSubject
+                    ?? Subject.allCases.first(where: { !store.isComplete($0) })
+                    ?? .mathematics
                 open(next)
             } label: {
-                Label { Text(L10n.text("home.continue", store.language)) } icon: { Image(systemName: "arrow.right") }
+                Label {
+                    Text(L10n.text(store.dueReviewCount > 0 ? "home.reviewNow" : "home.continue", store.language))
+                } icon: {
+                    Image(systemName: store.dueReviewCount > 0 ? "arrow.counterclockwise" : "arrow.right")
+                }
             }
             .buttonStyle(.borderedProminent)
         }

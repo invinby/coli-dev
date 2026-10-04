@@ -94,6 +94,63 @@ enum LearningCatalog {
     }
 }
 
+struct StudyReviewEvent: Codable, Identifiable {
+    let id: String
+    let lessonID: String
+    let quality: Int
+
+    var eventID: String { id }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "event_id"
+        case lessonID = "lesson_id"
+        case quality
+    }
+}
+
+struct StudyProgressRecord: Decodable, Identifiable {
+    let lessonID: String
+    let completed: Bool
+    let repetitions: Int
+    let intervalDays: Int
+    let easeFactor: Double
+    let reviewCount: Int
+    let dueAt: String?
+    let lastReviewedAt: String?
+    let updatedAt: String
+
+    var id: String { lessonID }
+    var dueDate: Date? {
+        guard let dueAt else { return nil }
+        return ISO8601DateFormatter().date(from: dueAt)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case lessonID = "lesson_id"
+        case completed, repetitions
+        case intervalDays = "interval_days"
+        case easeFactor = "ease_factor"
+        case reviewCount = "review_count"
+        case dueAt = "due_at"
+        case lastReviewedAt = "last_reviewed_at"
+        case updatedAt = "updated_at"
+    }
+}
+
+struct StudyProgressSnapshot: Decodable {
+    let records: [StudyProgressRecord]
+    let dueCount: Int
+    let nextDueAt: String?
+    let generatedAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case records
+        case dueCount = "due_count"
+        case nextDueAt = "next_due_at"
+        case generatedAt = "generated_at"
+    }
+}
+
 @MainActor
 final class LearningStore: ObservableObject {
     @Published var language: AppLanguage {
@@ -105,6 +162,16 @@ final class LearningStore: ObservableObject {
     @Published private(set) var aiHealth: OrchestratorHealth?
     @Published private(set) var isCheckingAI = false
     @Published private(set) var providerSecretStatuses: [String: ProviderSecretStatus] = [:]
+    @Published private(set) var studyProgress: [String: StudyProgressRecord] = [:]
+    @Published private(set) var dueReviewCount = 0
+    @Published private var pendingStudyReviews: [StudyReviewEvent] {
+        didSet {
+            guard let data = try? JSONEncoder().encode(pendingStudyReviews) else { return }
+            UserDefaults.standard.set(data, forKey: "colidev.pendingStudyReviews")
+        }
+    }
+    private var isSyncingStudyProgress = false
+    private var studyProgressSyncRequested = false
     @Published var aiMode: AIRoutingMode {
         didSet { UserDefaults.standard.set(aiMode.rawValue, forKey: "colidev.aiMode") }
     }
@@ -117,6 +184,12 @@ final class LearningStore: ObservableObject {
         completedLessonIDs = Set(UserDefaults.standard.stringArray(forKey: "colidev.completedLessons") ?? [])
         let savedMode = UserDefaults.standard.string(forKey: "colidev.aiMode")
         aiMode = AIRoutingMode(rawValue: savedMode ?? "") ?? .automatic
+        if let pending = UserDefaults.standard.data(forKey: "colidev.pendingStudyReviews"),
+           let events = try? JSONDecoder().decode([StudyReviewEvent].self, from: pending) {
+            pendingStudyReviews = events
+        } else {
+            pendingStudyReviews = []
+        }
     }
 
     func refreshAIStatus() async {
@@ -156,10 +229,86 @@ final class LearningStore: ObservableObject {
 
     func markComplete(_ subject: Subject) {
         completedLessonIDs.insert(subject.lessonID)
+        queueStudyReview(for: subject)
+    }
+
+    func recordReview(for subject: Subject) {
+        queueStudyReview(for: subject)
+    }
+
+    func isReviewDue(_ subject: Subject) -> Bool {
+        guard let dueDate = studyProgress[subject.lessonID]?.dueDate else { return false }
+        return dueDate <= Date()
+    }
+
+    func hasPendingReview(_ subject: Subject) -> Bool {
+        pendingStudyReviews.contains(where: { $0.lessonID == subject.lessonID })
+    }
+
+    var nextDueSubject: Subject? {
+        let dueRecord = studyProgress.values
+            .filter { ($0.dueDate ?? .distantFuture) <= Date() }
+            .sorted { ($0.dueDate ?? .distantFuture) < ($1.dueDate ?? .distantFuture) }
+            .first
+        guard let lessonID = dueRecord?.lessonID else { return nil }
+        return Subject.allCases.first(where: { $0.lessonID == lessonID })
+    }
+
+    func syncStudyProgress() async {
+        guard !isSyncingStudyProgress else {
+            studyProgressSyncRequested = true
+            return
+        }
+        isSyncingStudyProgress = true
+        defer {
+            isSyncingStudyProgress = false
+            if studyProgressSyncRequested {
+                studyProgressSyncRequested = false
+                Task { await syncStudyProgress() }
+            }
+        }
+
+        while let event = pendingStudyReviews.first {
+            do {
+                let record = try await OrchestratorClient.recordStudyReview(event)
+                studyProgress[event.lessonID] = record
+                if record.completed,
+                   let subject = Subject.allCases.first(where: { $0.lessonID == event.lessonID }) {
+                    completedLessonIDs.insert(subject.lessonID)
+                }
+                pendingStudyReviews.removeAll(where: { $0.id == event.id })
+            } catch {
+                return
+            }
+        }
+
+        do {
+            let snapshot = try await OrchestratorClient.studyProgress()
+            studyProgress = Dictionary(uniqueKeysWithValues: snapshot.records.map { ($0.lessonID, $0) })
+            dueReviewCount = snapshot.records.filter { record in
+                Subject.allCases.contains(where: { $0.lessonID == record.lessonID })
+                    && (record.dueDate ?? .distantFuture) <= Date()
+            }.count
+            for subject in Subject.allCases where studyProgress[subject.lessonID]?.completed == true {
+                completedLessonIDs.insert(subject.lessonID)
+            }
+        } catch {
+            // Keep the local lesson state and queued review events while the backend is offline.
+        }
     }
 
     var completedSubjectCount: Int {
         Subject.allCases.filter(isComplete).count
+    }
+
+    private func queueStudyReview(for subject: Subject) {
+        guard !hasPendingReview(subject) else { return }
+        pendingStudyReviews.append(StudyReviewEvent(
+            id: UUID().uuidString.lowercased(),
+            lessonID: subject.lessonID,
+            quality: 4
+        ))
+        Task { await syncStudyProgress() }
     }
 }
 
@@ -335,6 +484,35 @@ enum OrchestratorClient {
             throw ClientError.unavailable
         }
         return try JSONDecoder().decode(OrchestratorHealth.self, from: data)
+    }
+
+    static func studyProgress() async throws -> StudyProgressSnapshot {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/learning/progress") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 8
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(StudyProgressSnapshot.self, from: data)
+    }
+
+    static func recordStudyReview(_ event: StudyReviewEvent) async throws -> StudyProgressRecord {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/learning/reviews") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 8
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(event)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(StudyProgressRecord.self, from: data)
     }
 
     static func providerSecretStatuses() async throws -> [ProviderSecretStatus] {

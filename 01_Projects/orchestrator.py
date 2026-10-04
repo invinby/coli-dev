@@ -47,10 +47,11 @@ import httpx
 from dotenv import load_dotenv
 
 from knowledge_index import KnowledgeIndex, OllamaEmbeddingProvider
+from learning_progress import StudyProgressStore, default_database_path
 from obsidian_worker import ObsidianWorker
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -456,6 +457,16 @@ class ChatRequest(BaseModel):
     retrieval_query: str | None = None
     use_web_search: bool = False
     grounding_age_confirmed: bool = False
+
+
+class StudyReviewRequest(BaseModel):
+    event_id: uuid.UUID
+    lesson_id: str = Field(
+        min_length=1,
+        max_length=120,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+    )
+    quality: int = Field(strict=True, ge=0, le=5)
 
 
 class HealthResponse(BaseModel):
@@ -1276,12 +1287,14 @@ knowledge_index = KnowledgeIndex(
     Path(__file__).resolve().parent.parent,
     embedding_provider=_embedding_provider,
 )
+study_progress_store = StudyProgressStore(default_database_path())
 
 # ─── Lifespan ──────────────────────────────────────────
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await asyncio.to_thread(study_progress_store.initialize)
     await asyncio.to_thread(_load_provider_secrets)
     state.http_client = httpx.AsyncClient(
         timeout=httpx.Timeout(HTTP_TIMEOUT),
@@ -1835,6 +1848,28 @@ async def reset_session():
     session_tracker.reset_mode()
     logger.info("Session mode reset to online")
     return {"status": "ok", "mode": "online"}
+
+
+@app.get("/learning/progress")
+async def get_learning_progress(request: Request):
+    """Return local lesson completion and spaced-repetition scheduling data."""
+    _require_local_settings_request(request)
+    return await asyncio.to_thread(study_progress_store.get_progress)
+
+
+@app.post("/learning/reviews")
+async def record_learning_review(payload: StudyReviewRequest, request: Request):
+    """Record one idempotent review grade and calculate its next due date."""
+    _require_local_settings_request(request)
+    try:
+        return await asyncio.to_thread(
+            study_progress_store.record_review,
+            str(payload.event_id),
+            payload.lesson_id,
+            payload.quality,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
 
 
 # ─── Streaming Chat (Consilium) ────────────────────────
