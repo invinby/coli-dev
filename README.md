@@ -1,8 +1,8 @@
-# 🧬 coli-dev
+# ColiDev
 
-**Гибридная ИИ-экосистема для изучения Python Backend**
+**Гибридная macOS-платформа для глубокого изучения предметов с ИИ-тьютором.**
 
-AI-ассистенты для коддинга: Kimi K3 (Kimi Code), Gemini 3.5 Flash (Claude Code) и полный консилиум.
+Этот репозиторий объединяет существующий Python/FastAPI-оркестратор и ранний нативный SwiftUI-клиент для обучения. Продукт ещё в разработке: текущие функции и ограничения описаны в [README macOS-клиента](macOS/ColiDev/README.md) и [плане проекта](project-plan/README.md).
 
 ---
 
@@ -119,4 +119,4 @@ python check_all.py       # Проверка конфигурации
 
 ## Native macOS learning app (early preview)
 
-A SwiftUI app project now lives in `macOS/ColiDev`. On a Mac with Xcode, open `macOS/ColiDev/ColiDev.xcodeproj` and run the `ColiDev` scheme. The first slice includes a bilingual local lesson catalog and interactive activities for six subjects. It is not yet connected to the Python orchestrator, cloud/local AI, RAG, Obsidian, NotebookLM, or video services; see `macOS/ColiDev/README.md` for the precise boundary.
+A SwiftUI app lives in macOS/ColiDev. On a Mac with Xcode, open the Xcode project and run the ColiDev scheme. The first slice includes a bilingual lesson catalog, interactive activities for six subjects, and a lesson-aware RU/EN tutor with automatic and local-only routing through the Python orchestrator. Build and runtime verification on macOS remain outstanding. RAG, direct Obsidian, NotebookLM, video, and 3D integration remain future work; see the macOS app README for current boundaries.

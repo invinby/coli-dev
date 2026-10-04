@@ -240,6 +240,45 @@ private struct SettingsView: View {
                 .pickerStyle(.segmented)
             }
             Section {
+                Picker(selection: $store.aiMode, label: Text(L10n.text("settings.aiRoute", store.language))) {
+                    Text(L10n.text("settings.aiAuto", store.language)).tag(AIRoutingMode.automatic)
+                    Text(L10n.text("settings.aiLocal", store.language)).tag(AIRoutingMode.localOnly)
+                }
+                .pickerStyle(.segmented)
+                LabeledContent {
+                    Text(LearningStore.orchestratorBaseURL).font(.callout.monospaced())
+                } label: {
+                    Text(L10n.text("settings.aiAddress", store.language))
+                }
+                HStack {
+                    if store.isCheckingAI && store.aiHealth == nil {
+                        ProgressView().controlSize(.small)
+                        Text(L10n.text("settings.aiChecking", store.language)).foregroundStyle(.secondary)
+                    } else if let health = store.aiHealth {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Label(L10n.text("settings.aiConnected", store.language), systemImage: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                            Text(routeDescription(for: health))
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    } else {
+                        Label(L10n.text("settings.aiOffline", store.language), systemImage: "wifi.slash")
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button(L10n.text("settings.aiRefresh", store.language)) {
+                        Task { await store.refreshAIStatus() }
+                    }
+                }
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(L10n.text("settings.aiLaunch", store.language)).font(.caption.weight(.semibold))
+                    Text("bash start_v4.sh").font(.callout.monospaced())
+                    Text(L10n.text("settings.aiPrivacy", store.language)).font(.caption).foregroundStyle(.secondary)
+                }
+            } header: {
+                Text(L10n.text("settings.aiTitle", store.language))
+            }
+            Section {
                 Label { Text(L10n.text("settings.localBody", store.language)) } icon: { Image(systemName: "internaldrive") }
                     .foregroundStyle(.secondary)
             } header: {
@@ -249,10 +288,20 @@ private struct SettingsView: View {
                 LabeledContent { Text(L10n.text("settings.preview", store.language)) } label: { Text(L10n.text("settings.version", store.language)) }
             }
         }
+        .task { await store.refreshAIStatus() }
         .formStyle(.grouped)
         .padding(24)
         .frame(maxWidth: 720, alignment: .leading)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .navigationTitle(Text(L10n.text("settings.title", store.language)))
+    }
+
+    private func routeDescription(for health: OrchestratorHealth) -> String {
+        if store.aiMode == .localOnly {
+            return L10n.text(health.hasLocalModel ? "settings.aiLocalRoute" : "settings.aiNoLocal", store.language)
+        }
+        if health.hasCloudSession { return L10n.text("settings.aiOnlineRoute", store.language) }
+        if health.hasLocalModel { return L10n.text("settings.aiLocalRoute", store.language) }
+        return L10n.text("settings.aiNoRoute", store.language)
     }
 }

@@ -38,7 +38,7 @@ from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 from dotenv import load_dotenv
@@ -184,6 +184,8 @@ class ChatRequest(BaseModel):
     message: str
     system_prompt: str = "You are a concise Python mentor. Answer briefly, with code examples."
     model: str | None = None
+    language: Literal["ru", "en"] = "ru"
+    mode: Literal["auto", "local"] = "auto"
 
 
 class HealthResponse(BaseModel):
@@ -468,9 +470,31 @@ class ConsiliumCloudError(Exception):
 class ConsiliumEngine:
     """Двухуровневый консилиум для обработки запроса пользователя."""
 
-    def __init__(self, http_client: httpx.AsyncClient) -> None:
+    def __init__(self, http_client: httpx.AsyncClient, language: str = "ru") -> None:
         self.http = http_client
+        self.language = language if language in {"ru", "en"} else "ru"
         self.log = DebateLog()
+
+    @property
+    def output_language(self) -> str:
+        return "Russian" if self.language == "ru" else "English"
+
+    @property
+    def language_system(self) -> str:
+        if self.language == "en":
+            return (
+                "You are a helpful, careful learning assistant. Answer only in English. "
+                "Be accurate, clear, and explain concepts at the learner's level. "
+                "Use Python code fences when code is needed."
+            )
+        return (
+            "Ты — полезный и внимательный учебный ИИ-помощник. Отвечай только на русском языке. "
+            "Будь точным, понятным и объясняй материал на уровне ученика. "
+            "Если нужен код на Python — используй блоки кода."
+        )
+
+    def agent_system(self, task_prompt: str = "") -> str:
+        return f"{self.language_system}\n\n{task_prompt}" if task_prompt else self.language_system
 
     async def run(self, message: str, system_prompt: str) -> tuple[str, DebateLog]:
         """Запустить полный цикл консилиума.
@@ -496,18 +520,15 @@ class ConsiliumEngine:
                 self.log.add("consilium", "qwen",
                              f"[ФОЛБЕК] Консилиум не завершился. Ответ от локальной модели:\n{final_answer[:300]}...")
             except Exception:
-                final_answer = "⚠️ Консилиум не смог обработать запрос. Попробуйте ещё раз или переключитесь на локальный режим."
+                final_answer = (
+                    "⚠️ Консилиум не смог обработать запрос. Попробуйте ещё раз или переключитесь на локальный режим."
+                    if self.language == "ru" else
+                    "⚠️ The tutor could not process this request. Try again or switch to the local route."
+                )
 
         return final_answer, self.log
 
     # ─── УРОВЕНЬ 1: Генераторы + Верховный Судья (Kimi K3) ──
-
-    # ПРИНУДИТЕЛЬНЫЙ system_prompt на русском для всех агентов консилиума
-    RUSSIAN_SYSTEM = (
-        "Ты — русскоязычный ИИ-ассистент. Отвечай ИСКЛЮЧИТЕЛЬНО на русском языке, "
-        "даже если пользователь пишет на английском. Будь полезным, точным и понятным. "
-        "Если нужен код — используй формат ```python ... ```."
-    )
 
     async def _run_cloud_code(self, message: str, system_prompt: str) -> str:
         """Параллельный опрос 3 генераторов + судейство Gemini Pro.
@@ -519,10 +540,11 @@ class ConsiliumEngine:
 
         # 1. Параллельные запросы к трём генераторам
         t0 = datetime.now(timezone.utc)
-        gemini_flash_task = self._ask_gemini(message, self.RUSSIAN_SYSTEM,
+        agent_system = self.agent_system(system_prompt)
+        gemini_flash_task = self._ask_gemini(message, agent_system,
                                              GEMINI_FLASH_URL, "gemini-flash")
-        kimi_task = self._ask_kimi(message, self.RUSSIAN_SYSTEM, "kimi")
-        ollama_task = self._ask_ollama(message, self.RUSSIAN_SYSTEM, "ollama-gen")
+        kimi_task = self._ask_kimi(message, agent_system, "kimi")
+        ollama_task = self._ask_ollama(message, agent_system, "ollama-gen")
 
         flash_result, kimi_result, ollama_result = await asyncio.gather(
             gemini_flash_task, kimi_task, ollama_task, return_exceptions=True
@@ -549,11 +571,11 @@ class ConsiliumEngine:
             f"Черновик Gemini 2.0 Flash:\n{flash_draft}\n\n"
             f"Черновик Kimi K3:\n{kimi_draft}\n\n"
             f"Черновик Ollama (Qwen 2.5 Coder):\n{ollama_draft}\n\n"
-            "Вердикт (единая облачная позиция). ОТВЕЧАЙ НА РУССКОМ ЯЗЫКЕ:"
+            f"Final verdict in {self.output_language}:"
         )
 
         t1 = datetime.now(timezone.utc)
-        cloud_position = await self._ask_gemini(judge_prompt, self.RUSSIAN_SYSTEM,
+        cloud_position = await self._ask_gemini(judge_prompt, self.agent_system(system_prompt),
                                                 GEMINI_PRO_URL, "judge")
         judge_duration = int((datetime.now(timezone.utc) - t1).total_seconds() * 1000)
 
@@ -591,9 +613,9 @@ class ConsiliumEngine:
             "4) Безопасность (нет SQL-инъекций, XSS, hardcoded secrets)\n"
             "5) Читаемость и документацию\n\n"
             f"Облачная позиция Cloud Code (от Kimi K3):\n{cloud_position}\n\n"
-            "Твой критический анализ (на русском):"
+            f"Critical review in {self.output_language}:"
         )
-        freebuff_review = await self._ask_ollama(freebuff_prompt, self.RUSSIAN_SYSTEM, "freebuff")
+        freebuff_review = await self._ask_ollama(freebuff_prompt, self.agent_system(system_prompt), "freebuff")
         fb_duration = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
 
         # 2. Qwen 2.5 Coder 7B: мгновенная верификация синтаксиса (локально)
@@ -603,24 +625,25 @@ class ConsiliumEngine:
             "Проверь синтаксис и логику кода из облачной позиции. "
             "Выдай краткий вердикт: ✅ корректно или ❌ ошибки (укажи какие).\n\n"
             f"Код:\n{cloud_position[:1500]}\n\n"
-            "Вердикт (на русском, 2-3 предложения):"
+            f"Verdict in {self.output_language} (2-3 sentences):"
         )
-        qwen_verify = await self._ask_ollama(qwen_verify_prompt, self.RUSSIAN_SYSTEM, "qwen")
+        qwen_verify = await self._ask_ollama(qwen_verify_prompt, self.agent_system(system_prompt), "qwen")
         qw_duration = int((datetime.now(timezone.utc) - t1).total_seconds() * 1000)
 
         # 3. Финальный синтез
         t2 = datetime.now(timezone.utc)
         consensus_prompt = (
-            "Ты — координатор консилиума coli-dev v4.0. У тебя есть:\n\n"
-            f"1. Эталонная позиция от Kimi K3 (Верховный Судья):\n{cloud_position}\n\n"
-            f"2. Критический обзор Freebuff:\n{freebuff_review}\n\n"
-            f"3. Верификация Qwen 2.5 Coder 7B (локально):\n{qwen_verify}\n\n"
-            f"Исходный запрос пользователя: {message}\n\n"
-            "Синтезируй единый, скоординированный, чистый ответ на русском языке. "
-            "Ответ должен быть полезным, точным и понятным. Если нужен код — используй "
-            "формат ```python ... ```. Будь лаконичен, но не жертвуй качеством."
+            "You are the coli-dev learning tutor coordinator. Consider the expert drafts and "
+            "the learner's question below.\n\n"
+            f"1. Main model's position:\n{cloud_position}\n\n"
+            f"2. Critical review:\n{freebuff_review}\n\n"
+            f"3. Local verification:\n{qwen_verify}\n\n"
+            f"Learner's question: {message}\n\n"
+            f"Synthesize one clear, coordinated answer in {self.output_language}. "
+            "Be useful, accurate, and understandable. Use code fences when needed. "
+            "Be concise without sacrificing quality."
         )
-        final_answer = await self._ask_gemini(consensus_prompt, self.RUSSIAN_SYSTEM,
+        final_answer = await self._ask_gemini(consensus_prompt, self.agent_system(system_prompt),
                                                GEMINI_FLASH_URL, "consensus")
         consensus_duration = int((datetime.now(timezone.utc) - t2).total_seconds() * 1000)
 
@@ -681,22 +704,27 @@ class ConsiliumEngine:
         t0 = datetime.now(timezone.utc)
 
         local_prompt = (
-            f"{system_prompt}\n\n"
-            "Ты — Digital Twin Freebuff, локальный инженер-критик на базе Qwen 2.5. "
-            "Отвечай на русском языке, давай качественные объяснения и примеры кода. "
-            "Будь полезным, точным и лаконичным.\n\n"
-            f"Запрос пользователя: {message}"
+            "You are the local learning assistant powered by Ollama. "
+            f"Answer in {self.output_language}; explain carefully with useful examples. "
+            "Be accurate and concise.\n\n"
+            f"Tutor guidance: {system_prompt}\n\n"
+            f"Learner question: {message}"
         )
 
         try:
-            response = await self._ask_ollama(local_prompt, self.RUSSIAN_SYSTEM, "qwen")
+            response = await self._ask_ollama(local_prompt, self.language_system, "qwen")
             duration = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
             self.log.add("consilium", "qwen",
                          f"[ЛОКАЛЬНЫЙ РЕЖИМ] Digital Twin ответил ({len(response)} символов)", duration)
             return response, self.log
         except Exception as exc:
             logger.error("Local mode failed", extra={"error": str(exc)[:200]})
-            return "⚠️ Локальный режим недоступен. Проверьте Ollama.", self.log
+            error = (
+                "⚠️ Локальный режим недоступен. Проверьте Ollama."
+                if self.language == "ru" else
+                "⚠️ Local mode is unavailable. Check the configured Ollama model."
+            )
+            return error, self.log
 
     # ─── HTTP-запросы ↓ ─────────────────────────────────
 
@@ -838,7 +866,7 @@ class ConsiliumEngine:
         )
 
         try:
-            qwen_response = await self._ask_ollama(qwen_prompt, self.RUSSIAN_SYSTEM, "qwen")
+            qwen_response = await self._ask_ollama(qwen_prompt, self.language_system, "qwen")
             return qwen_response
         except Exception as exc:
             logger.error("Qwen researcher failed", extra={"error": str(exc)[:150]})
@@ -874,7 +902,7 @@ class ConsiliumEngine:
     async def _fallback_local(self, message: str, system_prompt: str) -> str:
         """Фолбек к локальной модели при полном отказе консилиума."""
         prompt = f"{system_prompt}\n\n{message}"
-        return await self._ask_ollama(prompt, self.RUSSIAN_SYSTEM, "fallback")
+        return await self._ask_ollama(prompt, self.language_system, "fallback")
 
 
 # ─── Application state ─────────────────────────────────
@@ -1036,19 +1064,13 @@ async def _check_network() -> bool:
                 params={"key": GEMINI_KEY},
                 timeout=NET_CHECK_TIMEOUT,
             )
-            if resp.status_code < 500:
+            if resp.status_code == 200:
                 logger.debug("Network check: Google Gemini ONLINE")
                 return True
         except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError):
             pass
-    # Если есть Ollama — считаем что сеть доступна
-    try:
-        resp = await state.http_client.get(f"{OLLAMA_BASE}/api/version", timeout=2)
-        if resp.status_code == 200:
-            logger.debug("Network check: Ollama LOCAL")
-            return True
-    except Exception:
-        pass
+    # Ollama проверяется отдельно. Наличие локальной модели не означает,
+    # что облачные агенты доступны; иначе авто-маршрут зря запускал бы консилиум.
     logger.debug("Network check: OFFLINE")
     return False
 
@@ -1200,10 +1222,13 @@ async def chat_stream(request: Request, req: ChatRequest):
 
     Если лимит сессий исчерпан → автономный локальный режим (Qwen 3).
     """
+    if req.mode == "local":
+        logger.info("Stream → USER_SELECTED_LOCAL", extra={"mode": "local"})
+        return await _handle_local_stream(req)
+
     state.online = await _check_network()
 
-    # Определяем режим: всегда локальный (Ollama)
-    # Если сеть есть И сессии доступны → пробуем консилиум
+    # Автоматический маршрут: консилиум при доступной сети/квоте, иначе Ollama.
     if state.online and session_tracker.can_start_session():
         try:
             session_tracker.start_session()
@@ -1214,14 +1239,14 @@ async def chat_stream(request: Request, req: ChatRequest):
             logger.warning("Consilium failed, falling back to LOCAL", extra={"error": str(exc)[:100]})
             session_tracker.reset_mode()
 
-    logger.info("Stream → FORCED CLOUD KIMI K3 (Digital Twin Qwen 3)",
+    logger.info("Stream → LOCAL (offline or automatic fallback)",
                  extra={"session_count": session_tracker.current, "mode": "local"})
     return await _handle_local_stream(req)
 
 
 async def _handle_consilium_stream(req: ChatRequest) -> StreamingResponse:
     """Обработка через двухуровневый консилиум."""
-    engine = ConsiliumEngine(state.http_client)
+    engine = ConsiliumEngine(state.http_client, req.language)
     answer, debate_log = await engine.run(req.message, req.system_prompt)
     debate_html = debate_log.to_html()
 
@@ -1238,7 +1263,7 @@ async def _handle_consilium_stream(req: ChatRequest) -> StreamingResponse:
 
 async def _handle_local_stream(req: ChatRequest) -> StreamingResponse:
     """Обработка через локальный Digital Twin (Qwen 3)."""
-    engine = ConsiliumEngine(state.http_client)
+    engine = ConsiliumEngine(state.http_client, req.language)
     answer, debate_log = await engine.run_local(req.message, req.system_prompt)
     debate_html = debate_log.to_html()
 

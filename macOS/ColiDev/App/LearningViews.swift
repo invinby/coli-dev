@@ -8,6 +8,7 @@ struct LessonSessionView: View {
     @State private var selectedAnswer: Int?
     @State private var learnerConfirmed = false
     @State private var reflection = ""
+    @State private var showingTutor = false
 
     private var content: LessonContent {
         LearningCatalog.lesson(for: subject, language: store.language)
@@ -33,6 +34,11 @@ struct LessonSessionView: View {
                         .foregroundStyle(.secondary)
                 }
                 .padding(.top, 24)
+
+                Button { showingTutor = true } label: {
+                    Label(L10n.text("tutor.title", store.language), systemImage: "sparkles")
+                }
+                .buttonStyle(.borderedProminent)
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text(L10n.text("session.goal", store.language))
@@ -96,6 +102,11 @@ struct LessonSessionView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear { learnerConfirmed = store.isComplete(subject) }
         .navigationTitle(Text(subject.title(in: store.language)))
+        .sheet(isPresented: $showingTutor) {
+            TutorChatView(subject: subject, lesson: content, language: store.language, mode: store.aiMode)
+                .environmentObject(store)
+                .frame(minWidth: 680, minHeight: 520)
+        }
     }
 
     private var quizCard: some View {
@@ -389,5 +400,149 @@ private struct ConditionalLab: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(.background, in: RoundedRectangle(cornerRadius: 12))
         }
+    }
+}
+
+
+private struct TutorChatView: View {
+    @EnvironmentObject private var store: LearningStore
+    @StateObject private var chat: TutorChatModel
+    @State private var draft = ""
+    let language: AppLanguage
+
+    init(subject: Subject, lesson: LessonContent, language: AppLanguage, mode: AIRoutingMode) {
+        self.language = language
+        _chat = StateObject(wrappedValue: TutorChatModel(subject: subject, lesson: lesson, language: language, mode: mode))
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(L10n.text("tutor.title", language)).font(.title2.weight(.semibold))
+                    Text(L10n.text("tutor.subtitle", language)).font(.subheadline).foregroundStyle(.secondary)
+                }
+                Spacer()
+                if store.isCheckingAI && store.aiHealth == nil {
+                    ProgressView().controlSize(.small)
+                } else if let health = store.aiHealth {
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Label(L10n.text("settings.aiConnected", language), systemImage: "checkmark.circle.fill")
+                            .font(.caption).foregroundStyle(.green)
+                        Text(routeDescription(for: health))
+                            .font(.caption2).foregroundStyle(.secondary)
+                            .multilineTextAlignment(.trailing)
+                    }
+                } else {
+                    Label(L10n.text("settings.aiOffline", language), systemImage: "wifi.slash")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .padding(20)
+
+            Divider()
+
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 12) {
+                        if chat.messages.isEmpty {
+                            Text(L10n.text("tutor.empty", language))
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, minHeight: 220)
+                        }
+                        ForEach(chat.messages) { message in
+                            messageBubble(message)
+                                .id(message.id)
+                        }
+                        if let error = chat.errorMessage {
+                            Label(error, systemImage: "exclamationmark.triangle.fill")
+                                .font(.callout).foregroundStyle(.orange)
+                        }
+                    }
+                    .padding(20)
+                }
+                .onChange(of: chat.messages.count) { _ in
+                    if let last = chat.messages.last { proxy.scrollTo(last.id, anchor: .bottom) }
+                }
+                .onChange(of: chat.messages.last?.text) { _ in
+                    if let last = chat.messages.last { proxy.scrollTo(last.id, anchor: .bottom) }
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text(L10n.text(chat.mode == .localOnly ? "tutor.localPrivacy" : "tutor.privacy", language))
+                    .font(.caption).foregroundStyle(.secondary)
+                if store.aiHealth == nil {
+                    Text(L10n.text("tutor.unavailable", language))
+                        .font(.caption.monospaced()).foregroundStyle(.secondary)
+                } else if chat.mode == .localOnly && store.aiHealth?.hasLocalModel != true {
+                    Text(L10n.text("tutor.localUnavailable", language))
+                        .font(.caption).foregroundStyle(.orange)
+                }
+                HStack(alignment: .bottom, spacing: 10) {
+                    TextField(L10n.text("tutor.placeholder", language), text: $draft, axis: .vertical)
+                        .textFieldStyle(.roundedBorder)
+                        .lineLimit(1...4)
+                        .onSubmit(send)
+                        .disabled(chat.isSending || !canSend)
+                    if chat.isSending {
+                        Button(action: chat.cancel) {
+                            Label(L10n.text("tutor.stop", language), systemImage: "stop.fill")
+                        }
+                        .buttonStyle(.bordered)
+                    } else {
+                        Button(action: send) {
+                            Label(L10n.text("tutor.send", language), systemImage: "arrow.up.circle.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !canSend)
+                    }
+                }
+            }
+            .padding(16)
+            .background(Color(nsColor: .windowBackgroundColor))
+        }
+        .task { await store.refreshAIStatus() }
+    }
+
+    @ViewBuilder
+    private func messageBubble(_ message: TutorMessage) -> some View {
+        HStack {
+            if message.role == .learner { Spacer(minLength: 50) }
+            VStack(alignment: .leading, spacing: 5) {
+                Text(L10n.text(message.role == .learner ? "tutor.learner" : "tutor.assistant", language))
+                    .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                Text(message.text.isEmpty && chat.isSending ? "…" : message.text)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if message.role == .tutor, let label = chat.completionLabel, message.id == chat.messages.last?.id {
+                    Text(label).font(.caption2).foregroundStyle(.tertiary)
+                }
+            }
+            .padding(12)
+            .background(message.role == .learner ? Color.accentColor.opacity(0.12) : Color.secondary.opacity(0.09), in: RoundedRectangle(cornerRadius: 14))
+            if message.role == .tutor { Spacer(minLength: 50) }
+        }
+    }
+
+    private var canSend: Bool {
+        guard let health = store.aiHealth else { return false }
+        return chat.mode == .automatic ? health.hasAutomaticRoute : health.hasLocalModel
+    }
+
+    private func routeDescription(for health: OrchestratorHealth) -> String {
+        if store.aiMode == .localOnly {
+            return L10n.text(health.hasLocalModel ? "settings.aiLocalRoute" : "settings.aiNoLocal", language)
+        }
+        if health.hasCloudSession { return L10n.text("settings.aiOnlineRoute", language) }
+        if health.hasLocalModel { return L10n.text("settings.aiLocalRoute", language) }
+        return L10n.text("settings.aiNoRoute", language)
+    }
+
+    private func send() {
+        guard canSend, !chat.isSending else { return }
+        let message = draft
+        draft = ""
+        chat.send(message)
     }
 }
