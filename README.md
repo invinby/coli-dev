@@ -116,3 +116,7 @@ bash start_v4.sh          # Консилиум + API
 # Тесты
 python check_all.py       # Проверка конфигурации
 ```
+
+## Native macOS learning app (early preview)
+
+A SwiftUI app project now lives in `macOS/ColiDev`. On a Mac with Xcode, open `macOS/ColiDev/ColiDev.xcodeproj` and run the `ColiDev` scheme. The first slice includes a bilingual local lesson catalog and interactive activities for six subjects. It is not yet connected to the Python orchestrator, cloud/local AI, RAG, Obsidian, NotebookLM, or video services; see `macOS/ColiDev/README.md` for the precise boundary.

@@ -27,3 +27,8 @@ Thumbs.db
 
 # Obsidian vault
 .trash/
+
+# Xcode user/build artifacts
+DerivedData/
+*.xcuserstate
+xcuserdata/
