@@ -81,4 +81,19 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 - Добавлен `keyring>=25.0.0`; на macOS backend принудительно использует официальный `keyring.backends.macOS.Keyring`, а не любой настроенный keyring backend. Gemini, Kimi и Obsidian читаются из Keychain при старте; `.env` используется только как fallback.
 - Добавлены loopback-only GET/PUT/DELETE маршруты для статуса, сохранения и удаления ключей. Они не возвращают секрет, не логируют request body, проверяют Origin и обновляют действующие Gemini/Kimi globals и Obsidian worker без перезапуска.
 - SwiftUI Settings получил RU/EN SecureField, источник статуса и сохранение/удаление Keychain-копии. Ключ отправляется лишь локальному backend; UI не отображает его после сохранения. В документации описан `.env` fallback.
-- Regression tests покрывают приоритет Keychain над окружением, отсутствие секрета в ответе и ошибках валидации, удаление с fallback, loopback/Origin guard и статус источника. Чистый Windows-venv с установленными только `requirements-test.txt` прошёл 55 backend-тестов; осталось известное предупреждение Starlette/httpx. macOS Keychain реальной учётной записи пока не трогали, а свежий Xcode/Keychain-runner CI ожидается.
+- Regression tests покрывают приоритет Keychain над окружением, отсутствие секрета в ответе и ошибках валидации, удаление с fallback, loopback/Origin guard и статус источника. Чистый Windows-venv с установленными только `requirements-test.txt` прошёл 55 backend-тестов; осталось известное предупреждение Starlette/httpx. GitHub Actions run 37232564929 зелёный: backend suite, импорт `keyring.backends.macOS.Keyring` на Mac и Xcode build на macOS 15 / Xcode 16.4 прошли. Реальный пользовательский Keychain и запуск приложения на Mac в этом окружении не проверялись.
+
+### Продолжение реализации, 2026-10-05 — Loopback-защита Local-only
+
+- Добавлена проверка Ollama URL: разрешены только HTTP(S) localhost и loopback IPv4/IPv6 без userinfo/query/fragment. Проверка стоит и в `/health`, и перед каждым Ollama-запросом; LAN, wildcard и домены получают отказ до исходящего HTTP-запроса.
+- Health возвращает `ollama_endpoint_local`; SwiftUI показывает предупреждение и отключает отправку Local-only, если endpoint не подтверждён как этот Mac. RU/EN объяснение обновлено.
+- Тесты проверяют допустимые loopback URL, блокировку LAN/wildcard/удалённых URL и отсутствие сетевого вызова. В чистом Windows-venv прошли 64 теста; предупреждение совместимости Starlette/httpx остаётся. Свежий macOS CI ещё не запускался; живой Ollama и поведение на пользовательском Mac не проверялись.
+- Ollama переведён на отдельный `httpx.AsyncClient(trust_env=False)`, чтобы переменные proxy окружения не увели loopback-запрос наружу. Obsidian URL также ограничен loopback до startup ping/key-send; remote URL блокируется при сохранении ключа, а remote search пропускается. `/health` сообщает локальность обоих endpoints, SwiftUI показывает предупреждения.
+- Повторный прогон после границы Obsidian завершился: 66 backend-тестов прошли, 1 известное Starlette/httpx deprecation warning. В новый CI нужно включить macOS compile и проверку Keychain backend; фактическая работа внешних сервисов и пользовательского Keychain всё ещё не проверены.
+
+### Повторная проверка loopback-защиты — 2026-10-05
+
+- Добавлен отдельный регрессионный тест: при удалённом `OBSIDIAN_URL` backend не создаёт Obsidian worker на старте, даже если настроен API-ключ.
+- Проверка URL теперь снимает не больше одной завершающей точки с hostname; тестами покрыты `localhost.`, двойная точка, LAN/wildcard, userinfo, неверный порт и query.
+- Полный `pytest 01_Projects -q` после этих изменений: 71 passed, одно известное предупреждение Starlette/httpx о будущей замене тестового транспорта. `compileall` и `git diff --check` прошли.
+- Текущий CI workflow уже проверяет полный backend и собирает SwiftUI на GitHub-hosted macOS 15 / Xcode 16.4; запуск свежего CI ожидает push этого коммита. Локальный Windows прогон не подтверждает пользовательский macOS Keychain, живой Ollama/Obsidian или запуск `.app` на Mac.

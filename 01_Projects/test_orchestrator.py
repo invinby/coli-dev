@@ -63,12 +63,16 @@ def _reset_session_tracker(monkeypatch, tmp_path):
     monkeypatch.setattr(orchestrator, "GEMINI_KEY", "test-gemini-key")
     monkeypatch.setattr(orchestrator, "KIMI_KEY", "test-kimi-key")
     monkeypatch.setattr(orchestrator, "OBSIDIAN_API_KEY", "")
+    monkeypatch.setattr(orchestrator, "OBSIDIAN_URL", "http://127.0.0.1:27123")
+    monkeypatch.setattr(orchestrator, "OLLAMA_BASE", "http://127.0.0.1:11434")
+    monkeypatch.setattr(orchestrator, "OLLAMA_CHAT_URL", "http://127.0.0.1:11434/api/chat")
     monkeypatch.setattr(orchestrator, "_ENV_PROVIDER_VALUES", {
         "GEMINI_API_KEY": "test-gemini-key",
         "KIMI_API_KEY": "test-kimi-key",
         "OBSIDIAN_API_KEY": "",
     })
     monkeypatch.setattr(orchestrator.state, "obsidian", None)
+    monkeypatch.setattr(orchestrator.state, "ollama_client", None)
     monkeypatch.setattr(session_tracker, "_file", tmp_path / "sessions.json")
     monkeypatch.setattr(session_tracker, "max_per_day", 5)
     session_tracker.reset_mode()
@@ -260,6 +264,25 @@ class TestAPIEndpoints:
 
         assert response.status_code == 403
         assert orchestrator.GEMINI_KEY == "test-gemini-key"
+
+    def test_health_reports_whether_ollama_is_on_loopback(self, client, monkeypatch):
+        monkeypatch.setattr(orchestrator, "OLLAMA_BASE", "http://192.168.1.20:11434")
+        monkeypatch.setattr(orchestrator, "OBSIDIAN_URL", "https://vault.example/api")
+
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        assert response.json()["ollama_endpoint_local"] is False
+        assert response.json()["obsidian_endpoint_local"] is False
+
+    def test_remote_obsidian_key_save_is_rejected(self, client, monkeypatch):
+        monkeypatch.setattr(orchestrator, "OBSIDIAN_URL", "https://vault.example/api")
+        secret = "obsidian-key-must-not-be-saved-or-echoed"
+
+        response = client.put("/settings/api-keys/obsidian", json={"api_key": secret})
+
+        assert response.status_code == 422
+        assert secret not in response.text
 
     def test_api_session_returns_status(self, client):
         """/api/session возвращает статус сессий."""
@@ -569,6 +592,61 @@ class TestStreamingChat:
 class TestConsiliumEngine:
     """Проверка движка консилиума (без async/await — используем asyncio.run)."""
 
+    @pytest.mark.parametrize(("url", "expected"), [
+        ("http://127.0.0.1:11434", True),
+        ("http://localhost:11434", True),
+        ("http://localhost.:11434", True),
+        ("https://[::1]:11434", True),
+        ("http://192.168.1.20:11434", False),
+        ("http://0.0.0.0:11434", False),
+        ("http://localhost..:11434", False),
+        ("http://user:pass@localhost:11434", False),
+        ("https://example.com/ollama", False),
+        ("http://localhost:not-a-port", False),
+        ("http://localhost:11434/api?target=remote", False),
+    ])
+    def test_loopback_service_url_policy(self, url, expected):
+        assert orchestrator._is_loopback_http_url(url) is expected
+
+    def test_ollama_request_is_blocked_before_network_for_remote_url(self, monkeypatch):
+        mock_client = MagicMock(spec=httpx.AsyncClient)
+        mock_client.post = AsyncMock()
+        monkeypatch.setattr(orchestrator, "OLLAMA_BASE", "http://192.168.1.20:11434")
+        engine = orchestrator.ConsiliumEngine(mock_client)
+
+        response = asyncio.run(engine._ask_ollama(TEST_MSG, SYSTEM_PROMPT, "privacy-check"))
+
+        assert "Ollama endpoint must use localhost" in response
+        mock_client.post.assert_not_awaited()
+
+    def test_remote_obsidian_search_is_skipped(self, monkeypatch):
+        mock_obsidian = MagicMock()
+        mock_obsidian.configured = True
+        mock_obsidian.base_url = "https://vault.example"
+        mock_obsidian.search = AsyncMock(return_value=[{"path": "private.md", "content": "secret"}])
+        monkeypatch.setattr(orchestrator.state, "obsidian", mock_obsidian)
+
+        sources = asyncio.run(orchestrator._retrieve_obsidian_sources("private query"))
+
+        assert sources == []
+        mock_obsidian.search.assert_not_awaited()
+
+    def test_lifespan_never_connects_to_remote_obsidian(self, monkeypatch):
+        monkeypatch.setattr(orchestrator, "OBSIDIAN_URL", "https://vault.example/api")
+        monkeypatch.setattr(orchestrator, "OBSIDIAN_API_KEY", "must-not-leave-this-device")
+        monkeypatch.setattr(orchestrator, "_load_provider_secrets", MagicMock())
+        monkeypatch.setattr(orchestrator, "_check_network", AsyncMock(return_value=True))
+        worker = MagicMock()
+        monkeypatch.setattr(orchestrator, "ObsidianWorker", worker)
+
+        async def exercise_lifespan():
+            async with orchestrator.lifespan(orchestrator.app):
+                assert orchestrator.state.obsidian is None
+
+        asyncio.run(exercise_lifespan())
+
+        worker.assert_not_called()
+
     def test_engine_run_returns_tuple(self):
         """run возвращает (answer, log) кортеж."""
         mock_client = MagicMock(spec=httpx.AsyncClient)
@@ -601,7 +679,7 @@ class TestConsiliumEngine:
 
         def side_effect(url, **kwargs):
             url = str(url)
-            if "localhost:11434" in url:
+            if "localhost:11434" in url or "127.0.0.1:11434" in url:
                 return mock_ollama_response
             if "api.moonshot.cn" in url:
                 return mock_kimi_response

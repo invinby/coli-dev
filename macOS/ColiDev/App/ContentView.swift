@@ -260,6 +260,14 @@ private struct SettingsView: View {
                                 .foregroundStyle(.green)
                             Text(routeDescription(for: health))
                                 .font(.caption).foregroundStyle(.secondary)
+                            if !health.isOllamaEndpointLocal {
+                                Label(L10n.text("settings.aiOllamaRemote", store.language), systemImage: "exclamationmark.triangle.fill")
+                                    .font(.caption).foregroundStyle(.orange)
+                            }
+                            if !health.isObsidianEndpointLocal {
+                                Label(L10n.text("settings.aiObsidianRemote", store.language), systemImage: "exclamationmark.triangle.fill")
+                                    .font(.caption).foregroundStyle(.orange)
+                            }
                             if let documentCount = health.knowledgeDocumentCount {
                                 Text(L10n.text("settings.aiKnowledgeCount", store.language) + "\(documentCount)")
                                     .font(.caption).foregroundStyle(.secondary)

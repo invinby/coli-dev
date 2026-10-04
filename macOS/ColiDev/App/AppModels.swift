@@ -159,13 +159,17 @@ struct OrchestratorHealth: Decodable {
     let ollamaAvailable: Bool
     let ollamaModel: String
     let ollamaModelReady: Bool?
+    let ollamaEndpointLocal: Bool?
+    let obsidianEndpointLocal: Bool?
     let sessionMode: String?
     let sessionCurrent: Int?
     let sessionMax: Int?
     let knowledgeDocumentCount: Int?
     let knowledgeIndexCheckedAt: String?
 
-    var hasLocalModel: Bool { ollamaAvailable && (ollamaModelReady ?? false) }
+    var isOllamaEndpointLocal: Bool { ollamaEndpointLocal ?? false }
+    var isObsidianEndpointLocal: Bool { obsidianEndpointLocal ?? false }
+    var hasLocalModel: Bool { isOllamaEndpointLocal && ollamaAvailable && (ollamaModelReady ?? false) }
     var displayKnowledgeIndexCheckedAt: String? {
         guard let knowledgeIndexCheckedAt else { return nil }
         guard let date = ISO8601DateFormatter().date(from: knowledgeIndexCheckedAt) else {
@@ -185,6 +189,8 @@ struct OrchestratorHealth: Decodable {
         case ollamaAvailable = "ollama_available"
         case ollamaModel = "ollama_model"
         case ollamaModelReady = "ollama_model_ready"
+        case ollamaEndpointLocal = "ollama_endpoint_local"
+        case obsidianEndpointLocal = "obsidian_endpoint_local"
         case sessionMode = "session_mode"
         case sessionCurrent = "session_current"
         case sessionMax = "session_max"

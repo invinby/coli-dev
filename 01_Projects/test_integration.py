@@ -47,12 +47,16 @@ def _reset(monkeypatch, tmp_path):
     monkeypatch.setattr(orchestrator, "GEMINI_KEY", "test-gemini-key")
     monkeypatch.setattr(orchestrator, "KIMI_KEY", "test-kimi-key")
     monkeypatch.setattr(orchestrator, "OBSIDIAN_API_KEY", "")
+    monkeypatch.setattr(orchestrator, "OBSIDIAN_URL", "http://127.0.0.1:27123")
+    monkeypatch.setattr(orchestrator, "OLLAMA_BASE", "http://127.0.0.1:11434")
+    monkeypatch.setattr(orchestrator, "OLLAMA_CHAT_URL", "http://127.0.0.1:11434/api/chat")
     monkeypatch.setattr(orchestrator, "_ENV_PROVIDER_VALUES", {
         "GEMINI_API_KEY": "test-gemini-key",
         "KIMI_API_KEY": "test-kimi-key",
         "OBSIDIAN_API_KEY": "",
     })
     monkeypatch.setattr(orchestrator.state, "obsidian", None)
+    monkeypatch.setattr(orchestrator.state, "ollama_client", None)
     monkeypatch.setattr(session_tracker, "_file", tmp_path / "sessions.json")
     monkeypatch.setattr(session_tracker, "max_per_day", 5)
     session_tracker.reset_mode()

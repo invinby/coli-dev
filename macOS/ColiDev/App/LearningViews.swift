@@ -525,7 +525,10 @@ private struct TutorChatView: View {
                     Text(L10n.text("tutor.unavailable", language))
                         .font(.caption.monospaced()).foregroundStyle(.secondary)
                 } else if chat.mode == .localOnly && store.aiHealth?.hasLocalModel != true {
-                    Text(L10n.text("tutor.localUnavailable", language))
+                    let key = store.aiHealth?.isOllamaEndpointLocal == true
+                        ? "tutor.localUnavailable"
+                        : "tutor.localEndpointBlocked"
+                    Text(L10n.text(key, language))
                         .font(.caption).foregroundStyle(.orange)
                 }
                 HStack(alignment: .bottom, spacing: 10) {

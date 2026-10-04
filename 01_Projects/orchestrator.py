@@ -41,6 +41,7 @@ from contextvars import ContextVar
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 import httpx
 from dotenv import load_dotenv
@@ -60,6 +61,37 @@ load_dotenv(_env_path)
 
 # ─── Config ────────────────────────────────────────────
 
+
+def _is_loopback_http_url(url: str) -> bool:
+    """Accept only HTTP(S) service URLs on a loopback interface."""
+    try:
+        parsed = urlsplit(url.strip())
+        hostname = parsed.hostname
+        parsed.port  # Validate a supplied port instead of letting httpx parse it later.
+    except ValueError:
+        return False
+    if (
+        parsed.scheme.lower() not in {"http", "https"}
+        or not hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+    ):
+        return False
+    normalized_host = hostname.lower()
+    if normalized_host.endswith("."):
+        normalized_host = normalized_host[:-1]
+    if normalized_host == "localhost":
+        return True
+    try:
+        address = ipaddress.ip_address(normalized_host)
+    except ValueError:
+        return False
+    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
+        return address.ipv4_mapped.is_loopback
+    return address.is_loopback
+
 # Moonshot AI → Kimi draft model
 KIMI_KEY = os.getenv("KIMI_API_KEY", "")
 KIMI_URL = "https://api.moonshot.cn/v1/chat/completions"
@@ -71,7 +103,7 @@ GEMINI_FLASH_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemi
 GEMINI_PRO_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent"
 
 # Ollama (локально)
-OLLAMA_BASE = os.getenv("OLLAMA_URL", "http://localhost:11434")
+OLLAMA_BASE = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
 OLLAMA_CHAT_URL = f"{OLLAMA_BASE}/api/chat"
 OLLAMA_MODEL_RESEARCHER = os.getenv("OLLAMA_RESEARCHER", "qwen2.5-coder:7b")
 
@@ -312,6 +344,8 @@ class HealthResponse(BaseModel):
     ollama_version: str | None = None
     ollama_models: list[str] | None = None
     ollama_model_ready: bool | None = None
+    ollama_endpoint_local: bool = False
+    obsidian_endpoint_local: bool = False
     uptime_sec: int
     session_mode: str
     session_current: int
@@ -593,8 +627,14 @@ class ConsiliumCloudError(Exception):
 class ConsiliumEngine:
     """Двухуровневый консилиум для обработки запроса пользователя."""
 
-    def __init__(self, http_client: httpx.AsyncClient, language: str = "ru") -> None:
+    def __init__(
+        self,
+        http_client: httpx.AsyncClient,
+        language: str = "ru",
+        ollama_client: httpx.AsyncClient | None = None,
+    ) -> None:
         self.http = http_client
+        self.ollama_http = ollama_client or http_client
         self.language = language if language in {"ru", "en"} else "ru"
         self.log = DebateLog()
 
@@ -1010,6 +1050,8 @@ class ConsiliumEngine:
 
     async def _ask_ollama(self, message: str, system_prompt: str, agent_tag: str) -> str:
         """Запрос к локальной Ollama (Qwen 2.5 Coder 7B)."""
+        if not _is_loopback_http_url(OLLAMA_BASE):
+            return "[Ошибка: Ollama endpoint must use localhost or a loopback IP for local privacy]"
         payload = {
             "model": OLLAMA_MODEL_RESEARCHER,
             "messages": [
@@ -1020,7 +1062,7 @@ class ConsiliumEngine:
             "options": {"num_predict": 1024},
         }
         try:
-            resp = await self.http.post(OLLAMA_CHAT_URL, json=payload, timeout=90)
+            resp = await self.ollama_http.post(OLLAMA_CHAT_URL, json=payload, timeout=90)
             resp.raise_for_status()
             data = resp.json()
             return data["message"]["content"]
@@ -1049,6 +1091,7 @@ class AppState:
         self.online: bool = False
         self.started_at: datetime = datetime.now(timezone.utc)
         self.http_client: httpx.AsyncClient | None = None
+        self.ollama_client: httpx.AsyncClient | None = None
         self.obsidian: ObsidianWorker | None = None
 
     @property
@@ -1077,28 +1120,34 @@ async def lifespan(app: FastAPI):
         timeout=httpx.Timeout(HTTP_TIMEOUT),
         limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
     )
-    state.obsidian = ObsidianWorker(
-        base_url=OBSIDIAN_URL,
-        api_key=OBSIDIAN_API_KEY,
+    state.ollama_client = httpx.AsyncClient(
+        timeout=httpx.Timeout(90),
+        limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
+        trust_env=False,
     )
     state.online = await _check_network()
 
-    # Пытаемся подключиться к Obsidian с авто-подбором порта
-    obs_ok = await state.obsidian.ping()
-    if not obs_ok:
-        # Если не удалось — пробуем перебрать все стандартные варианты
-        logger.info("Obsidian ping failed, trying all candidate URLs...")
-        for url in ["http://127.0.0.1:27123", "https://127.0.0.1:27123",
-                     "http://127.0.0.1:27124", "https://127.0.0.1:27124"]:
-            if url == OBSIDIAN_URL:
-                continue  # уже пробовали
-            worker = ObsidianWorker(base_url=url, api_key=OBSIDIAN_API_KEY)
-            ok = await worker.ping()
-            if ok:
-                state.obsidian = worker
-                obs_ok = True
-                logger.info("Obsidian reconnected", extra={"url": url})
-                break
+    # Obsidian's local REST plugin must stay on this device; do not send its key to a remote host.
+    state.obsidian = None
+    obs_ok = False
+    if _is_loopback_http_url(OBSIDIAN_URL):
+        state.obsidian = ObsidianWorker(base_url=OBSIDIAN_URL, api_key=OBSIDIAN_API_KEY)
+        obs_ok = await state.obsidian.ping()
+        if not obs_ok:
+            logger.info("Obsidian ping failed, trying local candidate URLs...")
+            for url in ["http://127.0.0.1:27123", "https://127.0.0.1:27123",
+                         "http://127.0.0.1:27124", "https://127.0.0.1:27124"]:
+                if url == OBSIDIAN_URL:
+                    continue
+                worker = ObsidianWorker(base_url=url, api_key=OBSIDIAN_API_KEY)
+                ok = await worker.ping()
+                if ok:
+                    state.obsidian = worker
+                    obs_ok = True
+                    logger.info("Obsidian reconnected", extra={"url": url})
+                    break
+    else:
+        logger.warning("Obsidian endpoint is not loopback; skipping connection")
     # При старте восстанавливаем режим сессий
     if session_tracker.is_local_mode:
         logger.info("Starting in LOCAL autonomous mode (session limit reached previously)")
@@ -1124,6 +1173,8 @@ async def lifespan(app: FastAPI):
     yield
     if state.http_client:
         await state.http_client.aclose()
+    if state.ollama_client:
+        await state.ollama_client.aclose()
     if state.obsidian:
         await state.obsidian.close()
     logger.info("Stopped.")
@@ -1208,16 +1259,16 @@ async def _check_network() -> bool:
 
 async def _check_ollama() -> dict:
     result = {"available": False, "version": None, "models": None, "model_ready": None}
-    if state.http_client is None:
+    if state.ollama_client is None or not _is_loopback_http_url(OLLAMA_BASE):
         return result
     try:
-        resp = await state.http_client.get(f"{OLLAMA_BASE}/api/version", timeout=2)
+        resp = await state.ollama_client.get(f"{OLLAMA_BASE}/api/version", timeout=2)
         if resp.status_code == 200:
             result["version"] = resp.json().get("version", "?")
     except Exception:
         pass
     try:
-        resp = await state.http_client.get(f"{OLLAMA_BASE}/api/tags", timeout=2)
+        resp = await state.ollama_client.get(f"{OLLAMA_BASE}/api/tags", timeout=2)
         if resp.status_code == 200:
             data = resp.json()
             models = [m["name"] for m in data.get("models", [])]
@@ -1233,6 +1284,10 @@ async def _retrieve_obsidian_sources(query: str) -> list[dict[str, str]]:
     """Retrieve a few bounded excerpts from the connected live Obsidian vault."""
     normalized_query = query.strip()[:500]
     if not normalized_query or not state.obsidian or not state.obsidian.configured:
+        return []
+    obsidian_endpoint = state.obsidian.base_url or OBSIDIAN_URL
+    if not _is_loopback_http_url(obsidian_endpoint):
+        logger.info("Skipping non-loopback Obsidian retrieval")
         return []
 
     try:
@@ -1482,7 +1537,17 @@ async def _read_provider_secret_request(request: Request) -> str:
 
 async def _replace_obsidian_worker() -> None:
     previous = state.obsidian
-    base_url = getattr(previous, "base_url", None) or OBSIDIAN_URL
+    if not _is_loopback_http_url(OBSIDIAN_URL):
+        state.obsidian = None
+        if previous:
+            try:
+                await previous.close()
+            except Exception:
+                logger.warning("Could not close the previous Obsidian client")
+        return
+    base_url = getattr(previous, "base_url", None)
+    if not base_url or not _is_loopback_http_url(base_url):
+        base_url = OBSIDIAN_URL
     replacement = ObsidianWorker(base_url=base_url, api_key=OBSIDIAN_API_KEY)
     state.obsidian = replacement
     if previous:
@@ -1503,6 +1568,8 @@ async def save_provider_secret(provider: str, request: Request):
     _require_local_settings_request(request)
     if provider not in PROVIDER_ENV_NAMES:
         raise HTTPException(status_code=404, detail="Unknown provider")
+    if provider == "obsidian" and not _is_loopback_http_url(OBSIDIAN_URL):
+        raise HTTPException(status_code=422, detail="Obsidian URL must use localhost or a loopback IP")
     secret = await _read_provider_secret_request(request)
 
     try:
@@ -1571,6 +1638,8 @@ async def health():
         ollama_version=ollama_info["version"],
         ollama_models=ollama_info["models"],
         ollama_model_ready=ollama_info["model_ready"],
+        ollama_endpoint_local=_is_loopback_http_url(OLLAMA_BASE),
+        obsidian_endpoint_local=_is_loopback_http_url(OBSIDIAN_URL),
         uptime_sec=state.uptime_sec,
         session_mode=session_status["mode"],
         session_current=session_status["current"],
@@ -1656,7 +1725,7 @@ async def _handle_consilium_stream(
     sources: list[dict[str, str]] | None = None,
 ) -> StreamingResponse:
     """Обработка через двухуровневый консилиум."""
-    engine = ConsiliumEngine(state.http_client, req.language)
+    engine = ConsiliumEngine(state.http_client, req.language, state.ollama_client)
     answer, debate_log = await engine.run(req.message, system_prompt if system_prompt is not None else req.system_prompt)
     debate_html = debate_log.to_html()
 
@@ -1677,7 +1746,7 @@ async def _handle_local_stream(
     sources: list[dict[str, str]] | None = None,
 ) -> StreamingResponse:
     """Обработка через локальный Digital Twin (Qwen 3)."""
-    engine = ConsiliumEngine(state.http_client, req.language)
+    engine = ConsiliumEngine(state.http_client, req.language, state.ollama_client)
     answer, debate_log = await engine.run_local(req.message, system_prompt if system_prompt is not None else req.system_prompt)
     debate_html = debate_log.to_html()
 
