@@ -149,7 +149,7 @@ struct LessonSessionView: View {
                 }
                 .buttonStyle(.plain)
             }
-            if let selectedAnswer {
+            if selectedAnswer != nil {
                 Label { Text(answerIsCorrect ? content.feedback : L10n.text("session.wrong", store.language)) } icon: { Image(systemName: answerIsCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle") }
                 .font(.callout)
                 .foregroundStyle(answerIsCorrect ? Color.green : Color.orange)
@@ -270,7 +270,11 @@ private struct SlopeLab: View {
             }
             .frame(height: 150)
             Slider(value: $slope, in: 0.5...3.0, step: 0.5)
-            Text(L10n.text("lab.slope", store.language) + ": \(slope, specifier: "%.1f")")
+            HStack(spacing: 4) {
+                Text(L10n.text("lab.slope", store.language))
+                Text(":")
+                Text(slope, format: .number.precision(.fractionLength(1)))
+            }
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
@@ -333,7 +337,12 @@ private struct ForceLab: View {
             }
             valueSlider(title: L10n.text("lab.force", store.language), value: $force, range: 1...30, suffix: " N")
             valueSlider(title: L10n.text("lab.mass", store.language), value: $mass, range: 1...10, suffix: " kg")
-            Text(L10n.text("lab.acceleration", store.language) + ": \(acceleration, specifier: "%.2f") m/s²")
+            HStack(spacing: 4) {
+                Text(L10n.text("lab.acceleration", store.language))
+                Text(":")
+                Text(acceleration, format: .number.precision(.fractionLength(2)))
+                Text("m/s²")
+            }
                 .font(.callout.weight(.medium))
         }
     }
