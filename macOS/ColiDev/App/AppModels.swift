@@ -56,6 +56,9 @@ struct LessonContent {
     let title: String
     let objective: String
     let explanation: String
+    let mechanism: String
+    let example: String
+    let limitations: String
     let question: String
     let options: [String]
     let answerIndex: Int
@@ -69,6 +72,9 @@ enum LearningCatalog {
             title: L10n.text("\(key).title", language),
             objective: L10n.text("\(key).objective", language),
             explanation: L10n.text("\(key).explanation", language),
+            mechanism: L10n.text("\(key).mechanism", language),
+            example: L10n.text("\(key).example", language),
+            limitations: L10n.text("\(key).limitations", language),
             question: L10n.text("\(key).question", language),
             options: (0..<3).map { L10n.text("\(key).option\($0)", language) },
             answerIndex: Int(L10n.text("\(key).answer", language)) ?? 0,
@@ -340,14 +346,20 @@ final class TutorChatModel: ObservableObject {
             systemPrompt = """
             Ты — внимательный учебный тьютор. Предмет: \(subjectName). Урок: \(lesson.title).
             Цель: \(lesson.objective)
-            Материал урока: \(lesson.explanation)
+            Теория: \(lesson.explanation)
+            Механизм: \(lesson.mechanism)
+            Пример: \(lesson.example)
+            Ограничения модели: \(lesson.limitations)
             Отвечай по-русски. Объясняй ясно и по шагам, подбирай глубину к вопросу. Помогай разобраться вопросами и подсказками; не выдавай решение задания сразу, если ученик просит научить. Не выдумывай источники и текущие факты.
             """
         } else {
             systemPrompt = """
             You are a thoughtful learning tutor. Subject: \(subjectName). Lesson: \(lesson.title).
             Goal: \(lesson.objective)
-            Lesson material: \(lesson.explanation)
+            Theory: \(lesson.explanation)
+            Mechanism: \(lesson.mechanism)
+            Example: \(lesson.example)
+            Model limitations: \(lesson.limitations)
             Answer in English. Explain clearly in steps at the learner's level. Use questions and hints to build understanding; do not immediately give away an exercise solution when the learner asks to learn. Do not invent sources or current facts.
             """
         }

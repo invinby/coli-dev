@@ -52,14 +52,30 @@ struct LessonSessionView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(subject.tint.opacity(0.09), in: RoundedRectangle(cornerRadius: 18))
 
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(L10n.text("session.theory", store.language))
-                        .font(.title2.weight(.semibold))
-                    Text(content.explanation)
-                        .font(.body)
-                        .lineSpacing(5)
-                        .textSelection(.enabled)
-                }
+                LessonConceptCard(
+                    title: L10n.text("session.theory", store.language),
+                    text: content.explanation,
+                    symbol: "text.book.closed",
+                    tint: subject.tint
+                )
+                LessonConceptCard(
+                    title: L10n.text("session.mechanism", store.language),
+                    text: content.mechanism,
+                    symbol: "gearshape.2",
+                    tint: subject.tint
+                )
+                LessonConceptCard(
+                    title: L10n.text("session.example", store.language),
+                    text: content.example,
+                    symbol: "lightbulb",
+                    tint: subject.tint
+                )
+                LessonConceptCard(
+                    title: L10n.text("session.limitations", store.language),
+                    text: content.limitations,
+                    symbol: "scope",
+                    tint: subject.tint
+                )
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(L10n.text("session.lab", store.language))
@@ -147,6 +163,30 @@ struct LessonSessionView: View {
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+    }
+}
+
+private struct LessonConceptCard: View {
+    let title: String
+    let text: String
+    let symbol: String
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(title, systemImage: symbol)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(tint)
+            Text(text)
+                .font(.body)
+                .lineSpacing(5)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.secondary.opacity(0.055), in: RoundedRectangle(cornerRadius: 16))
+        .accessibilityElement(children: .combine)
     }
 }
 

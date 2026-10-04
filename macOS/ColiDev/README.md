@@ -7,6 +7,7 @@ An early native SwiftUI client for the ColiDev learning platform. Open `ColiDev.
 - Native macOS navigation for Today, Subjects, lesson sessions, and Settings.
 - Russian and English interface and lesson content, switchable in the toolbar and persisted locally.
 - Six subject starters: mathematics, English, physics, biology, zoology, and programming.
+- Each current starter lesson separates the theory, mechanism, example, and limitations in Russian and English; the tutor receives all four blocks as lesson context.
 - One interactive practice module per subject: a live function graph, sentence builder, force/mass simulation, selectable cell diagram, animal adaptation explorer, and conditional-code runner.
 - Immediate answer feedback and local completion progress.
 - A lesson-aware RU/EN tutor connects to the existing local FastAPI orchestrator at 127.0.0.1:8000, displays SSE response chunks, and offers automatic or local-only routing.
