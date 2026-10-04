@@ -140,8 +140,17 @@ struct OrchestratorHealth: Decodable {
     let sessionMode: String?
     let sessionCurrent: Int?
     let sessionMax: Int?
+    let knowledgeDocumentCount: Int?
+    let knowledgeIndexCheckedAt: String?
 
     var hasLocalModel: Bool { ollamaAvailable && (ollamaModelReady ?? false) }
+    var displayKnowledgeIndexCheckedAt: String? {
+        guard let knowledgeIndexCheckedAt else { return nil }
+        guard let date = ISO8601DateFormatter().date(from: knowledgeIndexCheckedAt) else {
+            return knowledgeIndexCheckedAt
+        }
+        return DateFormatter.localizedString(from: date, dateStyle: .short, timeStyle: .short)
+    }
     var hasCloudSession: Bool {
         guard online, sessionMode != "local" else { return false }
         guard let sessionCurrent, let sessionMax else { return true }
@@ -157,6 +166,8 @@ struct OrchestratorHealth: Decodable {
         case sessionMode = "session_mode"
         case sessionCurrent = "session_current"
         case sessionMax = "session_max"
+        case knowledgeDocumentCount = "knowledge_document_count"
+        case knowledgeIndexCheckedAt = "knowledge_index_checked_at"
     }
 }
 
@@ -186,14 +197,27 @@ struct TutorSource: Decodable, Identifiable {
     let title: String
     let excerpt: String
     let retrievedAt: String
+    let path: String?
+    let location: String?
+    let modifiedAt: String?
+    let sourceType: String?
 
     enum CodingKeys: String, CodingKey {
         case id, title, excerpt
         case retrievedAt = "retrieved_at"
+        case path, location
+        case modifiedAt = "modified_at"
+        case sourceType = "source_type"
     }
 
     var displayRetrievedAt: String {
         guard let date = ISO8601DateFormatter().date(from: retrievedAt) else { return retrievedAt }
+        return DateFormatter.localizedString(from: date, dateStyle: .short, timeStyle: .short)
+    }
+
+    var displayModifiedAt: String? {
+        guard let modifiedAt else { return nil }
+        guard let date = ISO8601DateFormatter().date(from: modifiedAt) else { return modifiedAt }
         return DateFormatter.localizedString(from: date, dateStyle: .short, timeStyle: .short)
     }
 }

@@ -260,6 +260,17 @@ private struct SettingsView: View {
                                 .foregroundStyle(.green)
                             Text(routeDescription(for: health))
                                 .font(.caption).foregroundStyle(.secondary)
+                            if let documentCount = health.knowledgeDocumentCount {
+                                Text(L10n.text("settings.aiKnowledgeCount", store.language) + "\(documentCount)")
+                                    .font(.caption).foregroundStyle(.secondary)
+                                if let checkedAt = health.displayKnowledgeIndexCheckedAt {
+                                    Text(L10n.text("settings.aiKnowledgeChecked", store.language) + checkedAt)
+                                        .font(.caption2).foregroundStyle(.tertiary)
+                                }
+                            } else {
+                                Text(L10n.text("settings.aiKnowledgeUnknown", store.language))
+                                    .font(.caption2).foregroundStyle(.tertiary)
+                            }
                         }
                     } else {
                         Label(L10n.text("settings.aiOffline", store.language), systemImage: "wifi.slash")

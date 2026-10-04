@@ -1,122 +1,50 @@
 # ColiDev
 
-**Гибридная macOS-платформа для глубокого изучения предметов с ИИ-тьютором.**
+ColiDev is being built as a native macOS learning platform with a local Python backend. The current repository brings the ColiDev course idea and the earlier tutor/orchestrator code into one project. **The product is still under development; it is not a finished or bug-free release.** See the [macOS app notes](macOS/ColiDev/README.md) and [project plan](project-plan/README.md) for verified scope and remaining work.
 
-Этот репозиторий объединяет существующий Python/FastAPI-оркестратор и ранний нативный SwiftUI-клиент для обучения. Продукт ещё в разработке: текущие функции и ограничения описаны в [README macOS-клиента](macOS/ColiDev/README.md) и [плане проекта](project-plan/README.md).
+## What exists now
 
----
+- A SwiftUI macOS 13+ client with Russian and English, a starter lesson in mathematics, English, physics, biology, zoology, and programming, six interactive 2D exercises, local lesson progress, and a lesson-aware tutor screen.
+- A FastAPI backend with automatic and Ollama-local chat routes. Its current online debate flow calls configured Gemini and Moonshot APIs alongside Ollama; provider availability and actual account limits have not yet been verified end to end.
+- An offline SQLite keyword index for Markdown in `02_Areas/` and Markdown/text cheat sheets in `03_Resources/Cheatsheets/`. Search results can cite file paths and line spans. Indexing metadata does not prove that course facts are current or verified.
+- Optional Obsidian search and session-summary saving when its Local REST API is configured.
+- GitHub Actions checks the backend suite and attempts a real Xcode macOS build after changes reach `main`.
 
-## 🚀 Быстрый старт
+## Still to build
+
+The six subjects currently have starter content, not complete basic-to-advanced curricula. Source-checked web RAG, semantic search, course-quality review, NotebookLM support, a real video library, true interactive 3D lessons, account/sync, and a verified model-routing policy are not complete. The current visual exercises are 2D. See the project plan before treating a planned feature as implemented.
+
+## Run the backend
+
+Create a virtual environment, install the backend dependencies, copy `.env.example` to `.env`, and run the API from the repository root.
 
 ```bash
-# 1. Настрой API-ключи
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements-orchestrator.txt
 cp .env.example .env
-# Отредактируй .env — вставь ключи:
-#   KIMI_API_KEY    → https://platform.kimi.ai/
-#   GEMINI_API_KEY  → https://aistudio.google.com/app/apikey
-
-# 2. Запусти единое меню
-bash start.sh
+python 01_Projects/orchestrator.py
 ```
 
-## 📋 Режимы запуска
+On Windows PowerShell, use `py -3 -m venv .venv`, activate with `\.venv\Scripts\Activate.ps1`, and copy the template with `Copy-Item .env.example .env`.
 
-### 1. 🦊 Kimi Code (Kimi K3)
-```bash
-bash start_kimi_code.sh
-# или через меню: bash start.sh → выбор 1
-```
-- **Модель:** Kimi K3 (moonshot-v1-auto)
-- **Провайдер:** Moonshot AI (напрямую)
-- **Ключ:** `KIMI_API_KEY`
+The server binds to `127.0.0.1:8000` by default. Add the API keys you choose to `.env`. For local-only chat, install Ollama, pull the model named by `OLLAMA_RESEARCHER`, and keep `OLLAMA_URL` pointed to a service on this Mac if the request must stay on-device. Automatic mode may send the learner's question and retrieved snippets to configured cloud providers. The SwiftUI client does not start the backend automatically yet.
 
-### 2. 🤖 Claude Code (Gemini 3.5 Flash)
-```bash
-bash start_claude.sh
-# или через меню: bash start.sh → выбор 2
-```
-- **Модель:** Gemini 3.5 Flash
-- **Провайдер:** Google AI Studio (напрямую через LiteLLM)
-- **Ключ:** `GEMINI_API_KEY`
+## Open the macOS app
 
-### 3. 🧠 Консилиум (полная архитектура)
-```bash
-bash start_v4.sh
-# или через меню: bash start.sh → выбор 3
-```
-- **Включает:**
-  - 👑 Kimi K3 — Верховный Судья
-  - ⚡ Gemini 3.5 Flash — Генератор
-  - 🔮 GLM 5.2 — Генератор
-  - 🦊 Freebuff (Mimo 2.5) — Критик
-  - 🐉 Qwen 2.5 Coder — Верификатор
-- **Веб-интерфейс:** http://127.0.0.1:8000
+On a Mac with Xcode, open `macOS/ColiDev/ColiDev.xcodeproj`, select the `ColiDev` scheme, and run it. Start the backend separately using the steps above. A successful GitHub build verifies compilation only; it does not prove provider credentials, Obsidian, Ollama, or in-app behavior work on a user's Mac.
 
-### 4. 🌐 Оркестратор (API)
-```bash
-bash start_v4.sh
-```
-- **API эндпоинты:**
-  - `POST /chat/stream` — чат с SSE
-  - `GET /api/status` — статус системы
-  - `GET /health` — проверка здоровья
-  - `GET /docs` — Swagger документация (DEV_MODE)
-
-## 📂 Структура
-
-```
-/
-├── 01_Projects/        # Код проектов и API
-├── 02_Areas/           # Учебные заметки
-├── 03_Resources/       # Ресурсы и шпаргалки
-├── .env                # 🔑 API-ключи (не коммитить!)
-├── .env.example        # Шаблон ключей
-├── start.sh            # 🎯 Единое меню запуска
-├── start_kimi_code.sh  # 🦊 Kimi Code
-├── start_claude.sh     # 🤖 Claude Code
-├── start_v4.sh         # 🧠 Консилиум + API
-└── ARCH_LOG.md         # Бортовой журнал
-```
-
-## 🔑 API-ключи
-
-| Ключ | Где получить | Используется для |
-|------|--------------|------------------|
-| `KIMI_API_KEY` | https://platform.kimi.ai/ | Kimi Code, Верховный Судья |
-| `GEMINI_API_KEY` | https://aistudio.google.com/app/apikey | Claude Code, Генераторы |
-| `OPENROUTER_API_KEY` | https://openrouter.ai/keys | Freebuff (Mimo 2.5) |
-| `ZHIPU_API_KEY` | https://open.bigmodel.cn/ | GLM 5.2 (опционально) |
-| `OBSIDIAN_API_KEY` | Obsidian → Настройки → Remote API | Автосохранение сессий |
-
-## 🧠 Архитектура
-
-```
-УРОВЕНЬ 1: Генераторы + Верховный Судья
-├─ Gemini 3.5 Flash  → черновик
-├─ GLM 5.2           → черновик
-└─ Kimi K3 (судья)   → консенсус
-
-УРОВЕНЬ 2: Локальный Критик
-├─ Freebuff (Mimo 2.5)   → код-ревью
-├─ Qwen 2.5 Coder 7B     → верификация
-└─ Финальный ответ
-```
-
-## ⚡ Команды
+## Run backend checks
 
 ```bash
-# Единое меню
-bash start.sh
-
-# Напрямую
-bash start_kimi_code.sh   # Kimi K3
-bash start_claude.sh      # Gemini 3.5 Flash
-bash start_v4.sh          # Консилиум + API
-
-# Тесты
-python check_all.py       # Проверка конфигурации
+python -m pip install -r requirements-test.txt
+python -m pytest 01_Projects -q
 ```
 
-## Native macOS learning app (early preview)
+The tests use mocked provider calls. They do not consume API credits or verify live services.
 
-A SwiftUI app lives in macOS/ColiDev. On a Mac with Xcode, open the Xcode project and run the ColiDev scheme. The current slice includes a bilingual lesson catalog, interactive activities for six subjects, and a lesson-aware RU/EN tutor with automatic and local-only routing through the Python orchestrator. The tutor can retrieve live excerpts from an Obsidian vault and show the cited notes. Build and runtime verification on macOS remain outstanding. A standalone offline index, web sources, NotebookLM, video, and real 3D integration remain future work; see the macOS app README for current boundaries.
+## Configuration and private data
+
+`.env` is ignored by Git. Never commit real provider or Obsidian credentials. Keep the backend bound to loopback unless network exposure is deliberately designed and protected; the service has no user-account authentication. The local database and lesson progress are stored on the user's device.
+
+Earlier prototype launch scripts remain in the repository for reference; the native learning client uses `01_Projects/orchestrator.py` as its backend.

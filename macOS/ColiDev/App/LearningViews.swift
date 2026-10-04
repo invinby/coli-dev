@@ -571,6 +571,22 @@ private struct TutorChatView: View {
                                 Text("[\(item.id)] \(item.title)")
                                     .font(.caption.weight(.medium))
                                     .textSelection(.enabled)
+                                if let path = item.path, path != item.title {
+                                    Text(path)
+                                        .font(.caption2).foregroundStyle(.tertiary)
+                                        .textSelection(.enabled)
+                                }
+                                if let location = item.location {
+                                    Text("\(L10n.text("tutor.location", language)): \(location)")
+                                        .font(.caption2).foregroundStyle(.secondary)
+                                }
+                                if let modifiedAt = item.displayModifiedAt {
+                                    Text("\(L10n.text("tutor.fileModifiedAt", language)): \(modifiedAt)")
+                                        .font(.caption2).foregroundStyle(.secondary)
+                                } else if item.sourceType == "obsidian" {
+                                    Text(L10n.text("tutor.modifiedDateUnavailable", language))
+                                        .font(.caption2).foregroundStyle(.tertiary)
+                                }
                                 Text(item.excerpt)
                                     .font(.caption2).foregroundStyle(.secondary)
                                     .lineLimit(4)

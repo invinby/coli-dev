@@ -14,7 +14,7 @@ passed = 0
 failed = 0
 
 
-def test(name: str, method: str, path: str, expected_status: int = 200, body: dict | None = None):
+def check_endpoint(name: str, method: str, path: str, expected_status: int = 200, body: dict | None = None):
     global passed, failed
     url = f"{BASE_URL}{path}"
     data = json.dumps(body).encode() if body else None
@@ -44,11 +44,14 @@ def test(name: str, method: str, path: str, expected_status: int = 200, body: di
         result = json.loads(body_text)
         print(f"  {status_ok} {name} — {status}")
         print(f"     Ответ: {json.dumps(result, ensure_ascii=False, indent=4)}")
-        passed += 1
     except json.JSONDecodeError:
         print(f"  {status_ok} {name} — {status} (не JSON)")
         print(f"     {body_text[:200]}")
+
+    if status == expected_status:
         passed += 1
+    else:
+        failed += 1
 
 
 def main():
@@ -60,38 +63,38 @@ def main():
 
     # ─── 1. GET / ──────────────────────────────────────
     print("📌 1. GET / — приветствие")
-    test("GET /", "GET", "/")
+    check_endpoint("GET /", "GET", "/")
 
     # ─── 2. GET /hello/{name} ──────────────────────────
     print("\n📌 2. GET /hello/Макс — приветствие пользователя")
-    test("GET /hello/Макс", "GET", "/hello/Макс")
+    check_endpoint("GET /hello/Макс", "GET", "/hello/Макс")
 
     # ─── 3. GET /users — все ───────────────────────────
     print("\n📌 3. GET /users — все пользователи")
-    test("GET /users", "GET", "/users")
+    check_endpoint("GET /users", "GET", "/users")
 
     # ─── 4. GET /users?age=25 — фильтр ─────────────────
     print("\n📌 4. GET /users?age=25 — фильтр по возрасту")
-    test("GET /users?age=25", "GET", "/users?age=25")
+    check_endpoint("GET /users?age=25", "GET", "/users?age=25")
 
     # ─── 5. POST /users — создать пользователя ─────────
     print("\n📌 5. POST /users — создать пользователя")
-    test("POST /users (Олег)", "POST", "/users", expected_status=201, body={
+    check_endpoint("POST /users (Олег)", "POST", "/users", expected_status=201, body={
         "name": "Олег",
         "age": 28
     })
 
     # ─── 6. GET /users/4 — проверить нового ────────────
     print("\n📌 6. GET /users/4 — новый пользователь по ID")
-    test("GET /users/4", "GET", "/users/4")
+    check_endpoint("GET /users/4", "GET", "/users/4")
 
     # ─── 7. GET /users/99 — 404 ────────────────────────
     print("\n📌 7. GET /users/99 — несуществующий (404)")
-    test("GET /users/99 (404)", "GET", "/users/99")
+    check_endpoint("GET /users/99 (404)", "GET", "/users/99", expected_status=404)
 
     # ─── 8. GET /users?age=30 — ещё фильтр ─────────────
     print("\n📌 8. GET /users?age=30 — фильтр (Борис)")
-    test("GET /users?age=30", "GET", "/users?age=30")
+    check_endpoint("GET /users?age=30", "GET", "/users?age=30")
 
     # ─── ИТОГИ ─────────────────────────────────────────
     print("\n" + "=" * 50)

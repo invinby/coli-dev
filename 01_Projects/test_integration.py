@@ -3,7 +3,7 @@
 test_integration.py — Интеграционные тесты полного пайплайна streaming для coli-dev v3.0
 
 Проверяет полный цикл: HTTP запрос → ConsiliumEngine → SSE streaming → клиент.
-Все внешние вызовы (OpenRouter, Ollama, Obsidian) замокированы.
+Все внешние вызовы (Gemini, Moonshot, Ollama, Obsidian) замокированы.
 
 Запуск:
     .venv/bin/python -m pytest 01_Projects/test_integration.py -v --tb=short
@@ -42,8 +42,13 @@ SYSTEM_PROMPT = "You are a Python mentor."
 # ─── Fixtures ──────────────────────────────────────────
 
 @pytest.fixture(autouse=True)
-def _reset():
+def _reset(monkeypatch, tmp_path):
     """Сброс состояния перед каждым тестом."""
+    monkeypatch.setattr(orchestrator, "GEMINI_KEY", "test-gemini-key")
+    monkeypatch.setattr(orchestrator, "KIMI_KEY", "test-kimi-key")
+    monkeypatch.setattr(orchestrator.state, "obsidian", None)
+    monkeypatch.setattr(session_tracker, "_file", tmp_path / "sessions.json")
+    monkeypatch.setattr(session_tracker, "max_per_day", 5)
     session_tracker.reset_mode()
     session_tracker._sessions = []
     session_tracker._mark_dirty()
@@ -112,14 +117,29 @@ def _parse_sse(text: str) -> list[dict]:
     return events
 
 
-def _make_openrouter_response(content: str):
-    """Создаёт мок HTTP-ответа OpenRouter."""
+def _make_chat_completion_response(content: str):
+    """Создаёт мок ответа для OpenAI-compatible Chat Completions API."""
     resp = MagicMock()
     resp.status_code = 200
     resp.json.return_value = {"choices": [{"message": {"content": content}}]}
     resp.raise_for_status = MagicMock()
     resp.text = ""
     return resp
+
+
+def _make_gemini_response(content: str):
+    """Создаёт мок ответа Google Gemini generateContent API."""
+    resp = MagicMock()
+    resp.status_code = 200
+    resp.json.return_value = {"candidates": [{"content": {"parts": [{"text": content}]}}]}
+    resp.raise_for_status = MagicMock()
+    resp.text = ""
+    return resp
+
+
+def _make_kimi_response(content: str):
+    """Создаёт мок ответа Moonshot OpenAI-compatible Chat Completions API."""
+    return _make_chat_completion_response(content)
 
 
 def _make_ollama_response(content: str):
@@ -154,41 +174,34 @@ class TestFullStreamingPipeline:
         """Полный пайплайн: онлайн → ConsiliumEngine.run → SSE-события."""
         flash_answer = "def sort_list(lst): return sorted(lst)"
         pro_answer = "def sort_list(lst):\n    return sorted(lst)"
-        glm_answer = "Оба черновика верны. Используйте sorted()."
-        freebuff_review = "Код корректен, PEP 8 соблюдён."
+        kimi_answer = "Оба черновика верны. Используйте sorted()."
         qwen_context = "Актуальные практики сортировки в Python."
         consensus = "def sort_list(lst):\n    return sorted(lst)\n\n# Оптимальное решение"
 
-        call_count = 0
+        flash_call_count = 0
 
         def http_side_effect(url, **kwargs):
-            nonlocal call_count
-            call_count += 1
-            body = kwargs.get("json", {})
-            model = body.get("model", "")
+            nonlocal flash_call_count
+            url = str(url)
 
-            # OpenRouter модели
-            if "openrouter" in str(url):
-                if model == "google/gemini-3.5-flash":
-                    # Может быть flash на Level 1 ИЛИ consensus на Level 2
-                    if call_count <= 2:
-                        return _make_openrouter_response(flash_answer)
-                    return _make_openrouter_response(consensus)
-                elif model == "google/gemini-3.1-pro":
-                    return _make_openrouter_response(pro_answer)
-                elif model == "mimo/mimo-v2.5":
-                    return _make_openrouter_response(freebuff_review)
-                return _make_openrouter_response(glm_answer)
+            if "generativelanguage.googleapis.com" in url:
+                if "gemini-3-flash-preview" in url:
+                    flash_call_count += 1
+                    return _make_gemini_response(flash_answer if flash_call_count == 1 else consensus)
+                if "gemini-3.1-pro-preview" in url:
+                    return _make_gemini_response(pro_answer)
+            if "api.moonshot.cn" in url:
+                return _make_kimi_response(kimi_answer)
 
             # Ollama
-            if "localhost:11434" in str(url):
+            if "localhost:11434" in url:
                 return _make_ollama_response(qwen_context)
 
             # DuckDuckGo
-            if "duckduckgo" in str(url):
+            if "duckduckgo" in url:
                 return MagicMock(status_code=200, text="")
 
-            return _make_openrouter_response("default")
+            return _make_gemini_response("default")
 
         mock_client = MagicMock(spec=httpx.AsyncClient)
         mock_client.post = AsyncMock(side_effect=http_side_effect)
@@ -209,7 +222,7 @@ class TestFullStreamingPipeline:
         # Проверяем агентов в логе
         agents = [e["agent"] for e in log._entries]
         assert "gemini-flash" in agents
-        assert "gemini-pro" in agents
+        assert "judge" in agents
         assert "freebuff" in agents
         assert "qwen" in agents
         assert "consensus" in agents
@@ -255,7 +268,7 @@ class TestFullStreamingPipeline:
         # 1. Первое событие — debate_log
         assert events[0]["type"] == "debate_log"
         assert "html" in events[0]
-        assert "gemini-flash" in events[0]["html"] or "Gemini 3.5 Flash" in events[0]["html"]
+        assert "Gemini Flash (черновик)" in events[0]["html"]
 
         # 2. Токены
         token_events = [e for e in events if e["type"] == "token"]
@@ -301,7 +314,7 @@ class TestSessionIntegration:
     def test_session_limit_triggers_local_mode(self, client_online):
         """Исчерпание лимита сессий → ответ через local provider."""
         # Устанавливаем лимит в 1 сессию
-        session_tracker._max_per_day = 1
+        session_tracker.max_per_day = 1
         session_tracker.start_session()  # исчерпали
 
         answer = "Local fallback"
@@ -363,28 +376,27 @@ class TestErrorRecovery:
 
     def test_partial_cloud_failure(self):
         """Одна Gemini упала, вторая работает → консилиум продолжает."""
-        call_count = 0
+        flash_call_count = 0
 
         async def http_side_effect(url, **kwargs):
-            nonlocal call_count
-            call_count += 1
-            model = kwargs.get("json", {}).get("model", "")
+            nonlocal flash_call_count
+            url = str(url)
 
-            if "openrouter" in str(url):
-                if model == "google/gemini-3.5-flash" and call_count == 1:
-                    return _make_http_error(402, "Insufficient credits")
-                elif model == "google/gemini-3.1-pro":
-                    return _make_openrouter_response("Pro draft answer")
-                elif model == "mimo/mimo-v2.5":
-                    return _make_openrouter_response("Freebuff review OK")
-                elif model == "google/gemini-3.5-flash":
-                    return _make_openrouter_response("Consensus answer")
-                return _make_openrouter_response("GLM verdict")
-            if "localhost:11434" in str(url):
+            if "generativelanguage.googleapis.com" in url:
+                if "gemini-3-flash-preview" in url:
+                    flash_call_count += 1
+                    if flash_call_count == 1:
+                        return _make_http_error(402, "Insufficient credits")
+                    return _make_gemini_response("Consensus answer")
+                if "gemini-3.1-pro-preview" in url:
+                    return _make_gemini_response("Pro draft answer")
+            if "api.moonshot.cn" in url:
+                return _make_kimi_response("Kimi draft answer")
+            if "localhost:11434" in url:
                 return _make_ollama_response("Qwen context")
-            if "duckduckgo" in str(url):
+            if "duckduckgo" in url:
                 return MagicMock(status_code=200, text="")
-            return _make_openrouter_response("default")
+            return _make_gemini_response("default")
 
         mock_client = MagicMock(spec=httpx.AsyncClient)
         mock_client.post = AsyncMock(side_effect=http_side_effect)
@@ -400,9 +412,10 @@ class TestErrorRecovery:
     def test_all_cloud_models_fail(self):
         """Все облачные модели недоступны → ConsiliumCloudError → fallback."""
         async def http_side_effect(url, **kwargs):
-            if "openrouter" in str(url):
+            url = str(url)
+            if "generativelanguage.googleapis.com" in url or "api.moonshot.cn" in url:
                 return _make_http_error(402, "No credits")
-            if "localhost:11434" in str(url):
+            if "localhost:11434" in url:
                 return _make_ollama_response("Local fallback answer")
             return MagicMock(status_code=200, text="")
 
@@ -442,8 +455,9 @@ class TestDebateLogPipeline:
         """debate_log event содержит HTML с именами агентов."""
         log = DebateLog()
         log.add("cloud-code", "gemini-flash", "Flash draft", 100)
-        log.add("cloud-code", "gemini-pro", "Pro draft", 120)
-        log.add("cloud-code", "glm", "GLM verdict", 80)
+        log.add("cloud-code", "judge", "Pro verdict", 120)
+        log.add("cloud-code", "kimi", "Kimi draft", 80)
+        log.add("cloud-code", "ollama-gen", "Local draft", 80)
         log.add("consilium", "freebuff", "Code review", 60)
         log.add("consilium", "qwen", "Research context", 40)
         log.add("consilium", "consensus", "Final answer", 20)
@@ -461,16 +475,17 @@ class TestDebateLogPipeline:
         html = debate_events[0]["html"]
         # Уровень 1
         assert "УРОВЕНЬ 1" in html
-        assert "Gemini 3.5 Flash" in html
-        assert "Gemini 3.1 Pro" in html
-        assert "GLM 5.2" in html
+        assert "Gemini Flash (черновик)" in html
+        assert "Gemini Pro (судья)" in html
+        assert "Kimi (черновик)" in html
+        assert "Ollama (локальный черновик)" in html
         # Уровень 2
         assert "УРОВЕНЬ 2" in html
-        assert "Freebuff" in html
-        assert "Qwen 3" in html
-        assert "консенсус" in html
+        assert "Ollama (критический разбор)" in html
+        assert "Ollama (проверка результата)" in html
+        assert "Финальный ответ" in html
         # Сводка
-        assert "Всего агентов: 6" in html
+        assert "Всего агентов: 7" in html
 
     def test_empty_debate_log(self, client_online):
         """Пустой DebateLog → пустой HTML в SSE."""
@@ -557,22 +572,19 @@ class TestConsiliumEngineFullCycle:
     def test_engine_mixed_success_failure(self):
         """ConsiliumEngine: часть запросов успешна, часть падает."""
         async def mixed_side_effect(url, **kwargs):
-            model = kwargs.get("json", {}).get("model", "")
-            if "openrouter" in str(url):
-                if model == "google/gemini-3.5-flash":
-                    return _make_openrouter_response("Flash draft")
-                elif model == "google/gemini-3.1-pro":
+            url = str(url)
+            if "generativelanguage.googleapis.com" in url:
+                if "gemini-3-flash-preview" in url:
+                    return _make_gemini_response("Flash draft")
+                if "gemini-3.1-pro-preview" in url:
                     raise httpx.ConnectError("Pro unavailable")
-                elif model == "mimo/mimo-v2.5":
-                    return _make_openrouter_response("Freebuff review")
-                elif model == "google/gemini-3.5-flash":
-                    return _make_openrouter_response("Consensus")
-                return _make_openrouter_response("GLM OK")
-            if "localhost:11434" in str(url):
+            if "api.moonshot.cn" in url:
+                return _make_kimi_response("Kimi draft")
+            if "localhost:11434" in url:
                 return _make_ollama_response("Qwen context")
-            if "duckduckgo" in str(url):
+            if "duckduckgo" in url:
                 return MagicMock(status_code=200, text="")
-            return _make_openrouter_response("default")
+            return _make_gemini_response("default")
 
         mock_client = MagicMock(spec=httpx.AsyncClient)
         mock_client.post = AsyncMock(side_effect=mixed_side_effect)
@@ -582,7 +594,7 @@ class TestConsiliumEngineFullCycle:
 
         assert isinstance(answer, str)
         # Лог должен содержать ошибку для Pro
-        pro_entries = [e for e in log._entries if e["agent"] == "gemini-pro"]
+        pro_entries = [e for e in log._entries if e["agent"] == "judge"]
         assert any("Ошибка" in e["content"] for e in pro_entries)
 
     def test_engine_local_mode_with_ollama_error(self):

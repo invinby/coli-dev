@@ -45,8 +45,13 @@ PROC = psutil.Process(os.getpid())
 
 
 @pytest.fixture(autouse=True)
-def _reset_session_tracker():
+def _reset_session_tracker(monkeypatch, tmp_path):
     """Сброс сессий перед каждым тестом."""
+    monkeypatch.setattr(orchestrator, "GEMINI_KEY", "test-gemini-key")
+    monkeypatch.setattr(orchestrator, "KIMI_KEY", "test-kimi-key")
+    monkeypatch.setattr(orchestrator.state, "obsidian", None)
+    monkeypatch.setattr(session_tracker, "_file", tmp_path / "sessions.json")
+    monkeypatch.setattr(session_tracker, "max_per_day", 5)
     session_tracker.reset_mode()
     session_tracker._sessions = []
     session_tracker._mark_dirty()
@@ -137,6 +142,21 @@ class TestAPIEndpoints:
         assert "session_mode" in data
         assert "session_current" in data
         assert "session_max" in data
+        assert "knowledge_document_count" in data
+        assert "knowledge_index_checked_at" in data
+
+    def test_local_api_does_not_grant_cross_origin_browser_access(self, client):
+        """A random website must not be able to call local vault write endpoints."""
+        response = client.options(
+            "/obsidian/write/lesson.md",
+            headers={
+                "Origin": "https://attacker.example",
+                "Access-Control-Request-Method": "PUT",
+                "Access-Control-Request-Headers": "content-type",
+            },
+        )
+
+        assert "access-control-allow-origin" not in response.headers
 
     def test_api_session_returns_status(self, client):
         """/api/session возвращает статус сессий."""
@@ -256,7 +276,7 @@ class TestDebateLog:
         log.add("cloud-code", "gemini-flash", "Test content", 100)
         log.add("consilium", "freebuff", "Review content", 200)
         html = log.to_html()
-        assert "gemini-flash" in html or "Gemini 3.5 Flash" in html
+        assert "Gemini Flash (черновик)" in html
         assert "freebuff" in html or "Freebuff" in html
         assert "300" in html  # total duration
 
@@ -264,7 +284,8 @@ class TestDebateLog:
         """Проверка иконок агентов."""
         log = DebateLog()
         assert log._agent_icon("gemini-flash") == "⚡"
-        assert log._agent_icon("glm") == "🔮"
+        assert log._agent_icon("judge") == "⚖️"
+        assert log._agent_icon("kimi") == "👑"
         assert log._agent_icon("freebuff") == "🦊"
         assert log._agent_icon("qwen") == "🐉"
         assert log._agent_icon("unknown") == "🤖"
@@ -300,6 +321,41 @@ def _parse_sse(text: str) -> list[dict]:
 class TestStreamingChat:
     """Проверка SSE-стриминга через /chat/stream."""
 
+    def test_retrieval_sources_are_interleaved_and_citations_renumbered(self):
+        courses = [
+            {"id": "", "title": "Course A", "path": "02_Areas/a.md", "source_type": "course"},
+            {"id": "", "title": "Course B", "path": "02_Areas/b.md", "source_type": "course"},
+        ]
+        notes = [
+            {"id": "", "title": "note-a.md", "path": "note-a.md", "source_type": "obsidian"},
+            {"id": "", "title": "note-b.md", "path": "note-b.md", "source_type": "obsidian"},
+        ]
+
+        sources = orchestrator._combine_retrieval_sources(courses, notes)
+
+        assert [source["id"] for source in sources] == ["K1", "K2", "K3", "K4"]
+        assert [source["source_type"] for source in sources] == ["course", "obsidian", "course", "obsidian"]
+
+    def test_retrieval_prompt_marks_filesystem_dates_as_unverified_metadata(self):
+        prompt = orchestrator._augment_prompt_with_sources(
+            "Tutor prompt",
+            [{
+                "id": "K1",
+                "title": "Functions",
+                "path": "02_Areas/math.md",
+                "location": "3-7",
+                "modified_at": "2026-10-04T10:00:00Z",
+                "excerpt": "An example excerpt.",
+            }],
+            "en",
+        )
+
+        assert "[K1]" in prompt
+        assert "02_Areas/math.md" in prompt
+        assert "Lines: 3-7" in prompt
+        assert "File modified at: 2026-10-04T10:00:00Z" in prompt
+        assert "not proof of publication" in prompt
+
     def test_stream_returns_sse(self, client):
         """/chat/stream возвращает SSE-ответ."""
         mock_answer = "print('Hello, world!')"
@@ -324,7 +380,20 @@ class TestStreamingChat:
         mock_engine = MagicMock()
         mock_engine.run = AsyncMock(return_value=(mock_answer, mock_log))
 
-        with patch("orchestrator.ConsiliumEngine", return_value=mock_engine):
+        course_source = {
+            "title": "Hello World",
+            "excerpt": "A first Python program.",
+            "retrieved_at": "2026-10-05T12:00:00Z",
+            "modified_at": "2026-10-04T12:00:00Z",
+            "path": "02_Areas/python/hello.md",
+            "location": "2-5",
+            "source_type": "course",
+        }
+        with (
+            patch("orchestrator.ConsiliumEngine", return_value=mock_engine),
+            patch("orchestrator._retrieve_local_course_sources", AsyncMock(return_value=[course_source])),
+            patch("orchestrator._retrieve_obsidian_sources", AsyncMock(return_value=[])),
+        ):
             resp = client.post("/chat/stream", json={"message": TEST_MSG})
             events = _parse_sse(resp.text)
 
@@ -346,7 +415,20 @@ class TestStreamingChat:
         mock_engine = MagicMock()
         mock_engine.run = AsyncMock(return_value=(mock_answer, mock_log))
 
-        with patch("orchestrator.ConsiliumEngine", return_value=mock_engine):
+        course_source = {
+            "title": "Hello World",
+            "excerpt": "A first Python program.",
+            "retrieved_at": "2026-10-05T12:00:00Z",
+            "modified_at": "2026-10-04T12:00:00Z",
+            "path": "02_Areas/python/hello.md",
+            "location": "2-5",
+            "source_type": "course",
+        }
+        with (
+            patch("orchestrator.ConsiliumEngine", return_value=mock_engine),
+            patch("orchestrator._retrieve_local_course_sources", AsyncMock(return_value=[course_source])),
+            patch("orchestrator._retrieve_obsidian_sources", AsyncMock(return_value=[])),
+        ):
             resp = client.post("/chat/stream", json={"message": TEST_MSG})
             events = _parse_sse(resp.text)
             done_events = [e for e in events if e["type"] == "done"]
@@ -356,6 +438,9 @@ class TestStreamingChat:
             assert done["model"] == "multi-agent"
             assert "duration_ms" in done
             assert "tokens" in done
+            assert done["sources"][0]["id"] == "K1"
+            assert done["sources"][0]["path"] == "02_Areas/python/hello.md"
+            assert done["sources"][0]["modified_at"] == "2026-10-04T12:00:00Z"
 
     def test_stream_local_mode(self, client_offline):
         """В offline-режиме стрим идёт через Digital Twin (Qwen)."""
@@ -385,14 +470,22 @@ class TestConsiliumEngine:
         """run возвращает (answer, log) кортеж."""
         mock_client = MagicMock(spec=httpx.AsyncClient)
 
-        # OpenRouter-формат для Gemini/Freebuff
-        mock_or_response = MagicMock()
-        mock_or_response.status_code = 200
-        mock_or_response.json.return_value = {
+        # Provider responses match their actual API formats.
+        mock_gemini_response = MagicMock()
+        mock_gemini_response.status_code = 200
+        mock_gemini_response.json.return_value = {
+            "candidates": [{"content": {"parts": [{"text": FAKE_ANSWER}]}}]
+        }
+        mock_gemini_response.raise_for_status = MagicMock()
+        mock_gemini_response.text = ""
+
+        mock_kimi_response = MagicMock()
+        mock_kimi_response.status_code = 200
+        mock_kimi_response.json.return_value = {
             "choices": [{"message": {"content": FAKE_ANSWER}}]
         }
-        mock_or_response.raise_for_status = MagicMock()
-        mock_or_response.text = ""
+        mock_kimi_response.raise_for_status = MagicMock()
+        mock_kimi_response.text = ""
 
         # Ollama-формат для Qwen Researcher
         mock_ollama_response = MagicMock()
@@ -403,11 +496,15 @@ class TestConsiliumEngine:
         mock_ollama_response.raise_for_status = MagicMock()
         mock_ollama_response.text = ""
 
-        def side_effect(*args, **kwargs):
-            url = args[0] if args else kwargs.get("url", "")
-            if "ollama" in str(url).lower() or "localhost:11434" in str(url):
+        def side_effect(url, **kwargs):
+            url = str(url)
+            if "localhost:11434" in url:
                 return mock_ollama_response
-            return mock_or_response
+            if "api.moonshot.cn" in url:
+                return mock_kimi_response
+            if "generativelanguage.googleapis.com" in url:
+                return mock_gemini_response
+            raise AssertionError(f"Unexpected provider request in test: {url}")
 
         mock_client.post = AsyncMock(side_effect=side_effect)
 
@@ -416,8 +513,9 @@ class TestConsiliumEngine:
 
         assert isinstance(answer, str)
         assert isinstance(log, DebateLog)
-        assert len(answer) > 0
-        assert "[Ошибка" not in answer
+        assert answer == FAKE_ANSWER
+        agents = {entry["agent"] for entry in log._entries}
+        assert {"gemini-flash", "judge", "kimi", "ollama-gen", "freebuff", "qwen", "consensus"} <= agents
 
     def test_engine_run_local_returns_tuple(self):
         """run_local возвращает (answer, log) кортеж."""

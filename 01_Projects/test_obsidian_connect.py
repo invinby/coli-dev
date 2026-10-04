@@ -28,7 +28,7 @@ URLS = [
 ]
 
 
-async def test_url(url: str, api_key: str) -> None:
+async def check_url(url: str, api_key: str) -> None:
     """Проверить конкретный URL."""
     import httpx
 
@@ -72,7 +72,7 @@ async def main() -> None:
     # 2. Test URLs
     print(f"\n📋 Testing {len(URLS)} candidate URLs:")
     for url in URLS:
-        await test_url(url, OBSIDIAN_API_KEY)
+        await check_url(url, OBSIDIAN_API_KEY)
 
     print("\n" + "=" * 60)
     print("  TROUBLESHOOTING")
