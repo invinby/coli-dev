@@ -432,3 +432,9 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 - Обычный Auto free-only не блокирует явно запускаемый Google Search grounding: UI отдельно сообщает о возможных квотах/оплате. OpenRouter Free Router сейчас заявляет нулевую цену токенов и лимит 50 запросов в день на бесплатном плане; это может измениться, model pool меняется.
 - Полный `.venv\Scripts\python.exe -m pytest 01_Projects -q`: 348 passed, одно существующее предупреждение Starlette/httpx; Ruff, `compileall`, localization scan и `git diff --check` прошли. Свежий Xcode CI ещё не запускался, реальный macOS GUI не проверялся.
 - GitHub Actions run [37384220248](https://github.com/invinby/coli-dev/actions/runs/37384220248) полностью прошёл backend suite, сборки и встраивание backend runtime для Apple Silicon и Intel, оба smoke-test и проверку учебных файлов в bundle. Это подтверждает компиляцию, не реальный запуск интерфейса или поведение ключа/тарифа у аккаунта провайдера.
+
+### Сверка пользовательской документации с free-only Auto — 2026-10-06
+
+- Корневой и macOS README описывали прежнюю Gemini/Kimi цепочку как стандартный Auto, хотя код уже использовал free-only политику по умолчанию. Обновлены README и текущее состояние проекта; отдельно оговорено, что Google Search остаётся независимым действием с возможной квотой/оплатой.
+- Текущее состояние фиксирует 11 bilingual Markdown-уроков в `02_Areas/`, незавершённость полных курсов, ограниченность OpenRouter Free и отсутствие ручного GUI/API acceptance после последней сборки.
+- Только документационный срез: `git diff --check` пройден. Предыдущий source CI [37384220248](https://github.com/invinby/coli-dev/actions/runs/37384220248) зелёный; он не проверяет Markdown-описания и не является подтверждением Mac GUI.
