@@ -54,11 +54,11 @@ ASGI middleware ограничивает запросы размером 1 MiB �
 
 Локальный полный backend suite: 175 passed; `compileall` и `git diff --check` прошли. GitHub Actions run [37253856279](https://github.com/invinby/coli-dev/actions/runs/37253856279) успешно выполнил backend checks, macOS build и bundle-check.
 
-## Author-scheduled RAG review reminders — 2026-10-05
+## Напоминания о перепроверке источников RAG по графику автора — 2026-10-05
 
-Markdown course notes can optionally declare `source_checked` and `source_review_interval_days` (1–3650). The local index migrates the interval column in existing SQLite databases and returns the author-scheduled next-review date/status. The RU/EN chat source card and prompt explicitly label it as a reminder, not an automatic fact freshness check. It does not fetch or verify outside sources.
+В Markdown frontmatter можно указать `source_checked` и `source_review_interval_days` (1–3650). Индекс мигрирует nullable-колонку в существующей SQLite базе и возвращает дату/статус авторского напоминания. RU/EN-карточка источника и prompt называют это напоминанием, а не автоматической проверкой актуальности фактов. Источники извне не загружаются и не проверяются.
 
-The full local backend suite passed 177 tests with one existing Starlette/httpx deprecation warning; `compileall` and `git diff --check` passed. GitHub Actions for this increment is pending. The SwiftUI UI is awaiting the macOS CI build; no manual app launch on a Mac has been done.
+Полный локальный backend suite прошёл: 177 тестов и одно известное предупреждение Starlette/httpx; `compileall` и `git diff --check` прошли. GitHub Actions run [37254689783](https://github.com/invinby/coli-dev/actions/runs/37254689783) успешно выполнил backend checks, сборку macOS и bundle-check. Приложение вручную на Mac не запускалось.
 
 ## Не подтверждено запуском
 

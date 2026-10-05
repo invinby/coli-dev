@@ -184,4 +184,11 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 
 - Добавлен pure ASGI middleware, который ограничивает тело запроса до 1 MiB до того, как FastAPI/Pydantic прочитает JSON. Он считает и Content-Length, и chunked-сообщения, проверяет расхождение объявленной/фактической длины и воспроизводит уже проверенное тело downstream.
 - Добавлены ограничения длины полей `ChatRequest`, `ObsidianWriteRequest` и `ObsidianSearchRequest`.
-- Тесты покрывают oversized Content-Length, oversized chunked body, replay допустимого тела, длину mismatch и Pydantic limits. Полный suite: 175 passed, одно известное предупреждение Starlette/httpx; `compileall` и `git diff --check` чистые. CI для этого среза ещё ожидается.
+- Тесты покрывают oversized Content-Length, oversized chunked body, replay допустимого тела, длину mismatch и Pydantic limits. Полный suite: 175 passed, одно известное предупреждение Starlette/httpx; `compileall` и `git diff --check` чистые. GitHub Actions run [37253856279](https://github.com/invinby/coli-dev/actions/runs/37253856279) успешно выполнил backend checks, macOS build и bundle-check.
+
+### Авторский график перепроверки источников RAG — 2026-10-05
+
+- В Markdown frontmatter добавлено необязательное поле `source_review_interval_days` (целое число от 1 до 3650). Вместе с валидной `source_checked: YYYY-MM-DD` backend рассчитывает дату напоминания и помечает её как предстоящую или наступившую.
+- Новая nullable-колонка добавляется к существующей SQLite базе при обычной миграции. Некорректные, дублирующиеся и вложенные значения игнорируются; служебный frontmatter по-прежнему не попадает в выдержки и не меняет номера строк цитат.
+- SwiftUI показывает дату и интервал на английском и русском. Prompt инструктирует модель считать прошедший срок просьбой перепроверить источник, а не свидетельством устаревших фактов. Автоматического получения или проверки внешних источников эта функция не делает.
+- Полный локальный backend suite прошёл: 177 passed, 1 известное предупреждение Starlette/httpx. `compileall` и `git diff --check` прошли. Commit `568c3e8`; GitHub Actions run [37254689783](https://github.com/invinby/coli-dev/actions/runs/37254689783) успешно выполнил backend checks, сборку macOS и bundle-check. Приложение вручную на Mac не запускалось.
