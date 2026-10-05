@@ -68,6 +68,63 @@ def test_review_event_replay_is_idempotent_and_payload_conflicts_are_rejected(tm
         store.record_review(event_id, "intro.english", 3)
 
 
+def test_learning_reflection_is_normalized_persisted_and_bound_to_idempotent_event(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "progress.sqlite3"
+    store = StudyProgressStore(database)
+    store.initialize()
+    event_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+
+    recorded = store.record_review(
+        event_id, "physics.motion", 4, "  Acceleration changes velocity.\nI can explain the sign.  "
+    )
+    assert recorded["reflection"] == "Acceleration changes velocity. I can explain the sign."
+    assert store.record_review(
+        event_id, "physics.motion", 4, "Acceleration changes velocity. I can explain the sign."
+    ) == recorded
+    assert StudyProgressStore(database).get_progress()["records"][0]["reflection"] == recorded["reflection"]
+
+    with pytest.raises(ValueError, match="different review"):
+        store.record_review(event_id, "physics.motion", 4, "A different reflection")
+    with pytest.raises(ValueError, match="500 characters"):
+        store.record_review(
+            "f47ac10b-58cc-4372-a567-0e02b2c3d480", "physics.motion", 4, "x" * 501
+        )
+
+
+def test_reflection_columns_migrate_existing_progress_database(tmp_path: Path) -> None:
+    import sqlite3
+
+    database = tmp_path / "legacy-progress.sqlite3"
+    with sqlite3.connect(database) as connection:
+        connection.executescript(
+            """
+            CREATE TABLE lesson_progress (
+                lesson_id TEXT PRIMARY KEY, completed INTEGER NOT NULL DEFAULT 0,
+                repetitions INTEGER NOT NULL DEFAULT 0, interval_days INTEGER NOT NULL DEFAULT 0,
+                ease_factor REAL NOT NULL DEFAULT 2.5, review_count INTEGER NOT NULL DEFAULT 0,
+                due_at TEXT, last_reviewed_at TEXT, updated_at TEXT NOT NULL
+            );
+            CREATE TABLE review_events (
+                event_id TEXT PRIMARY KEY, lesson_id TEXT NOT NULL,
+                quality INTEGER NOT NULL CHECK (quality BETWEEN 0 AND 5), created_at TEXT NOT NULL
+            );
+            INSERT INTO lesson_progress (lesson_id, completed, updated_at)
+            VALUES ('intro.math', 1, '2026-10-05T00:00:00Z');
+            """
+        )
+
+    store = StudyProgressStore(database)
+    store.initialize()
+
+    assert store.get_progress()["records"][0]["reflection"] == ""
+    saved = store.record_review(
+        "f47ac10b-58cc-4372-a567-0e02b2c3d479", "intro.math", 4, "Понял область значений"
+    )
+    assert saved["reflection"] == "Понял область значений"
+
+
 @pytest.mark.parametrize(
     ("event_id", "lesson_id", "quality"),
     [

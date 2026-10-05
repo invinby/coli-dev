@@ -496,6 +496,7 @@ class StudyReviewRequest(BaseModel):
         pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$",
     )
     quality: int = Field(strict=True, ge=0, le=5)
+    reflection: str = Field(default="", max_length=500)
 
 
 class TrustedSourcePreviewRequest(BaseModel):
@@ -3210,6 +3211,7 @@ async def record_learning_review(payload: StudyReviewRequest, request: Request):
             str(payload.event_id),
             payload.lesson_id,
             payload.quality,
+            payload.reflection,
         )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from None

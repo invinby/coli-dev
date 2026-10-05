@@ -178,11 +178,17 @@ class TestAPIEndpoints:
         event_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
         saved = client.post(
             "/learning/reviews",
-            json={"event_id": event_id, "lesson_id": "intro.physics", "quality": 4},
+            json={
+                "event_id": event_id,
+                "lesson_id": "intro.physics",
+                "quality": 4,
+                "reflection": "I can describe force and acceleration.",
+            },
         )
         assert saved.status_code == 200
         assert saved.json()["completed"] is True
         assert saved.json()["interval_days"] == 1
+        assert saved.json()["reflection"] == "I can describe force and acceleration."
 
         progress = client.get("/learning/progress")
         assert progress.status_code == 200
@@ -191,7 +197,12 @@ class TestAPIEndpoints:
 
         replay = client.post(
             "/learning/reviews",
-            json={"event_id": event_id, "lesson_id": "intro.physics", "quality": 4},
+            json={
+                "event_id": event_id,
+                "lesson_id": "intro.physics",
+                "quality": 4,
+                "reflection": "I can describe force and acceleration.",
+            },
         )
         assert replay.status_code == 200
         assert replay.json() == saved.json()
@@ -207,6 +218,17 @@ class TestAPIEndpoints:
             },
         )
         assert invalid.status_code == 422
+
+        too_long_reflection = client.post(
+            "/learning/reviews",
+            json={
+                "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d480",
+                "lesson_id": "intro.physics",
+                "quality": 4,
+                "reflection": "x" * 501,
+            },
+        )
+        assert too_long_reflection.status_code == 422
 
         wrong_origin = client.get(
             "/learning/progress", headers={"Origin": "https://attacker.example"}

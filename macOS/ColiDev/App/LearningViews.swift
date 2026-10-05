@@ -391,6 +391,17 @@ struct CurriculumModuleView: View {
 
                     VStack(alignment: .leading, spacing: 12) {
                         Text(L10n.text("session.listen", store.language)).font(.headline)
+                        TextField(L10n.text("session.reflectionPlaceholder", store.language), text: $reflection, axis: .vertical)
+                            .textFieldStyle(.roundedBorder)
+                            .lineLimit(2...4)
+                            .onChange(of: reflection) { value in
+                                if value.unicodeScalars.count > 500 {
+                                    reflection = String(String.UnicodeScalarView(value.unicodeScalars.prefix(500)))
+                                }
+                            }
+                        Text(L10n.text("session.reflectionPrivacy", store.language))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                         Toggle(L10n.text("session.doneCheck", store.language), isOn: $learnerConfirmed)
                             .toggleStyle(.checkbox)
                         Picker(L10n.text("session.recallQuality", store.language), selection: $recallQuality) {
@@ -405,9 +416,17 @@ struct CurriculumModuleView: View {
 
                     Button {
                         if isComplete {
-                            store.recordReview(lessonID: lessonID, quality: recallQuality)
+                            store.recordReview(
+                                lessonID: lessonID,
+                                quality: recallQuality,
+                                reflection: reflection
+                            )
                         } else {
-                            store.markComplete(lessonID: lessonID, quality: recallQuality)
+                            store.markComplete(
+                                lessonID: lessonID,
+                                quality: recallQuality,
+                                reflection: reflection
+                            )
                         }
                     } label: {
                         let title = hasPendingReview
@@ -439,6 +458,11 @@ struct CurriculumModuleView: View {
         .navigationTitle(Text(document?.title ?? L10n.text("module.title", store.language)))
         .onAppear { loadDocument() }
         .onChange(of: store.language) { _ in loadDocument() }
+        .onChange(of: store.studyProgress[lessonID]?.reflection) { savedReflection in
+            if reflection.isEmpty, let savedReflection {
+                reflection = savedReflection
+            }
+        }
         .fileExporter(
             isPresented: $isExportingNotebookSource,
             document: notebookExportDocument,
@@ -471,6 +495,9 @@ struct CurriculumModuleView: View {
     private func loadDocument() {
         document = CurriculumLessonDocument.load(subject: subject, resource: resource, language: store.language)
         learnerConfirmed = isComplete
+        if reflection.isEmpty {
+            reflection = store.studyProgress[lessonID]?.reflection ?? ""
+        }
     }
 }
 
@@ -618,6 +645,14 @@ struct LessonSessionView: View {
                         TextField(L10n.text("session.reflectionPlaceholder", store.language), text: $reflection, axis: .vertical)
                             .textFieldStyle(.roundedBorder)
                             .lineLimit(2...4)
+                            .onChange(of: reflection) { value in
+                                if value.unicodeScalars.count > 500 {
+                                    reflection = String(String.UnicodeScalarView(value.unicodeScalars.prefix(500)))
+                                }
+                            }
+                        Text(L10n.text("session.reflectionPrivacy", store.language))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                         Toggle(L10n.text("session.doneCheck", store.language), isOn: $learnerConfirmed)
                             .toggleStyle(.checkbox)
                     }
@@ -627,9 +662,9 @@ struct LessonSessionView: View {
 
                     Button {
                         if store.isComplete(subject) {
-                            store.recordReview(for: subject)
+                            store.recordReview(for: subject, reflection: reflection)
                         } else {
-                            store.markComplete(subject)
+                            store.markComplete(subject, reflection: reflection)
                         }
                     } label: {
                         let title = store.hasPendingReview(subject)
@@ -657,7 +692,15 @@ struct LessonSessionView: View {
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .background(Color(nsColor: .windowBackgroundColor))
-        .onAppear { learnerConfirmed = store.isComplete(subject) }
+        .onAppear {
+            learnerConfirmed = store.isComplete(subject)
+            reflection = store.studyProgress[subject.lessonID]?.reflection ?? ""
+        }
+        .onChange(of: store.studyProgress[subject.lessonID]?.reflection) { savedReflection in
+            if reflection.isEmpty, let savedReflection {
+                reflection = savedReflection
+            }
+        }
         .navigationTitle(Text(subject.title(in: store.language)))
         .sheet(isPresented: $showingTutor) {
             TutorChatView(subject: subject, lesson: content, language: store.language, mode: store.aiMode)

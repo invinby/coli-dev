@@ -80,18 +80,29 @@ class StudyProgressStore:
                     review_count INTEGER NOT NULL DEFAULT 0,
                     due_at TEXT,
                     last_reviewed_at TEXT,
+                    reflection TEXT NOT NULL DEFAULT '',
                     updated_at TEXT NOT NULL
                 );
                 CREATE TABLE IF NOT EXISTS review_events (
                     event_id TEXT PRIMARY KEY,
                     lesson_id TEXT NOT NULL,
                     quality INTEGER NOT NULL CHECK (quality BETWEEN 0 AND 5),
+                    reflection TEXT NOT NULL DEFAULT '',
                     created_at TEXT NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS lesson_progress_due_idx
                     ON lesson_progress (due_at);
                 """
             )
+            for table in ("lesson_progress", "review_events"):
+                columns = {
+                    str(row["name"])
+                    for row in connection.execute(f"PRAGMA table_info({table})").fetchall()
+                }
+                if "reflection" not in columns:
+                    connection.execute(
+                        f"ALTER TABLE {table} ADD COLUMN reflection TEXT NOT NULL DEFAULT ''"
+                    )
 
     @staticmethod
     def _row(row: sqlite3.Row) -> dict[str, Any]:
@@ -104,6 +115,7 @@ class StudyProgressStore:
             "review_count": int(row["review_count"]),
             "due_at": row["due_at"],
             "last_reviewed_at": row["last_reviewed_at"],
+            "reflection": str(row["reflection"] or ""),
             "updated_at": row["updated_at"],
         }
 
@@ -135,7 +147,9 @@ class StudyProgressStore:
         )
         return repetitions, interval_days, ease_factor
 
-    def record_review(self, event_id: str, lesson_id: str, quality: int) -> dict[str, Any]:
+    def record_review(
+        self, event_id: str, lesson_id: str, quality: int, reflection: str = ""
+    ) -> dict[str, Any]:
         try:
             normalized_event_id = str(uuid.UUID(event_id))
         except (ValueError, TypeError, AttributeError):
@@ -144,17 +158,24 @@ class StudyProgressStore:
             raise ValueError("lesson_id must contain between 1 and 120 characters")
         if isinstance(quality, bool) or not isinstance(quality, int) or not 0 <= quality <= 5:
             raise ValueError("quality must be an integer between 0 and 5")
+        if not isinstance(reflection, str) or len(reflection) > 500:
+            raise ValueError("reflection must be text no longer than 500 characters")
+        normalized_reflection = " ".join(reflection.split())
 
         now = self._clock().astimezone(timezone.utc).replace(microsecond=0)
         now_text = _timestamp(now)
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             prior_event = connection.execute(
-                "SELECT lesson_id, quality FROM review_events WHERE event_id = ?",
+                "SELECT lesson_id, quality, reflection FROM review_events WHERE event_id = ?",
                 (normalized_event_id,),
             ).fetchone()
             if prior_event is not None:
-                if prior_event["lesson_id"] != lesson_id or int(prior_event["quality"]) != quality:
+                if (
+                    prior_event["lesson_id"] != lesson_id
+                    or int(prior_event["quality"]) != quality
+                    or str(prior_event["reflection"] or "") != normalized_reflection
+                ):
                     raise ValueError("event_id was already used for a different review")
                 row = connection.execute(
                     "SELECT * FROM lesson_progress WHERE lesson_id = ?", (lesson_id,)
@@ -180,8 +201,8 @@ class StudyProgressStore:
             connection.execute(
                 """INSERT INTO lesson_progress (
                        lesson_id, completed, repetitions, interval_days, ease_factor,
-                       review_count, due_at, last_reviewed_at, updated_at
-                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                       review_count, due_at, last_reviewed_at, reflection, updated_at
+                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(lesson_id) DO UPDATE SET
                        completed = excluded.completed,
                        repetitions = excluded.repetitions,
@@ -190,6 +211,7 @@ class StudyProgressStore:
                        review_count = excluded.review_count,
                        due_at = excluded.due_at,
                        last_reviewed_at = excluded.last_reviewed_at,
+                       reflection = excluded.reflection,
                        updated_at = excluded.updated_at""",
                 (
                     lesson_id,
@@ -200,12 +222,13 @@ class StudyProgressStore:
                     review_count + 1,
                     due_text,
                     now_text,
+                    normalized_reflection,
                     now_text,
                 ),
             )
             connection.execute(
-                "INSERT INTO review_events (event_id, lesson_id, quality, created_at) VALUES (?, ?, ?, ?)",
-                (normalized_event_id, lesson_id, quality, now_text),
+                "INSERT INTO review_events (event_id, lesson_id, quality, reflection, created_at) VALUES (?, ?, ?, ?, ?)",
+                (normalized_event_id, lesson_id, quality, normalized_reflection, now_text),
             )
             row = connection.execute(
                 "SELECT * FROM lesson_progress WHERE lesson_id = ?", (lesson_id,)
