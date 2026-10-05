@@ -411,6 +411,24 @@ def test_bundled_english_lesson_rag_returns_its_official_primary_source(tmp_path
     } in lesson["official_references"]
 
 
+def test_programming_variables_lesson_rag_returns_python_docs_source(tmp_path: Path) -> None:
+    project = Path(__file__).resolve().parent.parent
+    index = KnowledgeIndex(project, tmp_path / "knowledge.sqlite3")
+
+    results = index.refresh_and_search("Python variable names assignment dynamic types int str float")
+
+    assert results
+    lesson = next(
+        source for source in results
+        if source["path"] == "02_Areas/Programming/lessons/variables_and_types.md"
+    )
+    assert lesson["source_checked_at"] == "2026-10-06"
+    assert {
+        "title": "Python 3.14 Tutorial, “An Informal Introduction to Python” (official Python documentation; consulted 2026-10-06)",
+        "url": "https://docs.python.org/3/tutorial/introduction.html",
+    } in lesson["official_references"]
+
+
 def test_curriculum_lesson_links_resolve_to_bilingual_module_files() -> None:
     project = Path(__file__).resolve().parent.parent
     areas = project / "02_Areas"

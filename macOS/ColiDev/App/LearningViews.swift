@@ -803,6 +803,8 @@ private struct PracticeLab: View {
             PunnettLab()
         } else if subject == .physics, moduleResource == "work_and_kinetic_energy" {
             KineticEnergyLab()
+        } else if subject == .programming, moduleResource == "variables_and_types" {
+            VariablesTypesLab()
         } else {
             switch subject {
         case .mathematics:
@@ -1854,6 +1856,47 @@ private struct ConditionalLab: View {
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(.background, in: RoundedRectangle(cornerRadius: 12))
+        }
+    }
+}
+
+private struct VariablesTypesLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var reassignToText = false
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.variableCodeInitial", store.language))
+                .font(.system(.body, design: .monospaced).weight(.medium))
+            Toggle(L10n.text("lab.variableReassign", store.language), isOn: $reassignToText)
+                .toggleStyle(.switch)
+            Text(L10n.text("lab.variableCodeUpdate", store.language))
+                .font(.system(.body, design: .monospaced).weight(.medium))
+            VStack(alignment: .leading, spacing: 8) {
+                Text(L10n.text("lab.variableCurrentBinding", store.language))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                HStack(alignment: .firstTextBaseline) {
+                    Text("score")
+                        .font(.system(.body, design: .monospaced).weight(.semibold))
+                    Spacer()
+                    Text(reassignToText ? "\"12\"" : "12")
+                        .font(.system(.title3, design: .monospaced).weight(.semibold))
+                        .textSelection(.enabled)
+                    Text(reassignToText ? "str" : "int")
+                        .font(.system(.callout, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+                Label(
+                    L10n.text(reassignToText ? "lab.variableAfter" : "lab.variableBefore", store.language),
+                    systemImage: reassignToText ? "textformat" : "number"
+                )
+                .font(.callout)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.background, in: RoundedRectangle(cornerRadius: 12))
+            .accessibilityElement(children: .combine)
         }
     }
 }

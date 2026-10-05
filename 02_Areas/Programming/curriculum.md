@@ -7,7 +7,7 @@
 | Модуль / Module | Результат обучения / Learning outcome | Урок / Lesson |
 |---|---|---|
 | Алгоритмическое мышление и псевдокод / Computational thinking and pseudocode | Разбивать задачу на шаги, примеры, крайние случаи и критерии правильности. / Decompose tasks into steps, cases, and correctness criteria. |
-| Переменные, типы, выражения, ввод и вывод / Variables, types, expressions, input/output | Объяснять состояние программы и предсказывать результат простого кода. / Track program state and predict simple execution. |
+| Переменные, типы, выражения, ввод и вывод / Variables, types, expressions, input/output | Объяснять состояние программы и предсказывать результат простого кода. / Track program state and predict simple execution. | lesson:variables_and_types |
 | Условия, циклы и функции / Conditionals, loops, functions | Выбирать управляющую конструкцию, разбивать логику на именованные функции и проверять крайние случаи. / Structure logic and test edge cases. | lesson:conditions_loops_functions |
 | Строки, коллекции, файлы и исключения / Strings, collections, files, exceptions | Преобразовывать данные и корректно обрабатывать ошибочный ввод и сбои. / Transform data and handle invalid input and failures. |
 | Отладка, тесты и Git / Debugging, tests, version control | Воспроизводить дефект, читать stack trace, писать проверку и фиксировать изменение в Git. / Reproduce a bug, inspect traces, test, and track changes. |
