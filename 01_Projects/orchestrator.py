@@ -1655,7 +1655,7 @@ async def _check_network() -> bool:
         try:
             resp = await state.http_client.get(
                 "https://generativelanguage.googleapis.com/v1beta/models",
-                params={"key": GEMINI_KEY},
+                headers={"x-goog-api-key": GEMINI_KEY},
                 timeout=NET_CHECK_TIMEOUT,
             )
             if resp.status_code == 200:

@@ -132,6 +132,24 @@ def client_offline():
             yield c
 
 
+def test_network_check_sends_gemini_key_in_header_not_url(monkeypatch):
+    secret = "network-check-test-secret"
+    response = MagicMock(status_code=200)
+    http_client = MagicMock()
+    http_client.get = AsyncMock(return_value=response)
+    monkeypatch.setattr(orchestrator.state, "http_client", http_client)
+    monkeypatch.setattr(orchestrator, "GEMINI_KEY", secret)
+
+    assert asyncio.run(orchestrator._check_network())
+
+    http_client.get.assert_awaited_once_with(
+        "https://generativelanguage.googleapis.com/v1beta/models",
+        headers={"x-goog-api-key": secret},
+        timeout=orchestrator.NET_CHECK_TIMEOUT,
+    )
+    assert secret not in str(http_client.get.await_args.args[0])
+
+
 # ─── Тесты API Endpoints ───────────────────────────────
 
 
