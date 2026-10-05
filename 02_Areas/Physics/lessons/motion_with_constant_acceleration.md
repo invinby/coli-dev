@@ -30,7 +30,7 @@ source_review_interval_days: 365
 
 В открытом опыте «Сила и движение» начни с `F = 6 Н`, `m = 3 кг` и сбрось опыт. Запусти его на 2 секунды и запиши `a`, `v` и `Δx`. Повтори с `m = 6 кг` при той же силе: ускорение и перемещение за 2 секунды должны уменьшиться вдвое. Теперь измени знак силы, оставив массу `3 кг`: направление скорости и перемещения должно поменяться. Для ручного исследования используй шаги по `0,1 с`.
 
-### Проверь понимание
+### Вопрос
 
 Тело начинает из покоя. На него действует постоянная сила `−6 Н`; масса равна `3 кг`. Где оно будет относительно начала через `2 с`?
 
@@ -73,7 +73,7 @@ For a start from rest with the initial position set to zero, these become `v = a
 
 In the Force and Motion experiment, begin with `F = 6 N`, `m = 3 kg`, and reset. Run for two seconds and record `a`, `v`, and `Δx`. Repeat with `m = 6 kg` and the same force: acceleration and displacement after two seconds should be halved. Now reverse the force sign while keeping the mass at `3 kg`; velocity and displacement should reverse direction. Use 0.1-second steps for a manual investigation.
 
-### Check your understanding
+### Question
 
 An object starts from rest. A constant `−6 N` force acts on its `3 kg` mass. Where is it relative to its starting position after `2 s`?
 
