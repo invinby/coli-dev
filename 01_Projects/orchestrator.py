@@ -959,17 +959,48 @@ class ConsiliumEngine:
                 "Все генераторы недоступны. Проверьте GEMINI_API_KEY, KIMI_API_KEY/OPENROUTER_API_KEY и Ollama"
             )
 
-        # 2. Gemini 2.5 Pro — Судья: анализирует все три черновика
+        # 2. Gemini Pro evaluates subject learning content, not software architecture by default.
+        if self.language == "en":
+            judge_instructions = (
+                "You are ColiDev's lead learning specialist and final judge. Compare these independent "
+                "draft answers to the learner's actual question in the course context. Assess domain "
+                "correctness, sound reasoning, fit to the learner's level, clarity, useful examples, "
+                "and honest treatment of limitations or uncertainty. Do not assume every question is "
+                "about software; review syntax, security, or performance only when code is actually "
+                "part of the question. Reject unsupported claims, preserve valid [K#] source markers, "
+                "and form one evidence-conscious position for the final tutor answer."
+            )
+            question_label = "Learner question"
+            draft_labels = (
+                "Gemini Flash draft",
+                f"{DebateLog._agent_label(specialist_agent)} draft",
+                "Local Ollama draft",
+            )
+            verdict_label = "Judging notes"
+        else:
+            judge_instructions = (
+                "Ты — главный методист и судья учебного тьютора ColiDev. Сравни независимые черновики "
+                "ответа на реальный вопрос ученика с учётом контекста курса. Оцени точность в предметной "
+                "области, правильность рассуждений, соответствие уровню ученика, ясность, полезные примеры, "
+                "а также честное описание ограничений и неопределённости. Не считай каждый вопрос задачей "
+                "по программированию: проверяй синтаксис, безопасность или производительность только когда "
+                "в вопросе действительно есть код. Отклоняй неподтверждённые утверждения, сохраняй уместные "
+                "маркеры источников [K#] и составь одну обоснованную позицию для итогового ответа тьютора."
+            )
+            question_label = "Вопрос ученика"
+            draft_labels = (
+                "Черновик Gemini Flash",
+                f"Черновик {DebateLog._agent_label(specialist_agent)}",
+                "Черновик локальной Ollama",
+            )
+            verdict_label = "Заметки судьи"
         judge_prompt = (
-            "Ты — 👑 Верховный Судья, главный архитектор-координатор. "
-            "Проанализируй три черновика архитектуры от разных моделей. "
-            "Выбери лучшее решение или синтезируй единую, эталонную позицию. "
-            "Учти: правильность, производительность, читаемость кода, "
-            "совместимость с Python 3.11+, FastAPI, асинхронность.\n\n"
-            f"Черновик Gemini 2.0 Flash:\n{flash_draft}\n\n"
-            f"Черновик {DebateLog._agent_label(specialist_agent)}:\n{specialist_draft}\n\n"
-            f"Черновик Ollama (Qwen 2.5 Coder):\n{ollama_draft}\n\n"
-            f"Final verdict in {self.output_language}:"
+            f"{judge_instructions}\n\n"
+            f"{question_label}: {message}\n\n"
+            f"{draft_labels[0]}:\n{flash_draft}\n\n"
+            f"{draft_labels[1]}:\n{specialist_draft}\n\n"
+            f"{draft_labels[2]}:\n{ollama_draft}\n\n"
+            f"{verdict_label} ({self.output_language}):"
         )
 
         t1 = datetime.now(timezone.utc)
@@ -1003,47 +1034,80 @@ class ConsiliumEngine:
         """Freebuff (Ollama) + Qwen 2.5 Coder → валидация + финальный ответ."""
         logger.info("Level 2: Local Critic — Freebuff + Qwen 2.5 Coder verifying")
 
-        # 1. Freebuff (Ollama): строгий код-ревью
+        # 1. Local critic checks the subject content, not only source-code style.
         t0 = datetime.now(timezone.utc)
-        freebuff_prompt = (
-            "Ты — Freebuff, Главный Архитектор и строгий код-ревьюер. "
-            "Проверь облачную позицию Cloud Code на:\n"
-            "1) Соответствие PEP 8 и Python 3.11+\n"
-            "2) Оптимизацию для Mac M1 (16GB, fanless) — избегай тяжёлых зависимостей\n"
-            "3) Корректность асинхронного кода (FastAPI/httpx)\n"
-            "4) Безопасность (нет SQL-инъекций, XSS, hardcoded secrets)\n"
-            "5) Читаемость и документацию\n\n"
-            f"Облачная позиция Cloud Code:\n{cloud_position}\n\n"
-            f"Critical review in {self.output_language}:"
-        )
+        if self.language == "en":
+            freebuff_prompt = (
+                "Act as a careful, subject-neutral learning critic. Review the main position for "
+                "factual and reasoning errors, fit to the question and lesson, unsupported assumptions, "
+                "learner-level clarity, useful mechanisms/examples, and relevant limitations or safety "
+                "concerns. Check code syntax, security, or performance only if code is present. Flag "
+                "actionable issues; distinguish a confirmed error from uncertainty.\n\n"
+                f"Learner question: {message}\n\nMain position:\n{cloud_position}\n\n"
+                f"Critical review in {self.output_language}:"
+            )
+        else:
+            freebuff_prompt = (
+                "Действуй как внимательный предметный критик учебного ответа. Проверь точность фактов и "
+                "рассуждений, соответствие вопросу и уроку, неподтверждённые допущения, ясность для уровня "
+                "ученика, полезность объяснения/примеров, существенные ограничения и безопасность. Проверяй "
+                "синтаксис, безопасность и скорость кода только если код действительно есть. Отмечай конкретные "
+                "исправимые проблемы и отличай доказанную ошибку от неопределённости.\n\n"
+                f"Вопрос ученика: {message}\n\nОсновная позиция:\n{cloud_position}\n\n"
+                f"Критический разбор на языке {self.output_language}:"
+            )
         freebuff_review = await self._ask_ollama(freebuff_prompt, self.agent_system(system_prompt), "freebuff")
         fb_duration = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
 
-        # 2. Qwen 2.5 Coder 7B: мгновенная верификация синтаксиса (локально)
+        # 2. Local verifier independently checks claims and reasoning.
         t1 = datetime.now(timezone.utc)
-        qwen_verify_prompt = (
-            "Ты — Qwen 2.5 Coder 7B, локальный верификатор кода. "
-            "Проверь синтаксис и логику кода из облачной позиции. "
-            "Выдай краткий вердикт: ✅ корректно или ❌ ошибки (укажи какие).\n\n"
-            f"Код:\n{cloud_position[:1500]}\n\n"
-            f"Verdict in {self.output_language} (2-3 sentences):"
-        )
+        if self.language == "en":
+            qwen_verify_prompt = (
+                "Independently verify the key factual claims and reasoning in the main position using "
+                "the learner's question and course context. If code is present, check relevant syntax "
+                "and logic; otherwise apply checks appropriate to the subject. Do not rubber-stamp the "
+                "answer. State a specific supported issue or say that no clear issue was found, and mark "
+                "uncertainty honestly.\n\n"
+                f"Learner question: {message}\n\nMain position:\n{cloud_position[:4000]}\n\n"
+                f"Verification in {self.output_language} (2-4 sentences):"
+            )
+        else:
+            qwen_verify_prompt = (
+                "Независимо проверь ключевые факты и рассуждения в основной позиции, учитывая вопрос ученика "
+                "и контекст курса. Если в ответе есть код, проверь относящийся к нему синтаксис и логику; в "
+                "остальных случаях применяй проверки по предмету. Не подтверждай ответ автоматически. Назови "
+                "конкретную подтверждённую проблему либо сообщи, что явной ошибки не нашёл; честно обозначь "
+                "неопределённость.\n\n"
+                f"Вопрос ученика: {message}\n\nОсновная позиция:\n{cloud_position[:4000]}\n\n"
+                f"Проверка на языке {self.output_language} (2–4 предложения):"
+            )
         qwen_verify = await self._ask_ollama(qwen_verify_prompt, self.agent_system(system_prompt), "qwen")
         qw_duration = int((datetime.now(timezone.utc) - t1).total_seconds() * 1000)
 
         # 3. Финальный синтез
         t2 = datetime.now(timezone.utc)
-        consensus_prompt = (
-            "You are the coli-dev learning tutor coordinator. Consider the expert drafts and "
-            "the learner's question below.\n\n"
-            f"1. Main model's position:\n{cloud_position}\n\n"
-            f"2. Critical review:\n{freebuff_review}\n\n"
-            f"3. Local verification:\n{qwen_verify}\n\n"
-            f"Learner's question: {message}\n\n"
-            f"Synthesize one clear, coordinated answer in {self.output_language}. "
-            "Be useful, accurate, and understandable. Use code fences when needed. "
-            "Be concise without sacrificing quality."
-        )
+        if self.language == "en":
+            consensus_prompt = (
+                "You coordinate ColiDev's learning tutor. Use supported insights from the main position, "
+                "critical review, and independent verification; do not blindly accept an unsupported "
+                "suggestion. Answer the learner's question in clear English at the level implied by the "
+                "course context. Explain the core idea or steps and add one relevant example when useful. "
+                "State material uncertainty or limits, preserve supplied [K#] citations beside the claims "
+                "they support, and never invent citations. Do not mention internal agents.\n\n"
+                f"Learner question: {message}\n\nMain position:\n{cloud_position}\n\n"
+                f"Critical review:\n{freebuff_review}\n\nIndependent verification:\n{qwen_verify}"
+            )
+        else:
+            consensus_prompt = (
+                "Ты координируешь учебного тьютора ColiDev. Используй подтверждённые выводы основной позиции, "
+                "критического разбора и независимой проверки; не принимай неподтверждённые замечания на веру. "
+                "Ответь на вопрос ученика ясным русским языком на уровне, который задаёт контекст курса. "
+                "Объясни основную идею или шаги и, когда полезно, приведи один подходящий пример. Укажи "
+                "существенную неопределённость или ограничения, сохрани переданные цитаты [K#] рядом с "
+                "поддерживаемыми ими утверждениями и не выдумывай источники. Не упоминай внутренних агентов.\n\n"
+                f"Вопрос ученика: {message}\n\nОсновная позиция:\n{cloud_position}\n\n"
+                f"Критический разбор:\n{freebuff_review}\n\nНезависимая проверка:\n{qwen_verify}"
+            )
         final_answer = await self._ask_gemini(consensus_prompt, self.agent_system(system_prompt),
                                                GEMINI_FLASH_URL, "consensus")
         if self._is_provider_error(final_answer):
@@ -1062,9 +1126,10 @@ class ConsiliumEngine:
             "final_len": len(final_answer),
         })
 
-        # 4. Автосохранение саммари в Obsidian Vault (фоновая задача)
-        task = asyncio.create_task(self._save_to_obsidian(message, final_answer))
-        task.add_done_callback(self._obsidian_task_done)
+        # 4. Save a short session note only when the local Obsidian bridge is configured.
+        if state.obsidian and state.obsidian.configured:
+            task = asyncio.create_task(self._save_to_obsidian(message, final_answer))
+            task.add_done_callback(self._obsidian_task_done)
 
         return final_answer
 

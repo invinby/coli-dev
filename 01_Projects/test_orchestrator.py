@@ -468,6 +468,46 @@ def test_cloud_code_surfaces_provider_reported_openrouter_model(monkeypatch):
     assert engine.completion_model == "multi-agent · OpenRouter: provider/specialist-free-v2"
 
 
+@pytest.mark.parametrize(
+    ("language", "expected_phrase"),
+    [
+        ("en", "subject-neutral learning critic"),
+        ("ru", "предметный критик учебного ответа"),
+    ],
+)
+def test_auto_consilium_prompts_are_learning_focused_for_both_languages(language, expected_phrase):
+    engine = orchestrator.ConsiliumEngine(
+        MagicMock(spec=httpx.AsyncClient),
+        language=language,
+    )
+    engine._ask_gemini = AsyncMock(side_effect=["Flash draft", "Judge draft", "Final answer"])
+    engine._ask_cloud_specialist = AsyncMock(return_value=("Specialist draft", "kimi"))
+    engine._ask_ollama = AsyncMock(
+        side_effect=["Local draft", "Critical notes", "Verification notes"]
+    )
+    engine._save_to_obsidian = AsyncMock()
+
+    async def run_both_levels():
+        cloud_position = await engine._run_cloud_code(
+            "Explain photosynthesis", "Subject: biology; explain the light-dependent reactions."
+        )
+        await engine._run_consilium("Explain photosynthesis", "Biology lesson context", cloud_position)
+
+    asyncio.run(run_both_levels())
+
+    judge_prompt = engine._ask_gemini.await_args_list[1].args[0]
+    critic_prompt = engine._ask_ollama.await_args_list[1].args[0]
+    verifier_prompt = engine._ask_ollama.await_args_list[2].args[0]
+    consensus_prompt = engine._ask_gemini.await_args_list[2].args[0]
+    for prompt in (judge_prompt, critic_prompt, verifier_prompt, consensus_prompt):
+        assert "PEP 8" not in prompt
+        assert "FastAPI/httpx" not in prompt
+        assert "Python 3.11+" not in prompt
+    assert expected_phrase in (critic_prompt if language == "en" else critic_prompt.lower())
+    assert "photosynthesis" in judge_prompt
+    assert "photosynthesis" in consensus_prompt
+
+
 def test_cloud_specialist_falls_back_to_openrouter_when_kimi_fails(monkeypatch):
     monkeypatch.setattr(orchestrator, "KIMI_KEY", "kimi-test-key")
     monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "openrouter-test-key")

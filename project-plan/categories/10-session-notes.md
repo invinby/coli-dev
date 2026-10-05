@@ -211,5 +211,11 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 
 - OpenRouter model ID из успешного Chat Completions ответа передаётся в поле `model` SSE `done`, откуда SwiftUI уже выводит подпись под ответом. Строка провайдера нормализуется и ограничена 160 символами. Если API model ID не прислал, UI показывает настроенный маршрут и неизвестность разрешённой модели; секреты и тело ошибок в SSE не попадают.
 - При облачном сбое подпись ответа теперь отражает локальный fallback-провайдер и модель, а не ошибочно оставляет `consilium · multi-agent`. При пустом/невалидном local fallback событие помечается недоступным.
-- Повторный backend suite прошёл: 191 passed, одно известное предупреждение Starlette/httpx. Целевые 9 ранее упавших streaming-тестов после type guard прошли; `compileall`, `bash -n` и `git diff --check` чистые.
-- Docs-only CI run [37258944995](https://github.com/invinby/coli-dev/actions/runs/37258944995) упал только на Intel smoke-test: `curl | grep -q` давал broken pipe при `pipefail`. Скрипт теперь сохраняет страницу во временный файл и ищет по нему; исправление и model-label код ещё не отправлены повторно в CI. Живые провайдеры и GUI на настоящем Mac не проверены.
+- Backend suite для commit `803b0b6` прошёл: 191 passed, одно известное предупреждение Starlette/httpx. Целевые streaming-тесты после type guard прошли; `compileall`, `bash -n` и `git diff --check` чистые.
+- Docs-only CI run [37258944995](https://github.com/invinby/coli-dev/actions/runs/37258944995) упал только на Intel smoke-test: `curl | grep -q` давал broken pipe при `pipefail`. Скрипт переведён на промежуточный файл; GitHub Actions run [37260005137](https://github.com/invinby/coli-dev/actions/runs/37260005137) подтвердил backend suite, сборку, упаковку и smoke на Apple Silicon и Intel.
+
+### Предметно-нейтральные учебные prompts — 2026-10-05
+
+- Общие judge, critic, local verifier и final synthesis prompts переписаны для учебных вопросов по разным дисциплинам. RU/EN версия выбрана явно; никаких требований FastAPI/PEP 8/Python-бэкенда в общих рубриках больше нет. Кодовые проверки активируются условно, когда в запросе есть код.
+- Автосохранение в Obsidian запускается только при настроенном локальном bridge, без лишней no-op-задачи в остальных сессиях.
+- Целевые тесты на обоих языках прошли: 4 passed. Полный backend suite: 193 passed, одно известное предупреждение Starlette/httpx. `compileall` и `git diff --check` прошли. Изменения пока локальные; GitHub CI и live-модельные ответы не проверены.
