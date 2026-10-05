@@ -93,3 +93,14 @@ def test_database_path_respects_user_data_directory_and_stays_out_of_repository(
     path = default_database_path()
     assert path == tmp_path / "private-data" / "learning-progress.sqlite3"
     assert ".git" not in path.parts
+
+
+def test_database_path_uses_shared_app_data_and_preserves_existing_legacy_store(tmp_path: Path) -> None:
+    new_path = tmp_path / "Library" / "Application Support" / "coli-dev" / "learning-progress.sqlite3"
+    legacy_path = tmp_path / "Library" / "Application Support" / "ColiDev" / "learning-progress.sqlite3"
+
+    assert default_database_path(platform="darwin", environ={}, home=tmp_path) == new_path
+
+    legacy_path.parent.mkdir(parents=True)
+    legacy_path.write_bytes(b"existing learner progress")
+    assert default_database_path(platform="darwin", environ={}, home=tmp_path) == legacy_path

@@ -6,24 +6,41 @@ import os
 import sqlite3
 import sys
 import uuid
+from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable, Any
 
+from app_paths import app_data_dir
 
-def default_database_path() -> Path:
-    """Return a per-user app-support path without placing data in the repo."""
-    configured = os.getenv("COLIDEV_DATA_DIR", "").strip()
+
+def default_database_path(
+    *,
+    platform: str | None = None,
+    environ: Mapping[str, str] | None = None,
+    home: Path | None = None,
+) -> Path:
+    """Return the shared per-user database path, preserving an existing legacy DB."""
+    current_platform = sys.platform if platform is None else platform
+    env = os.environ if environ is None else environ
+    home_dir = Path.home() if home is None else Path(home)
+    configured = env.get("COLIDEV_DATA_DIR", "").strip()
     if configured:
         return Path(configured).expanduser() / "learning-progress.sqlite3"
 
-    if sys.platform == "darwin":
-        return Path.home() / "Library" / "Application Support" / "ColiDev" / "learning-progress.sqlite3"
-    if sys.platform == "win32":
-        base = os.getenv("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
-        return Path(base) / "ColiDev" / "learning-progress.sqlite3"
-    base = os.getenv("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
-    return Path(base).expanduser() / "colidev" / "learning-progress.sqlite3"
+    current = app_data_dir(platform=current_platform, environ=env, home=home_dir) / "learning-progress.sqlite3"
+    if current.exists():
+        return current
+
+    if current_platform == "darwin":
+        legacy = home_dir / "Library" / "Application Support" / "ColiDev" / "learning-progress.sqlite3"
+    elif current_platform == "win32":
+        # The previous Windows path already matches app_data_dir().
+        legacy = current
+    else:
+        legacy_data = env.get("XDG_DATA_HOME") or str(home_dir / ".local" / "share")
+        legacy = Path(legacy_data).expanduser() / "colidev" / "learning-progress.sqlite3"
+    return legacy if legacy != current and legacy.is_file() else current
 
 
 def _timestamp(value: datetime) -> str:

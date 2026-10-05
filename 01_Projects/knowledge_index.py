@@ -14,7 +14,6 @@ import math
 import os
 import re
 import sqlite3
-import sys
 import threading
 import time
 from collections import Counter
@@ -22,6 +21,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, Protocol
 from urllib.parse import urlsplit
+
+from app_paths import app_data_dir
 
 logger = logging.getLogger("colidev.knowledge")
 
@@ -55,13 +56,7 @@ class EmbeddingProvider(Protocol):
 
 def default_database_path() -> Path:
     """Return a per-user writable database path on macOS, Windows, or Linux."""
-    if sys.platform == "darwin":
-        base = Path.home() / "Library" / "Application Support" / "coli-dev"
-    elif os.name == "nt":
-        base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "ColiDev"
-    else:
-        base = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "coli-dev"
-    return base / "knowledge.sqlite3"
+    return app_data_dir() / "knowledge.sqlite3"
 
 
 def _utc_timestamp(timestamp: float) -> str:

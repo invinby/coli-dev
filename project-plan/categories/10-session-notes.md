@@ -160,4 +160,10 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 
 - Добавлена та же loopback/Origin проверка для `/health`, `/api/status`, `/api/session`, `/api/session/reset`, `/chat/stream` и всех `/obsidian/*` endpoints. Settings и learning progress уже проверяли эти условия.
 - Это закрывает неодинаковую защиту локального API: чужой сайт или удалённый клиент не должен читать vault через backend, запускать запросы к провайдерам или сбрасывать режим сессии.
-- Регрессии проверены полным `pytest 01_Projects -q`: 137 passed, одно известное предупреждение совместимости Starlette/httpx. `compileall` и `git diff --check` прошли; GitHub Actions для кода ещё ожидается.
+- Регрессии проверены полным `pytest 01_Projects -q`: 137 passed, одно известное предупреждение совместимости Starlette/httpx. `compileall` и `git diff --check` прошли. Commit `aac9cb9`; GitHub Actions run [37251653614](https://github.com/invinby/coli-dev/actions/runs/37251653614) успешно прошёл backend checks и macOS build/bundle-check.
+
+### OS-aware backend storage — 2026-10-05
+
+- Добавлен `app_paths.py` с OS-aware user data/log paths и `COLIDEV_DATA_DIR` / `COLIDEV_LOG_DIR` overrides; Windows и Linux больше не используют жёстко заданную macOS-папку для сессий и логов.
+- Путь индекса переведён на общий data-root. Новая база прогресса использует общий путь; если старая база существует отдельно на macOS/Linux, она остаётся активной до появления новой, чтобы сохранить локальные записи. Для JSON-сессий действует такой же fallback.
+- Path regression suite прошёл: 14 passed. Полный `pytest 01_Projects -q` прошёл: 143 passed, одно известное предупреждение совместимости Starlette/httpx; `compileall` и `git diff --check` прошли. CI для этого среза ещё ожидается.

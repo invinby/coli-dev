@@ -46,6 +46,7 @@ from urllib.parse import quote, urlsplit
 import httpx
 from dotenv import load_dotenv
 
+from app_paths import app_log_dir, session_file_path
 from knowledge_index import KnowledgeIndex, OllamaEmbeddingProvider
 from learning_progress import StudyProgressStore, default_database_path
 from obsidian_worker import ObsidianWorker
@@ -360,7 +361,7 @@ CHAT_RATE_LIMIT = os.getenv("CHAT_RATE_LIMIT", "30/minute")
 # Сессии
 SESSION_MAX_PER_DAY = int(os.getenv("SESSION_MAX_PER_DAY", "999"))
 SESSION_DURATION_HOURS = int(os.getenv("SESSION_DURATION_HOURS", "1"))
-SESSION_FILE = Path.home() / "Library" / "Application Support" / "coli-dev" / "sessions.json"
+SESSION_FILE = session_file_path()
 
 # DuckDuckGo search
 DDG_URL = "https://html.duckduckgo.com/html/"
@@ -368,7 +369,7 @@ DDG_URL = "https://html.duckduckgo.com/html/"
 # ─── Structured Logging ────────────────────────────────
 
 _request_id: ContextVar[str] = ContextVar("request_id", default="-")
-_log_dir = Path.home() / "Library" / "Logs" / "coli-dev"
+_log_dir = app_log_dir()
 
 
 class JSONFormatter(logging.Formatter):
