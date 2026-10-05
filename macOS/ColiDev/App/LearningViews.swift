@@ -256,6 +256,7 @@ struct CurriculumModuleView: View {
     @State private var document: CurriculumLessonDocument?
     @State private var showingTutor = false
     @State private var learnerConfirmed = false
+    @State private var reflection = ""
     @State private var recallQuality = 4
     @State private var selectedCheckAnswer: Int?
     @State private var isExportingNotebookSource = false
@@ -390,20 +391,11 @@ struct CurriculumModuleView: View {
                     .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
 
                     VStack(alignment: .leading, spacing: 12) {
-                        Text(L10n.text("session.listen", store.language)).font(.headline)
-                        TextField(L10n.text("session.reflectionPlaceholder", store.language), text: $reflection, axis: .vertical)
-                            .textFieldStyle(.roundedBorder)
-                            .lineLimit(2...4)
-                            .onChange(of: reflection) { value in
-                                if value.unicodeScalars.count > 500 {
-                                    reflection = String(String.UnicodeScalarView(value.unicodeScalars.prefix(500)))
-                                }
-                            }
-                        Text(L10n.text("session.reflectionPrivacy", store.language))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        Toggle(L10n.text("session.doneCheck", store.language), isOn: $learnerConfirmed)
-                            .toggleStyle(.checkbox)
+                        StudyReflectionFields(
+                            language: store.language,
+                            reflection: $reflection,
+                            learnerConfirmed: $learnerConfirmed
+                        )
                         Picker(L10n.text("session.recallQuality", store.language), selection: $recallQuality) {
                             Text(L10n.text("session.recallHard", store.language)).tag(2)
                             Text(L10n.text("session.recallGood", store.language)).tag(4)
@@ -639,23 +631,11 @@ struct LessonSessionView: View {
                 quizCard
 
                 if selectedAnswer == content.answerIndex || store.isComplete(subject) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text(L10n.text("session.listen", store.language))
-                            .font(.headline)
-                        TextField(L10n.text("session.reflectionPlaceholder", store.language), text: $reflection, axis: .vertical)
-                            .textFieldStyle(.roundedBorder)
-                            .lineLimit(2...4)
-                            .onChange(of: reflection) { value in
-                                if value.unicodeScalars.count > 500 {
-                                    reflection = String(String.UnicodeScalarView(value.unicodeScalars.prefix(500)))
-                                }
-                            }
-                        Text(L10n.text("session.reflectionPrivacy", store.language))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        Toggle(L10n.text("session.doneCheck", store.language), isOn: $learnerConfirmed)
-                            .toggleStyle(.checkbox)
-                    }
+                    StudyReflectionFields(
+                        language: store.language,
+                        reflection: $reflection,
+                        learnerConfirmed: $learnerConfirmed
+                    )
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
@@ -747,6 +727,32 @@ struct LessonSessionView: View {
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+    }
+}
+
+private struct StudyReflectionFields: View {
+    let language: AppLanguage
+    @Binding var reflection: String
+    @Binding var learnerConfirmed: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(L10n.text("session.listen", language))
+                .font(.headline)
+            TextField(L10n.text("session.reflectionPlaceholder", language), text: $reflection, axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+                .lineLimit(2...4)
+                .onChange(of: reflection) { value in
+                    if value.unicodeScalars.count > 500 {
+                        reflection = String(String.UnicodeScalarView(value.unicodeScalars.prefix(500)))
+                    }
+                }
+            Text(L10n.text("session.reflectionPrivacy", language))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Toggle(L10n.text("session.doneCheck", language), isOn: $learnerConfirmed)
+                .toggleStyle(.checkbox)
+        }
     }
 }
 
