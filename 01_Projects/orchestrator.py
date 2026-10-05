@@ -61,7 +61,7 @@ from provider_usage import (
 )
 from request_limits import RequestBodyLimitMiddleware
 from subject_rubrics import add_subject_rubric
-from trusted_sources import TrustedSourceMonitor
+from trusted_sources import SourceSnapshotChanged, TrustedSourceMonitor
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
@@ -500,6 +500,12 @@ class StudyReviewRequest(BaseModel):
 
 class TrustedSourcePreviewRequest(BaseModel):
     url: str = Field(min_length=1, max_length=2048)
+
+
+class TrustedSourceReviewRequest(BaseModel):
+    url: str = Field(min_length=1, max_length=2048)
+    lesson_path: str = Field(min_length=1, max_length=256)
+    preview_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
 class HealthResponse(BaseModel):
@@ -3129,6 +3135,30 @@ async def preview_trusted_source(payload: TrustedSourcePreviewRequest, request: 
     except (RuntimeError, httpx.HTTPError):
         logger.warning("Approved course source preview is unavailable")
         raise HTTPException(status_code=502, detail="Approved course source preview is unavailable") from None
+
+
+@app.post("/knowledge/sources/review")
+@limiter.limit("10/minute")
+async def review_trusted_source(payload: TrustedSourceReviewRequest, request: Request):
+    """Record an explicit local review only if the approved page still matches its preview."""
+    _require_local_settings_request(request)
+    try:
+        review = trusted_source_monitor.review_source
+        check_lock = getattr(request.app.state, "trusted_source_check_lock", None)
+        if check_lock is None:
+            return await review(payload.url, payload.lesson_path, payload.preview_digest)
+        async with check_lock:
+            return await review(payload.url, payload.lesson_path, payload.preview_digest)
+    except SourceSnapshotChanged:
+        raise HTTPException(
+            status_code=409,
+            detail="The source changed after the preview. Fetch and review it again.",
+        ) from None
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Approved lesson source was not found") from None
+    except (RuntimeError, httpx.HTTPError):
+        logger.warning("Approved course source review is unavailable")
+        raise HTTPException(status_code=502, detail="Approved course source review is unavailable") from None
 
 
 @app.post("/learning/reviews")

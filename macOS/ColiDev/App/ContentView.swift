@@ -880,7 +880,9 @@ private struct ManagementView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     List(visibleSourceItems) { source in
-                        SourceRegistryRow(source: source, language: store.language)
+                        SourceRegistryRow(source: source, language: store.language) {
+                            Task { await reloadSourceInventory() }
+                        }
                     }
                     .listStyle(.inset)
                     .frame(minHeight: 320)
@@ -1157,6 +1159,12 @@ private struct ManagementView: View {
     }
 
     @MainActor
+    private func reloadSourceInventory() async {
+        guard let latest = try? await OrchestratorClient.trustedSourceInventory() else { return }
+        sourceInventory = latest
+    }
+
+    @MainActor
     private func reload() async {
         isLoading = true
         defer { isLoading = false }
@@ -1272,6 +1280,7 @@ private struct ManagementView: View {
 private struct SourceRegistryRow: View {
     let source: TrustedSourceInventoryItem
     let language: AppLanguage
+    let onReviewSaved: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -1420,7 +1429,7 @@ private struct SourceRegistryRow: View {
         .padding(.vertical, 5)
         .accessibilityElement(children: .contain)
         .sheet(item: $preview) { item in
-            TrustedSourcePreviewSheet(preview: item, language: language)
+            TrustedSourcePreviewSheet(preview: item, language: language, onReviewSaved: onReviewSaved)
         }
         .alert(
             L10n.text("management.sourcePreviewTitle", language),
@@ -1522,6 +1531,11 @@ private struct TrustedSourcePreviewSheet: View {
     @Environment(\.dismiss) private var dismiss
     let preview: TrustedSourcePagePreview
     let language: AppLanguage
+    let onReviewSaved: () -> Void
+    @State private var selectedLessonPath: String?
+    @State private var isSavingReview = false
+    @State private var reviewedLessonPaths: Set<String> = []
+    @State private var showReviewError = false
 
     var body: some View {
         NavigationStack {
@@ -1548,6 +1562,53 @@ private struct TrustedSourcePreviewSheet: View {
                     Text(verbatim: preview.excerpt)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .textSelection(.enabled)
+                    GroupBox {
+                        VStack(alignment: .leading, spacing: 10) {
+                            if preview.lessonPaths.count > 1 {
+                                Picker(
+                                    L10n.text("management.sourceReviewLesson", language),
+                                    selection: $selectedLessonPath
+                                ) {
+                                    ForEach(preview.lessonPaths, id: \.self) { path in
+                                        Text(path).tag(Optional(path))
+                                    }
+                                }
+                            } else if let lessonPath = preview.lessonPaths.first {
+                                Text(lessonPath)
+                                    .font(.caption.monospaced())
+                                    .textSelection(.enabled)
+                            }
+
+                            Text(L10n.text("management.sourceReviewExplanation", language))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+
+                            if selectedLessonAlreadyReviewed {
+                                Label(
+                                    L10n.text("management.sourceReviewSaved", language),
+                                    systemImage: "checkmark.circle.fill"
+                                )
+                                .foregroundStyle(.green)
+                            }
+
+                            Button {
+                                Task { await recordReview() }
+                            } label: {
+                                if isSavingReview {
+                                    ProgressView().controlSize(.small)
+                                    Text(L10n.text("management.sourceReviewSaving", language))
+                                } else {
+                                    Label(
+                                        L10n.text("management.sourceReviewAction", language),
+                                        systemImage: "checkmark.seal"
+                                    )
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(isSavingReview || selectedLessonPath == nil || selectedLessonAlreadyReviewed)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                     Divider()
                     Text(L10n.text("management.sourcePreviewLessons", language))
                         .font(.caption.weight(.semibold))
@@ -1580,6 +1641,42 @@ private struct TrustedSourcePreviewSheet: View {
                 }
             }
             .frame(minWidth: 540, minHeight: 420)
+            .task {
+                if selectedLessonPath == nil {
+                    selectedLessonPath = preview.lessonPaths.first
+                }
+            }
+            .alert(
+                L10n.text("management.sourceReviewAction", language),
+                isPresented: $showReviewError
+            ) {
+                Button(L10n.text("management.sourcePreviewDone", language), role: .cancel) { }
+            } message: {
+                Text(L10n.text("management.sourceReviewFailed", language))
+            }
         }
+    }
+
+    @MainActor
+    private func recordReview() async {
+        guard let selectedLessonPath else { return }
+        isSavingReview = true
+        defer { isSavingReview = false }
+        do {
+            try await OrchestratorClient.recordTrustedSourceReview(
+                url: preview.url,
+                lessonPath: selectedLessonPath,
+                previewDigest: preview.contentDigest
+            )
+            reviewedLessonPaths.insert(selectedLessonPath)
+            onReviewSaved()
+        } catch {
+            showReviewError = true
+        }
+    }
+
+    private var selectedLessonAlreadyReviewed: Bool {
+        guard let selectedLessonPath else { return false }
+        return reviewedLessonPaths.contains(selectedLessonPath)
     }
 }

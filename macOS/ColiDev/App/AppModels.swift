@@ -1058,6 +1058,27 @@ enum OrchestratorClient {
         return try JSONDecoder().decode(TrustedSourcePagePreview.self, from: data)
     }
 
+    static func recordTrustedSourceReview(
+        url sourceURL: String,
+        lessonPath: String,
+        previewDigest: String
+    ) async throws {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/knowledge/sources/review") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 15
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(
+            TrustedSourceReviewRequest(url: sourceURL, lessonPath: lessonPath, previewDigest: previewDigest)
+        )
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+    }
+
     static func studyProgress() async throws -> StudyProgressSnapshot {
         guard let url = URL(string: LearningStore.orchestratorBaseURL + "/learning/progress") else {
             throw ClientError.invalidResponse
@@ -1261,6 +1282,18 @@ struct TutorMessage: Identifiable {
 
 private struct TrustedSourcePreviewRequest: Encodable {
     let url: String
+}
+
+private struct TrustedSourceReviewRequest: Encodable {
+    let url: String
+    let lessonPath: String
+    let previewDigest: String
+
+    enum CodingKeys: String, CodingKey {
+        case url
+        case lessonPath = "lesson_path"
+        case previewDigest = "preview_digest"
+    }
 }
 
 @MainActor

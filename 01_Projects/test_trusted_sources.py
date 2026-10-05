@@ -335,6 +335,124 @@ def test_source_preview_does_not_follow_redirects(tmp_path: Path) -> None:
     assert requested_hosts == ["openstax.org"]
 
 
+def test_manual_editorial_review_rechecks_page_and_saves_digest_not_excerpt(tmp_path: Path) -> None:
+    url = "https://openstax.org/books/college-physics-2e/pages/7-1-work-the-scientific-definition"
+    _write_lesson(
+        tmp_path,
+        "---\nsource_checked: 2020-01-01\nsource_review_interval_days: 365\n---\n"
+        f"[OpenStax work page]({url})",
+    )
+    monitor = _monitor(tmp_path, tmp_path)
+    page = "<html><head><title>Work</title></head><body><main><article>Energy transfer.</article></main></body></html>"
+    requested = 0
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal requested
+        requested += 1
+        return httpx.Response(
+            200,
+            headers={
+                "content-type": "text/html; charset=utf-8",
+                "etag": '"version-a"',
+                "last-modified": "Tue, 06 Oct 2026 00:00:00 GMT",
+            },
+            text=page,
+        )
+
+    async def run() -> tuple[dict[str, object], dict[str, object]]:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            preview = await monitor.preview_source(url, client)
+            review = await monitor.review_source(
+                url,
+                "02_Areas/Physics/lessons/source_test.md",
+                str(preview["content_digest"]),
+                client,
+            )
+            return preview, review
+
+    preview, result = asyncio.run(run())
+    inventory = monitor.inventory()
+    item = inventory["sources"][0]
+    lesson_review = item["lesson_reviews"][0]
+
+    assert requested == 2
+    assert result["status"] == "ok"
+    assert result["lesson_path"] == "02_Areas/Physics/lessons/source_test.md"
+    assert result["reviewed_on"] == str(result["reviewed_at"])[:10]
+    assert lesson_review["lesson_reviewed_on"] == result["reviewed_on"]
+    assert lesson_review["editorial_review_interval_days"] == 365
+    assert lesson_review["editorial_review_status"] == "review_scheduled"
+    assert item["content_checked_at"] == result["reviewed_at"]
+    assert item["last_modified"] == "Tue, 06 Oct 2026 00:00:00 GMT"
+
+    connection = monitor._connect()
+    try:
+        saved = connection.execute(
+            "SELECT url, lesson_path, reviewed_digest, reviewed_on, reviewed_at "
+            "FROM trusted_source_editorial_reviews"
+        ).fetchone()
+        columns = {
+            str(row["name"])
+            for row in connection.execute("PRAGMA table_info(trusted_source_editorial_reviews)")
+        }
+    finally:
+        connection.close()
+    assert saved["reviewed_digest"] == preview["content_digest"]
+    assert "excerpt" not in columns
+    assert "Energy transfer." not in str(dict(saved))
+
+    reference = monitor._references()[0][0]
+    monitor._save_check(
+        reference,
+        etag='"version-b"',
+        last_modified="Wed, 07 Oct 2026 00:00:00 GMT",
+        checked_at="2026-10-07T00:00:00Z",
+        http_status=200,
+        state="changed",
+        page_title="Work revised",
+        content_digest="b" * 64,
+        content_checked_at="2026-10-07T00:00:00Z",
+    )
+    invalidated = monitor.inventory()["sources"][0]["lesson_reviews"][0]
+    assert invalidated["lesson_reviewed_on"] == "2020-01-01"
+
+
+def test_manual_review_refuses_stale_preview_and_wrong_lesson_before_saving(tmp_path: Path) -> None:
+    url = "https://openstax.org/books/college-physics-2e/pages/7-1-work-the-scientific-definition"
+    _write_lesson(tmp_path, f"[OpenStax work page]({url})")
+    monitor = _monitor(tmp_path, tmp_path)
+    responses = [
+        "<html><body><main><article>Old source text.</article></main></body></html>",
+        "<html><body><main><article>Changed source text.</article></main></body></html>",
+    ]
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/html; charset=utf-8"},
+            text=responses.pop(0),
+        )
+
+    async def run() -> None:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            preview = await monitor.preview_source(url, client)
+            with pytest.raises(ValueError, match="approved inventory"):
+                await monitor.review_source(url, "02_Areas/Physics/lessons/other.md", str(preview["content_digest"]), client)
+            with pytest.raises(SourceSnapshotChanged, match="changed after the displayed preview"):
+                await monitor.review_source(
+                    url,
+                    "02_Areas/Physics/lessons/source_test.md",
+                    str(preview["content_digest"]),
+                    client,
+                )
+
+    from trusted_sources import SourceSnapshotChanged
+
+    asyncio.run(run())
+    inventory = monitor.inventory()
+    assert inventory["sources"][0]["lesson_reviewed_on"] is None
+
+
 def test_inventory_keeps_all_lesson_review_states_for_a_shared_source(tmp_path: Path) -> None:
     root = tmp_path / "project"
     url = "https://openstax.org/books/algebra-and-trigonometry-2e/pages/3-2-domain-and-range"

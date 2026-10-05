@@ -787,6 +787,59 @@ def test_trusted_source_preview_hides_monitor_errors_and_reports_unknown_sources
     assert "private network detail" not in unavailable.text
 
 
+def test_trusted_source_review_is_local_and_requires_the_displayed_page_digest(
+    client_online, monkeypatch
+):
+    url = "https://openstax.org/books/college-physics-2e/pages/7-1-work-the-scientific-definition"
+    lesson_path = "02_Areas/Physics/lessons/work_and_kinetic_energy.md"
+    digest = "a" * 64
+    expected = {
+        "status": "ok",
+        "url": url,
+        "lesson_path": lesson_path,
+        "reviewed_on": "2026-10-06",
+        "reviewed_at": "2026-10-06T10:00:00Z",
+        "review_id": 1,
+    }
+    record_review = AsyncMock(return_value=expected)
+    monkeypatch.setattr(orchestrator.trusted_source_monitor, "review_source", record_review)
+    payload = {"url": url, "lesson_path": lesson_path, "preview_digest": digest}
+
+    rejected = client_online.post(
+        "/knowledge/sources/review",
+        json=payload,
+        headers={"Origin": "https://example.test"},
+    )
+    assert rejected.status_code == 403
+    record_review.assert_not_awaited()
+
+    accepted = client_online.post("/knowledge/sources/review", json=payload)
+    assert accepted.status_code == 200
+    assert accepted.json() == expected
+    record_review.assert_awaited_once_with(url, lesson_path, digest)
+
+
+def test_trusted_source_review_reports_changed_preview_without_internal_details(
+    client_online, monkeypatch
+):
+    monkeypatch.setattr(
+        orchestrator.trusted_source_monitor,
+        "review_source",
+        AsyncMock(side_effect=orchestrator.SourceSnapshotChanged("private detail")),
+    )
+
+    response = client_online.post(
+        "/knowledge/sources/review",
+        json={
+            "url": "https://openstax.org/books/college-physics-2e/pages/7-1-work-the-scientific-definition",
+            "lesson_path": "02_Areas/Physics/lessons/work_and_kinetic_energy.md",
+            "preview_digest": "a" * 64,
+        },
+    )
+    assert response.status_code == 409
+    assert "private detail" not in response.text
+
+
 def test_provider_usage_endpoint_is_local_and_bounds_the_requested_window(client_online, monkeypatch):
     expected = {
         "generated_at": "2026-10-05T00:00:00Z",

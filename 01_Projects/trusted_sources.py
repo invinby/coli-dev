@@ -80,6 +80,10 @@ class SourceReference:
         return self.lesson_reviews[0].lesson_path
 
 
+class SourceSnapshotChanged(RuntimeError):
+    """Raised when a source changed between preview and editorial confirmation."""
+
+
 class _SourcePageParser(HTMLParser):
     """Extract bounded, human-readable metadata and visible text from HTML."""
 
@@ -341,6 +345,20 @@ class TrustedSourceMonitor:
                 connection.execute(
                     f"ALTER TABLE trusted_source_checks ADD COLUMN {column} {declaration}"
                 )
+        connection.execute(
+            """CREATE TABLE IF NOT EXISTS trusted_source_editorial_reviews (
+                review_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                url TEXT NOT NULL,
+                lesson_path TEXT NOT NULL,
+                reviewed_digest TEXT NOT NULL,
+                reviewed_on TEXT NOT NULL,
+                reviewed_at TEXT NOT NULL
+            )"""
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_source_editorial_reviews_latest "
+            "ON trusted_source_editorial_reviews(url, lesson_path, review_id DESC)"
+        )
         return connection
 
     def inventory(self, *, today: date | None = None) -> dict[str, object]:
@@ -351,8 +369,19 @@ class TrustedSourceMonitor:
                 str(row["url"]): row
                 for row in connection.execute(
                     "SELECT url, etag, last_modified, last_checked_at, last_http_status, state, "
-                    "page_title, page_description, content_checked_at "
+                    "page_title, page_description, content_digest, content_checked_at "
                     "FROM trusted_source_checks"
+                ).fetchall()
+            }
+            manual_reviews = {
+                (str(row["url"]), str(row["lesson_path"])): row
+                for row in connection.execute(
+                    """SELECT review_id, url, lesson_path, reviewed_digest, reviewed_on, reviewed_at
+                    FROM trusted_source_editorial_reviews AS review
+                    WHERE review_id = (
+                        SELECT MAX(latest.review_id) FROM trusted_source_editorial_reviews AS latest
+                        WHERE latest.url = review.url AND latest.lesson_path = review.lesson_path
+                    )"""
                 ).fetchall()
             }
 
@@ -361,12 +390,25 @@ class TrustedSourceMonitor:
             previous = previous_checks.get(reference.url)
             lesson_review_items: list[dict[str, object]] = []
             for lesson_review in reference.lesson_reviews:
+                reviewed_on = lesson_review.reviewed_on
+                manual_review = manual_reviews.get((reference.url, lesson_review.lesson_path))
+                if (
+                    manual_review is not None
+                    and previous is not None
+                    and previous["content_digest"]
+                    and str(manual_review["reviewed_digest"]) == str(previous["content_digest"])
+                    and (
+                        reviewed_on is None
+                        or str(manual_review["reviewed_on"]) >= reviewed_on
+                    )
+                ):
+                    reviewed_on = str(manual_review["reviewed_on"])
                 due_on, schedule_status = _source_review_schedule(
-                    lesson_review.reviewed_on,
+                    reviewed_on,
                     lesson_review.interval_days,
                     today,
                 )
-                if lesson_review.reviewed_on is None:
+                if reviewed_on is None:
                     editorial_status = "review_missing"
                 elif schedule_status is None:
                     editorial_status = "review_unscheduled"
@@ -374,7 +416,7 @@ class TrustedSourceMonitor:
                     editorial_status = f"review_{schedule_status}"
                 lesson_review_items.append({
                     "lesson_path": lesson_review.lesson_path,
-                    "lesson_reviewed_on": lesson_review.reviewed_on,
+                    "lesson_reviewed_on": reviewed_on,
                     "editorial_review_interval_days": lesson_review.interval_days,
                     "editorial_review_due_on": due_on,
                     "editorial_review_status": editorial_status,
@@ -443,6 +485,24 @@ class TrustedSourceMonitor:
             "omitted_count": omitted_count,
             "sources": items,
         }
+
+    def _save_editorial_review(
+        self, url: str, lesson_path: str, digest: str, reviewed_on: str, reviewed_at: str
+    ) -> None:
+        with self._db_lock, self._connect() as connection:
+            connection.execute(
+                """INSERT INTO trusted_source_editorial_reviews(
+                    url, lesson_path, reviewed_digest, reviewed_on, reviewed_at
+                ) VALUES (?, ?, ?, ?, ?)""",
+                (url, lesson_path, digest, reviewed_on, reviewed_at),
+            )
+            connection.execute(
+                """DELETE FROM trusted_source_editorial_reviews
+                WHERE review_id NOT IN (
+                    SELECT review_id FROM trusted_source_editorial_reviews
+                    ORDER BY review_id DESC LIMIT 10000
+                )"""
+            )
 
     def seconds_until_automatic_check(self, *, now: datetime | None = None) -> float | None:
         """Return delay until the next bounded check, retrying transient failures sooner."""
@@ -828,6 +888,8 @@ class TrustedSourceMonitor:
                 "lesson_paths": [review.lesson_path for review in reference.lesson_reviews],
                 "page_title": title,
                 "page_description": description,
+                "etag": self._bounded_header(response.headers.get("etag")),
+                "last_modified": self._bounded_header(response.headers.get("last-modified")),
                 "excerpt": visible_text[:_MAX_SOURCE_PREVIEW_CHARS],
                 "excerpt_truncated": len(visible_text) > _MAX_SOURCE_PREVIEW_CHARS,
                 "content_digest": digest,
@@ -844,3 +906,67 @@ class TrustedSourceMonitor:
             trust_env=False,
         ) as owned_client:
             return await fetch(owned_client)
+
+    async def review_source(
+        self,
+        url: str,
+        lesson_path: str,
+        preview_digest: str,
+        client: httpx.AsyncClient | None = None,
+    ) -> dict[str, object]:
+        """Re-fetch a preview, compare its digest, and save an editorial review event."""
+        canonical = self._canonical_url(url)
+        references, _, _ = self._references()
+        reference = next((item for item in references if item.url == canonical), None)
+        if reference is None or lesson_path not in {
+            item.lesson_path for item in reference.lesson_reviews
+        }:
+            raise ValueError("Source and lesson are not in the approved inventory")
+
+        fresh = await self.preview_source(url, client)
+        digest = str(fresh["content_digest"])
+        if digest != preview_digest:
+            raise SourceSnapshotChanged("Source changed after the displayed preview")
+
+        reviewed_at = str(fresh["fetched_at"])
+        reviewed_on = reviewed_at[:10]
+        previous = self._previous_check(reference.url)
+        previous_digest = str(previous["content_digest"]) if previous and previous["content_digest"] else None
+        if previous is None:
+            state = "available_untracked"
+        elif previous_digest is None:
+            state = "content_baseline"
+        elif previous_digest != digest:
+            state = "changed"
+        else:
+            state = "unchanged"
+        self._save_check(
+            reference,
+            etag=str(fresh["etag"]) if fresh["etag"] else None,
+            last_modified=str(fresh["last_modified"]) if fresh["last_modified"] else None,
+            checked_at=reviewed_at,
+            http_status=200,
+            state=state,
+            page_title=str(fresh["page_title"]) if fresh["page_title"] else None,
+            page_description=str(fresh["page_description"]) if fresh["page_description"] else None,
+            content_digest=digest,
+            content_checked_at=reviewed_at,
+        )
+        self._save_editorial_review(reference.url, lesson_path, digest, reviewed_on, reviewed_at)
+        return {
+            "status": "ok",
+            "url": reference.url,
+            "lesson_path": lesson_path,
+            "reviewed_on": reviewed_on,
+            "reviewed_at": reviewed_at,
+            "review_id": self._latest_editorial_review_id(reference.url, lesson_path),
+        }
+
+    def _latest_editorial_review_id(self, url: str, lesson_path: str) -> int | None:
+        with self._db_lock, self._connect() as connection:
+            row = connection.execute(
+                """SELECT review_id FROM trusted_source_editorial_reviews
+                WHERE url = ? AND lesson_path = ? ORDER BY review_id DESC LIMIT 1""",
+                (url, lesson_path),
+            ).fetchone()
+        return int(row["review_id"]) if row is not None else None
