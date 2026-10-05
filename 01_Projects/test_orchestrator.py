@@ -828,6 +828,48 @@ def _parse_sse(text: str) -> list[dict]:
 class TestStreamingChat:
     """Проверка SSE-стриминга через /chat/stream."""
 
+    def test_local_citations_are_checked_without_rewriting_code(self):
+        answer = (
+            "Supported [K1], unsupported [K2]. `literal [K3]`\n"
+            "```python\nexample = '[K4]'\n```\n"
+            "Unsupported again [K2]."
+        )
+
+        sanitized, warnings = orchestrator._validate_local_citations(
+            answer,
+            [{"id": "K1"}],
+            "en",
+        )
+
+        assert sanitized == (
+            "Supported [K1], unsupported [source K2 unavailable]. `literal [K3]`\n"
+            "```python\nexample = '[K4]'\n```\n"
+            "Unsupported again [source K2 unavailable]."
+        )
+        assert warnings == ["K2"]
+
+    def test_stream_done_reports_missing_local_citation_ids(self):
+        async def collect():
+            return [
+                event
+                async for event in orchestrator._stream_answer_debate(
+                    "Ссылка [K8] не найдена.",
+                    "",
+                    "local",
+                    "test-model",
+                    [],
+                    language="ru",
+                )
+            ]
+
+        frames = asyncio.run(collect())
+        events = [json.loads(frame.removeprefix("data: ").strip()) for frame in frames]
+        token_text = "".join(event["content"] for event in events if event["type"] == "token")
+        done = next(event for event in events if event["type"] == "done")
+
+        assert token_text == "Ссылка [источник K8 не найден] не найдена."
+        assert done["citation_warnings"] == ["K8"]
+
     def test_retrieval_sources_are_interleaved_and_citations_renumbered(self):
         courses = [
             {"id": "", "title": "Course A", "path": "02_Areas/a.md", "source_type": "course"},
