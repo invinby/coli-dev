@@ -3,6 +3,7 @@ import AppKit
 
 struct ContentView: View {
     @EnvironmentObject private var store: LearningStore
+    @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
     @State private var selection: AppSection? = .today
 
     var body: some View {
@@ -73,7 +74,13 @@ struct ContentView: View {
                 }
             }
         }
-        .task { await store.syncStudyProgress() }
+        .task {
+            guard await backendSupervisor.ensureRunning() else { return }
+            await store.syncStudyProgress()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
+            backendSupervisor.stop()
+        }
     }
 
     private func open(_ subject: Subject) {
@@ -268,6 +275,7 @@ private struct SubjectCard: View {
 
 private struct SettingsView: View {
     @EnvironmentObject private var store: LearningStore
+    @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
 
     var body: some View {
         Form {
@@ -333,6 +341,7 @@ private struct SettingsView: View {
                     Spacer()
                     Button(L10n.text("settings.aiRefresh", store.language)) {
                         Task {
+                            guard await backendSupervisor.ensureRunning() else { return }
                             await store.refreshAIStatus()
                             await store.refreshProviderSecretStatuses()
                         }
@@ -340,7 +349,8 @@ private struct SettingsView: View {
                 }
                 VStack(alignment: .leading, spacing: 5) {
                     Text(L10n.text("settings.aiLaunch", store.language)).font(.caption.weight(.semibold))
-                    Text("bash start_v4.sh").font(.callout.monospaced())
+                    Text(L10n.text(backendSupervisor.status.localizationKey, store.language))
+                        .font(.callout)
                     Text(L10n.text("settings.aiPrivacy", store.language)).font(.caption).foregroundStyle(.secondary)
                 }
             } header: {
@@ -366,6 +376,7 @@ private struct SettingsView: View {
             }
         }
         .task {
+            guard await backendSupervisor.ensureRunning() else { return }
             await store.refreshAIStatus()
             await store.refreshProviderSecretStatuses()
         }
@@ -388,6 +399,7 @@ private struct SettingsView: View {
 
 private struct ProviderKeyEntryView: View {
     @EnvironmentObject private var store: LearningStore
+    @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
     let provider: String
     let title: String
 
@@ -402,7 +414,7 @@ private struct ProviderKeyEntryView: View {
             HStack(spacing: 8) {
                 SecureField(L10n.text("settings.keyPlaceholder", store.language), text: $apiKey)
                     .textFieldStyle(.roundedBorder)
-                    .disabled(isSaving)
+                    .disabled(isSaving || !backendSupervisor.isReady)
                 Button {
                     Task { await saveKey() }
                 } label: {
@@ -412,7 +424,11 @@ private struct ProviderKeyEntryView: View {
                         Text(L10n.text("settings.keySave", store.language))
                     }
                 }
-                .disabled(isSaving || apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(
+                    isSaving
+                    || !backendSupervisor.isReady
+                    || apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                )
             }
             HStack {
                 Text(statusLabel)
@@ -423,7 +439,7 @@ private struct ProviderKeyEntryView: View {
                     Button(L10n.text("settings.keyRemove", store.language), role: .destructive) {
                         Task { await removeKey() }
                     }
-                    .disabled(isSaving)
+                    .disabled(isSaving || !backendSupervisor.isReady)
                 }
             }
             if let feedback {
@@ -449,6 +465,11 @@ private struct ProviderKeyEntryView: View {
 
     @MainActor
     private func saveKey() async {
+        guard await backendSupervisor.ensureRunning() else {
+            feedback = L10n.text("settings.backendFailed", store.language)
+            feedbackIsError = true
+            return
+        }
         isSaving = true
         defer { isSaving = false }
         do {
@@ -464,6 +485,11 @@ private struct ProviderKeyEntryView: View {
 
     @MainActor
     private func removeKey() async {
+        guard await backendSupervisor.ensureRunning() else {
+            feedback = L10n.text("settings.backendFailed", store.language)
+            feedbackIsError = true
+            return
+        }
         isSaving = true
         defer { isSaving = false }
         do {

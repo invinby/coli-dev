@@ -61,7 +61,11 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 # ─── Bootstrap: .env ───────────────────────────────────
-_env_path = Path(__file__).resolve().parent.parent / ".env"
+PROJECT_ROOT = Path(
+    os.environ.get("COLIDEV_PROJECT_ROOT", "").strip()
+    or Path(__file__).resolve().parent.parent
+).expanduser().resolve()
+_env_path = PROJECT_ROOT / ".env"
 load_dotenv(_env_path)
 
 # ─── Config ────────────────────────────────────────────
@@ -1311,7 +1315,7 @@ if OLLAMA_EMBEDDING_MODEL and _is_loopback_http_url(OLLAMA_BASE):
 elif OLLAMA_EMBEDDING_MODEL:
     logger.warning("Local embeddings disabled because OLLAMA_URL is not a loopback URL")
 knowledge_index = KnowledgeIndex(
-    Path(__file__).resolve().parent.parent,
+    PROJECT_ROOT,
     embedding_provider=_embedding_provider,
 )
 study_progress_store = StudyProgressStore(default_database_path())

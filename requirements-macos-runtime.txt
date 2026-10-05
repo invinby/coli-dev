@@ -1,0 +1,3 @@
+# Reproducible macOS-only freezer used to embed the local API in the .app.
+-r requirements-orchestrator.txt
+pyinstaller==6.22.3

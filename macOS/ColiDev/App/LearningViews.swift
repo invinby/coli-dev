@@ -1125,6 +1125,7 @@ private struct ConditionalLab: View {
 
 private struct TutorChatView: View {
     @EnvironmentObject private var store: LearningStore
+    @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
     @StateObject private var chat: TutorChatModel
     @State private var draft = ""
     @State private var useWebSearch = false
@@ -1270,7 +1271,10 @@ private struct TutorChatView: View {
             .padding(16)
             .background(Color(nsColor: .windowBackgroundColor))
         }
-        .task { await store.refreshAIStatus() }
+        .task {
+            guard await backendSupervisor.ensureRunning() else { return }
+            await store.refreshAIStatus()
+        }
     }
 
     @ViewBuilder
@@ -1373,7 +1377,7 @@ private struct TutorChatView: View {
     }
 
     private var canSend: Bool {
-        guard let health = store.aiHealth else { return false }
+        guard backendSupervisor.isReady, let health = store.aiHealth else { return false }
         if useWebSearch { return chat.mode == .automatic && health.hasGroundedSearch }
         return chat.mode == .automatic ? health.hasAutomaticRoute : health.hasLocalModel
     }
@@ -1390,12 +1394,17 @@ private struct TutorChatView: View {
     private func send() {
         guard canSend, !chat.isSending else { return }
         let message = draft
-        draft = ""
-        chat.send(
-            message,
-            useWebSearch: useWebSearch,
-            groundingAgeConfirmed: hasConfirmedGoogleSearchAge
-        )
+        Task {
+            guard await backendSupervisor.ensureRunning() else { return }
+            await store.refreshAIStatus()
+            guard canSend, !chat.isSending else { return }
+            draft = ""
+            chat.send(
+                message,
+                useWebSearch: useWebSearch,
+                groundingAgeConfirmed: hasConfirmedGoogleSearchAge
+            )
+        }
     }
 }
 

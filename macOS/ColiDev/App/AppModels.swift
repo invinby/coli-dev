@@ -1,5 +1,6 @@
 import SwiftUI
 import Foundation
+import AppKit
 
 // The first client slice uses a small explicit course catalog; the tutor talks to the local orchestrator.
 enum AppLanguage: String, CaseIterable, Identifiable, Hashable {
@@ -321,6 +322,160 @@ final class LearningStore: ObservableObject {
             quality: quality
         ))
         Task { await syncStudyProgress() }
+    }
+}
+
+@MainActor
+final class LocalBackendSupervisor: ObservableObject {
+    enum Status: Equatable {
+        case idle
+        case starting
+        case running
+        case alreadyRunning
+        case unavailable
+        case failed
+
+        var localizationKey: String {
+            switch self {
+            case .idle: return "settings.backendIdle"
+            case .starting: return "settings.backendStarting"
+            case .running: return "settings.backendRunning"
+            case .alreadyRunning: return "settings.backendAlreadyRunning"
+            case .unavailable: return "settings.backendUnavailable"
+            case .failed: return "settings.backendFailed"
+            }
+        }
+    }
+
+    @Published private(set) var status: Status = .idle
+    private var process: Process?
+    private var startupTask: Task<Bool, Never>?
+    private let baseURL = URL(string: "http://127.0.0.1:8000")!
+
+    var isReady: Bool {
+        status == .alreadyRunning || (status == .running && process?.isRunning == true)
+    }
+
+    func ensureRunning() async -> Bool {
+        if let startupTask {
+            return await startupTask.value
+        }
+        if let process, process.isRunning {
+            if await waitUntilReady(timeout: 3) {
+                status = .running
+                return true
+            }
+            if process.isRunning { process.terminate() }
+            self.process = nil
+            status = .failed
+            return false
+        }
+        process = nil
+
+        if await orchestratorResponds() {
+            status = .alreadyRunning
+            return true
+        }
+        if let startupTask {
+            return await startupTask.value
+        }
+
+        let task = Task { @MainActor [weak self] in
+            guard let self else { return false }
+            return await self.startBundledBackend()
+        }
+        startupTask = task
+        let result = await task.value
+        startupTask = nil
+        return result
+    }
+
+    func stop() {
+        if let process, process.isRunning {
+            process.terminate()
+        }
+        process = nil
+        startupTask = nil
+        status = .idle
+    }
+
+    private func startBundledBackend() async -> Bool {
+        guard let resources = Bundle.main.resourceURL else {
+            status = .unavailable
+            return false
+        }
+        let executable = resources.appendingPathComponent("ColiDevBackend/ColiDevBackend")
+        guard FileManager.default.isExecutableFile(atPath: executable.path) else {
+            status = .unavailable
+            return false
+        }
+
+        status = .starting
+        let child = Process()
+        child.executableURL = executable
+        child.currentDirectoryURL = resources
+        var environment = ProcessInfo.processInfo.environment
+        environment["COLIDEV_PROJECT_ROOT"] = resources.path
+        environment["HOST"] = "127.0.0.1"
+        environment["PORT"] = "8000"
+        environment["DEV_MODE"] = "false"
+        child.environment = environment
+        child.standardOutput = FileHandle.nullDevice
+        child.standardError = FileHandle.nullDevice
+        child.terminationHandler = { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.process === child else { return }
+                self.process = nil
+                self.status = .failed
+            }
+        }
+
+        do {
+            try child.run()
+        } catch {
+            status = .failed
+            return false
+        }
+        process = child
+
+        if await waitUntilReady(timeout: 15) {
+            status = .running
+            return true
+        }
+        if child.isRunning {
+            child.terminate()
+        }
+        process = nil
+        status = .failed
+        return false
+    }
+
+    private func waitUntilReady(timeout: TimeInterval) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if await orchestratorResponds() { return true }
+            if let process, !process.isRunning { return false }
+            try? await Task.sleep(nanoseconds: 250_000_000)
+        }
+        return false
+    }
+
+    private func orchestratorResponds() async -> Bool {
+        let endpoint = baseURL.appendingPathComponent("api/status")
+        var request = URLRequest(url: endpoint)
+        request.timeoutInterval = 0.5
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let response = response as? HTTPURLResponse,
+                  (200..<300).contains(response.statusCode),
+                  let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let service = payload["service"] as? String else {
+                return false
+            }
+            return service.hasPrefix("coli-dev Orchestrator")
+        } catch {
+            return false
+        }
     }
 }
 
