@@ -61,6 +61,26 @@ def test_local_index_searches_russian_and_english_and_reports_file_metadata(tmp_
     assert index.status()["last_checked_at"]
 
 
+def test_manual_refresh_indexes_sources_without_calling_embeddings(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    course = project / "02_Areas" / "Physics"
+    course.mkdir(parents=True)
+    (course / "momentum.md").write_text(
+        "# Momentum\n\nMomentum equals mass times velocity.\n",
+        encoding="utf-8",
+    )
+    embeddings = FakeEmbeddingProvider()
+    index = KnowledgeIndex(project, tmp_path / "state" / "knowledge.sqlite3", embeddings)
+
+    status = index.refresh_sources()
+
+    assert status["document_count"] == 1
+    assert status["last_checked_at"]
+    assert embeddings.calls == []
+    assert index.refresh_and_search("momentum velocity")
+    assert embeddings.calls
+
+
 def test_source_review_date_is_distinct_and_migrates_existing_index(tmp_path: Path) -> None:
     project = tmp_path / "project"
     course = project / "02_Areas" / "Physics"

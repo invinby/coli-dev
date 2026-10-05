@@ -531,6 +531,18 @@ struct OrchestratorHealth: Decodable {
     }
 }
 
+struct KnowledgeIndexRefreshResult: Decodable {
+    let status: String
+    let documentCount: Int
+    let lastCheckedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case status
+        case documentCount = "document_count"
+        case lastCheckedAt = "last_checked_at"
+    }
+}
+
 struct ProviderSecretStatus: Decodable, Identifiable {
     let provider: String
     let configured: Bool
@@ -659,6 +671,20 @@ enum OrchestratorClient {
             throw ClientError.unavailable
         }
         return try JSONDecoder().decode(OrchestratorHealth.self, from: data)
+    }
+
+    static func refreshKnowledgeIndex() async throws -> KnowledgeIndexRefreshResult {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/knowledge/refresh") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 30
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(KnowledgeIndexRefreshResult.self, from: data)
     }
 
     static func studyProgress() async throws -> StudyProgressSnapshot {

@@ -276,6 +276,9 @@ private struct SubjectCard: View {
 private struct SettingsView: View {
     @EnvironmentObject private var store: LearningStore
     @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
+    @State private var isRefreshingKnowledge = false
+    @State private var knowledgeRefreshMessage: String?
+    @State private var knowledgeRefreshFailed = false
 
     var body: some View {
         Form {
@@ -347,6 +350,29 @@ private struct SettingsView: View {
                         }
                     }
                 }
+                VStack(alignment: .leading, spacing: 6) {
+                    Button {
+                        Task { await refreshKnowledgeIndex() }
+                    } label: {
+                        if isRefreshingKnowledge {
+                            ProgressView().controlSize(.small)
+                            Text(L10n.text("settings.knowledgeRefreshing", store.language))
+                        } else {
+                            Label(
+                                L10n.text("settings.knowledgeRefresh", store.language),
+                                systemImage: "arrow.clockwise"
+                            )
+                        }
+                    }
+                    .disabled(isRefreshingKnowledge)
+                    Text(L10n.text("settings.knowledgeRefreshExplanation", store.language))
+                        .font(.caption).foregroundStyle(.secondary)
+                    if let knowledgeRefreshMessage {
+                        Text(knowledgeRefreshMessage)
+                            .font(.caption)
+                            .foregroundStyle(knowledgeRefreshFailed ? Color.orange : Color.secondary)
+                    }
+                }
                 VStack(alignment: .leading, spacing: 5) {
                     Text(L10n.text("settings.aiLaunch", store.language)).font(.caption.weight(.semibold))
                     Text(L10n.text(backendSupervisor.status.localizationKey, store.language))
@@ -394,6 +420,30 @@ private struct SettingsView: View {
         if health.hasCloudSession { return L10n.text("settings.aiOnlineRoute", store.language) }
         if health.hasLocalModel { return L10n.text("settings.aiLocalRoute", store.language) }
         return L10n.text("settings.aiNoRoute", store.language)
+    }
+
+    @MainActor
+    private func refreshKnowledgeIndex() async {
+        isRefreshingKnowledge = true
+        knowledgeRefreshMessage = nil
+        knowledgeRefreshFailed = false
+        defer { isRefreshingKnowledge = false }
+        guard await backendSupervisor.ensureRunning() else {
+            knowledgeRefreshFailed = true
+            knowledgeRefreshMessage = L10n.text("settings.knowledgeRefreshFailed", store.language)
+            return
+        }
+        do {
+            let result = try await OrchestratorClient.refreshKnowledgeIndex()
+            await store.refreshAIStatus()
+            knowledgeRefreshMessage = String(
+                format: L10n.text("settings.knowledgeRefreshDone", store.language),
+                result.documentCount
+            )
+        } catch {
+            knowledgeRefreshFailed = true
+            knowledgeRefreshMessage = L10n.text("settings.knowledgeRefreshFailed", store.language)
+        }
     }
 }
 

@@ -69,6 +69,10 @@ fi
 grep -Eq '"service"[[:space:]]*:[[:space:]]*"coli-dev Orchestrator' "$smoke_root/status.json"
 curl --silent --show-error --fail --max-time 5 "http://127.0.0.1:$port/learning/progress" \
     --output "$smoke_root/progress.json"
+curl --silent --show-error --fail --max-time 10 -X POST "http://127.0.0.1:$port/knowledge/refresh" \
+    --output "$smoke_root/knowledge-refresh.json"
+grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"' "$smoke_root/knowledge-refresh.json"
+grep -Eq '"document_count"[[:space:]]*:[[:space:]]*[1-9][0-9]*' "$smoke_root/knowledge-refresh.json"
 curl --silent --show-error --fail --max-time 5 "http://127.0.0.1:$port/" \
     | grep -qi 'coli-dev'
-echo "Bundled backend API, progress store, and tutor page responded successfully"
+echo "Bundled backend API, progress store, knowledge refresh, and tutor page responded successfully"

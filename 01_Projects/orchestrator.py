@@ -1910,6 +1910,18 @@ async def get_learning_progress(request: Request):
     return await asyncio.to_thread(study_progress_store.get_progress)
 
 
+@app.post("/knowledge/refresh")
+async def refresh_local_knowledge(request: Request):
+    """Refresh the approved local course index without contacting external services."""
+    _require_local_settings_request(request)
+    try:
+        status = await asyncio.to_thread(knowledge_index.refresh_sources)
+    except Exception:
+        logger.exception("Local knowledge index refresh failed")
+        raise HTTPException(status_code=503, detail="Local course index refresh failed") from None
+    return {"status": "ok", **status}
+
+
 @app.post("/learning/reviews")
 async def record_learning_review(payload: StudyReviewRequest, request: Request):
     """Record one idempotent review grade and calculate its next due date."""

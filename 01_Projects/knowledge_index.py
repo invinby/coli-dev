@@ -426,10 +426,21 @@ class KnowledgeIndex:
                 return match.group(1).strip()[:200] or Path(relative_path).stem
         return Path(relative_path).stem.replace("_", " ").replace("-", " ")
 
-    def refresh_and_search(self, query: str, limit: int = 4) -> list[dict[str, str]]:
+    def refresh_sources(self) -> dict[str, str | int | None]:
+        """Refresh the approved local course corpus without running embeddings."""
+        self.refresh_and_search("", limit=0, refresh_only=True)
+        return self.status()
+
+    def refresh_and_search(
+        self,
+        query: str,
+        limit: int = 4,
+        *,
+        refresh_only: bool = False,
+    ) -> list[dict[str, str]]:
         """Refresh changed files and return relevant excerpts for an offline RAG prompt."""
         normalized_query = query.strip()[:500]
-        if not normalized_query or limit <= 0:
+        if not refresh_only and (not normalized_query or limit <= 0):
             return []
 
         with self._lock:
@@ -538,6 +549,9 @@ class KnowledgeIndex:
                         """,
                         (checked_at,),
                     )
+
+                if refresh_only:
+                    return []
 
                 embedding_model, query_vector = self._prepare_embeddings(
                     connection, normalized_query

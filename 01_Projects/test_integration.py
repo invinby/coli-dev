@@ -622,6 +622,37 @@ class TestConsiliumEngineFullCycle:
         assert "⚠️" in answer or "недоступен" in answer
 
 
+def test_manual_knowledge_refresh_requires_a_local_origin(client_online, monkeypatch):
+    refresh = MagicMock(return_value={"document_count": 6, "last_checked_at": "2026-10-05T00:00:00Z"})
+    monkeypatch.setattr(orchestrator.knowledge_index, "refresh_sources", refresh)
+
+    rejected = client_online.post("/knowledge/refresh", headers={"Origin": "https://example.test"})
+    assert rejected.status_code == 403
+    refresh.assert_not_called()
+
+    accepted = client_online.post("/knowledge/refresh")
+    assert accepted.status_code == 200
+    assert accepted.json() == {
+        "status": "ok",
+        "document_count": 6,
+        "last_checked_at": "2026-10-05T00:00:00Z",
+    }
+    refresh.assert_called_once_with()
+
+
+def test_manual_knowledge_refresh_hides_internal_errors(client_online, monkeypatch):
+    monkeypatch.setattr(
+        orchestrator.knowledge_index,
+        "refresh_sources",
+        MagicMock(side_effect=RuntimeError("private filesystem detail")),
+    )
+
+    response = client_online.post("/knowledge/refresh")
+
+    assert response.status_code == 503
+    assert "private filesystem detail" not in response.text
+
+
 # ═══════════════════════════════════════════════════════
 #  Запуск
 # ═══════════════════════════════════════════════════════
