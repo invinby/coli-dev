@@ -944,6 +944,43 @@ class TestStreamingChat:
             assert done["sources"][0]["path"] == "02_Areas/python/hello.md"
             assert done["sources"][0]["modified_at"] == "2026-10-04T12:00:00Z"
 
+    def test_consilium_stream_starts_before_generation_and_cancels_on_disconnect(self):
+        async def scenario():
+            generation_started = asyncio.Event()
+            generation_cancelled = asyncio.Event()
+            mock_engine = MagicMock()
+
+            async def blocked_generation(*_args):
+                generation_started.set()
+                try:
+                    await asyncio.Event().wait()
+                finally:
+                    generation_cancelled.set()
+
+            mock_engine.run = blocked_generation
+
+            with patch("orchestrator.ConsiliumEngine", return_value=mock_engine):
+                response = await orchestrator._handle_consilium_stream(
+                    orchestrator.ChatRequest(message="A slow tutor question"),
+                    "Tutor context",
+                    [],
+                )
+
+            stream = response.body_iterator
+            first_event = await anext(stream)
+            assert first_event == ": connected\n\n"
+            assert not generation_started.is_set()
+
+            next_event = asyncio.create_task(anext(stream))
+            await asyncio.wait_for(generation_started.wait(), timeout=1)
+            next_event.cancel()
+            result = await asyncio.gather(next_event, return_exceptions=True)
+
+            assert isinstance(result[0], asyncio.CancelledError)
+            assert generation_cancelled.is_set()
+
+        asyncio.run(scenario())
+
     def test_grounded_web_search_is_direct_and_skips_local_retrieval(self, client):
         source = {
             "id": "1",

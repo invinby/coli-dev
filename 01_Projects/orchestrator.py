@@ -715,7 +715,6 @@ class DebateLog:
                 f'</div>'
             )
 
-        stages = set(e["stage"] for e in self._entries)
         stage_labels = {
             "cloud-code": "🏛️ УРОВЕНЬ 1 — Облачное ядро Cloud Code",
             "consilium": "🤝 УРОВЕНЬ 2 — Общий Консилиум Коворкинга",
@@ -1844,15 +1843,19 @@ async def _stream_answer_debate(
         yield f"data: {json.dumps({'type': 'error', 'error': str(exc)[:300], 'provider': provider})}\n\n"
 
 
-def _error_stream_response(language: str, message: str | None = None) -> StreamingResponse:
+def _error_event(language: str, message: str | None = None, provider: str = "unavailable") -> str:
     message = message or (
         "Не удалось получить ответ ни от облачного маршрута, ни от локальной модели. Проверьте доступность Ollama."
         if language == "ru" else
         "Neither the cloud route nor the local model returned an answer. Check that Ollama is available."
     )
+    return f"data: {json.dumps({'type': 'error', 'error': message, 'provider': provider}, ensure_ascii=False)}\n\n"
+
+
+def _error_stream_response(language: str, message: str | None = None) -> StreamingResponse:
 
     async def events():
-        yield f"data: {json.dumps({'type': 'error', 'error': message, 'provider': 'unavailable'}, ensure_ascii=False)}\n\n"
+        yield _error_event(language, message)
 
     return StreamingResponse(events(), media_type="text/event-stream")
 
@@ -2156,26 +2159,54 @@ async def _handle_grounded_web_search(req: ChatRequest) -> StreamingResponse:
             message("Нет соединения для Google Search. Вопрос не отправлен.", "Google Search is unavailable offline. The question was not sent."),
         )
 
-    session_tracker.start_session()
     engine = ConsiliumEngine(state.http_client, req.language, state.ollama_client)
-    answer = await engine.run_grounded(req.message, req.system_prompt)
-    if ConsiliumEngine._is_provider_error(answer):
-        return _error_stream_response(
-            req.language,
-            message(
-                "Gemini не вернул подтверждённый веб-ответ. Проверь доступ Gemini API и квоту поиска.",
-                "Gemini did not return a grounded web answer. Check Gemini API access and search quota.",
-            ),
-        )
-    return StreamingResponse(
-        _stream_answer_debate(
+
+    async def events():
+        # Start the HTTP response before doing billable provider work. If the
+        # client disconnects, cancellation propagates through this generator
+        # into the in-flight HTTPX request.
+        yield ": connected\n\n"
+        session_tracker.start_session()
+        try:
+            answer = await engine.run_grounded(req.message, req.system_prompt)
+        except asyncio.CancelledError:
+            logger.info("Grounded tutor request cancelled by client")
+            raise
+        except Exception as exc:
+            logger.warning(
+                "Grounded tutor request failed",
+                extra={"error_type": type(exc).__name__},
+            )
+            yield _error_event(
+                req.language,
+                message("Не удалось выполнить веб-поиск.", "Could not complete web search."),
+                "gemini-grounded",
+            )
+            return
+
+        if ConsiliumEngine._is_provider_error(answer):
+            yield _error_event(
+                req.language,
+                message(
+                    "Gemini не вернул подтверждённый веб-ответ. Проверь доступ Gemini API и квоту поиска.",
+                    "Gemini did not return a grounded web answer. Check Gemini API access and search quota.",
+                ),
+                "gemini-grounded",
+            )
+            return
+
+        async for event in _stream_answer_debate(
             answer,
             "",
             "gemini-grounded",
             GEMINI_FLASH_URL.rsplit("/models/", 1)[-1].split(":", 1)[0],
             engine.web_sources,
             engine.search_entry_point_html,
-        ),
+        ):
+            yield event
+
+    return StreamingResponse(
+        events(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -2249,23 +2280,48 @@ async def _handle_consilium_stream(
 ) -> StreamingResponse:
     """Обработка через двухуровневый консилиум."""
     engine = ConsiliumEngine(state.http_client, req.language, state.ollama_client)
-    answer, debate_log = await engine.run(req.message, system_prompt if system_prompt is not None else req.system_prompt)
-    debate_html = debate_log.to_html()
-    completion_provider = getattr(engine, "completion_provider", "consilium")
-    completion_model = getattr(engine, "completion_model", "multi-agent")
-    if not isinstance(completion_provider, str) or not completion_provider:
-        completion_provider = "consilium"
-    if not isinstance(completion_model, str):
-        completion_model = "multi-agent"
 
-    return StreamingResponse(
-        _stream_answer_debate(
+    async def events():
+        # Do not hold the request open before sending the first SSE bytes.
+        # This also gives ASGI servers a disconnect signal that can cancel
+        # provider work instead of leaving it running in the background.
+        yield ": connected\n\n"
+        try:
+            answer, debate_log = await engine.run(
+                req.message,
+                system_prompt if system_prompt is not None else req.system_prompt,
+            )
+        except asyncio.CancelledError:
+            logger.info("Consilium tutor request cancelled by client")
+            raise
+        except Exception as exc:
+            logger.error(
+                "Consilium stream failed",
+                extra={"error_type": type(exc).__name__},
+                exc_info=True,
+            )
+            yield _error_event(req.language)
+            return
+
+        debate_html = debate_log.to_html()
+        completion_provider = getattr(engine, "completion_provider", "consilium")
+        completion_model = getattr(engine, "completion_model", "multi-agent")
+        if not isinstance(completion_provider, str) or not completion_provider:
+            completion_provider = "consilium"
+        if not isinstance(completion_model, str):
+            completion_model = "multi-agent"
+
+        async for event in _stream_answer_debate(
             answer,
             debate_html,
             completion_provider,
             completion_model,
             sources,
-        ),
+        ):
+            yield event
+
+    return StreamingResponse(
+        events(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -2282,11 +2338,38 @@ async def _handle_local_stream(
 ) -> StreamingResponse:
     """Обработка через локальный Digital Twin (Qwen 3)."""
     engine = ConsiliumEngine(state.http_client, req.language, state.ollama_client)
-    answer, debate_log = await engine.run_local(req.message, system_prompt if system_prompt is not None else req.system_prompt)
-    debate_html = debate_log.to_html()
+
+    async def events():
+        yield ": connected\n\n"
+        try:
+            answer, debate_log = await engine.run_local(
+                req.message,
+                system_prompt if system_prompt is not None else req.system_prompt,
+            )
+        except asyncio.CancelledError:
+            logger.info("Local tutor request cancelled by client")
+            raise
+        except Exception as exc:
+            logger.error(
+                "Local tutor stream failed",
+                extra={"error_type": type(exc).__name__},
+                exc_info=True,
+            )
+            yield _error_event(req.language)
+            return
+
+        debate_html = debate_log.to_html()
+        async for event in _stream_answer_debate(
+            answer,
+            debate_html,
+            "local",
+            OLLAMA_MODEL_RESEARCHER,
+            sources,
+        ):
+            yield event
 
     return StreamingResponse(
-        _stream_answer_debate(answer, debate_html, "local", OLLAMA_MODEL_RESEARCHER, sources),
+        events(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
