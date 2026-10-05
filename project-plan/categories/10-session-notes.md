@@ -231,4 +231,4 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 
 - Если локальный course index или Obsidian retrieval завершается ошибкой, backend логирует только тип ошибки и продолжает Google grounding с тем источником, который ответил. Содержание приватной заметки в лог не записывается; отмена клиентского запроса по-прежнему распространяется наружу.
 - Добавлены проверки, что SSE начинается до local retrieval и что отказ course index не мешает получить веб-ответ вместе с найденной заметкой Obsidian. Полный backend suite прошёл: 198 passed, одно известное предупреждение Starlette/httpx. Ruff, `compileall` и `git diff --check` чистые.
-- Эти дополнительные проверки пока не прошли GitHub CI; нужен следующий push и зелёные backend/macOS jobs. Live Gemini, Obsidian и запуск GUI на Mac пользователя не тестировались.
+- Commit `89c65f8` прошёл GitHub Actions run [37266042209](https://github.com/invinby/coli-dev/actions/runs/37266042209): backend checks, сборка SwiftUI app, упаковка и smoke-test backend runtime на Apple Silicon и Intel. Live Gemini, Obsidian и запуск GUI на Mac пользователя не тестировались.
