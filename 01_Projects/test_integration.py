@@ -699,6 +699,38 @@ def test_manual_trusted_source_check_hides_internal_errors(client_online, monkey
     assert "private source monitor detail" not in response.text
 
 
+def test_local_tutor_receives_validated_subject_rubric(client_online, monkeypatch):
+    monkeypatch.setattr(
+        orchestrator, "_retrieve_local_course_sources", AsyncMock(return_value=[])
+    )
+    monkeypatch.setattr(
+        orchestrator, "_retrieve_obsidian_sources", AsyncMock(return_value=[])
+    )
+    captured: dict[str, object] = {}
+
+    async def capture_local_request(req, system_prompt, sources, learner_message):
+        captured["subject"] = req.subject
+        captured["system_prompt"] = system_prompt
+        return orchestrator.JSONResponse({"ok": True})
+
+    monkeypatch.setattr(orchestrator, "_handle_local_or_error_stream", capture_local_request)
+    response = client_online.post(
+        "/chat/stream",
+        json={
+            "message": "Explain energy transfer",
+            "system_prompt": "Current lesson context",
+            "language": "en",
+            "mode": "local",
+            "subject": "physics",
+        },
+    )
+
+    assert response.status_code == 200
+    assert captured["subject"] == "physics"
+    assert "Subject-specific review:" in captured["system_prompt"]
+    assert "track units, directions, and signs" in captured["system_prompt"]
+
+
 # ═══════════════════════════════════════════════════════
 #  Запуск
 # ═══════════════════════════════════════════════════════

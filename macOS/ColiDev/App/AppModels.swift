@@ -621,6 +621,7 @@ enum AIRoutingMode: String, CaseIterable, Identifiable, Hashable {
 private struct TutorRequest: Encodable {
     let message: String
     let systemPrompt: String
+    let subject: String
     let language: String
     let mode: String
     let retrievalQuery: String
@@ -629,7 +630,7 @@ private struct TutorRequest: Encodable {
     let includeLocalSourcesInWebSearch: Bool
 
     enum CodingKeys: String, CodingKey {
-        case message, language, mode
+        case message, subject, language, mode
         case systemPrompt = "system_prompt"
         case retrievalQuery = "retrieval_query"
         case useWebSearch = "use_web_search"
@@ -831,6 +832,7 @@ enum OrchestratorClient {
         message: String,
         systemPrompt: String,
         retrievalQuery: String,
+        subject: Subject,
         language: AppLanguage,
         mode: AIRoutingMode,
         useWebSearch: Bool = false,
@@ -850,6 +852,7 @@ enum OrchestratorClient {
         request.httpBody = try JSONEncoder().encode(TutorRequest(
             message: message,
             systemPrompt: systemPrompt,
+            subject: subject.rawValue,
             language: language.rawValue,
             mode: mode.rawValue,
             retrievalQuery: retrievalQuery,
@@ -983,6 +986,7 @@ final class TutorChatModel: ObservableObject {
                     message: requestMessage,
                     systemPrompt: systemPrompt,
                     retrievalQuery: "\(subjectName) \(lesson.title) \(question)",
+                    subject: subject,
                     language: language,
                     mode: mode,
                     useWebSearch: useWebSearch,

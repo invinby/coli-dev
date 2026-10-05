@@ -52,6 +52,7 @@ from learning_progress import StudyProgressStore, default_database_path
 from network_safety import is_loopback_http_url as _is_loopback_http_url
 from obsidian_worker import ObsidianWorker
 from request_limits import RequestBodyLimitMiddleware
+from subject_rubrics import add_subject_rubric
 from trusted_sources import TrustedSourceMonitor
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
@@ -465,6 +466,9 @@ class ChatRequest(BaseModel):
     model: str | None = Field(default=None, max_length=128)
     language: Literal["ru", "en"] = "ru"
     mode: Literal["auto", "local"] = "auto"
+    subject: Literal[
+        "mathematics", "english", "physics", "biology", "zoology", "programming"
+    ] | None = None
     retrieval_query: str | None = Field(default=None, max_length=16_000)
     use_web_search: bool = False
     grounding_age_confirmed: bool = False
@@ -2619,6 +2623,7 @@ async def _handle_grounded_web_search(req: ChatRequest) -> StreamingResponse:
 
     local_sources: list[dict[str, str]] = []
     engine = ConsiliumEngine(state.http_client, req.language, state.ollama_client)
+    system_prompt = add_subject_rubric(req.system_prompt, req.subject, req.language)
 
     async def events():
         # Start the HTTP response before doing billable provider work. If the
@@ -2661,7 +2666,7 @@ async def _handle_grounded_web_search(req: ChatRequest) -> StreamingResponse:
                     learner_message = _augment_message_with_sources(req.message, local_sources, req.language)
                 return await engine.run_grounded(
                     learner_message,
-                    req.system_prompt,
+                    system_prompt,
                     on_chunk=forward_chunk,
                 )
             finally:
@@ -2750,7 +2755,7 @@ async def chat_stream(request: Request, req: ChatRequest):
         _retrieve_obsidian_sources(retrieval_query),
     )
     sources = _combine_retrieval_sources(course_sources, obsidian_sources)
-    system_prompt = req.system_prompt
+    system_prompt = add_subject_rubric(req.system_prompt, req.subject, req.language)
     learner_message = _augment_message_with_sources(req.message, sources, req.language)
 
     if req.mode == "local":
