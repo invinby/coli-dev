@@ -1293,6 +1293,25 @@ private struct SourceRegistryRow: View {
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
                 if let url = URL(string: source.url) {
+                    Button {
+                        Task { await loadPreview() }
+                    } label: {
+                        if isLoadingPreview {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Image(systemName: "doc.text.magnifyingglass")
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isLoadingPreview)
+                    .help(L10n.text("management.sourcePreview", language))
+                    .accessibilityLabel(
+                        L10n.text(
+                            isLoadingPreview ? "management.sourcePreviewLoading" : "management.sourcePreview",
+                            language
+                        )
+                    )
+
                     Link(destination: url) {
                         Image(systemName: "arrow.up.right.square")
                     }
@@ -1400,7 +1419,33 @@ private struct SourceRegistryRow: View {
         }
         .padding(.vertical, 5)
         .accessibilityElement(children: .contain)
+        .sheet(item: $preview) { item in
+            TrustedSourcePreviewSheet(preview: item, language: language)
+        }
+        .alert(
+            L10n.text("management.sourcePreviewTitle", language),
+            isPresented: $showPreviewError
+        ) {
+            Button(L10n.text("management.sourcePreviewDone", language), role: .cancel) { }
+        } message: {
+            Text(L10n.text("management.sourcePreviewFailed", language))
+        }
     }
+
+    @MainActor
+    private func loadPreview() async {
+        isLoadingPreview = true
+        defer { isLoadingPreview = false }
+        do {
+            preview = try await OrchestratorClient.previewTrustedSource(url: source.url)
+        } catch {
+            showPreviewError = true
+        }
+    }
+
+    @State private var isLoadingPreview = false
+    @State private var preview: TrustedSourcePagePreview?
+    @State private var showPreviewError = false
 
     private var statusKey: String {
         switch source.state {
@@ -1470,5 +1515,71 @@ private struct SourceRegistryRow: View {
     private func formatISODate(_ value: String) -> String {
         guard let date = ISO8601DateFormatter().date(from: value) else { return value }
         return DateFormatter.localizedString(from: date, dateStyle: .short, timeStyle: .short)
+    }
+}
+
+private struct TrustedSourcePreviewSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let preview: TrustedSourcePagePreview
+    let language: AppLanguage
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text(preview.title)
+                        .font(.headline)
+                    if let pageTitle = preview.pageTitle, !pageTitle.isEmpty {
+                        Text(pageTitle)
+                            .font(.title2.weight(.semibold))
+                    }
+                    if let description = preview.pageDescription, !description.isEmpty {
+                        Text(description)
+                            .foregroundStyle(.secondary)
+                    }
+                    if preview.excerptTruncated {
+                        Label(
+                            L10n.text("management.sourcePreviewTruncated", language),
+                            systemImage: "info.circle"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                    Text(verbatim: preview.excerpt)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                    Divider()
+                    Text(L10n.text("management.sourcePreviewLessons", language))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Text(preview.lessonPaths.joined(separator: "\n"))
+                        .font(.caption.monospaced())
+                        .textSelection(.enabled)
+                    HStack {
+                        Text(L10n.text("management.sourcePreviewFetched", language))
+                        Text(preview.fetchedAt).monospacedDigit()
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    if let url = URL(string: preview.url) {
+                        Link(preview.url, destination: url)
+                            .font(.caption)
+                            .lineLimit(2)
+                            .textSelection(.enabled)
+                    }
+                }
+                .padding(24)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .navigationTitle(L10n.text("management.sourcePreviewTitle", language))
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(L10n.text("management.sourcePreviewDone", language)) {
+                        dismiss()
+                    }
+                }
+            }
+            .frame(minWidth: 540, minHeight: 420)
+        }
     }
 }

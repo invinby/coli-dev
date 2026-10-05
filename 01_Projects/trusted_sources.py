@@ -39,6 +39,7 @@ _MAX_PAGE_DESCRIPTION_LENGTH = 500
 _MAX_VALIDATOR_LENGTH = 512
 _MAX_SOURCE_PAGE_BYTES = 512 * 1024
 _MAX_EXTRACTED_TEXT_CHARS = 200_000
+_MAX_SOURCE_PREVIEW_CHARS = 4_000
 _AUTO_CHECK_INTERVAL = timedelta(hours=24)
 _AUTO_RETRY_INTERVAL = timedelta(hours=6)
 _TRANSIENT_SOURCE_STATES = frozenset({"network_error", "unavailable"})
@@ -164,10 +165,13 @@ class _SourcePageParser(HTMLParser):
     def _normalize(parts: list[str]) -> str:
         return " ".join(" ".join(parts).split())
 
+    def visible_text(self) -> str:
+        return self._normalize(self.semantic_parts or self.fallback_parts)
+
     def result(self) -> tuple[str | None, str | None, str | None]:
         title = self._normalize(self.title_parts)[:_MAX_TITLE_LENGTH] or None
         description = self.description
-        visible_text = self._normalize(self.semantic_parts or self.fallback_parts)
+        visible_text = self.visible_text()
         if not visible_text:
             return title, description, None
         digest = hashlib.sha256(visible_text.encode("utf-8")).hexdigest()
@@ -559,6 +563,20 @@ class TrustedSourceMonitor:
         return parser.result()
 
     @staticmethod
+    def _parse_source_page_preview(
+        body: bytes, encoding: str | None
+    ) -> tuple[str | None, str | None, str | None, str]:
+        try:
+            decoded = body.decode(encoding or "utf-8", errors="replace")
+        except LookupError:
+            decoded = body.decode("utf-8", errors="replace")
+        parser = _SourcePageParser()
+        parser.feed(decoded)
+        parser.close()
+        title, description, digest = parser.result()
+        return title, description, digest, parser.visible_text()
+
+    @staticmethod
     def _validator_changed(
         previous: sqlite3.Row | None, etag: str | None, last_modified: str | None
     ) -> bool | None:
@@ -763,3 +781,66 @@ class TrustedSourceMonitor:
             "omitted_count": omitted_count,
             "checks": results,
         }
+
+    async def preview_source(
+        self, url: str, client: httpx.AsyncClient | None = None
+    ) -> dict[str, object]:
+        """Fetch a short, non-persistent preview for one exact approved lesson URL."""
+        canonical = self._canonical_url(url)
+        references, _, _ = self._references()
+        reference = next((item for item in references if item.url == canonical), None)
+        if reference is None:
+            raise ValueError("Source is not in the approved lesson inventory")
+
+        headers = {
+            "Accept": "text/html,application/xhtml+xml;q=0.9",
+            "Accept-Encoding": "identity",
+            "User-Agent": "ColiDev-Reference-Preview/1.0",
+        }
+
+        async def fetch(active_client: httpx.AsyncClient) -> dict[str, object]:
+            async with active_client.stream(
+                "GET", reference.url, headers=headers, follow_redirects=False
+            ) as response:
+                if response.status_code != 200:
+                    raise RuntimeError("Approved source did not return HTTP 200")
+                content_type = (
+                    response.headers.get("content-type", "")
+                    .split(";", 1)[0]
+                    .strip()
+                    .casefold()
+                )
+                if content_type not in {"text/html", "application/xhtml+xml"}:
+                    raise RuntimeError("Approved source did not return HTML")
+                body, too_large = await self._read_bounded_html(response)
+                if too_large or not body:
+                    raise RuntimeError("Approved source preview is unavailable")
+                encoding = response.encoding
+
+            title, description, digest, visible_text = self._parse_source_page_preview(
+                body, encoding
+            )
+            if digest is None:
+                raise RuntimeError("Approved source has no readable text")
+            return {
+                "url": reference.url,
+                "title": reference.title,
+                "lesson_paths": [review.lesson_path for review in reference.lesson_reviews],
+                "page_title": title,
+                "page_description": description,
+                "excerpt": visible_text[:_MAX_SOURCE_PREVIEW_CHARS],
+                "excerpt_truncated": len(visible_text) > _MAX_SOURCE_PREVIEW_CHARS,
+                "content_digest": digest,
+                "fetched_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace(
+                    "+00:00", "Z"
+                ),
+            }
+
+        if client is not None:
+            return await fetch(client)
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=3.0, read=6.0, write=3.0, pool=3.0),
+            follow_redirects=False,
+            trust_env=False,
+        ) as owned_client:
+            return await fetch(owned_client)

@@ -738,6 +738,55 @@ def test_trusted_source_inventory_is_local_and_does_not_trigger_a_check(client_o
     read_inventory.assert_called_once_with()
 
 
+def test_trusted_source_preview_is_local_and_returns_only_monitor_output(client_online, monkeypatch):
+    url = "https://openstax.org/books/college-physics-2e/pages/7-1-work-the-scientific-definition"
+    expected = {
+        "url": url,
+        "title": "OpenStax work page",
+        "lesson_paths": ["02_Areas/Physics/lessons/source_test.md"],
+        "page_title": "Work | OpenStax",
+        "page_description": "A lesson about work.",
+        "excerpt": "Work is the transfer of energy.",
+        "excerpt_truncated": False,
+        "content_digest": "safe-digest",
+        "fetched_at": "2026-10-06T10:00:00Z",
+    }
+    preview = AsyncMock(return_value=expected)
+    monkeypatch.setattr(orchestrator.trusted_source_monitor, "preview_source", preview)
+
+    rejected = client_online.post(
+        "/knowledge/sources/preview",
+        json={"url": url},
+        headers={"Origin": "https://example.test"},
+    )
+    assert rejected.status_code == 403
+    preview.assert_not_awaited()
+
+    accepted = client_online.post("/knowledge/sources/preview", json={"url": url})
+    assert accepted.status_code == 200
+    assert accepted.json() == expected
+    preview.assert_awaited_once_with(url)
+
+
+def test_trusted_source_preview_hides_monitor_errors_and_reports_unknown_sources_as_not_found(
+    client_online, monkeypatch
+):
+    monitor_preview = AsyncMock(side_effect=ValueError("private source validation detail"))
+    monkeypatch.setattr(orchestrator.trusted_source_monitor, "preview_source", monitor_preview)
+
+    unknown = client_online.post("/knowledge/sources/preview", json={"url": "https://example.test"})
+    assert unknown.status_code == 404
+    assert "private source validation detail" not in unknown.text
+
+    monitor_preview.side_effect = RuntimeError("private network detail")
+    unavailable = client_online.post(
+        "/knowledge/sources/preview",
+        json={"url": "https://openstax.org/books/college-physics-2e/pages/7-1-work-the-scientific-definition"},
+    )
+    assert unavailable.status_code == 502
+    assert "private network detail" not in unavailable.text
+
+
 def test_provider_usage_endpoint_is_local_and_bounds_the_requested_window(client_online, monkeypatch):
     expected = {
         "generated_at": "2026-10-05T00:00:00Z",

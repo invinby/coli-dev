@@ -259,6 +259,82 @@ def test_inventory_separates_due_scheduled_and_missing_editorial_reviews(tmp_pat
     assert by_url[records[3][2]]["editorial_review_status"] == "review_unscheduled"
 
 
+def test_source_preview_is_bounded_plain_text_and_does_not_persist_page_content(
+    tmp_path: Path,
+) -> None:
+    url = "https://openstax.org/books/college-physics-2e/pages/7-1-work-the-scientific-definition"
+    _write_lesson(tmp_path, f"[OpenStax work page]({url})")
+    monitor = _monitor(tmp_path, tmp_path)
+    requested_urls: list[str] = []
+    article = "Work is the transfer of energy." + (" useful physics text" * 700)
+    html = (
+        "<html><head><title>Work | OpenStax</title>"
+        "<meta name='description' content='A lesson about work.'></head>"
+        "<body><nav>navigation noise</nav><main><article><h1>Work</h1>"
+        f"<p>{article}</p><script>do not show this</script></article></main>"
+        "<footer>footer noise</footer></body></html>"
+    )
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requested_urls.append(str(request.url))
+        return httpx.Response(200, headers={"content-type": "text/html; charset=utf-8"}, text=html)
+
+    async def run() -> dict[str, object]:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await monitor.preview_source(url, client)
+
+    preview = asyncio.run(run())
+
+    assert requested_urls == [url]
+    assert preview["url"] == url
+    assert preview["page_title"] == "Work | OpenStax"
+    assert preview["page_description"] == "A lesson about work."
+    assert preview["excerpt"].startswith("Work Work is the transfer of energy.")
+    assert len(str(preview["excerpt"])) == 4_000
+    assert preview["excerpt_truncated"] is True
+    assert "navigation noise" not in str(preview["excerpt"])
+    assert "footer noise" not in str(preview["excerpt"])
+    assert "do not show this" not in str(preview["excerpt"])
+    assert monitor.inventory()["sources"][0]["state"] == "not_checked"
+
+
+def test_source_preview_rejects_urls_not_in_a_lesson_before_network_access(tmp_path: Path) -> None:
+    monitor = _monitor(tmp_path, tmp_path)
+    requests = 0
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal requests
+        requests += 1
+        return httpx.Response(200, text="must not be requested")
+
+    async def run() -> None:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            await monitor.preview_source("https://example.test/page", client)
+
+    with pytest.raises(ValueError, match="approved lesson inventory"):
+        asyncio.run(run())
+    assert requests == 0
+
+
+def test_source_preview_does_not_follow_redirects(tmp_path: Path) -> None:
+    url = "https://openstax.org/books/college-physics-2e/pages/7-1-work-the-scientific-definition"
+    _write_lesson(tmp_path, f"[OpenStax work page]({url})")
+    monitor = _monitor(tmp_path, tmp_path)
+    requested_hosts: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requested_hosts.append(request.url.host)
+        return httpx.Response(302, headers={"location": "https://example.test/redirect"})
+
+    async def run() -> None:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            await monitor.preview_source(url, client)
+
+    with pytest.raises(RuntimeError, match="HTTP 200"):
+        asyncio.run(run())
+    assert requested_hosts == ["openstax.org"]
+
+
 def test_inventory_keeps_all_lesson_review_states_for_a_shared_source(tmp_path: Path) -> None:
     root = tmp_path / "project"
     url = "https://openstax.org/books/algebra-and-trigonometry-2e/pages/3-2-domain-and-range"

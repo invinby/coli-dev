@@ -773,6 +773,30 @@ struct TrustedSourceInventoryItem: Decodable, Identifiable {
     }
 }
 
+struct TrustedSourcePagePreview: Decodable, Identifiable {
+    let url: String
+    let title: String
+    let lessonPaths: [String]
+    let pageTitle: String?
+    let pageDescription: String?
+    let excerpt: String
+    let excerptTruncated: Bool
+    let contentDigest: String
+    let fetchedAt: String
+
+    var id: String { url }
+
+    enum CodingKeys: String, CodingKey {
+        case url, title, excerpt
+        case lessonPaths = "lesson_paths"
+        case pageTitle = "page_title"
+        case pageDescription = "page_description"
+        case excerptTruncated = "excerpt_truncated"
+        case contentDigest = "content_digest"
+        case fetchedAt = "fetched_at"
+    }
+}
+
 struct TrustedSourceLessonReview: Decodable, Identifiable {
     let lessonPath: String
     let lessonReviewedOn: String?
@@ -1018,6 +1042,22 @@ enum OrchestratorClient {
         return try JSONDecoder().decode(TrustedSourceInventory.self, from: data)
     }
 
+    static func previewTrustedSource(url sourceURL: String) async throws -> TrustedSourcePagePreview {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/knowledge/sources/preview") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 15
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(TrustedSourcePreviewRequest(url: sourceURL))
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(TrustedSourcePagePreview.self, from: data)
+    }
+
     static func studyProgress() async throws -> StudyProgressSnapshot {
         guard let url = URL(string: LearningStore.orchestratorBaseURL + "/learning/progress") else {
             throw ClientError.invalidResponse
@@ -1217,6 +1257,10 @@ struct TutorMessage: Identifiable {
     var citationWarnings: [String] = []
     var googleSearchSuggestions: String? = nil
     var isGoogleGrounded = false
+}
+
+private struct TrustedSourcePreviewRequest: Encodable {
+    let url: String
 }
 
 @MainActor

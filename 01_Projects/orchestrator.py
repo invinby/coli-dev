@@ -498,6 +498,10 @@ class StudyReviewRequest(BaseModel):
     quality: int = Field(strict=True, ge=0, le=5)
 
 
+class TrustedSourcePreviewRequest(BaseModel):
+    url: str = Field(min_length=1, max_length=2048)
+
+
 class HealthResponse(BaseModel):
     status: str
     online: bool
@@ -3111,6 +3115,20 @@ async def get_trusted_source_inventory(request: Request):
     except Exception:
         logger.exception("Trusted course source inventory is unavailable")
         raise HTTPException(status_code=503, detail="Trusted course source inventory is unavailable") from None
+
+
+@app.post("/knowledge/sources/preview")
+@limiter.limit("10/minute")
+async def preview_trusted_source(payload: TrustedSourcePreviewRequest, request: Request):
+    """Fetch a short preview for an exact official URL already cited by a lesson."""
+    _require_local_settings_request(request)
+    try:
+        return await trusted_source_monitor.preview_source(payload.url)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Approved lesson source was not found") from None
+    except (RuntimeError, httpx.HTTPError):
+        logger.warning("Approved course source preview is unavailable")
+        raise HTTPException(status_code=502, detail="Approved course source preview is unavailable") from None
 
 
 @app.post("/learning/reviews")
