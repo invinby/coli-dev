@@ -152,6 +152,7 @@ final class LearningStore: ObservableObject {
     @Published private(set) var aiHealth: OrchestratorHealth?
     @Published private(set) var isCheckingAI = false
     @Published private(set) var providerSecretStatuses: [String: ProviderSecretStatus] = [:]
+    @Published private(set) var subjectModelRoutes: [String: SubjectModelRoute] = [:]
     @Published private(set) var providerUsage: ProviderUsageSummary?
     @Published private(set) var isRefreshingProviderUsage = false
     @Published private(set) var providerUsageUnavailable = false
@@ -202,6 +203,29 @@ final class LearningStore: ObservableObject {
         } catch {
             providerSecretStatuses = [:]
         }
+    }
+
+    func refreshSubjectModelRoutes() async {
+        do {
+            let routes = try await OrchestratorClient.subjectModelRoutes()
+            subjectModelRoutes = Dictionary(uniqueKeysWithValues: routes.map { ($0.subject, $0) })
+        } catch {
+            subjectModelRoutes = [:]
+        }
+    }
+
+    func saveSubjectModelRoute(subject: Subject, provider: String, model: String?) async throws {
+        let route = try await OrchestratorClient.saveSubjectModelRoute(
+            subject: subject,
+            provider: provider,
+            model: model
+        )
+        subjectModelRoutes[route.subject] = route
+    }
+
+    func resetSubjectModelRoute(subject: Subject) async throws {
+        let route = try await OrchestratorClient.resetSubjectModelRoute(subject: subject)
+        subjectModelRoutes[route.subject] = route
     }
 
     func refreshProviderUsage() async {
@@ -771,6 +795,32 @@ struct ProviderSecretStatus: Decodable, Identifiable {
     var id: String { provider }
 }
 
+struct SubjectModelRoute: Decodable, Identifiable, Hashable {
+    let subject: String
+    let provider: String
+    let model: String?
+    let effectiveModel: String?
+    let providerReady: Bool?
+    let status: String
+
+    var id: String { subject }
+
+    enum CodingKeys: String, CodingKey {
+        case subject, provider, model, status
+        case effectiveModel = "effective_model"
+        case providerReady = "provider_ready"
+    }
+}
+
+struct SubjectModelRoutingSnapshot: Decodable {
+    let subjects: [SubjectModelRoute]
+}
+
+private struct SubjectModelRouteUpdate: Encodable {
+    let provider: String
+    let model: String?
+}
+
 private struct ProviderSecretStatusResponse: Decodable {
     let providers: [ProviderSecretStatus]
 }
@@ -1004,6 +1054,53 @@ enum OrchestratorClient {
             throw ClientError.unavailable
         }
         return try JSONDecoder().decode(ProviderSecretStatusResponse.self, from: data).providers
+    }
+
+    static func subjectModelRoutes() async throws -> [SubjectModelRoute] {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/settings/model-routing") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 8
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(SubjectModelRoutingSnapshot.self, from: data).subjects
+    }
+
+    static func saveSubjectModelRoute(
+        subject: Subject,
+        provider: String,
+        model: String?
+    ) async throws -> SubjectModelRoute {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/settings/model-routing/\(subject.rawValue)") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.timeoutInterval = 15
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(SubjectModelRouteUpdate(provider: provider, model: model))
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(SubjectModelRoute.self, from: data)
+    }
+
+    static func resetSubjectModelRoute(subject: Subject) async throws -> SubjectModelRoute {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/settings/model-routing/\(subject.rawValue)") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.timeoutInterval = 15
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(SubjectModelRoute.self, from: data)
     }
 
     static func saveProviderSecret(_ apiKey: String, for provider: String) async throws -> ProviderSecretStatus {

@@ -86,6 +86,11 @@ def _reset_session_tracker(monkeypatch, tmp_path):
         "provider_usage_store",
         orchestrator.ProviderUsageStore(tmp_path / "provider-usage.sqlite3"),
     )
+    monkeypatch.setattr(
+        orchestrator,
+        "subject_model_routes",
+        orchestrator.SubjectModelRouteStore(tmp_path / "subject-model-routing.json"),
+    )
     monkeypatch.setattr(session_tracker, "_file", tmp_path / "sessions.json")
     monkeypatch.setattr(session_tracker, "max_per_day", 5)
     session_tracker.reset_mode()
@@ -451,6 +456,114 @@ class TestAPIEndpoints:
         data = resp.json()
         assert data["status"] == "ok"
         assert data["mode"] == "online"
+
+
+class TestSubjectModelRouting:
+    def test_get_returns_automatic_routes_for_all_subjects(self, client):
+        response = client.get("/settings/model-routing")
+
+        assert response.status_code == 200
+        routes = response.json()["subjects"]
+        assert [route["subject"] for route in routes] == list(
+            orchestrator.SUBJECT_MODEL_ROUTE_SUBJECTS
+        )
+        assert all(route["provider"] == "auto" for route in routes)
+        assert all(route["provider_ready"] is None for route in routes)
+        assert all(route["model"] is None for route in routes)
+
+    def test_save_openrouter_route_keeps_provider_model_id_and_secret_private(
+        self, client, monkeypatch,
+    ):
+        secret = "openrouter-test-secret"
+        monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", secret)
+        response = client.put(
+            "/settings/model-routing/biology",
+            json={"provider": "openrouter", "model": "deepseek/deepseek-r1:free"},
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "subject": "biology",
+            "provider": "openrouter",
+            "model": "deepseek/deepseek-r1:free",
+            "effective_model": "deepseek/deepseek-r1:free",
+            "provider_ready": True,
+            "status": "ready",
+        }
+        assert secret not in response.text
+        persisted_routes = orchestrator.subject_model_routes.path.read_text(encoding="utf-8")
+        assert "deepseek/deepseek-r1:free" in persisted_routes
+        assert secret not in persisted_routes
+
+        reset = client.delete("/settings/model-routing/biology")
+        assert reset.status_code == 200
+        assert reset.json()["provider"] == "auto"
+        assert reset.json()["model"] is None
+
+    @pytest.mark.parametrize(
+        ("provider", "model"),
+        [
+            ("gemini", "models/gemini-2.5-pro"),
+            ("gemini", "gemini-2.5-pro:generateContent"),
+            ("kimi", "moonshot/kimi-k2"),
+            ("auto", "custom-model"),
+        ],
+    )
+    def test_rejects_invalid_provider_specific_model_ids(self, client, provider, model):
+        response = client.put(
+            "/settings/model-routing/mathematics",
+            json={"provider": provider, "model": model},
+        )
+
+        assert response.status_code == 422
+
+    def test_settings_endpoints_reject_non_loopback_clients(self):
+        with TestClient(app, client=("203.0.113.40", 50000)) as remote_client:
+            get_response = remote_client.get("/settings/model-routing")
+            put_response = remote_client.put(
+                "/settings/model-routing/biology",
+                json={"provider": "auto", "model": None},
+            )
+            delete_response = remote_client.delete("/settings/model-routing/biology")
+
+        assert get_response.status_code == 403
+        assert put_response.status_code == 403
+        assert delete_response.status_code == 403
+
+    def test_subject_route_uses_custom_model_and_keeps_openrouter_id(self, monkeypatch):
+        monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "openrouter-test-key")
+        model_id = "deepseek/deepseek-r1:free"
+        orchestrator.subject_model_routes.set("biology", "openrouter", model_id)
+        engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient))
+        engine._ask_openrouter = AsyncMock(return_value="Biology specialist draft")
+
+        draft, provider = asyncio.run(
+            engine._ask_cloud_specialist(
+                "Explain photosynthesis", "Biology system prompt", "test", subject="biology",
+            )
+        )
+
+        assert (draft, provider) == ("Biology specialist draft", "openrouter")
+        engine._ask_openrouter.assert_awaited_once_with(
+            "Explain photosynthesis", "Biology system prompt", "test", model=model_id,
+        )
+        assert engine.specialist_model_label == f"OpenRouter: {model_id}"
+
+    def test_unexpected_selected_route_error_uses_shared_fallback(self):
+        orchestrator.subject_model_routes.set("physics", "gemini", "gemini-2.5-pro")
+        engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient))
+        engine._ask_selected_specialist = AsyncMock(side_effect=RuntimeError("private failure"))
+        engine._ask_kimi = AsyncMock(return_value="Kimi fallback draft")
+
+        draft, provider = asyncio.run(
+            engine._ask_cloud_specialist(
+                "Explain gravity", "Physics system prompt", "test", subject="physics",
+            )
+        )
+
+        assert (draft, provider) == ("Kimi fallback draft", "kimi")
+        engine._ask_kimi.assert_awaited_once()
+        assert "private failure" not in draft
 
 
 def test_cloud_specialist_uses_openrouter_free_when_kimi_is_missing(monkeypatch):

@@ -568,6 +568,10 @@ private struct ManagementView: View {
     @State private var isLoading = false
     @State private var isRefreshingIndex = false
     @State private var isCheckingSources = false
+    @State private var routeSubject: Subject = .mathematics
+    @State private var routeProvider = "auto"
+    @State private var routeModel = ""
+    @State private var isSavingRoute = false
     @State private var statusMessage: String?
     @State private var statusIsError = false
 
@@ -629,6 +633,10 @@ private struct ManagementView: View {
         .frame(maxWidth: 1120, alignment: .leading)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .navigationTitle(Text(L10n.text("management.title", store.language)))
+        .onChange(of: routeSubject) { _ in syncSubjectModelRouteForm() }
+        .onChange(of: routeProvider) { provider in
+            if provider == "auto" { routeModel = "" }
+        }
         .task { await reload() }
     }
 
@@ -988,6 +996,71 @@ private struct ManagementView: View {
                     .padding(.top, 6)
                 }
 
+                GroupBox(label: Text(L10n.text("management.subjectRouting", store.language))) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Picker(L10n.text("management.routeSubject", store.language), selection: $routeSubject) {
+                            ForEach(Subject.allCases) { subject in
+                                Text(subject.title(in: store.language)).tag(subject)
+                            }
+                        }
+                        .frame(maxWidth: 360, alignment: .leading)
+
+                        Picker(L10n.text("management.routeProvider", store.language), selection: $routeProvider) {
+                            ForEach(["auto", "gemini", "kimi", "openrouter", "ollama"], id: \.self) { provider in
+                                Text(L10n.text("management.routeProvider.\(provider)", store.language))
+                                    .tag(provider)
+                            }
+                        }
+                        .frame(maxWidth: 360, alignment: .leading)
+
+                        if routeProvider != "auto" {
+                            TextField(L10n.text("management.routeModel", store.language), text: $routeModel)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(maxWidth: 520)
+                            Text(L10n.text("management.routeModelHelp", store.language))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        if let route = store.subjectModelRoutes[routeSubject.rawValue] {
+                            HStack(spacing: 8) {
+                                Image(systemName: route.providerReady == false
+                                      ? "exclamationmark.circle"
+                                      : (route.provider == "auto" ? "arrow.triangle.2.circlepath" : "checkmark.circle"))
+                                    .foregroundStyle(route.providerReady == false ? Color.orange : Color.secondary)
+                                Text(L10n.text("management.routeStatus.\(route.status)", store.language))
+                                if let model = route.effectiveModel {
+                                    Text(model).font(.caption.monospaced()).foregroundStyle(.secondary)
+                                }
+                            }
+                            .font(.caption)
+                            .accessibilityElement(children: .combine)
+                        }
+
+                        HStack(spacing: 10) {
+                            Button {
+                                Task { await saveSubjectModelRoute() }
+                            } label: {
+                                if isSavingRoute {
+                                    ProgressView().controlSize(.small)
+                                } else {
+                                    Text(L10n.text("management.routeSave", store.language))
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(isSavingRoute)
+
+                            Button(L10n.text("management.routeReset", store.language)) {
+                                Task { await resetSubjectModelRoute() }
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(isSavingRoute)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 6)
+                }
+
                 Button(L10n.text("management.openSettings", store.language), action: openSettings)
                     .buttonStyle(.bordered)
             }
@@ -1069,7 +1142,9 @@ private struct ManagementView: View {
         }
         await store.refreshAIStatus()
         await store.refreshProviderSecretStatuses()
+        await store.refreshSubjectModelRoutes()
         await store.refreshProviderUsage()
+        syncSubjectModelRouteForm()
         do {
             sourceInventory = try await OrchestratorClient.trustedSourceInventory()
             statusMessage = nil
@@ -1126,6 +1201,46 @@ private struct ManagementView: View {
     private func reportError(_ key: String) {
         statusMessage = L10n.text(key, store.language)
         statusIsError = true
+    }
+
+    @MainActor
+    private func syncSubjectModelRouteForm() {
+        let route = store.subjectModelRoutes[routeSubject.rawValue]
+        routeProvider = route?.provider ?? "auto"
+        routeModel = route?.model ?? ""
+    }
+
+    @MainActor
+    private func saveSubjectModelRoute() async {
+        isSavingRoute = true
+        defer { isSavingRoute = false }
+        do {
+            let model = routeModel.trimmingCharacters(in: .whitespacesAndNewlines)
+            try await store.saveSubjectModelRoute(
+                subject: routeSubject,
+                provider: routeProvider,
+                model: routeProvider == "auto" || model.isEmpty ? nil : model
+            )
+            syncSubjectModelRouteForm()
+            statusMessage = L10n.text("management.routeSaved", store.language)
+            statusIsError = false
+        } catch {
+            reportError("management.routeSaveFailed")
+        }
+    }
+
+    @MainActor
+    private func resetSubjectModelRoute() async {
+        isSavingRoute = true
+        defer { isSavingRoute = false }
+        do {
+            try await store.resetSubjectModelRoute(subject: routeSubject)
+            syncSubjectModelRouteForm()
+            statusMessage = L10n.text("management.routeResetDone", store.language)
+            statusIsError = false
+        } catch {
+            reportError("management.routeSaveFailed")
+        }
     }
 }
 

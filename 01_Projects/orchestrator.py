@@ -35,6 +35,7 @@ import os
 import re
 import sys
 import tempfile
+import threading
 import uuid
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
@@ -482,6 +483,11 @@ class ChatRequest(BaseModel):
     include_local_sources_in_web_search: bool = False
 
 
+class SubjectModelRouteRequest(BaseModel):
+    provider: Literal["auto", "gemini", "kimi", "openrouter", "ollama"]
+    model: str | None = Field(default=None, max_length=128)
+
+
 class StudyReviewRequest(BaseModel):
     event_id: uuid.UUID
     lesson_id: str = Field(
@@ -889,6 +895,7 @@ class ConsiliumEngine:
         message: str,
         system_prompt: str,
         on_final_chunk=None,
+        subject: str | None = None,
     ) -> tuple[str, DebateLog]:
         """Запустить полный цикл консилиума и, при необходимости, передавать чанки финального синтеза.
 
@@ -904,7 +911,7 @@ class ConsiliumEngine:
 
         try:
             # ─── УРОВЕНЬ 1: Cloud Code ───────────────────
-            draft_bundle = await self._run_cloud_code(message, system_prompt)
+            draft_bundle = await self._run_cloud_code(message, system_prompt, subject=subject)
 
             # ─── УРОВЕНЬ 2: Общий Консилиум ──────────────
             final_answer = await self._run_consilium(
@@ -971,7 +978,12 @@ class ConsiliumEngine:
 
     # ─── УРОВЕНЬ 1: Независимые черновики ────────────────
 
-    async def _run_cloud_code(self, message: str, system_prompt: str) -> str:
+    async def _run_cloud_code(
+        self,
+        message: str,
+        system_prompt: str,
+        subject: str | None = None,
+    ) -> str:
         """Собрать независимые черновики Gemini Flash, Kimi/OpenRouter и Ollama.
 
         Returns:
@@ -984,7 +996,9 @@ class ConsiliumEngine:
         agent_system = self.agent_system(system_prompt)
         gemini_flash_task = self._ask_gemini(message, agent_system,
                                              GEMINI_FLASH_URL, "gemini-flash")
-        specialist_task = self._ask_cloud_specialist(message, agent_system, "cloud-specialist")
+        specialist_task = self._ask_cloud_specialist(
+            message, agent_system, "cloud-specialist", subject=subject
+        )
         ollama_task = self._ask_ollama(message, agent_system, "ollama-gen")
 
         flash_result, specialist_result, ollama_result = await asyncio.gather(
@@ -1275,11 +1289,112 @@ class ConsiliumEngine:
         message: str,
         system_prompt: str,
         agent_tag: str,
+        subject: str | None = None,
     ) -> tuple[str, str]:
-        """Prefer direct Kimi and use OpenRouter only when Kimi is unavailable."""
+        """Use the configured subject specialist, then fall back to the shared route."""
         self.specialist_model_label = None
         self.openrouter_used = False
-        if KIMI_KEY:
+        configured_route = subject_model_routes.get(subject)
+        selected_provider = configured_route["provider"] or "auto"
+        excluded_provider = None
+        if selected_provider != "auto":
+            excluded_provider = selected_provider
+            selected_model = configured_route["model"] or _default_model_for_provider(selected_provider)
+            ready, status = _subject_model_route_status(selected_provider)
+            if ready:
+                try:
+                    response, agent = await self._ask_selected_specialist(
+                        selected_provider,
+                        selected_model,
+                        message,
+                        system_prompt,
+                        agent_tag,
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "Configured subject specialist request failed",
+                        extra={
+                            "subject": subject,
+                            "provider": selected_provider,
+                            "error_type": type(exc).__name__,
+                        },
+                    )
+                    response, agent = "[Ошибка: configured specialist request failed]", selected_provider
+                if (
+                    isinstance(response, str)
+                    and response.strip()
+                    and not self._is_provider_error(response)
+                ):
+                    actual_model = self.specialist_model_label or selected_model or "provider default"
+                    provider_label = {
+                        "gemini": "Gemini",
+                        "kimi": "Kimi",
+                        "openrouter": "OpenRouter",
+                        "ollama": "Ollama",
+                    }.get(selected_provider, selected_provider)
+                    self.specialist_model_label = f"{provider_label}: {actual_model}"
+                    return response, agent
+                status = "request_failed"
+            logger.warning(
+                "Configured subject specialist unavailable; using shared fallback",
+                extra={"subject": subject, "provider": selected_provider, "status": status},
+            )
+            self.log.add(
+                "routing",
+                selected_provider,
+                f"Configured route was unavailable ({status}); falling back to the shared specialist route.",
+            )
+            # Do not report the failed subject model as though it contributed a draft.
+            self.specialist_model_label = None
+            self.openrouter_used = False
+
+        return await self._ask_default_cloud_specialist(
+            message,
+            system_prompt,
+            agent_tag,
+            excluded_provider=excluded_provider,
+        )
+
+    async def _ask_selected_specialist(
+        self,
+        provider: str,
+        model: str | None,
+        message: str,
+        system_prompt: str,
+        agent_tag: str,
+    ) -> tuple[str, str]:
+        if provider == "gemini":
+            model_id = model or GEMINI_FLASH_MODEL
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}:generateContent"
+            response = await self._ask_gemini(message, system_prompt, url, agent_tag)
+            self.specialist_model_label = model_id
+            return response, "gemini"
+        if provider == "kimi":
+            model_id = model or KIMI_MODEL
+            response = await self._ask_kimi(message, system_prompt, agent_tag, model=model_id)
+            self.specialist_model_label = model_id
+            return response, "kimi"
+        if provider == "openrouter":
+            model_id = model or OPENROUTER_MODEL
+            response = await self._ask_openrouter(message, system_prompt, agent_tag, model=model_id)
+            self.specialist_model_label = self.specialist_model_label or model_id
+            return response, "openrouter"
+        if provider == "ollama":
+            model_id = model or OLLAMA_MODEL_RESEARCHER
+            response = await self._ask_ollama(message, system_prompt, agent_tag, model=model_id)
+            self.specialist_model_label = model_id
+            return response, "ollama"
+        return "[Configured specialist provider is unsupported]", provider
+
+    async def _ask_default_cloud_specialist(
+        self,
+        message: str,
+        system_prompt: str,
+        agent_tag: str,
+        excluded_provider: str | None = None,
+    ) -> tuple[str, str]:
+        """Prefer direct Kimi and use OpenRouter only when another route is unavailable."""
+        if KIMI_KEY and excluded_provider != "kimi":
             kimi_response = await self._ask_kimi(message, system_prompt, agent_tag)
             if (
                 isinstance(kimi_response, str)
@@ -1290,11 +1405,11 @@ class ConsiliumEngine:
                 return kimi_response, "kimi"
             if not isinstance(kimi_response, str) or not kimi_response.strip():
                 kimi_response = "[Ошибка Kimi: пустой или некорректный ответ]"
-            if not OPENROUTER_KEY:
+            if not OPENROUTER_KEY or excluded_provider == "openrouter":
                 return kimi_response, "kimi"
             logger.warning("Kimi unavailable; retrying cloud specialist with OpenRouter")
 
-        if OPENROUTER_KEY:
+        if OPENROUTER_KEY and excluded_provider != "openrouter":
             response = await self._ask_openrouter(message, system_prompt, agent_tag)
             if self.openrouter_used:
                 model = self.specialist_model_label or (
@@ -1303,14 +1418,23 @@ class ConsiliumEngine:
                 self.specialist_model_label = f"OpenRouter: {model}"
             return response, "openrouter"
 
+        if excluded_provider == "kimi":
+            return "[KIMI_API_KEY not set or the configured Kimi route failed]", "kimi"
         return await self._ask_kimi(message, system_prompt, agent_tag), "kimi"
 
-    async def _ask_openrouter(self, message: str, system_prompt: str, agent_tag: str) -> str:
+    async def _ask_openrouter(
+        self,
+        message: str,
+        system_prompt: str,
+        agent_tag: str,
+        model: str | None = None,
+    ) -> str:
         """Request an OpenAI-compatible completion from the configured OpenRouter model."""
         if not OPENROUTER_KEY:
             return f"[OPENROUTER_API_KEY not set: {agent_tag}]"
+        selected_model = model or OPENROUTER_MODEL
         payload = {
-            "model": OPENROUTER_MODEL,
+            "model": selected_model,
             "max_tokens": 2048,
             "messages": [
                 {"role": "system", "content": system_prompt},
@@ -1332,7 +1456,7 @@ class ConsiliumEngine:
             data = response.json()
             await _record_provider_usage(
                 "openrouter",
-                data.get("model") if isinstance(data, dict) else OPENROUTER_MODEL,
+                data.get("model") if isinstance(data, dict) else selected_model,
                 "openai-compatible",
                 openai_compatible_usage(data.get("usage") if isinstance(data, dict) else None),
             )
@@ -1353,12 +1477,12 @@ class ConsiliumEngine:
             self.specialist_model_label = model
             return content.strip()
         except httpx.TimeoutException:
-            logger.warning("OpenRouter timeout", extra={"agent": agent_tag, "model": OPENROUTER_MODEL})
+            logger.warning("OpenRouter timeout", extra={"agent": agent_tag, "model": selected_model})
             return f"[Таймаут: OpenRouter не ответил за {HTTP_TIMEOUT}s]"
         except httpx.HTTPStatusError as exc:
             logger.error(
                 "OpenRouter HTTP error",
-                extra={"status": exc.response.status_code, "model": OPENROUTER_MODEL},
+                extra={"status": exc.response.status_code, "model": selected_model},
             )
             return f"[Ошибка HTTP {exc.response.status_code}: OpenRouter]"
         except Exception as exc:
@@ -1368,12 +1492,19 @@ class ConsiliumEngine:
             )
             return "[Ошибка OpenRouter: некорректный ответ или сбой запроса]"
 
-    async def _ask_kimi(self, message: str, system_prompt: str, agent_tag: str) -> str:
+    async def _ask_kimi(
+        self,
+        message: str,
+        system_prompt: str,
+        agent_tag: str,
+        model: str | None = None,
+    ) -> str:
         """Запрос к Kimi K3 через Moonshot AI (напрямую)."""
         if not KIMI_KEY:
             return f"[KIMI_API_KEY not set: {agent_tag}]"
+        selected_model = model or KIMI_MODEL
         payload = {
-            "model": KIMI_MODEL,
+            "model": selected_model,
             "max_tokens": 2048,
             "messages": [
                 {"role": "system", "content": system_prompt},
@@ -1391,7 +1522,7 @@ class ConsiliumEngine:
             data = resp.json()
             await _record_provider_usage(
                 "kimi",
-                KIMI_MODEL,
+                selected_model,
                 "openai-compatible",
                 openai_compatible_usage(data.get("usage") if isinstance(data, dict) else None),
             )
@@ -1744,12 +1875,19 @@ class ConsiliumEngine:
             logger.error("Qwen researcher failed", extra={"error": str(exc)[:150]})
             return "[Researcher: Qwen 3 временно недоступен]"
 
-    async def _ask_ollama(self, message: str, system_prompt: str, agent_tag: str) -> str:
+    async def _ask_ollama(
+        self,
+        message: str,
+        system_prompt: str,
+        agent_tag: str,
+        model: str | None = None,
+    ) -> str:
         """Запрос к локальной Ollama (Qwen 2.5 Coder 7B)."""
         if not _is_loopback_http_url(OLLAMA_BASE):
             return "[Ошибка: Ollama endpoint must use localhost or a loopback IP for local privacy]"
+        selected_model = model or OLLAMA_MODEL_RESEARCHER
         payload = {
-            "model": OLLAMA_MODEL_RESEARCHER,
+            "model": selected_model,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": message},
@@ -1763,7 +1901,7 @@ class ConsiliumEngine:
             data = resp.json()
             await _record_provider_usage(
                 "ollama",
-                data.get("model") if isinstance(data, dict) else OLLAMA_MODEL_RESEARCHER,
+                data.get("model") if isinstance(data, dict) else selected_model,
                 "ollama",
                 ollama_usage(data),
             )
@@ -1896,6 +2034,168 @@ knowledge_index = KnowledgeIndex(
 study_progress_store = StudyProgressStore(default_database_path())
 trusted_source_monitor = TrustedSourceMonitor(PROJECT_ROOT, default_database_path())
 provider_usage_store = ProviderUsageStore(app_data_dir() / "provider-usage.sqlite3")
+
+SUBJECT_MODEL_ROUTE_SUBJECTS = (
+    "mathematics", "english", "physics", "biology", "zoology", "programming",
+)
+_SUBJECT_MODEL_ROUTE_PROVIDERS = frozenset({"auto", "gemini", "kimi", "openrouter", "ollama"})
+_MODEL_ID_PATTERNS = {
+    # These IDs are inserted into provider-specific URL paths or JSON payloads.
+    # Keep Gemini and Kimi names path-safe; OpenRouter/Ollama use slash and tag
+    # separators as part of their model identifiers.
+    "gemini": re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"),
+    "kimi": re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"),
+    "openrouter": re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$"),
+    "ollama": re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$"),
+}
+
+
+def _valid_subject_model_id(provider: str, model: Any) -> bool:
+    pattern = _MODEL_ID_PATTERNS.get(provider)
+    return isinstance(model, str) and pattern is not None and bool(pattern.fullmatch(model))
+
+
+class SubjectModelRouteStore:
+    """Persist non-secret per-subject specialist choices in the local app-data directory."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path.expanduser()
+        self._lock = threading.RLock()
+
+    @staticmethod
+    def _clean_route(value: Any) -> dict[str, str | None]:
+        if not isinstance(value, dict):
+            return {"provider": "auto", "model": None}
+        provider = value.get("provider")
+        model = value.get("model")
+        if not isinstance(provider, str) or provider not in _SUBJECT_MODEL_ROUTE_PROVIDERS:
+            return {"provider": "auto", "model": None}
+        if provider == "auto":
+            return {"provider": "auto", "model": None}
+        if not _valid_subject_model_id(provider, model):
+            model = None
+        return {"provider": provider, "model": model}
+
+    def _read_unlocked(self) -> dict[str, dict[str, str | None]]:
+        try:
+            data = json.loads(self.path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return {}
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            logger.warning(
+                "Subject model routes could not be read; defaults will be used",
+                extra={"error_type": type(exc).__name__},
+            )
+            return {}
+        routes = data.get("subjects") if isinstance(data, dict) else None
+        if not isinstance(routes, dict):
+            return {}
+        return {
+            subject: self._clean_route(routes.get(subject))
+            for subject in SUBJECT_MODEL_ROUTE_SUBJECTS
+        }
+
+    def snapshot(self) -> dict[str, dict[str, str | None]]:
+        with self._lock:
+            routes = self._read_unlocked()
+        return {
+            subject: routes.get(subject, {"provider": "auto", "model": None})
+            for subject in SUBJECT_MODEL_ROUTE_SUBJECTS
+        }
+
+    def get(self, subject: str | None) -> dict[str, str | None]:
+        if subject not in SUBJECT_MODEL_ROUTE_SUBJECTS:
+            return {"provider": "auto", "model": None}
+        return self.snapshot()[subject]
+
+    def set(self, subject: str, provider: str, model: str | None) -> dict[str, str | None]:
+        if subject not in SUBJECT_MODEL_ROUTE_SUBJECTS:
+            raise ValueError("Unknown subject")
+        if not isinstance(provider, str) or provider not in _SUBJECT_MODEL_ROUTE_PROVIDERS:
+            raise ValueError("Unknown provider")
+        if model is not None:
+            model = model.strip()
+            if not model:
+                model = None
+            elif provider == "auto":
+                raise ValueError("Automatic routing cannot have a model identifier")
+            elif not _valid_subject_model_id(provider, model):
+                raise ValueError("Invalid model identifier")
+
+        route = {"provider": provider, "model": model}
+        with self._lock:
+            routes = self._read_unlocked()
+            routes[subject] = route
+            payload = {"schema_version": 1, "subjects": routes}
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            temporary_path: Path | None = None
+            try:
+                with tempfile.NamedTemporaryFile(
+                    mode="w",
+                    encoding="utf-8",
+                    prefix=".subject-model-routing-",
+                    suffix=".tmp",
+                    dir=self.path.parent,
+                    delete=False,
+                ) as temporary:
+                    temporary_path = Path(temporary.name)
+                    json.dump(payload, temporary, ensure_ascii=False, sort_keys=True)
+                    temporary.write("\n")
+                try:
+                    os.chmod(temporary_path, 0o600)
+                except OSError:
+                    pass
+                os.replace(temporary_path, self.path)
+            finally:
+                if temporary_path is not None and temporary_path.exists():
+                    temporary_path.unlink(missing_ok=True)
+        return route
+
+    def reset(self, subject: str) -> dict[str, str | None]:
+        return self.set(subject, "auto", None)
+
+
+subject_model_routes = SubjectModelRouteStore(app_data_dir() / "subject-model-routing.json")
+
+
+def _default_model_for_provider(provider: str) -> str | None:
+    return {
+        "gemini": GEMINI_FLASH_MODEL,
+        "kimi": KIMI_MODEL,
+        "openrouter": OPENROUTER_MODEL,
+        "ollama": OLLAMA_MODEL_RESEARCHER,
+    }.get(provider)
+
+
+def _subject_model_route_status(provider: str) -> tuple[bool | None, str]:
+    if provider == "auto":
+        return None, "automatic"
+    if provider == "gemini":
+        return bool(GEMINI_KEY), "credential_missing" if not GEMINI_KEY else "ready"
+    if provider == "kimi":
+        return bool(KIMI_KEY), "credential_missing" if not KIMI_KEY else "ready"
+    if provider == "openrouter":
+        return bool(OPENROUTER_KEY), "credential_missing" if not OPENROUTER_KEY else "ready"
+    if provider == "ollama":
+        local_endpoint = _is_loopback_http_url(OLLAMA_BASE)
+        return local_endpoint, "model_checked_on_use" if local_endpoint else "loopback_required"
+    return False, "unavailable"
+
+
+def _subject_model_route_payload() -> dict[str, list[dict[str, Any]]]:
+    result: list[dict[str, Any]] = []
+    for subject, route in subject_model_routes.snapshot().items():
+        provider = route["provider"] or "auto"
+        ready, status = _subject_model_route_status(provider)
+        result.append({
+            "subject": subject,
+            "provider": provider,
+            "model": route["model"],
+            "effective_model": route["model"] or _default_model_for_provider(provider),
+            "provider_ready": ready,
+            "status": status,
+        })
+    return {"subjects": result}
 
 
 async def _record_provider_usage(
@@ -2555,6 +2855,43 @@ async def delete_provider_secret(provider: str, request: Request):
     return _provider_secret_status(provider)
 
 
+@app.get("/settings/model-routing")
+async def get_subject_model_routes(request: Request):
+    _require_local_settings_request(request)
+    return _subject_model_route_payload()
+
+
+@app.put("/settings/model-routing/{subject}")
+async def save_subject_model_route(
+    subject: str,
+    route: SubjectModelRouteRequest,
+    request: Request,
+):
+    _require_local_settings_request(request)
+    if subject not in SUBJECT_MODEL_ROUTE_SUBJECTS:
+        raise HTTPException(status_code=404, detail="Unknown subject")
+    try:
+        subject_model_routes.set(subject, route.provider, route.model)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    return next(
+        item for item in _subject_model_route_payload()["subjects"]
+        if item["subject"] == subject
+    )
+
+
+@app.delete("/settings/model-routing/{subject}")
+async def reset_subject_model_route(subject: str, request: Request):
+    _require_local_settings_request(request)
+    if subject not in SUBJECT_MODEL_ROUTE_SUBJECTS:
+        raise HTTPException(status_code=404, detail="Unknown subject")
+    subject_model_routes.reset(subject)
+    return next(
+        item for item in _subject_model_route_payload()["subjects"]
+        if item["subject"] == subject
+    )
+
+
 @app.get("/api/status")
 async def api_status(request: Request):
     _require_local_settings_request(request)
@@ -2949,10 +3286,13 @@ async def _handle_consilium_stream(
 
         async def generate_answer():
             try:
+                run_options: dict[str, Any] = {"on_final_chunk": forward_final_chunk}
+                if req.subject is not None:
+                    run_options["subject"] = req.subject
                 return await engine.run(
                     learner_message if learner_message is not None else req.message,
                     system_prompt if system_prompt is not None else req.system_prompt,
-                    on_final_chunk=forward_final_chunk,
+                    **run_options,
                 )
             finally:
                 token_queue.put_nowait(stream_end)
