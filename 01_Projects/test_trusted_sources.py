@@ -453,6 +453,40 @@ def test_manual_review_refuses_stale_preview_and_wrong_lesson_before_saving(tmp_
     assert inventory["sources"][0]["lesson_reviewed_on"] is None
 
 
+def test_editorial_review_history_uses_newest_first_cursor_pages(tmp_path: Path) -> None:
+    url = "https://openstax.org/books/college-physics-2e/pages/7-1-work-the-scientific-definition"
+    lesson_path = "02_Areas/Physics/lessons/source_test.md"
+    _write_lesson(tmp_path, f"[OpenStax work page]({url})")
+    monitor = _monitor(tmp_path, tmp_path)
+    for index in range(4):
+        monitor._save_editorial_review(
+            url,
+            lesson_path,
+            f"{index + 1:064x}",
+            f"2026-10-0{index + 1}",
+            f"2026-10-0{index + 1}T10:00:00Z",
+        )
+
+    first = monitor.editorial_review_history(url, limit=2)
+    second = monitor.editorial_review_history(
+        url,
+        limit=2,
+        before_review_id=int(first["next_before_review_id"]),
+    )
+
+    assert [item["review_id"] for item in first["reviews"]] == [4, 3]
+    assert first["has_more"] is True
+    assert first["next_before_review_id"] == 3
+    assert [item["review_id"] for item in second["reviews"]] == [2, 1]
+    assert second["has_more"] is False
+    assert second["next_before_review_id"] is None
+
+    with pytest.raises(ValueError):
+        monitor.editorial_review_history("https://example.com/", limit=2)
+    with pytest.raises(ValueError):
+        monitor.editorial_review_history(url, limit=101)
+
+
 def test_inventory_keeps_all_lesson_review_states_for_a_shared_source(tmp_path: Path) -> None:
     root = tmp_path / "project"
     url = "https://openstax.org/books/algebra-and-trigonometry-2e/pages/3-2-domain-and-range"

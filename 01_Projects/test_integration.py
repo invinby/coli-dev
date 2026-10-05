@@ -840,6 +840,39 @@ def test_trusted_source_review_reports_changed_preview_without_internal_details(
     assert "private detail" not in response.text
 
 
+def test_trusted_source_review_history_is_local_and_bounds_pagination(client_online, monkeypatch):
+    url = "https://openstax.org/books/college-physics-2e/pages/7-1-work-the-scientific-definition"
+    expected = {
+        "status": "ok",
+        "url": url,
+        "reviews": [],
+        "has_more": False,
+        "next_before_review_id": None,
+    }
+    history = MagicMock(return_value=expected)
+    monkeypatch.setattr(orchestrator.trusted_source_monitor, "editorial_review_history", history)
+    params = {"url": url, "limit": 25, "before_review_id": 100}
+
+    rejected = client_online.get(
+        "/knowledge/sources/reviews",
+        params=params,
+        headers={"Origin": "https://example.test"},
+    )
+    assert rejected.status_code == 403
+    history.assert_not_called()
+
+    accepted = client_online.get("/knowledge/sources/reviews", params=params)
+    assert accepted.status_code == 200
+    assert accepted.json() == expected
+    history.assert_called_once_with(url, limit=25, before_review_id=100)
+
+    invalid_limit = client_online.get(
+        "/knowledge/sources/reviews", params={"url": url, "limit": 101}
+    )
+    assert invalid_limit.status_code == 422
+    history.assert_called_once()
+
+
 def test_provider_usage_endpoint_is_local_and_bounds_the_requested_window(client_online, monkeypatch):
     expected = {
         "generated_at": "2026-10-05T00:00:00Z",

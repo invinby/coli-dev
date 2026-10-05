@@ -3161,6 +3161,29 @@ async def review_trusted_source(payload: TrustedSourceReviewRequest, request: Re
         raise HTTPException(status_code=502, detail="Approved course source review is unavailable") from None
 
 
+@app.get("/knowledge/sources/reviews")
+@limiter.limit("30/minute")
+async def get_trusted_source_review_history(
+    request: Request,
+    url: str = Query(min_length=1, max_length=2048),
+    limit: int = Query(default=50, ge=1, le=100),
+    before_review_id: int | None = Query(default=None, ge=1),
+):
+    """Return a paginated, local-only history for one approved official source."""
+    _require_local_settings_request(request)
+    try:
+        return trusted_source_monitor.editorial_review_history(
+            url, limit=limit, before_review_id=before_review_id
+        )
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Approved lesson source was not found") from None
+    except Exception:
+        logger.exception("Approved course source review history is unavailable")
+        raise HTTPException(
+            status_code=503, detail="Approved course source review history is unavailable"
+        ) from None
+
+
 @app.post("/learning/reviews")
 async def record_learning_review(payload: StudyReviewRequest, request: Request):
     """Record one idempotent review grade and calculate its next due date."""

@@ -359,6 +359,10 @@ class TrustedSourceMonitor:
             "CREATE INDEX IF NOT EXISTS idx_source_editorial_reviews_latest "
             "ON trusted_source_editorial_reviews(url, lesson_path, review_id DESC)"
         )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_source_editorial_reviews_history "
+            "ON trusted_source_editorial_reviews(url, review_id DESC)"
+        )
         return connection
 
     def inventory(self, *, today: date | None = None) -> dict[str, object]:
@@ -970,3 +974,44 @@ class TrustedSourceMonitor:
                 (url, lesson_path),
             ).fetchone()
         return int(row["review_id"]) if row is not None else None
+
+    def editorial_review_history(
+        self,
+        url: str,
+        *,
+        limit: int = 50,
+        before_review_id: int | None = None,
+    ) -> dict[str, object]:
+        """Return a bounded page of local editorial review events for one approved URL."""
+        canonical = self._canonical_url(url)
+        references, _, _ = self._references()
+        if not any(item.url == canonical for item in references):
+            raise ValueError("Source is not in the approved inventory")
+
+        if isinstance(limit, bool) or not 1 <= limit <= 100:
+            raise ValueError("History page size is outside the supported range")
+        with self._db_lock, self._connect() as connection:
+            if before_review_id is None:
+                rows = connection.execute(
+                    """SELECT review_id, url, lesson_path, reviewed_digest, reviewed_on, reviewed_at
+                    FROM trusted_source_editorial_reviews WHERE url = ?
+                    ORDER BY review_id DESC LIMIT ?""",
+                    (canonical, limit + 1),
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    """SELECT review_id, url, lesson_path, reviewed_digest, reviewed_on, reviewed_at
+                    FROM trusted_source_editorial_reviews WHERE url = ? AND review_id < ?
+                    ORDER BY review_id DESC LIMIT ?""",
+                    (canonical, before_review_id, limit + 1),
+                ).fetchall()
+
+        has_more = len(rows) > limit
+        page = rows[:limit]
+        return {
+            "status": "ok",
+            "url": canonical,
+            "reviews": [dict(row) for row in page],
+            "has_more": has_more,
+            "next_before_review_id": int(page[-1]["review_id"]) if has_more and page else None,
+        }

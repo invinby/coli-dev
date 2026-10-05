@@ -1277,6 +1277,18 @@ private struct ManagementView: View {
     }
 }
 
+private enum SourceRegistrySheet: Identifiable {
+    case preview(TrustedSourcePagePreview)
+    case history(String)
+
+    var id: String {
+        switch self {
+        case .preview(let preview): return "preview:\(preview.id)"
+        case .history(let url): return "history:\(url)"
+        }
+    }
+}
+
 private struct SourceRegistryRow: View {
     let source: TrustedSourceInventoryItem
     let language: AppLanguage
@@ -1320,6 +1332,15 @@ private struct SourceRegistryRow: View {
                             language
                         )
                     )
+
+                    Button {
+                        activeSheet = .history(source.url)
+                    } label: {
+                        Image(systemName: "clock.arrow.circlepath")
+                    }
+                    .buttonStyle(.plain)
+                    .help(L10n.text("management.sourceReviewHistory", language))
+                    .accessibilityLabel(L10n.text("management.sourceReviewHistory", language))
 
                     Link(destination: url) {
                         Image(systemName: "arrow.up.right.square")
@@ -1428,8 +1449,17 @@ private struct SourceRegistryRow: View {
         }
         .padding(.vertical, 5)
         .accessibilityElement(children: .contain)
-        .sheet(item: $preview) { item in
-            TrustedSourcePreviewSheet(preview: item, language: language, onReviewSaved: onReviewSaved)
+        .sheet(item: $activeSheet) { item in
+            switch item {
+            case .preview(let preview):
+                TrustedSourcePreviewSheet(
+                    preview: preview,
+                    language: language,
+                    onReviewSaved: onReviewSaved
+                )
+            case .history(let url):
+                TrustedSourceReviewHistorySheet(url: url, language: language)
+            }
         }
         .alert(
             L10n.text("management.sourcePreviewTitle", language),
@@ -1446,14 +1476,14 @@ private struct SourceRegistryRow: View {
         isLoadingPreview = true
         defer { isLoadingPreview = false }
         do {
-            preview = try await OrchestratorClient.previewTrustedSource(url: source.url)
+            activeSheet = .preview(try await OrchestratorClient.previewTrustedSource(url: source.url))
         } catch {
             showPreviewError = true
         }
     }
 
     @State private var isLoadingPreview = false
-    @State private var preview: TrustedSourcePagePreview?
+    @State private var activeSheet: SourceRegistrySheet?
     @State private var showPreviewError = false
 
     private var statusKey: String {
@@ -1524,6 +1554,143 @@ private struct SourceRegistryRow: View {
     private func formatISODate(_ value: String) -> String {
         guard let date = ISO8601DateFormatter().date(from: value) else { return value }
         return DateFormatter.localizedString(from: date, dateStyle: .short, timeStyle: .short)
+    }
+}
+
+private struct TrustedSourceReviewHistorySheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let url: String
+    let language: AppLanguage
+
+    @State private var reviews: [TrustedSourceEditorialReview] = []
+    @State private var nextBeforeReviewID: Int?
+    @State private var hasMore = false
+    @State private var isLoading = false
+    @State private var loadFailed = false
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if reviews.isEmpty && isLoading {
+                    ProgressView(L10n.text("management.sourceReviewHistoryLoading", language))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if reviews.isEmpty && loadFailed {
+                    VStack(spacing: 12) {
+                        Label(
+                            L10n.text("management.sourceReviewHistoryFailed", language),
+                            systemImage: "exclamationmark.triangle"
+                        )
+                        Button(L10n.text("management.retry", language)) {
+                            Task { await loadNextPage() }
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if reviews.isEmpty {
+                    VStack(spacing: 12) {
+                        Label(
+                            L10n.text("management.sourceReviewHistoryEmpty", language),
+                            systemImage: "clock"
+                        )
+                        .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text(url)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+                            ForEach(reviews) { review in
+                                GroupBox {
+                                    VStack(alignment: .leading, spacing: 7) {
+                                        HStack {
+                                            Label(review.reviewedOn, systemImage: "checkmark.seal")
+                                            Spacer()
+                                            Text("#\(review.reviewID)")
+                                                .foregroundStyle(.tertiary)
+                                        }
+                                        Text(review.lessonPath)
+                                            .font(.caption.monospaced())
+                                            .textSelection(.enabled)
+                                        Text(
+                                            "SHA-256 " + String(review.reviewedDigest.prefix(12)) + "…"
+                                        )
+                                        .font(.caption2.monospaced())
+                                        .foregroundStyle(.secondary)
+                                        Text(formatReviewedAt(review.reviewedAt))
+                                            .font(.caption2)
+                                            .foregroundStyle(.tertiary)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                            }
+                            if isLoading {
+                                ProgressView()
+                                    .frame(maxWidth: .infinity)
+                            } else if loadFailed {
+                                Label(
+                                    L10n.text("management.sourceReviewHistoryFailed", language),
+                                    systemImage: "exclamationmark.triangle"
+                                )
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                Button(L10n.text("management.retry", language)) {
+                                    Task { await loadNextPage() }
+                                }
+                                .buttonStyle(.bordered)
+                                .frame(maxWidth: .infinity)
+                            } else if hasMore {
+                                Button(L10n.text("management.sourceReviewHistoryMore", language)) {
+                                    Task { await loadNextPage() }
+                                }
+                                .buttonStyle(.bordered)
+                                .frame(maxWidth: .infinity)
+                            }
+                        }
+                        .padding()
+                    }
+                }
+            }
+            .navigationTitle(L10n.text("management.sourceReviewHistoryTitle", language))
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(L10n.text("management.sourcePreviewDone", language)) {
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .task {
+            guard reviews.isEmpty else { return }
+            await loadNextPage()
+        }
+        .frame(minWidth: 540, minHeight: 420)
+    }
+
+    @MainActor
+    private func loadNextPage() async {
+        guard !isLoading else { return }
+        isLoading = true
+        loadFailed = false
+        defer { isLoading = false }
+        do {
+            let page = try await OrchestratorClient.trustedSourceReviewHistory(
+                url: url,
+                beforeReviewID: nextBeforeReviewID
+            )
+            reviews.append(contentsOf: page.reviews)
+            hasMore = page.hasMore
+            nextBeforeReviewID = page.nextBeforeReviewID
+        } catch {
+            loadFailed = true
+        }
+    }
+
+    private func formatReviewedAt(_ value: String) -> String {
+        guard let date = ISO8601DateFormatter().date(from: value) else { return value }
+        return DateFormatter.localizedString(from: date, dateStyle: .medium, timeStyle: .short)
     }
 }
 

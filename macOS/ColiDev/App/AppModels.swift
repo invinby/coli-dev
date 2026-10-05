@@ -773,6 +773,40 @@ struct TrustedSourceInventoryItem: Decodable, Identifiable {
     }
 }
 
+struct TrustedSourceEditorialReviewHistory: Decodable {
+    let status: String
+    let url: String
+    let reviews: [TrustedSourceEditorialReview]
+    let hasMore: Bool
+    let nextBeforeReviewID: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case status, url, reviews
+        case hasMore = "has_more"
+        case nextBeforeReviewID = "next_before_review_id"
+    }
+}
+
+struct TrustedSourceEditorialReview: Decodable, Identifiable {
+    let reviewID: Int
+    let url: String
+    let lessonPath: String
+    let reviewedDigest: String
+    let reviewedOn: String
+    let reviewedAt: String
+
+    var id: Int { reviewID }
+
+    enum CodingKeys: String, CodingKey {
+        case url
+        case reviewID = "review_id"
+        case lessonPath = "lesson_path"
+        case reviewedDigest = "reviewed_digest"
+        case reviewedOn = "reviewed_on"
+        case reviewedAt = "reviewed_at"
+    }
+}
+
 struct TrustedSourcePagePreview: Decodable, Identifiable {
     let url: String
     let title: String
@@ -1040,6 +1074,33 @@ enum OrchestratorClient {
             throw ClientError.unavailable
         }
         return try JSONDecoder().decode(TrustedSourceInventory.self, from: data)
+    }
+
+    static func trustedSourceReviewHistory(
+        url sourceURL: String,
+        beforeReviewID: Int? = nil,
+        limit: Int = 50
+    ) async throws -> TrustedSourceEditorialReviewHistory {
+        guard var components = URLComponents(
+            string: LearningStore.orchestratorBaseURL + "/knowledge/sources/reviews"
+        ) else { throw ClientError.invalidResponse }
+        components.queryItems = [
+            URLQueryItem(name: "url", value: sourceURL),
+            URLQueryItem(name: "limit", value: String(limit)),
+        ]
+        if let beforeReviewID {
+            components.queryItems?.append(
+                URLQueryItem(name: "before_review_id", value: String(beforeReviewID))
+            )
+        }
+        guard let url = components.url else { throw ClientError.invalidResponse }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 8
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(TrustedSourceEditorialReviewHistory.self, from: data)
     }
 
     static func previewTrustedSource(url sourceURL: String) async throws -> TrustedSourcePagePreview {
