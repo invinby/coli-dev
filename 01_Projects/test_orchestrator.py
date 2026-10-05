@@ -596,6 +596,76 @@ def test_automatic_source_scheduler_checks_when_due_and_stops_cleanly(monkeypatc
     assert monitor.checks == 1
 
 
+def test_manual_and_scheduled_source_checks_share_a_lock(monkeypatch):
+    entered = asyncio.Event()
+    release_first = asyncio.Event()
+    active = 0
+    max_active = 0
+    calls = 0
+
+    class SlowSourceMonitor:
+        async def check_sources(self):
+            nonlocal active, max_active, calls
+            calls += 1
+            active += 1
+            max_active = max(max_active, active)
+            if calls == 1:
+                entered.set()
+                await release_first.wait()
+            active -= 1
+            return {"checked_count": 1}
+
+    monkeypatch.setattr(orchestrator, "trusted_source_monitor", SlowSourceMonitor())
+
+    async def run_concurrent_checks():
+        lock = asyncio.Lock()
+        first = asyncio.create_task(orchestrator._run_trusted_source_check(lock))
+        await asyncio.wait_for(entered.wait(), timeout=1)
+        second = asyncio.create_task(orchestrator._run_trusted_source_check(lock))
+        await asyncio.sleep(0)
+        assert calls == 1
+        release_first.set()
+        await asyncio.gather(first, second)
+
+    asyncio.run(run_concurrent_checks())
+
+    assert calls == 2
+    assert max_active == 1
+
+
+def test_scheduler_rechecks_due_time_after_waiting_for_manual_check(monkeypatch):
+    class SourceMonitor:
+        due = True
+        checks = 0
+
+        def seconds_until_automatic_check(self):
+            return 0 if self.due else 3600
+
+        async def check_sources(self):
+            self.checks += 1
+            self.due = False
+            return {"checked_count": 1}
+
+    monitor = SourceMonitor()
+    monkeypatch.setattr(orchestrator, "trusted_source_monitor", monitor)
+
+    async def run_waiting_scheduler_check():
+        lock = asyncio.Lock()
+        await lock.acquire()
+        scheduled_check = asyncio.create_task(
+            orchestrator._run_trusted_source_check(lock, only_if_due=True)
+        )
+        await asyncio.sleep(0)
+        monitor.due = False  # a manual check completed while the scheduler awaited the lock
+        lock.release()
+        return await scheduled_check
+
+    result = asyncio.run(run_waiting_scheduler_check())
+
+    assert result is None
+    assert monitor.checks == 0
+
+
 def test_cloud_specialist_uses_openrouter_free_when_kimi_is_missing(monkeypatch):
     monkeypatch.setattr(orchestrator, "KIMI_KEY", "")
     monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "openrouter-test-key")

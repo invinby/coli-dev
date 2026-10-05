@@ -2230,7 +2230,25 @@ AUTO_SOURCE_CHECK_ENABLED = os.getenv("COLIDEV_AUTO_SOURCE_CHECK", "true").strip
 AUTO_SOURCE_CHECK_INTERVAL_SECONDS = 24 * 60 * 60
 
 
-async def _trusted_source_check_scheduler() -> None:
+async def _run_trusted_source_check(
+    check_lock: asyncio.Lock | None = None,
+    *,
+    only_if_due: bool = False,
+) -> dict[str, object] | None:
+    async def run() -> dict[str, object] | None:
+        if only_if_due:
+            delay = trusted_source_monitor.seconds_until_automatic_check()
+            if delay is None or delay > 0:
+                return None
+        return await trusted_source_monitor.check_sources()
+
+    if check_lock is None:
+        return await run()
+    async with check_lock:
+        return await run()
+
+
+async def _trusted_source_check_scheduler(check_lock: asyncio.Lock | None = None) -> None:
     """Check approved lesson references while the local backend is running."""
     while True:
         try:
@@ -2240,7 +2258,9 @@ async def _trusted_source_check_scheduler() -> None:
             if delay > 0:
                 await asyncio.sleep(delay)
                 continue
-            result = await trusted_source_monitor.check_sources()
+            result = await _run_trusted_source_check(check_lock, only_if_due=True)
+            if result is None:
+                continue
             logger.info(
                 "Automatic trusted-source check completed",
                 extra={
@@ -2265,6 +2285,8 @@ async def _trusted_source_check_scheduler() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     source_check_task: asyncio.Task | None = None
+    source_check_lock = asyncio.Lock()
+    app.state.trusted_source_check_lock = source_check_lock
     await asyncio.to_thread(study_progress_store.initialize)
     try:
         await asyncio.to_thread(provider_usage_store.initialize)
@@ -2330,7 +2352,7 @@ async def lifespan(app: FastAPI):
     )
     if AUTO_SOURCE_CHECK_ENABLED:
         source_check_task = asyncio.create_task(
-            _trusted_source_check_scheduler(),
+            _trusted_source_check_scheduler(source_check_lock),
             name="trusted-source-auto-check",
         )
     yield
@@ -3068,7 +3090,8 @@ async def check_trusted_source_references(request: Request):
     """Check fixed-domain course references without consuming or indexing page bodies."""
     _require_local_settings_request(request)
     try:
-        return await trusted_source_monitor.check_sources()
+        check_lock = getattr(request.app.state, "trusted_source_check_lock", None)
+        return await _run_trusted_source_check(check_lock)
     except Exception:
         logger.exception("Trusted course source check failed")
         raise HTTPException(status_code=503, detail="Trusted source check failed") from None
