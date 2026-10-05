@@ -62,6 +62,12 @@ def _reset(monkeypatch, tmp_path):
         "provider_usage_store",
         orchestrator.ProviderUsageStore(tmp_path / "provider-usage.sqlite3"),
     )
+    monkeypatch.setattr(
+        orchestrator,
+        "auto_cost_policy",
+        orchestrator.AutoCostPolicyStore(tmp_path / "auto-cost-policy.json"),
+    )
+    orchestrator.auto_cost_policy.set(True)
     monkeypatch.setattr(session_tracker, "_file", tmp_path / "sessions.json")
     monkeypatch.setattr(session_tracker, "max_per_day", 5)
     session_tracker.reset_mode()

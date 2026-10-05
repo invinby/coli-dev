@@ -163,6 +163,7 @@ final class LearningStore: ObservableObject {
     @Published private(set) var providerSecretStatuses: [String: ProviderSecretStatus] = [:]
     @Published private(set) var subjectModelRoutes: [String: SubjectModelRoute] = [:]
     @Published private(set) var finalSynthesisModelRoute: FinalSynthesisModelRoute?
+    @Published private(set) var autoCostPolicy: AutoCostPolicy?
     @Published private(set) var providerUsage: ProviderUsageSummary?
     @Published private(set) var isRefreshingProviderUsage = false
     @Published private(set) var providerUsageUnavailable = false
@@ -255,6 +256,20 @@ final class LearningStore: ObservableObject {
 
     func resetFinalSynthesisModelRoute() async throws {
         finalSynthesisModelRoute = try await OrchestratorClient.resetFinalSynthesisModelRoute()
+    }
+
+    func refreshAutoCostPolicy() async {
+        do {
+            autoCostPolicy = try await OrchestratorClient.autoCostPolicy()
+        } catch {
+            autoCostPolicy = nil
+        }
+    }
+
+    func saveAutoCostPolicy(allowPaidRoutes: Bool) async throws {
+        autoCostPolicy = try await OrchestratorClient.saveAutoCostPolicy(
+            allowPaidRoutes: allowPaidRoutes
+        )
     }
 
     func refreshProviderUsage() async {
@@ -932,6 +947,14 @@ struct FinalSynthesisModelRoute: Decodable, Hashable {
     }
 }
 
+struct AutoCostPolicy: Decodable, Hashable {
+    let allowPaidRoutes: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case allowPaidRoutes = "allow_paid_routes"
+    }
+}
+
 private struct SubjectModelRouteUpdate: Encodable {
     let provider: String
     let model: String?
@@ -940,6 +963,14 @@ private struct SubjectModelRouteUpdate: Encodable {
 private struct FinalSynthesisModelRouteUpdate: Encodable {
     let provider: String
     let model: String?
+}
+
+private struct AutoCostPolicyUpdate: Encodable {
+    let allowPaidRoutes: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case allowPaidRoutes = "allow_paid_routes"
+    }
 }
 
 private struct ProviderSecretStatusResponse: Decodable {
@@ -1369,6 +1400,37 @@ enum OrchestratorClient {
             throw ClientError.unavailable
         }
         return try JSONDecoder().decode(FinalSynthesisModelRoute.self, from: data)
+    }
+
+    static func autoCostPolicy() async throws -> AutoCostPolicy {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/settings/auto-cost-policy") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 8
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(AutoCostPolicy.self, from: data)
+    }
+
+    static func saveAutoCostPolicy(allowPaidRoutes: Bool) async throws -> AutoCostPolicy {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/settings/auto-cost-policy") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.timeoutInterval = 15
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(
+            AutoCostPolicyUpdate(allowPaidRoutes: allowPaidRoutes)
+        )
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(AutoCostPolicy.self, from: data)
     }
 
     static func saveProviderSecret(_ apiKey: String, for provider: String) async throws -> ProviderSecretStatus {

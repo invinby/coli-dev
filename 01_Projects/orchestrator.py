@@ -223,6 +223,7 @@ KIMI_MODEL = os.getenv("KIMI_MODEL", "moonshot-v1-auto")  # Kimi K3
 OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openrouter/free").strip() or "openrouter/free"
+OPENROUTER_FREE_MODEL = "openrouter/free"
 
 # Google → Gemini (напрямую)
 GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
@@ -491,6 +492,10 @@ class SubjectModelRouteRequest(BaseModel):
 class FinalSynthesisRouteRequest(BaseModel):
     provider: Literal["auto", "gemini", "kimi", "openrouter", "ollama"]
     model: str | None = Field(default=None, max_length=128)
+
+
+class AutoCostPolicyRequest(BaseModel):
+    allow_paid_routes: bool = False
 
 
 class StudyReviewRequest(BaseModel):
@@ -995,7 +1000,7 @@ class ConsiliumEngine:
         return response.lstrip().startswith((
             "[Ошибка", "[Таймаут", "[Gemini:", "[KIMI_API_KEY not set",
             "[GEMINI_API_KEY not set", "[OPENROUTER_API_KEY not set",
-            "[OpenRouter:", "[Google Search:",
+            "[OpenRouter:", "[Google Search:", "[Auto policy:",
         ))
 
     # ─── УРОВЕНЬ 1: Независимые черновики ────────────────
@@ -1011,16 +1016,46 @@ class ConsiliumEngine:
         Returns:
             Подписанная подборка пригодных черновиков для критики и синтеза.
         """
-        logger.info("Level 1: Cloud Code — requesting Gemini Flash + Kimi/OpenRouter + Ollama")
+        allow_paid_routes = auto_cost_policy.get()["allow_paid_routes"]
+        logger.info(
+            "Level 1: Cloud Code — requesting provider drafts",
+            extra={"paid_routes_allowed": allow_paid_routes},
+        )
 
         # 1. Параллельные запросы к трём генераторам
         t0 = datetime.now(timezone.utc)
         agent_system = self.agent_system(system_prompt)
-        gemini_flash_task = self._ask_gemini(message, agent_system,
-                                             GEMINI_FLASH_URL, "gemini-flash")
-        specialist_task = self._ask_cloud_specialist(
-            message, agent_system, "cloud-specialist", subject=subject
-        )
+        if allow_paid_routes:
+            gemini_flash_task = self._ask_gemini(
+                message, agent_system, GEMINI_FLASH_URL, "gemini-flash"
+            )
+            specialist_task = self._ask_cloud_specialist(
+                message, agent_system, "cloud-specialist", subject=subject
+            )
+        else:
+            gemini_flash_task = asyncio.sleep(
+                0, result="[Auto policy: Gemini Flash disabled in free-only mode]"
+            )
+            selected_subject_route = subject_model_routes.get(subject)
+            if selected_subject_route["provider"] == "ollama":
+                specialist_task = self._ask_selected_specialist(
+                    "ollama",
+                    selected_subject_route["model"],
+                    message,
+                    agent_system,
+                    "cloud-specialist",
+                )
+            elif OPENROUTER_KEY:
+                specialist_task = self._ask_openrouter(
+                    message,
+                    agent_system,
+                    "cloud-specialist",
+                    model=OPENROUTER_FREE_MODEL,
+                )
+            else:
+                specialist_task = asyncio.sleep(
+                    0, result="[Auto policy: OpenRouter free route is not configured]"
+                )
         ollama_task = self._ask_ollama(message, agent_system, "ollama-gen")
 
         flash_result, specialist_result, ollama_result = await asyncio.gather(
@@ -1028,7 +1063,9 @@ class ConsiliumEngine:
         )
 
         flash_draft = flash_result if isinstance(flash_result, str) else f"[Ошибка: {flash_result}]"
-        specialist_agent = "kimi"
+        specialist_agent = "kimi" if allow_paid_routes else (
+            "ollama" if subject_model_routes.get(subject)["provider"] == "ollama" else "openrouter"
+        )
         if (
             isinstance(specialist_result, tuple)
             and len(specialist_result) == 2
@@ -1036,6 +1073,8 @@ class ConsiliumEngine:
             and isinstance(specialist_result[1], str)
         ):
             specialist_draft, specialist_agent = specialist_result
+        elif not allow_paid_routes and isinstance(specialist_result, str):
+            specialist_draft = specialist_result
         else:
             specialist_draft = f"[Ошибка: {specialist_result}]"
         ollama_draft = ollama_result if isinstance(ollama_result, str) else f"[Ошибка: {ollama_result}]"
@@ -1173,8 +1212,28 @@ class ConsiliumEngine:
             )
         synthesis_route = final_synthesis_routes.get()
         synthesis_provider = synthesis_route["provider"] or "auto"
-        synthesis_model = _final_synthesis_model(synthesis_route)
-        effective_provider = "gemini" if synthesis_provider == "auto" else synthesis_provider
+        allow_paid_routes = auto_cost_policy.get()["allow_paid_routes"]
+        route_note = ""
+        if allow_paid_routes:
+            synthesis_model = _final_synthesis_model(synthesis_route)
+            effective_provider = "gemini" if synthesis_provider == "auto" else synthesis_provider
+        elif synthesis_provider == "auto":
+            effective_provider = "openrouter" if OPENROUTER_KEY else "ollama"
+            synthesis_model = (
+                OPENROUTER_FREE_MODEL if effective_provider == "openrouter" else OLLAMA_MODEL_RESEARCHER
+            )
+        elif synthesis_provider == "ollama":
+            effective_provider = "ollama"
+            synthesis_model = synthesis_route["model"] or OLLAMA_MODEL_RESEARCHER
+        elif synthesis_provider == "openrouter" and (
+            synthesis_route["model"] or OPENROUTER_MODEL
+        ) == OPENROUTER_FREE_MODEL:
+            effective_provider = "openrouter"
+            synthesis_model = OPENROUTER_FREE_MODEL
+        else:
+            effective_provider = "ollama"
+            synthesis_model = OLLAMA_MODEL_RESEARCHER
+            route_note = " · blocked by free-only policy"
         model_label = synthesis_model
         if effective_provider == "gemini":
             synthesis_url = (
@@ -1230,7 +1289,7 @@ class ConsiliumEngine:
             "ollama": "Ollama",
         }
         self.completion_provider = effective_provider
-        self.completion_model = f"{provider_labels[effective_provider]} final: {model_label}"
+        self.completion_model = f"{provider_labels[effective_provider]} final: {model_label}{route_note}"
         if self.specialist_model_label:
             self.completion_model += f" · {self.specialist_model_label}"
 
@@ -2291,6 +2350,57 @@ class FinalSynthesisRouteStore:
 final_synthesis_routes = FinalSynthesisRouteStore(app_data_dir() / "final-synthesis-route.json")
 
 
+class AutoCostPolicyStore:
+    """Persist whether normal Auto conversations may call potentially billed APIs."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path.expanduser()
+        self._lock = threading.RLock()
+
+    def get(self) -> dict[str, bool]:
+        with self._lock:
+            try:
+                payload = json.loads(self.path.read_text(encoding="utf-8"))
+            except FileNotFoundError:
+                return {"allow_paid_routes": False}
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                logger.warning(
+                    "Auto cost policy could not be read; free-only mode will be used",
+                    extra={"error_type": type(exc).__name__},
+                )
+                return {"allow_paid_routes": False}
+            value = payload.get("allow_paid_routes") if isinstance(payload, dict) else None
+            return {"allow_paid_routes": value is True}
+
+    def set(self, allow_paid_routes: bool) -> dict[str, bool]:
+        if not isinstance(allow_paid_routes, bool):
+            raise ValueError("allow_paid_routes must be a boolean")
+        result = {"allow_paid_routes": allow_paid_routes}
+        with self._lock:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            temporary_path: Path | None = None
+            try:
+                with tempfile.NamedTemporaryFile(
+                    mode="w", encoding="utf-8", prefix=".auto-cost-policy-",
+                    suffix=".tmp", dir=self.path.parent, delete=False,
+                ) as temporary:
+                    temporary_path = Path(temporary.name)
+                    json.dump({"schema_version": 1, **result}, temporary, sort_keys=True)
+                    temporary.write("\n")
+                try:
+                    os.chmod(temporary_path, 0o600)
+                except OSError:
+                    pass
+                os.replace(temporary_path, self.path)
+            finally:
+                if temporary_path is not None and temporary_path.exists():
+                    temporary_path.unlink(missing_ok=True)
+        return result
+
+
+auto_cost_policy = AutoCostPolicyStore(app_data_dir() / "auto-cost-policy.json")
+
+
 def _default_model_for_provider(provider: str) -> str | None:
     return {
         "gemini": GEMINI_FLASH_MODEL,
@@ -2343,13 +2453,36 @@ def _subject_model_route_payload() -> dict[str, list[dict[str, Any]]]:
 def _final_synthesis_route_payload() -> dict[str, Any]:
     route = final_synthesis_routes.get()
     provider = route["provider"] or "auto"
-    readiness_provider = "gemini" if provider == "auto" else provider
-    ready, status = _subject_model_route_status(readiness_provider)
+    allow_paid_routes = auto_cost_policy.get()["allow_paid_routes"]
+    requested_openrouter_model = route["model"] or OPENROUTER_MODEL
+    blocked_by_free_only = (
+        not allow_paid_routes
+        and provider not in {"auto", "ollama"}
+        and not (provider == "openrouter" and requested_openrouter_model == OPENROUTER_FREE_MODEL)
+    )
+    if blocked_by_free_only:
+        effective_provider = "ollama"
+        effective_model = OLLAMA_MODEL_RESEARCHER
+        ready, _ = _subject_model_route_status("ollama")
+        status = "blocked_by_free_only" if ready else "blocked_by_free_only_local_unavailable"
+    elif not allow_paid_routes and provider == "auto":
+        effective_provider = "openrouter" if OPENROUTER_KEY else "ollama"
+        effective_model = OPENROUTER_FREE_MODEL if OPENROUTER_KEY else OLLAMA_MODEL_RESEARCHER
+        ready, _ = _subject_model_route_status(effective_provider)
+        status = "free_route_ready" if effective_provider == "openrouter" and ready else (
+            "local_free_fallback" if ready else "loopback_required"
+        )
+    else:
+        effective_provider = "gemini" if provider == "auto" else provider
+        effective_model = _final_synthesis_model(route)
+        ready, status = _subject_model_route_status(effective_provider)
     return {
         **route,
-        "effective_model": _final_synthesis_model(route),
+        "effective_provider": effective_provider,
+        "effective_model": effective_model,
         "provider_ready": ready,
         "status": status,
+        "paid_route_blocked": blocked_by_free_only,
     }
 
 
@@ -3156,6 +3289,18 @@ async def reset_final_synthesis_route(request: Request):
     _require_local_settings_request(request)
     final_synthesis_routes.reset()
     return _final_synthesis_route_payload()
+
+
+@app.get("/settings/auto-cost-policy")
+async def get_auto_cost_policy(request: Request):
+    _require_local_settings_request(request)
+    return auto_cost_policy.get()
+
+
+@app.put("/settings/auto-cost-policy")
+async def save_auto_cost_policy(policy: AutoCostPolicyRequest, request: Request):
+    _require_local_settings_request(request)
+    return auto_cost_policy.set(policy.allow_paid_routes)
 
 
 @app.get("/api/status")

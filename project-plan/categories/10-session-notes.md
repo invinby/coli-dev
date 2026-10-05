@@ -424,3 +424,10 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 - При сбое выбранной финальной облачной модели применяется общий локальный Ollama fallback, без переключения на иной облачный провайдер. Итоговый SSE показывает фактический provider/model ID. RU/EN copy сообщает о платной квоте Pro и границах настройки.
 - Полный `.venv\Scripts\python.exe -m pytest 01_Projects -q`: 344 passed; Ruff, `compileall`, локализационный scan и `git diff --check` прошли. Остаётся одно существующее предупреждение Starlette/httpx о TestClient.
 - GitHub Actions run [37381727625](https://github.com/invinby/coli-dev/actions/runs/37381727625) полностью прошёл backend checks, Xcode build на macOS arm64 и Intel, встраивание backend runtime, smoke-test и проверку встроенных учебных маршрутов. GUI не запускается в CI: экран панели, живые API ключи и доступность выбранных моделей нужно проверить на реальном Mac.
+
+### Free-only защита расходов Auto — 2026-10-06
+
+- Обычный Auto теперь по умолчанию исключает прямые Gemini/Kimi и произвольные платные model ID: максимум один облачный черновик и финальный синтез через точный `openrouter/free`, если задан ключ; остальные агенты работают через loopback Ollama. Без ключа OpenRouter весь Auto остаётся локальным. Ошибка Free router ведёт к локальному fallback, не к другому облаку.
+- Control Center на RU/EN показывает политику и требует отдельного действия Save для разрешения платных маршрутов; loopback-only backend хранит bool в локальном JSON без секретов. Финальный маршрут с платным model ID остаётся видимым, но блокируется/перенаправляется на Ollama при free-only.
+- Обычный Auto free-only не блокирует явно запускаемый Google Search grounding: UI отдельно сообщает о возможных квотах/оплате. OpenRouter Free Router сейчас заявляет нулевую цену токенов и лимит 50 запросов в день на бесплатном плане; это может измениться, model pool меняется.
+- Полный `.venv\Scripts\python.exe -m pytest 01_Projects -q`: 348 passed, одно существующее предупреждение Starlette/httpx; Ruff, `compileall`, localization scan и `git diff --check` прошли. Свежий Xcode CI ещё не запускался, реальный macOS GUI не проверялся.

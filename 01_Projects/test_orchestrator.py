@@ -97,6 +97,14 @@ def _reset_session_tracker(monkeypatch, tmp_path):
         "final_synthesis_routes",
         orchestrator.FinalSynthesisRouteStore(tmp_path / "final-synthesis-route.json"),
     )
+    monkeypatch.setattr(
+        orchestrator,
+        "auto_cost_policy",
+        orchestrator.AutoCostPolicyStore(tmp_path / "auto-cost-policy.json"),
+    )
+    # Existing orchestration tests exercise the explicitly paid-capable path;
+    # free-only behavior is covered by dedicated policy tests below.
+    orchestrator.auto_cost_policy.set(True)
     monkeypatch.setattr(session_tracker, "_file", tmp_path / "sessions.json")
     monkeypatch.setattr(session_tracker, "max_per_day", 5)
     session_tracker.reset_mode()
@@ -625,9 +633,11 @@ class TestFinalSynthesisRouting:
         assert response.json() == {
             "provider": "auto",
             "model": None,
+            "effective_provider": "gemini",
             "effective_model": orchestrator.GEMINI_PRO_MODEL,
             "provider_ready": True,
             "status": "ready",
+            "paid_route_blocked": False,
         }
 
     def test_save_ollama_route_persists_model_without_credentials(self, client):
@@ -640,9 +650,11 @@ class TestFinalSynthesisRouting:
         assert response.json() == {
             "provider": "ollama",
             "model": "qwen3:8b",
+            "effective_provider": "ollama",
             "effective_model": "qwen3:8b",
             "provider_ready": True,
             "status": "model_checked_on_use",
+            "paid_route_blocked": False,
         }
         assert orchestrator.final_synthesis_routes.path.exists()
         assert "API" not in orchestrator.final_synthesis_routes.path.read_text(encoding="utf-8")
@@ -706,6 +718,70 @@ class TestFinalSynthesisRouting:
         assert (draft, provider) == ("Kimi fallback draft", "kimi")
         engine._ask_kimi.assert_awaited_once()
         assert "private failure" not in draft
+
+
+class TestAutoCostPolicy:
+    def test_missing_policy_file_defaults_to_free_only(self, tmp_path):
+        policy = orchestrator.AutoCostPolicyStore(tmp_path / "missing-policy.json")
+        assert policy.get() == {"allow_paid_routes": False}
+
+    def test_loopback_settings_api_toggles_paid_auto_routes(self, client):
+        orchestrator.auto_cost_policy.set(False)
+        assert client.get("/settings/auto-cost-policy").json() == {"allow_paid_routes": False}
+
+        enabled = client.put("/settings/auto-cost-policy", json={"allow_paid_routes": True})
+        assert enabled.status_code == 200
+        assert enabled.json() == {"allow_paid_routes": True}
+        assert client.get("/settings/auto-cost-policy").json() == {"allow_paid_routes": True}
+
+        forbidden = client.put(
+            "/settings/auto-cost-policy",
+            json={"allow_paid_routes": False},
+            headers={"Origin": "https://attacker.example"},
+        )
+        assert forbidden.status_code == 403
+
+    def test_free_only_auto_uses_openrouter_free_and_local_review_only(self, monkeypatch):
+        monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "free-router-key")
+        orchestrator.auto_cost_policy.set(False)
+        engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient))
+        engine._ask_gemini = AsyncMock(side_effect=AssertionError("paid Google route was called"))
+        engine._ask_kimi = AsyncMock(side_effect=AssertionError("Kimi route was called"))
+        engine._ask_openrouter = AsyncMock(return_value="Free router draft")
+        engine._ask_ollama = AsyncMock(side_effect=["Local draft", "Local critic", "Local verifier"])
+        engine._ask_selected_specialist = AsyncMock(return_value=("Free router final", "openrouter"))
+
+        answer, _ = asyncio.run(engine.run("Question", "Tutor instructions"))
+
+        assert answer == "Free router final"
+        engine._ask_gemini.assert_not_awaited()
+        engine._ask_kimi.assert_not_awaited()
+        engine._ask_openrouter.assert_awaited_once_with(
+            "Question", engine.agent_system("Tutor instructions"), "cloud-specialist",
+            model=orchestrator.OPENROUTER_FREE_MODEL,
+        )
+        engine._ask_selected_specialist.assert_awaited_once()
+        assert engine._ask_selected_specialist.await_args.args[:2] == (
+            "openrouter", orchestrator.OPENROUTER_FREE_MODEL,
+        )
+        assert engine._ask_ollama.await_count == 3
+
+    def test_paid_final_route_is_overridden_without_paid_calls(self):
+        orchestrator.auto_cost_policy.set(False)
+        orchestrator.final_synthesis_routes.set("gemini", "gemini-3.1-pro-preview")
+        engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient))
+        engine._ask_ollama = AsyncMock(side_effect=["Critic", "Verifier"])
+        engine._ask_gemini = AsyncMock(side_effect=AssertionError("paid final route was called"))
+        engine._ask_selected_specialist = AsyncMock(return_value=("Local final", "ollama"))
+
+        answer = asyncio.run(engine._run_consilium("Question", "Instructions", "Draft"))
+
+        assert answer == "Local final"
+        engine._ask_gemini.assert_not_awaited()
+        args = engine._ask_selected_specialist.await_args.args
+        assert args[0] == "ollama"
+        assert args[1] == orchestrator.OLLAMA_MODEL_RESEARCHER
+        assert "blocked by free-only policy" in engine.completion_model
 
 
 def test_automatic_source_scheduler_checks_when_due_and_stops_cleanly(monkeypatch):

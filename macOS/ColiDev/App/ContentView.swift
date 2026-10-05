@@ -592,7 +592,9 @@ private struct ManagementView: View {
     @State private var routeModel = ""
     @State private var finalSynthesisProvider = "auto"
     @State private var finalSynthesisModel = ""
+    @State private var allowsPaidAutoRoutes = false
     @State private var isSavingRoute = false
+    @State private var isSavingCostPolicy = false
     @State private var isPreparingBackup = false
     @State private var isRestoringBackup = false
     @State private var isExportingBackup = false
@@ -1156,6 +1158,34 @@ private struct ManagementView: View {
                     .padding(.top, 6)
                 }
 
+                GroupBox(label: Text(L10n.text("management.autoCostPolicy", store.language))) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(L10n.text("management.autoCostPolicyHelp", store.language))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Toggle(
+                            L10n.text("management.allowPaidAutoRoutes", store.language),
+                            isOn: $allowsPaidAutoRoutes
+                        )
+
+                        Button {
+                            Task { await saveAutoCostPolicy() }
+                        } label: {
+                            if isSavingCostPolicy {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Text(L10n.text("management.saveCostPolicy", store.language))
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(isSavingCostPolicy)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 6)
+                }
+
                 GroupBox(label: Text(L10n.text("management.finalSynthesis", store.language))) {
                     VStack(alignment: .leading, spacing: 12) {
                         Text(L10n.text("management.finalSynthesisHelp", store.language))
@@ -1424,9 +1454,11 @@ private struct ManagementView: View {
         await store.refreshProviderSecretStatuses()
         await store.refreshSubjectModelRoutes()
         await store.refreshFinalSynthesisModelRoute()
+        await store.refreshAutoCostPolicy()
         await store.refreshProviderUsage()
         syncSubjectModelRouteForm()
         syncFinalSynthesisRouteForm()
+        syncAutoCostPolicyForm()
         do {
             sourceInventory = try await OrchestratorClient.trustedSourceInventory()
             statusMessage = nil
@@ -1500,6 +1532,11 @@ private struct ManagementView: View {
     }
 
     @MainActor
+    private func syncAutoCostPolicyForm() {
+        allowsPaidAutoRoutes = store.autoCostPolicy?.allowPaidRoutes ?? false
+    }
+
+    @MainActor
     private func saveSubjectModelRoute() async {
         isSavingRoute = true
         defer { isSavingRoute = false }
@@ -1561,6 +1598,20 @@ private struct ManagementView: View {
             statusIsError = false
         } catch {
             reportError("management.routeSaveFailed")
+        }
+    }
+
+    @MainActor
+    private func saveAutoCostPolicy() async {
+        isSavingCostPolicy = true
+        defer { isSavingCostPolicy = false }
+        do {
+            try await store.saveAutoCostPolicy(allowPaidRoutes: allowsPaidAutoRoutes)
+            await store.refreshFinalSynthesisModelRoute()
+            statusMessage = L10n.text("management.costPolicySaved", store.language)
+            statusIsError = false
+        } catch {
+            reportError("management.costPolicySaveFailed")
         }
     }
 }
