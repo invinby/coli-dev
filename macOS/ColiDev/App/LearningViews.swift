@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import SceneKit
 import WebKit
+import UniformTypeIdentifiers
 
 struct SubjectOverviewView: View {
     @EnvironmentObject private var store: LearningStore
@@ -181,6 +182,49 @@ private struct CurriculumLessonDocument {
         )
     }
 
+    func notebookSource(subject: Subject, language: AppLanguage) -> String {
+        let subjectLabel = subject.title(in: language)
+        let goalHeading = language == .ru ? "Цель" : "Learning goal"
+        let theoryHeading = language == .ru ? "Теория и механизм" : "Theory and mechanism"
+        let practiceHeading = language == .ru ? "Практика" : "Practice"
+        let checkHeading = language == .ru ? "Проверка понимания" : "Knowledge check"
+        let answerHeading = language == .ru ? "Правильный ответ и разбор" : "Correct answer and explanation"
+        let limitsHeading = language == .ru ? "Ограничения" : "Limitations"
+        let sourcesHeading = language == .ru ? "Источники" : "Sources"
+        let origin = language == .ru ? "Экспортировано из ColiDev" : "Exported from ColiDev"
+
+        var sections = [
+            "# \(title)",
+            "**\(language == .ru ? "Предмет" : "Subject"): \(subjectLabel)**",
+            "*\(origin)*",
+            "## \(goalHeading)\n\(objective)",
+            "## \(theoryHeading)\n\(theory)",
+        ]
+        if !practice.isEmpty {
+            sections.append("## \(practiceHeading)\n\(practice)")
+        }
+        if !checkQuestion.isEmpty {
+            var check = "## \(checkHeading)\n\(checkQuestion)"
+            for (index, option) in checkOptions.enumerated() {
+                check += "\n\n\(index + 1). \(option)"
+            }
+            sections.append(check)
+        }
+        if let checkAnswerIndex {
+            let answerLabel = language == .ru ? "Правильный вариант" : "Correct option"
+            sections.append("## \(answerHeading)\n\(answerLabel): \(checkAnswerIndex + 1).\n\n\(answer)")
+        } else if !answer.isEmpty {
+            sections.append("## \(answerHeading)\n\(answer)")
+        }
+        if !limitations.isEmpty {
+            sections.append("## \(limitsHeading)\n\(limitations)")
+        }
+        if !sources.isEmpty {
+            sections.append("## \(sourcesHeading)\n\(sources)")
+        }
+        return sections.joined(separator: "\n\n") + "\n"
+    }
+
     private static func extract(_ markdown: String, headings: [String]) -> String {
         let lines = markdown.components(separatedBy: .newlines)
         guard let start = lines.firstIndex(where: { line in
@@ -212,6 +256,10 @@ struct CurriculumModuleView: View {
     @State private var learnerConfirmed = false
     @State private var recallQuality = 4
     @State private var selectedCheckAnswer: Int?
+    @State private var isExportingNotebookSource = false
+    @State private var notebookExportDocument: NotebookLMSourceFile?
+    @State private var notebookExportFilename = "ColiDev-lesson.md"
+    @State private var notebookExportStatus: String?
 
     let subject: Subject
     let resource: String
@@ -299,6 +347,46 @@ struct CurriculumModuleView: View {
                         ModuleTextCard(title: L10n.text("module.sources", store.language), text: document.sources, tint: subject.tint)
                     }
 
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(L10n.text("module.notebookTitle", store.language))
+                            .font(.headline)
+                        HStack(spacing: 12) {
+                            Button {
+                                notebookExportDocument = NotebookLMSourceFile(
+                                    text: document.notebookSource(subject: subject, language: store.language)
+                                )
+                                notebookExportFilename = "ColiDev-\(subject.rawValue)-\(resource)-\(store.language.rawValue).md"
+                                notebookExportStatus = nil
+                                isExportingNotebookSource = true
+                            } label: {
+                                Label(L10n.text("module.notebookExport", store.language), systemImage: "square.and.arrow.down")
+                            }
+                            .buttonStyle(.bordered)
+
+                            Button {
+                                if let url = URL(string: "https://notebooklm.google.com") {
+                                    if !NSWorkspace.shared.open(url) {
+                                        notebookExportStatus = L10n.text("module.notebookOpenFailed", store.language)
+                                    }
+                                }
+                            } label: {
+                                Label(L10n.text("module.notebookOpen", store.language), systemImage: "arrow.up.right.square")
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        Text(L10n.text("module.notebookPrivacy", store.language))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        if let notebookExportStatus {
+                            Text(notebookExportStatus)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+
                     VStack(alignment: .leading, spacing: 12) {
                         Text(L10n.text("session.listen", store.language)).font(.headline)
                         Toggle(L10n.text("session.doneCheck", store.language), isOn: $learnerConfirmed)
@@ -349,6 +437,26 @@ struct CurriculumModuleView: View {
         .navigationTitle(Text(document?.title ?? L10n.text("module.title", store.language)))
         .onAppear { loadDocument() }
         .onChange(of: store.language) { _ in loadDocument() }
+        .fileExporter(
+            isPresented: $isExportingNotebookSource,
+            document: notebookExportDocument,
+            contentType: NotebookLMFileType.markdown,
+            defaultFilename: notebookExportFilename
+        ) { result in
+            switch result {
+            case .success(let url):
+                notebookExportStatus = String(
+                    format: L10n.text("module.notebookExported", store.language),
+                    url.lastPathComponent
+                )
+            case .failure(let error):
+                if (error as? CocoaError)?.code == .userCancelled {
+                    notebookExportStatus = nil
+                } else {
+                    notebookExportStatus = L10n.text("module.notebookExportFailed", store.language)
+                }
+            }
+        }
         .sheet(isPresented: $showingTutor) {
             if let document {
                 TutorChatView(subject: subject, lesson: document.tutorContext, language: store.language, mode: store.aiMode)
@@ -362,6 +470,31 @@ struct CurriculumModuleView: View {
         document = CurriculumLessonDocument.load(subject: subject, resource: resource, language: store.language)
         learnerConfirmed = isComplete
     }
+}
+
+private struct NotebookLMSourceFile: FileDocument {
+    static var readableContentTypes: [UTType] { [NotebookLMFileType.markdown] }
+
+    var text: String
+
+    init(text: String) {
+        self.text = text
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        guard let data = configuration.file.regularFileContents else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        text = String(decoding: data, as: UTF8.self)
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: Data(text.utf8))
+    }
+}
+
+private enum NotebookLMFileType {
+    static let markdown = UTType(filenameExtension: "md") ?? .plainText
 }
 
 private struct ModuleTextCard: View {
