@@ -1792,6 +1792,17 @@ private struct GeneRegulationLab: View {
             .pickerStyle(.segmented)
             .onChange(of: variant) { _ in selectedAnswer = nil }
 
+            DNAHelixVisualization(variant: variant)
+                .frame(height: 230)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .accessibilityLabel(Text(L10n.text("lab.dna3DHint", store.language)))
+            Text(L10n.text("lab.dna3DHint", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(L10n.text(variant == 0 ? "lab.dnaPairAT" : "lab.dnaPairCG", store.language))
+                .font(.callout.weight(.medium))
+                .accessibilityLabel(Text(L10n.text(variant == 0 ? "lab.dnaPairAT" : "lab.dnaPairCG", store.language)))
+
             Toggle(L10n.text("lab.dnaSignal", store.language), isOn: $signalPresent)
                 .onChange(of: signalPresent) { _ in selectedAnswer = nil }
 
@@ -1857,6 +1868,141 @@ private struct GeneRegulationLab: View {
         .buttonStyle(.bordered)
         .tint(selectedAnswer == answer ? Color.accentColor : nil)
         .accessibilityAddTraits(selectedAnswer == answer ? .isSelected : [])
+    }
+}
+
+private struct DNAHelixVisualization: NSViewRepresentable {
+    let variant: Int
+
+    func makeNSView(context: Context) -> SCNView {
+        let view = SCNView()
+        view.scene = Self.makeScene(variant: variant)
+        view.allowsCameraControl = true
+        view.autoenablesDefaultLighting = true
+        view.backgroundColor = .controlBackgroundColor
+        return view
+    }
+
+    func updateNSView(_ view: SCNView, context: Context) {
+        guard let rung = view.scene?.rootNode.childNode(withName: "model-variant-rung", recursively: false) else { return }
+        rung.geometry?.firstMaterial?.diffuse.contents = Self.variantColor(variant)
+    }
+
+    private static func makeScene(variant: Int) -> SCNScene {
+        let scene = SCNScene()
+        scene.background.contents = NSColor.controlBackgroundColor
+
+        let backboneMaterial = SCNMaterial()
+        backboneMaterial.diffuse.contents = NSColor.systemBlue
+        backboneMaterial.roughness.contents = 0.46
+
+        let complementaryMaterial = SCNMaterial()
+        complementaryMaterial.diffuse.contents = NSColor.systemOrange
+        complementaryMaterial.roughness.contents = 0.46
+
+        let rungMaterials = [backboneMaterial, complementaryMaterial]
+        let stepCount = 20
+        let radius: Float = 0.58
+        let verticalStep: Float = 0.16
+        let twist = 2 * Float.pi / 10
+        var firstStrand: [SCNVector3] = []
+        var secondStrand: [SCNVector3] = []
+
+        for index in 0..<stepCount {
+            let angle = Float(index) * twist
+            let height = (Float(index) - Float(stepCount - 1) / 2) * verticalStep
+            let x = radius * cos(angle)
+            let y = radius * sin(angle)
+            let first = SCNVector3(x, y, height)
+            let second = SCNVector3(-x, -y, height)
+            firstStrand.append(first)
+            secondStrand.append(second)
+
+            let firstBead = SCNNode(geometry: SCNSphere(radius: 0.055))
+            firstBead.geometry?.firstMaterial = backboneMaterial
+            firstBead.position = first
+            scene.rootNode.addChildNode(firstBead)
+
+            let secondBead = SCNNode(geometry: SCNSphere(radius: 0.055))
+            secondBead.geometry?.firstMaterial = complementaryMaterial
+            secondBead.position = second
+            scene.rootNode.addChildNode(secondBead)
+
+            let rung = SCNCylinder(radius: 0.026, height: CGFloat(radius * 2))
+            rung.firstMaterial = rungMaterials[index.isMultiple(of: 2) ? 0 : 1]
+            let rungNode = segmentNode(from: first, to: second, geometry: rung)
+            if index == stepCount / 2 {
+                rungNode.name = "model-variant-rung"
+                rung.firstMaterial = SCNMaterial()
+                rung.firstMaterial?.diffuse.contents = variantColor(variant)
+                rung.firstMaterial?.roughness.contents = 0.42
+            }
+            scene.rootNode.addChildNode(rungNode)
+        }
+
+        for index in 0..<(stepCount - 1) {
+            let firstRail = SCNCylinder(radius: 0.018, height: CGFloat(distance(firstStrand[index], firstStrand[index + 1])))
+            firstRail.firstMaterial = backboneMaterial
+            scene.rootNode.addChildNode(segmentNode(from: firstStrand[index], to: firstStrand[index + 1], geometry: firstRail))
+
+            let secondRail = SCNCylinder(radius: 0.018, height: CGFloat(distance(secondStrand[index], secondStrand[index + 1])))
+            secondRail.firstMaterial = complementaryMaterial
+            scene.rootNode.addChildNode(segmentNode(from: secondStrand[index], to: secondStrand[index + 1], geometry: secondRail))
+        }
+
+        let camera = SCNCamera()
+        camera.usesOrthographicProjection = true
+        camera.orthographicScale = 4.2
+        let cameraNode = SCNNode()
+        cameraNode.camera = camera
+        cameraNode.position = SCNVector3(0, -5.2, 0.25)
+        cameraNode.look(at: SCNVector3(0, 0, 0))
+        scene.rootNode.addChildNode(cameraNode)
+
+        let light = SCNLight()
+        light.type = .omni
+        light.intensity = 620
+        let lightNode = SCNNode()
+        lightNode.light = light
+        lightNode.position = SCNVector3(-2, -3, 4)
+        scene.rootNode.addChildNode(lightNode)
+        scene.lightingEnvironment.intensity = 0.65
+        return scene
+    }
+
+    private static func segmentNode(from start: SCNVector3, to end: SCNVector3, geometry: SCNGeometry) -> SCNNode {
+        let direction = SCNVector3(end.x - start.x, end.y - start.y, end.z - start.z)
+        let length = distance(start, end)
+        let node = SCNNode(geometry: geometry)
+        node.position = SCNVector3((start.x + end.x) / 2, (start.y + end.y) / 2, (start.z + end.z) / 2)
+
+        let normalized = SCNVector3(direction.x / length, direction.y / length, direction.z / length)
+        let dot = normalized.y
+        if dot < -0.9999 {
+            node.orientation = SCNQuaternion(1, 0, 0, 0)
+        } else {
+            let cross = SCNVector3(normalized.z, 0, -normalized.x)
+            let scale = sqrt(2 * (1 + dot))
+            let inverseScale = 1 / scale
+            node.orientation = SCNQuaternion(
+                cross.x * inverseScale,
+                cross.y * inverseScale,
+                cross.z * inverseScale,
+                scale / 2
+            )
+        }
+        return node
+    }
+
+    private static func distance(_ first: SCNVector3, _ second: SCNVector3) -> Float {
+        let x = second.x - first.x
+        let y = second.y - first.y
+        let z = second.z - first.z
+        return sqrt(x * x + y * y + z * z)
+    }
+
+    private static func variantColor(_ variant: Int) -> NSColor {
+        variant == 0 ? .systemYellow : .systemPurple
     }
 }
 

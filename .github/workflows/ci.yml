@@ -102,6 +102,7 @@ jobs:
           Physics:work_and_kinetic_energy
           Biology:passive_transport_osmosis
           Biology:mendelian_inheritance
+          Biology:dna_genes_and_traits
           Zoology:adaptation_and_behavior
           Programming:conditions_loops_functions
           Programming:variables_and_types
