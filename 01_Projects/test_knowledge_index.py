@@ -81,6 +81,48 @@ def test_manual_refresh_indexes_sources_without_calling_embeddings(tmp_path: Pat
     assert embeddings.calls
 
 
+def test_index_status_summarizes_author_review_schedules_without_claiming_freshness(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    course = project / "02_Areas" / "Physics"
+    course.mkdir(parents=True)
+    database = tmp_path / "state" / "knowledge.sqlite3"
+    index = KnowledgeIndex(project, database)
+
+    empty_status = index.status()
+    assert empty_status["document_count"] == 0
+    assert empty_status["review_due_document_count"] == 0
+    assert empty_status["review_scheduled_document_count"] == 0
+    assert empty_status["review_schedule_missing_document_count"] == 0
+
+    (course / "due.md").write_text(
+        "---\nsource_checked: 2020-01-01\nsource_review_interval_days: 30\n---\n"
+        "# Due source\n\nA source with a review reminder in the past.\n",
+        encoding="utf-8",
+    )
+    (course / "scheduled.md").write_text(
+        "---\nsource_checked: 2099-01-01\nsource_review_interval_days: 30\n---\n"
+        "# Scheduled source\n\nA source with a future author review date.\n",
+        encoding="utf-8",
+    )
+    (course / "no-date.md").write_text(
+        "---\nsource_review_interval_days: 30\n---\n"
+        "# Missing check date\n\nAn interval without a checked date is not a schedule.\n",
+        encoding="utf-8",
+    )
+    (course / "no-schedule.md").write_text(
+        "# No schedule\n\nThis document has no author review metadata.\n",
+        encoding="utf-8",
+    )
+
+    index.refresh_sources()
+    status = index.status()
+
+    assert status["document_count"] == 4
+    assert status["review_due_document_count"] == 1
+    assert status["review_scheduled_document_count"] == 1
+    assert status["review_schedule_missing_document_count"] == 2
+
+
 def test_source_review_date_is_distinct_and_migrates_existing_index(tmp_path: Path) -> None:
     project = tmp_path / "project"
     course = project / "02_Areas" / "Physics"
@@ -125,6 +167,12 @@ def test_source_review_date_is_distinct_and_migrates_existing_index(tmp_path: Pa
         )
 
     index = KnowledgeIndex(project, database)
+    legacy_status = index.status()
+    assert legacy_status["document_count"] == 1
+    assert legacy_status["review_due_document_count"] == 0
+    assert legacy_status["review_scheduled_document_count"] == 0
+    assert legacy_status["review_schedule_missing_document_count"] == 1
+
     result = index.refresh_and_search("orbital periods semimajor axis", limit=1)[0]
 
     assert result["source_checked_at"] == "2026-10-05"

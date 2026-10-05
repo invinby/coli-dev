@@ -332,6 +332,23 @@ private struct SettingsView: View {
                                     Text(L10n.text("settings.aiKnowledgeChecked", store.language) + checkedAt)
                                         .font(.caption2).foregroundStyle(.tertiary)
                                 }
+                                if let dueCount = health.knowledgeReviewDueDocumentCount, dueCount > 0 {
+                                    Text(String(
+                                        format: L10n.text("settings.aiReviewDue", store.language),
+                                        dueCount
+                                    ))
+                                    .font(.caption2).foregroundStyle(.orange)
+                                    Text(L10n.text("settings.aiReviewCaveat", store.language))
+                                        .font(.caption2).foregroundStyle(.tertiary)
+                                }
+                                if let unscheduledCount = health.knowledgeReviewScheduleMissingDocumentCount,
+                                   unscheduledCount > 0 {
+                                    Text(String(
+                                        format: L10n.text("settings.aiReviewUnscheduled", store.language),
+                                        unscheduledCount
+                                    ))
+                                    .font(.caption2).foregroundStyle(.tertiary)
+                                }
                             } else {
                                 Text(L10n.text("settings.aiKnowledgeUnknown", store.language))
                                     .font(.caption2).foregroundStyle(.tertiary)

@@ -858,19 +858,54 @@ class KnowledgeIndex:
     def status(self) -> dict[str, str | int | None]:
         """Return persisted index metadata without triggering a rescan."""
         if not self.database_path.exists():
-            return {"document_count": 0, "last_checked_at": None}
+            return {
+                "document_count": 0,
+                "last_checked_at": None,
+                "review_due_document_count": 0,
+                "review_scheduled_document_count": 0,
+                "review_schedule_missing_document_count": 0,
+            }
         with self._lock:
-            connection = sqlite3.connect(self.database_path, timeout=2)
+            connection = self._connect()
             try:
+                # Additive migrations also run when Settings requests health,
+                # so older per-user indexes can report review metadata safely.
+                self._ensure_schema(connection)
+                connection.commit()
                 count = connection.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
                 checked = connection.execute(
                     "SELECT value FROM index_meta WHERE key = 'last_checked_at'"
                 ).fetchone()
+                review_due_count = 0
+                review_scheduled_count = 0
+                review_schedule_missing_count = 0
+                rows = connection.execute(
+                    "SELECT source_checked_at, source_review_interval_days FROM documents"
+                ).fetchall()
+                for row in rows:
+                    _, review_status = _source_review_schedule(
+                        row["source_checked_at"], row["source_review_interval_days"]
+                    )
+                    if review_status == "due":
+                        review_due_count += 1
+                    elif review_status == "scheduled":
+                        review_scheduled_count += 1
+                    else:
+                        review_schedule_missing_count += 1
                 return {
                     "document_count": int(count),
                     "last_checked_at": checked[0] if checked else None,
+                    "review_due_document_count": review_due_count,
+                    "review_scheduled_document_count": review_scheduled_count,
+                    "review_schedule_missing_document_count": review_schedule_missing_count,
                 }
             except sqlite3.Error:
-                return {"document_count": 0, "last_checked_at": None}
+                return {
+                    "document_count": 0,
+                    "last_checked_at": None,
+                    "review_due_document_count": 0,
+                    "review_scheduled_document_count": 0,
+                    "review_schedule_missing_document_count": 0,
+                }
             finally:
                 connection.close()

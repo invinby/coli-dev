@@ -497,6 +497,9 @@ struct OrchestratorHealth: Decodable {
     let sessionMax: Int?
     let knowledgeDocumentCount: Int?
     let knowledgeIndexCheckedAt: String?
+    let knowledgeReviewDueDocumentCount: Int?
+    let knowledgeReviewScheduledDocumentCount: Int?
+    let knowledgeReviewScheduleMissingDocumentCount: Int?
 
     var isOllamaEndpointLocal: Bool { ollamaEndpointLocal ?? false }
     var isObsidianEndpointLocal: Bool { obsidianEndpointLocal ?? false }
@@ -532,6 +535,9 @@ struct OrchestratorHealth: Decodable {
         case sessionMax = "session_max"
         case knowledgeDocumentCount = "knowledge_document_count"
         case knowledgeIndexCheckedAt = "knowledge_index_checked_at"
+        case knowledgeReviewDueDocumentCount = "knowledge_review_due_document_count"
+        case knowledgeReviewScheduledDocumentCount = "knowledge_review_scheduled_document_count"
+        case knowledgeReviewScheduleMissingDocumentCount = "knowledge_review_schedule_missing_document_count"
     }
 }
 

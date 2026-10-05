@@ -489,6 +489,9 @@ class HealthResponse(BaseModel):
     session_max: int
     knowledge_document_count: int = 0
     knowledge_index_checked_at: str | None = None
+    knowledge_review_due_document_count: int = 0
+    knowledge_review_scheduled_document_count: int = 0
+    knowledge_review_schedule_missing_document_count: int = 0
 
 
 class ErrorResponse(BaseModel):
@@ -2073,6 +2076,13 @@ async def health(request: Request):
         session_max=session_status["max"],
         knowledge_document_count=int(knowledge_status["document_count"] or 0),
         knowledge_index_checked_at=knowledge_status["last_checked_at"],
+        knowledge_review_due_document_count=int(knowledge_status["review_due_document_count"] or 0),
+        knowledge_review_scheduled_document_count=int(
+            knowledge_status["review_scheduled_document_count"] or 0
+        ),
+        knowledge_review_schedule_missing_document_count=int(
+            knowledge_status["review_schedule_missing_document_count"] or 0
+        ),
     )
 
 

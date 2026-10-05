@@ -197,8 +197,15 @@ class TestAPIEndpoints:
         assert "session" in data
         assert data["session"]["mode"] == "online"
 
-    def test_health_returns_expected_structure(self, client):
+    def test_health_returns_expected_structure(self, client, monkeypatch):
         """/health возвращает все обязательные поля."""
+        monkeypatch.setattr(orchestrator.knowledge_index, "status", MagicMock(return_value={
+            "document_count": 7,
+            "last_checked_at": "2026-10-05T00:00:00Z",
+            "review_due_document_count": 2,
+            "review_scheduled_document_count": 3,
+            "review_schedule_missing_document_count": 2,
+        }))
         resp = client.get("/health")
         assert resp.status_code == 200
         data = resp.json()
@@ -215,6 +222,9 @@ class TestAPIEndpoints:
         assert "session_max" in data
         assert "knowledge_document_count" in data
         assert "knowledge_index_checked_at" in data
+        assert data["knowledge_review_due_document_count"] == 2
+        assert data["knowledge_review_scheduled_document_count"] == 3
+        assert data["knowledge_review_schedule_missing_document_count"] == 2
 
     def test_oversized_http_body_is_rejected_before_fastapi_parses_it(self, client):
         response = client.post(
