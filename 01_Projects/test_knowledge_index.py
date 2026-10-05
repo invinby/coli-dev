@@ -61,6 +61,29 @@ def test_local_index_searches_russian_and_english_and_reports_file_metadata(tmp_
     assert index.status()["last_checked_at"]
 
 
+def test_retrieval_attaches_only_canonical_official_source_links(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    course = project / "02_Areas" / "Biology" / "lessons"
+    course.mkdir(parents=True)
+    lesson = course / "active_transport.md"
+    lesson.write_text(
+        "# Active transport\n\n"
+        "Cells move substances against a concentration gradient by using energy.\n\n"
+        "- OpenStax, [Active transport](https://openstax.org/books/biology-2e/pages/5-3-active-transport#pump)\n"
+        "- Untrusted: https://example.test/lesson\n",
+        encoding="utf-8",
+    )
+    index = KnowledgeIndex(project, tmp_path / "state" / "knowledge.sqlite3")
+
+    results = index.refresh_and_search("move substances against concentration gradient energy")
+
+    assert results
+    assert results[0]["official_references"] == [{
+        "title": "Active transport",
+        "url": "https://openstax.org/books/biology-2e/pages/5-3-active-transport",
+    }]
+
+
 def test_manual_refresh_indexes_sources_without_calling_embeddings(tmp_path: Path) -> None:
     project = tmp_path / "project"
     course = project / "02_Areas" / "Physics"
@@ -369,6 +392,23 @@ def test_bilingual_lesson_modules_are_retrievable(
     assert results[0]["path"] == f"02_Areas/{expected_path}"
     assert results[0]["source_checked_at"] == "2026-10-05"
     assert "source_checked" not in results[0]["excerpt"]
+
+
+def test_bundled_english_lesson_rag_returns_its_official_primary_source(tmp_path: Path) -> None:
+    project = Path(__file__).resolve().parent.parent
+    index = KnowledgeIndex(project, tmp_path / "knowledge.sqlite3")
+
+    results = index.refresh_and_search("present perfect result quantity duration for since")
+
+    assert results
+    lesson = next(
+        source for source in results
+        if source["path"] == "02_Areas/English/lessons/present_perfect_simple_continuous.md"
+    )
+    assert {
+        "title": "British Council LearnEnglish, “Present perfect simple and continuous” (B1–B2)",
+        "url": "https://learnenglish.britishcouncil.org/free-resources/grammar/b1-b2/present-perfect-simple-continuous",
+    } in lesson["official_references"]
 
 
 def test_curriculum_lesson_links_resolve_to_bilingual_module_files() -> None:

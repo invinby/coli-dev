@@ -1974,6 +1974,24 @@ private struct TutorChatView: View {
                                     Text(L10n.text("tutor.sourceCheckCaveat", language))
                                         .font(.caption2).foregroundStyle(.tertiary)
                                 }
+                                if let officialReferences = item.officialReferences,
+                                   !officialReferences.isEmpty {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(L10n.text("tutor.officialReferences", language))
+                                            .font(.caption2.weight(.semibold))
+                                            .foregroundStyle(.secondary)
+                                        ForEach(officialReferences) { reference in
+                                            if let url = officialSourceURL(reference) {
+                                                Link(reference.title, destination: url)
+                                                    .font(.caption2)
+                                                    .lineLimit(2)
+                                            }
+                                        }
+                                        Text(L10n.text("tutor.officialReferencesCaveat", language))
+                                            .font(.caption2)
+                                            .foregroundStyle(.tertiary)
+                                    }
+                                }
                                 if let intervalDays = item.sourceReviewIntervalDays {
                                     Text("\(L10n.text("tutor.sourceReviewInterval", language)): \(intervalDays)")
                                         .font(.caption2).foregroundStyle(.secondary)
@@ -2009,6 +2027,24 @@ private struct TutorChatView: View {
         guard backendSupervisor.isReady, let health = store.aiHealth else { return false }
         if useWebSearch { return chat.mode == .automatic && health.hasGroundedSearch }
         return chat.mode == .automatic ? health.hasAutomaticRoute : health.hasLocalModel
+    }
+
+    private func officialSourceURL(_ reference: TutorSourceReference) -> URL? {
+        let allowedHosts = [
+            "animaldiversity.org",
+            "docs.python.org",
+            "learnenglish.britishcouncil.org",
+            "openstax.org",
+        ]
+        guard let components = URLComponents(string: reference.url),
+              components.scheme?.lowercased() == "https",
+              let host = components.host?.lowercased(),
+              allowedHosts.contains(host),
+              components.user == nil,
+              components.password == nil,
+              components.port == nil
+        else { return nil }
+        return components.url
     }
 
     private func routeDescription(for health: OrchestratorHealth) -> String {

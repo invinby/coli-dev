@@ -243,6 +243,8 @@ enum L10n {
         "tutor.location": ("Строки", "Lines"),
         "tutor.fileModifiedAt": ("Файл изменён", "File modified"),
         "tutor.sourceReviewDate": ("Ссылки сверены", "Source references checked"),
+        "tutor.officialReferences": ("Официальные первоисточники", "Official sources"),
+        "tutor.officialReferencesCaveat": ("Ссылки взяты из урока; содержимое страниц здесь не перепроверяется.", "Links come from the lesson; page content is not rechecked here."),
         "tutor.sourceCheckCaveat": ("Это дата из заметки, не гарантия актуальности фактов.", "This date is note metadata, not a guarantee that facts are current."),
         "tutor.sourceReviewInterval": ("Интервал перепроверки, дней", "Review interval, days"),
         "tutor.sourceReviewDue": ("Пора перепроверить по графику автора", "Author review reminder reached"),

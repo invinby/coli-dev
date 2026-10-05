@@ -41,6 +41,18 @@ def test_reference_scan_deduplicates_allowed_urls_and_ignores_untrusted_domains(
     assert omitted_count == 0
 
 
+def test_approved_markdown_links_preserve_titles_and_reject_unapproved_urls() -> None:
+    content = (
+        "- OpenStax, [Active transport](https://openstax.org/books/biology-2e/pages/5-3-active-transport#pump)\n"
+        "- Untrusted page: https://example.test/lesson\n"
+    )
+
+    assert TrustedSourceMonitor.approved_markdown_links(content) == [{
+        "title": "Active transport",
+        "url": "https://openstax.org/books/biology-2e/pages/5-3-active-transport",
+    }]
+
+
 @pytest.mark.parametrize(
     "url",
     [

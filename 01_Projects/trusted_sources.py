@@ -85,6 +85,41 @@ class TrustedSourceMonitor:
             return None
         return urlunsplit(("https", host, parsed.path, "", ""))
 
+    @classmethod
+    def approved_markdown_links(
+        cls, content: str, *, limit: int | None = 20
+    ) -> list[dict[str, str]]:
+        """Extract bounded titles and canonical URLs from approved official sources."""
+        if limit is not None:
+            limit = max(0, limit)
+            if limit == 0:
+                return []
+        references: dict[str, dict[str, str]] = {}
+        for line in content.splitlines():
+            labels = {
+                canonical: match.group(1).strip()
+                for match in _MARKDOWN_LINK_RE.finditer(line)
+                if (canonical := cls._canonical_url(match.group(2))) is not None
+            }
+            for match in _URL_RE.finditer(line):
+                canonical = cls._canonical_url(match.group(0).rstrip(_TRAILING_PUNCTUATION))
+                if canonical is None:
+                    continue
+                title = labels.get(canonical)
+                if not title:
+                    title = re.sub(r"[*_`]+", "", line[:match.start()]).strip(" \t-*•:;.,<>")
+                if not title:
+                    title = urlsplit(canonical).hostname or canonical
+                references.setdefault(canonical, {
+                    "title": title[:_MAX_TITLE_LENGTH],
+                    "url": canonical,
+                })
+                if limit is not None and len(references) >= limit:
+                    break
+            if limit is not None and len(references) >= limit:
+                break
+        return [references[url] for url in sorted(references)]
+
     def _lesson_files(self) -> list[Path]:
         root = self.project_root / "02_Areas"
         if root.is_symlink() or not root.is_dir():
@@ -137,12 +172,18 @@ class TrustedSourceMonitor:
 
             relative_path = path.relative_to(self.project_root).as_posix()
             lesson_reviewed_on = self._lesson_reviewed_on(content)
+            for source in self.approved_markdown_links(content, limit=None):
+                canonical = source["url"]
+                refs.setdefault(
+                    canonical,
+                    SourceReference(
+                        url=canonical,
+                        title=source["title"],
+                        lesson_path=relative_path,
+                        lesson_reviewed_on=lesson_reviewed_on,
+                    ),
+                )
             for line in content.splitlines():
-                labels = {
-                    self._canonical_url(match.group(2)): match.group(1).strip()
-                    for match in _MARKDOWN_LINK_RE.finditer(line)
-                    if self._canonical_url(match.group(2)) is not None
-                }
                 for match in _URL_RE.finditer(line):
                     raw_url = match.group(0).rstrip(_TRAILING_PUNCTUATION)
                     canonical = self._canonical_url(raw_url)
@@ -150,15 +191,6 @@ class TrustedSourceMonitor:
                         if raw_url.casefold().startswith(("https://", "http://")):
                             unsupported_urls.add(raw_url[:2048])
                         continue
-                    refs.setdefault(
-                        canonical,
-                        SourceReference(
-                            url=canonical,
-                            title=labels.get(canonical, canonical.split("/", 3)[2]),
-                            lesson_path=relative_path,
-                            lesson_reviewed_on=lesson_reviewed_on,
-                        ),
-                    )
         ordered_refs = [refs[url] for url in sorted(refs)]
         omitted_count = max(0, len(ordered_refs) - _MAX_SOURCES)
         return ordered_refs[:_MAX_SOURCES], len(unsupported_urls), omitted_count

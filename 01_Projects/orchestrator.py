@@ -2154,7 +2154,7 @@ async def _retrieve_obsidian_sources(query: str) -> list[dict[str, str]]:
     return sources
 
 
-async def _retrieve_local_course_sources(query: str) -> list[dict[str, str]]:
+async def _retrieve_local_course_sources(query: str) -> list[dict[str, Any]]:
     """Search the persisted offline index without blocking the async server loop."""
     try:
         return await asyncio.to_thread(knowledge_index.refresh_and_search, query, 4)
@@ -2164,12 +2164,12 @@ async def _retrieve_local_course_sources(query: str) -> list[dict[str, str]]:
 
 
 def _combine_retrieval_sources(
-    course_sources: list[dict[str, str]],
+    course_sources: list[dict[str, Any]],
     obsidian_sources: list[dict[str, str]],
     limit: int = 4,
-) -> list[dict[str, str]]:
+) -> list[dict[str, Any]]:
     """Interleave local course and Obsidian hits so one source cannot crowd out the other."""
-    combined: list[dict[str, str]] = []
+    combined: list[dict[str, Any]] = []
     seen: set[tuple[str, str]] = set()
     index = 0
     while len(combined) < limit and (index < len(course_sources) or index < len(obsidian_sources)):
@@ -2191,7 +2191,7 @@ def _combine_retrieval_sources(
 
 def _augment_message_with_sources(
     message: str,
-    sources: list[dict[str, str]],
+    sources: list[dict[str, Any]],
     language: str,
 ) -> str:
     """Place retrieved excerpts in the user message as JSON data, not system instructions."""
@@ -2227,13 +2227,29 @@ def _augment_message_with_sources(
         "source_review_status",
         "excerpt",
     )
-    reference_records: list[dict[str, str]] = []
+    reference_records: list[dict[str, Any]] = []
     for source in sources:
-        record = {
+        record: dict[str, Any] = {
             field: value[:2_000] if field == "excerpt" else value[:500]
             for field in reference_fields
             if isinstance((value := source.get(field)), str) and value
         }
+        raw_references = source.get("official_references")
+        if source.get("source_type") == "course" and isinstance(raw_references, list):
+            official_references: list[dict[str, str]] = []
+            for reference in raw_references[:20]:
+                if not isinstance(reference, dict):
+                    continue
+                title = reference.get("title")
+                url = reference.get("url")
+                if not isinstance(title, str) or not isinstance(url, str):
+                    continue
+                canonical_url = TrustedSourceMonitor._canonical_url(url)
+                if canonical_url != url:
+                    continue
+                official_references.append({"title": title[:200], "url": canonical_url})
+            if official_references:
+                record["official_references"] = official_references
         if record.get("id"):
             record["citation_marker"] = f"[{record['id']}]"
         reference_records.append(record)
@@ -2249,7 +2265,7 @@ _MARKDOWN_FENCE = re.compile(r"^[ \t]{0,3}(?P<fence>`{3,}|~{3,})")
 
 def _validate_local_citations(
     answer: str,
-    sources: list[dict[str, str]] | None,
+    sources: list[dict[str, Any]] | None,
     language: str,
 ) -> tuple[str, list[str]]:
     """Mark [K#] references that do not exist in this response's retrieved sources.
@@ -2333,7 +2349,7 @@ async def _stream_answer_debate(
     debate_html: str,
     provider: str,
     model: str,
-    sources: list[dict[str, str]] | None = None,
+    sources: list[dict[str, Any]] | None = None,
     google_search_suggestions: str | None = None,
     language: str = "ru",
     tokens_already_streamed: bool = False,
@@ -2737,7 +2753,7 @@ async def _handle_grounded_web_search(req: ChatRequest) -> StreamingResponse:
             message("Нет соединения для Google Search. Вопрос не отправлен.", "Google Search is unavailable offline. The question was not sent."),
         )
 
-    local_sources: list[dict[str, str]] = []
+    local_sources: list[dict[str, Any]] = []
     engine = ConsiliumEngine(state.http_client, req.language, state.ollama_client)
     system_prompt = add_subject_rubric(req.system_prompt, req.subject, req.language)
 
@@ -2899,7 +2915,7 @@ async def chat_stream(request: Request, req: ChatRequest):
 async def _handle_local_or_error_stream(
     req: ChatRequest,
     system_prompt: str,
-    sources: list[dict[str, str]],
+    sources: list[dict[str, Any]],
     learner_message: str | None = None,
 ) -> StreamingResponse:
     try:
@@ -2912,7 +2928,7 @@ async def _handle_local_or_error_stream(
 async def _handle_consilium_stream(
     req: ChatRequest,
     system_prompt: str | None = None,
-    sources: list[dict[str, str]] | None = None,
+    sources: list[dict[str, Any]] | None = None,
     learner_message: str | None = None,
 ) -> StreamingResponse:
     """Обработка через двухуровневый консилиум."""
@@ -2999,7 +3015,7 @@ async def _handle_consilium_stream(
 async def _handle_local_stream(
     req: ChatRequest,
     system_prompt: str | None = None,
-    sources: list[dict[str, str]] | None = None,
+    sources: list[dict[str, Any]] | None = None,
     learner_message: str | None = None,
 ) -> StreamingResponse:
     engine = ConsiliumEngine(state.http_client, req.language, state.ollama_client)

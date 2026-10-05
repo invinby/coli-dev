@@ -19,10 +19,11 @@ import time
 from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Iterable, Protocol
+from typing import Any, Iterable, Protocol
 from urllib.parse import urlsplit
 
 from app_paths import app_data_dir
+from trusted_sources import TrustedSourceMonitor
 
 logger = logging.getLogger("colidev.knowledge")
 
@@ -310,7 +311,8 @@ class KnowledgeIndex:
                 size_bytes INTEGER NOT NULL,
                 modified_at TEXT NOT NULL,
                 source_checked_at TEXT,
-                source_review_interval_days INTEGER
+                source_review_interval_days INTEGER,
+                source_references_json TEXT NOT NULL DEFAULT '[]'
             )
             """
         )
@@ -321,6 +323,10 @@ class KnowledgeIndex:
             connection.execute("ALTER TABLE documents ADD COLUMN source_checked_at TEXT")
         if "source_review_interval_days" not in document_columns:
             connection.execute("ALTER TABLE documents ADD COLUMN source_review_interval_days INTEGER")
+        if "source_references_json" not in document_columns:
+            connection.execute(
+                "ALTER TABLE documents ADD COLUMN source_references_json TEXT NOT NULL DEFAULT '[]'"
+            )
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS chunks (
@@ -437,7 +443,7 @@ class KnowledgeIndex:
         limit: int = 4,
         *,
         refresh_only: bool = False,
-    ) -> list[dict[str, str]]:
+    ) -> list[dict[str, Any]]:
         """Refresh changed files and return relevant excerpts for an offline RAG prompt."""
         normalized_query = query.strip()[:500]
         if not refresh_only and (not normalized_query or limit <= 0):
@@ -489,6 +495,11 @@ class KnowledgeIndex:
                         source_review_interval_days = (
                             _source_review_interval_days(content) if is_markdown else None
                         )
+                        source_references_json = json.dumps(
+                            TrustedSourceMonitor.approved_markdown_links(content) if is_markdown else [],
+                            ensure_ascii=False,
+                            separators=(",", ":"),
+                        )
                         current = connection.execute(
                             "SELECT digest, title FROM documents WHERE path = ?",
                             (relative_path,),
@@ -497,11 +508,11 @@ class KnowledgeIndex:
                             connection.execute(
                                 """UPDATE documents
                                    SET modified_ns = ?, size_bytes = ?, modified_at = ?, source_checked_at = ?,
-                                       source_review_interval_days = ?
+                                       source_review_interval_days = ?, source_references_json = ?
                                    WHERE path = ?""",
                                 (
                                     after.st_mtime_ns, after.st_size, modified_at, source_checked_at,
-                                    source_review_interval_days, relative_path,
+                                    source_review_interval_days, source_references_json, relative_path,
                                 ),
                             )
                             continue
@@ -512,12 +523,13 @@ class KnowledgeIndex:
                             """
                             INSERT INTO documents(
                                 path, title, digest, modified_ns, size_bytes, modified_at,
-                                source_checked_at, source_review_interval_days
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                source_checked_at, source_review_interval_days, source_references_json
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                             """,
                             (
                                 relative_path, title, digest, after.st_mtime_ns,
                                 after.st_size, modified_at, source_checked_at, source_review_interval_days,
+                                source_references_json,
                             ),
                         )
                         chunks = _split_markdown(content, title, allow_frontmatter=is_markdown)
@@ -704,11 +716,11 @@ class KnowledgeIndex:
         limit: int,
         embedding_model: str | None = None,
         query_vector: list[float] | None = None,
-    ) -> list[dict[str, str]]:
+    ) -> list[dict[str, Any]]:
         rows = connection.execute(
             """
             SELECT c.path, d.title, d.modified_at, d.source_checked_at,
-                   d.source_review_interval_days, c.heading, c.start_line,
+                   d.source_review_interval_days, d.source_references_json, c.heading, c.start_line,
                    c.end_line, c.text, c.chunk_index
             FROM chunks AS c
             JOIN documents AS d ON d.path = c.path
@@ -822,7 +834,7 @@ class KnowledgeIndex:
                         )
                     ]
         retrieved_at = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
-        results: list[dict[str, str]] = []
+        results: list[dict[str, Any]] = []
         per_document: Counter[str] = Counter()
         for _, row in ranked:
             if per_document[row["path"]] >= _MAX_RESULTS_PER_DOCUMENT:
@@ -840,6 +852,20 @@ class KnowledgeIndex:
                 "location": f"{row['start_line']}-{row['end_line']}",
                 "source_type": "course",
             }
+            try:
+                stored_references = json.loads(row["source_references_json"])
+            except (TypeError, json.JSONDecodeError):
+                stored_references = []
+            if isinstance(stored_references, list):
+                official_references = [
+                    {"title": item["title"], "url": item["url"]}
+                    for item in stored_references[:20]
+                    if isinstance(item, dict)
+                    and isinstance(item.get("title"), str)
+                    and isinstance(item.get("url"), str)
+                ]
+                if official_references:
+                    result["official_references"] = official_references
             if row["source_checked_at"]:
                 result["source_checked_at"] = row["source_checked_at"]
             if row["source_review_interval_days"] is not None:

@@ -782,6 +782,7 @@ struct TutorSource: Decodable, Identifiable {
     let sourceReviewDueOn: String?
     let sourceReviewStatus: String?
     let sourceType: String?
+    let officialReferences: [TutorSourceReference]?
 
     enum CodingKeys: String, CodingKey {
         case id, title, excerpt
@@ -793,6 +794,7 @@ struct TutorSource: Decodable, Identifiable {
         case sourceReviewDueOn = "source_review_due_on"
         case sourceReviewStatus = "source_review_status"
         case sourceType = "source_type"
+        case officialReferences = "official_references"
     }
 
     var displayRetrievedAt: String {
@@ -805,6 +807,13 @@ struct TutorSource: Decodable, Identifiable {
         guard let date = ISO8601DateFormatter().date(from: modifiedAt) else { return modifiedAt }
         return DateFormatter.localizedString(from: date, dateStyle: .short, timeStyle: .short)
     }
+}
+
+struct TutorSourceReference: Decodable, Identifiable {
+    let title: String
+    let url: String
+
+    var id: String { url }
 }
 
 private struct TutorEvent: Decodable {
