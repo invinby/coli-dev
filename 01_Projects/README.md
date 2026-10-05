@@ -1,12 +1,40 @@
-# 📁 01_Projects — Код проектов и домашних работ
+# ColiDev backend
 
-Сюда складывай код бэкенда и домашки по курсу Skillbox.
+`orchestrator.py` is the FastAPI service used by the native macOS client. It provides the local tutor API, provider routing, lesson-progress storage, the offline course index, and the loopback-only Obsidian bridge. `app.py` is an earlier minimal FastAPI sample and is not the application backend.
 
-### Структура
+## Run locally
 
+From the repository root, install the backend dependencies and start the service on loopback.
+
+macOS/Linux:
+
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements-orchestrator.txt
+python -m uvicorn orchestrator:app --app-dir 01_Projects --host 127.0.0.1 --port 8000
 ```
-01_Projects/
-├── homework_01/    # ДЗ #1
-├── homework_02/    # ДЗ #2
-└── final_project/  # Финальный проект
+
+Windows PowerShell:
+
+```powershell
+py -3.12 -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install -r requirements-orchestrator.txt
+python -m uvicorn orchestrator:app --app-dir 01_Projects --host 127.0.0.1 --port 8000
 ```
+
+Use a Python virtual environment for development. Optional provider keys can be configured through the repository `.env` file; on macOS, keys entered in the app Settings are stored in Keychain. Keep the service bound to `127.0.0.1` for local use.
+
+## Local knowledge index
+
+The offline index scans Markdown under `02_Areas/` and Markdown/text under `03_Resources/Cheatsheets/`. It refreshes changed files during tutor retrieval. Settings also exposes `POST /knowledge/refresh` to rebuild the local index on demand; this reads bundled local materials and does not fetch or verify external sources. The SQLite database is stored in the user's application-support directory, with `COLIDEV_DATA_DIR` available as an override.
+
+## Tests
+
+```sh
+python -m pip install -r requirements-test.txt
+python -m pytest 01_Projects -q
+```
+
+The suite mocks external AI providers and Obsidian. GitHub Actions also builds the macOS app on Apple Silicon and Intel runners, embeds the Python backend, and smoke-tests the bundled API. These checks do not replace running the app and its live provider integrations on a Mac.
