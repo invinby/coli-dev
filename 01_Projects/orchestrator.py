@@ -1818,6 +1818,91 @@ def _augment_message_with_sources(
     return f"{guidance}\n\n{encoded_references}\n\n{learner_label}:\n{message}"
 
 
+_LOCAL_CITATION_MARKER = re.compile(r"\[K(?P<number>\d+)\]")
+_MARKDOWN_FENCE = re.compile(r"^[ \t]{0,3}(?P<fence>`{3,}|~{3,})")
+
+
+def _validate_local_citations(
+    answer: str,
+    sources: list[dict[str, str]] | None,
+    language: str,
+) -> tuple[str, list[str]]:
+    """Mark [K#] references that do not exist in this response's retrieved sources.
+
+    This only checks that a citation ID was actually supplied to the model. It
+    cannot establish whether a source supports the claim. Markdown code spans
+    and fenced code blocks are preserved so programming examples stay intact.
+    """
+    valid_ids = {
+        source_id
+        for source in sources or []
+        if isinstance((source_id := source.get("id")), str)
+        and re.fullmatch(r"K[1-9]\d*", source_id)
+    }
+    missing_ids: list[str] = []
+    missing_set: set[str] = set()
+    output: list[str] = []
+    fence_character: str | None = None
+    fence_length = 0
+    inline_code_length: int | None = None
+    placeholder = "источник {citation} не найден" if language == "ru" else "source {citation} unavailable"
+
+    for line in answer.splitlines(keepends=True):
+        if fence_character is not None:
+            closing = re.match(r"^[ \t]{0,3}(`+|~+)[ \t]*\r?\n?$", line)
+            if (
+                closing
+                and closing.group(1)[0] == fence_character
+                and len(closing.group(1)) >= fence_length
+            ):
+                fence_character = None
+                fence_length = 0
+            output.append(line)
+            continue
+
+        if inline_code_length is None:
+            opening = _MARKDOWN_FENCE.match(line)
+            if opening:
+                fence = opening.group("fence")
+                fence_character = fence[0]
+                fence_length = len(fence)
+                output.append(line)
+                continue
+
+        index = 0
+        while index < len(line):
+            if line[index] == "`":
+                end = index + 1
+                while end < len(line) and line[end] == "`":
+                    end += 1
+                run_length = end - index
+                if inline_code_length is None:
+                    inline_code_length = run_length
+                elif inline_code_length == run_length:
+                    inline_code_length = None
+                output.append(line[index:end])
+                index = end
+                continue
+
+            citation = _LOCAL_CITATION_MARKER.match(line, index) if inline_code_length is None else None
+            if citation:
+                marker = f"K{citation.group('number')}"
+                if marker in valid_ids:
+                    output.append(citation.group(0))
+                else:
+                    if marker not in missing_set:
+                        missing_ids.append(marker)
+                        missing_set.add(marker)
+                    output.append(f"[{placeholder.format(citation=marker)}]")
+                index = citation.end()
+                continue
+
+            output.append(line[index])
+            index += 1
+
+    return "".join(output), missing_ids
+
+
 async def _stream_answer_debate(
     answer: str,
     debate_html: str,
@@ -1825,8 +1910,11 @@ async def _stream_answer_debate(
     model: str,
     sources: list[dict[str, str]] | None = None,
     google_search_suggestions: str | None = None,
+    language: str = "ru",
 ):
     """Универсальный SSE-стример: сначала лог дебатов, затем токены ответа."""
+    answer, citation_warnings = _validate_local_citations(answer, sources, language)
+
     # Grounded web answers are displayed directly and never pass through debate agents.
     if debate_html:
         yield f"data: {json.dumps({'type': 'debate_log', 'html': debate_html}, ensure_ascii=False)}\n\n"
@@ -1845,6 +1933,7 @@ async def _stream_answer_debate(
         yield f"data: {json.dumps({'type': 'done', 'provider': provider, 'model': model,
                                      'duration_ms': elapsed, 'tokens': tokens,
                                      'sources': sources or [],
+                                     'citation_warnings': citation_warnings,
                                      'google_search_suggestions': google_search_suggestions})}\n\n"
     except Exception as exc:
         logger.error("Stream error", extra={"error": str(exc)[:200]})
@@ -2241,6 +2330,7 @@ async def _handle_grounded_web_search(req: ChatRequest) -> StreamingResponse:
             GEMINI_FLASH_URL.rsplit("/models/", 1)[-1].split(":", 1)[0],
             [*engine.web_sources, *local_sources],
             engine.search_entry_point_html,
+            req.language,
         ):
             yield event
 
@@ -2359,6 +2449,7 @@ async def _handle_consilium_stream(
             completion_provider,
             completion_model,
             sources,
+            language=req.language,
         ):
             yield event
 
@@ -2408,6 +2499,7 @@ async def _handle_local_stream(
             "local",
             OLLAMA_MODEL_RESEARCHER,
             sources,
+            language=req.language,
         ):
             yield event
 

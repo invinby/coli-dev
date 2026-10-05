@@ -645,12 +645,14 @@ private struct TutorEvent: Decodable {
     let model: String?
     let durationMS: Int?
     let sources: [TutorSource]?
+    let citationWarnings: [String]?
     let googleSearchSuggestions: String?
     let error: String?
 
     enum CodingKeys: String, CodingKey {
         case type, content, provider, model, sources, error
         case durationMS = "duration_ms"
+        case citationWarnings = "citation_warnings"
         case googleSearchSuggestions = "google_search_suggestions"
     }
 }
@@ -660,6 +662,7 @@ struct TutorCompletion {
     let model: String
     let durationMS: Int
     let sources: [TutorSource]
+    let citationWarnings: [String]
     let googleSearchSuggestions: String?
 }
 
@@ -824,6 +827,7 @@ enum OrchestratorClient {
                     model: event.model ?? "",
                     durationMS: event.durationMS ?? 0,
                     sources: event.sources ?? [],
+                    citationWarnings: event.citationWarnings ?? [],
                     googleSearchSuggestions: event.googleSearchSuggestions
                 )
             default:
@@ -843,6 +847,7 @@ struct TutorMessage: Identifiable {
     let role: Role
     var text: String
     var sources: [TutorSource] = []
+    var citationWarnings: [String] = []
     var googleSearchSuggestions: String? = nil
     var isGoogleGrounded = false
 }
@@ -933,6 +938,7 @@ final class TutorChatModel: ObservableObject {
                 completionLabel = [result.provider, result.model].filter { !$0.isEmpty }.joined(separator: " · ")
                 if let index = messages.firstIndex(where: { $0.id == reply.id }) {
                     messages[index].sources = result.sources
+                    messages[index].citationWarnings = result.citationWarnings
                     messages[index].googleSearchSuggestions = result.googleSearchSuggestions
                     messages[index].isGoogleGrounded = result.googleSearchSuggestions != nil
                 }

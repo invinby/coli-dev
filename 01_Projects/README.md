@@ -30,6 +30,8 @@ Use a Python virtual environment for development. Optional provider keys can be 
 
 The offline index scans Markdown under `02_Areas/` and Markdown/text under `03_Resources/Cheatsheets/`. It refreshes changed files during tutor retrieval. Settings also exposes `POST /knowledge/refresh` to rebuild the local index on demand; this reads bundled local materials and does not fetch or verify external sources. The SQLite database is stored in the user's application-support directory, with `COLIDEV_DATA_DIR` available as an override.
 
+Before tutor answers are streamed, the backend verifies that each `[K#]` marker refers to an ID in that response's retrieved local sources. Unknown markers are replaced with an explicit unavailable-source note and returned as `citation_warnings` in the SSE `done` event. This confirms only that a source ID was retrieved; it does not verify source quality, factual correctness, or whether the source supports the associated claim.
+
 ## Tests
 
 ```sh

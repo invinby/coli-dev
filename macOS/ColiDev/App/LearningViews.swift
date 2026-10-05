@@ -1442,6 +1442,20 @@ private struct TutorChatView: View {
                    let label = chat.completionLabel, message.id == chat.messages.last?.id {
                     Text(label).font(.caption2).foregroundStyle(.tertiary)
                 }
+                if message.role == .tutor, !message.citationWarnings.isEmpty {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Label(
+                            String(
+                                format: L10n.text("tutor.missingCitation", language),
+                                message.citationWarnings.joined(separator: ", ")
+                            ),
+                            systemImage: "exclamationmark.triangle"
+                        )
+                        Text(L10n.text("tutor.citationValidationLimit", language))
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+                }
                 if message.role == .tutor,
                    message.isGoogleGrounded,
                    let suggestions = message.googleSearchSuggestions {
