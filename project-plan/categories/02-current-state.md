@@ -46,7 +46,13 @@ Obsidian worker сам отвергает удалённые target URL до о�
 
 Файл квоты/режима сессий теперь загружается с проверкой схемы и размера; повреждённые записи сбрасываются безопасно. Запись идёт во временный файл с `fsync` и атомарным `replace`, чтобы прерванная операция не затёрла прежнее состояние. Unit-тесты передают временный путь вместо пользовательского app-data файла.
 
-Полный локальный backend suite: 165 passed; `compileall` и `git diff --check` прошли. GitHub Actions для этого среза ещё ожидается.
+Полный локальный backend suite: 165 passed; `compileall` и `git diff --check` прошли. Commit `b5fc09c`; GitHub Actions run [37253372336](https://github.com/invinby/coli-dev/actions/runs/37253372336) успешно прошёл backend checks и macOS build/bundle-check.
+
+## Request body limits — 2026-10-05
+
+ASGI middleware ограничивает запросы размером 1 MiB до разбора JSON, включая chunked body, и проверяет согласованность `Content-Length`. Для tutor prompt/context и Obsidian write/search установлены отдельные максимумы; чрезмерный HTTP body возвращает 413, некорректный `Content-Length` — 400.
+
+Локальный полный backend suite: 175 passed; `compileall` и `git diff --check` прошли. GitHub Actions для этого среза ещё ожидается.
 
 ## Не подтверждено запуском
 

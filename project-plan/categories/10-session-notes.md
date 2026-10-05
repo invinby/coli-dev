@@ -178,4 +178,10 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 
 - `SessionTracker` теперь принимает путь хранилища для изолированных тестов, валидирует top-level JSON/schema/date/mode и не читает state file больше 1 MB.
 - Сохранение идёт во временный файл в той же папке, с flush/fsync, затем `os.replace`; при ошибке оригинал сохраняется, а временный файл очищается.
-- Проверены битый JSON, неверный top-level тип, неверные sessions/mode и сбой `replace`. Полный `pytest 01_Projects -q`: 165 passed, одно известное предупреждение Starlette/httpx; `compileall` и `git diff --check` чистые. CI для этого среза ещё ожидается.
+- Проверены битый JSON, неверный top-level тип, неверные sessions/mode и сбой `replace`. Полный `pytest 01_Projects -q`: 165 passed, одно известное предупреждение Starlette/httpx; `compileall` и `git diff --check` чистые. Commit `b5fc09c`; GitHub Actions run [37253372336](https://github.com/invinby/coli-dev/actions/runs/37253372336) успешно прошёл backend checks и macOS build/bundle-check.
+
+### Request body limits — 2026-10-05
+
+- Добавлен pure ASGI middleware, который ограничивает тело запроса до 1 MiB до того, как FastAPI/Pydantic прочитает JSON. Он считает и Content-Length, и chunked-сообщения, проверяет расхождение объявленной/фактической длины и воспроизводит уже проверенное тело downstream.
+- Добавлены ограничения длины полей `ChatRequest`, `ObsidianWriteRequest` и `ObsidianSearchRequest`.
+- Тесты покрывают oversized Content-Length, oversized chunked body, replay допустимого тела, длину mismatch и Pydantic limits. Полный suite: 175 passed, одно известное предупреждение Starlette/httpx; `compileall` и `git diff --check` чистые. CI для этого среза ещё ожидается.

@@ -52,6 +52,7 @@ from knowledge_index import KnowledgeIndex, OllamaEmbeddingProvider
 from learning_progress import StudyProgressStore, default_database_path
 from network_safety import is_loopback_http_url as _is_loopback_http_url
 from obsidian_worker import ObsidianWorker
+from request_limits import RequestBodyLimitMiddleware
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
@@ -328,6 +329,7 @@ DEV_MODE = os.getenv("DEV_MODE", "false").lower() in ("true", "1", "yes")
 
 # Rate limiting
 CHAT_RATE_LIMIT = os.getenv("CHAT_RATE_LIMIT", "30/minute")
+MAX_REQUEST_BODY_BYTES = 1_048_576
 
 # Сессии
 SESSION_MAX_PER_DAY = int(os.getenv("SESSION_MAX_PER_DAY", "999"))
@@ -422,12 +424,15 @@ logger.info(
 
 
 class ChatRequest(BaseModel):
-    message: str
-    system_prompt: str = "You are a concise Python mentor. Answer briefly, with code examples."
-    model: str | None = None
+    message: str = Field(min_length=1, max_length=64_000)
+    system_prompt: str = Field(
+        default="You are a concise Python mentor. Answer briefly, with code examples.",
+        max_length=32_000,
+    )
+    model: str | None = Field(default=None, max_length=128)
     language: Literal["ru", "en"] = "ru"
     mode: Literal["auto", "local"] = "auto"
-    retrieval_query: str | None = None
+    retrieval_query: str | None = Field(default=None, max_length=16_000)
     use_web_search: bool = False
     grounding_age_confirmed: bool = False
 
@@ -1389,6 +1394,7 @@ app = FastAPI(
     lifespan=lifespan,
     docs_url="/docs" if DEV_MODE else None,
 )
+app.add_middleware(RequestBodyLimitMiddleware, max_bytes=MAX_REQUEST_BODY_BYTES)
 
 # ─── Rate Limiter ──────────────────────────────────────
 
@@ -2073,11 +2079,11 @@ async def _handle_local_stream(
 
 
 class ObsidianWriteRequest(BaseModel):
-    content: str
+    content: str = Field(max_length=950_000)
 
 
 class ObsidianSearchRequest(BaseModel):
-    query: str
+    query: str = Field(min_length=1, max_length=4_096)
 
 
 @app.get("/obsidian/ping")

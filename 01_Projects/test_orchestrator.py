@@ -214,6 +214,16 @@ class TestAPIEndpoints:
         assert "knowledge_document_count" in data
         assert "knowledge_index_checked_at" in data
 
+    def test_oversized_http_body_is_rejected_before_fastapi_parses_it(self, client):
+        response = client.post(
+            "/chat/stream",
+            content=b"x" * (orchestrator.MAX_REQUEST_BODY_BYTES + 1),
+            headers={"Content-Type": "application/json"},
+        )
+
+        assert response.status_code == 413
+        assert response.json()["detail"] == "Request body is too large"
+
     def test_local_api_does_not_grant_cross_origin_browser_access(self, client):
         """A random website must not be able to call local vault write endpoints."""
         response = client.options(
