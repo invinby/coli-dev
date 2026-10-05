@@ -1,13 +1,16 @@
-"""Bounded availability checks for references in bundled course lessons.
+"""Bounded freshness signals for official references in bundled lessons.
 
-This module does not read, store, or index page content. It records only HTTP
-validators from a small, code-owned list of trusted educational domains so the
-editorial team can notice references that changed or stopped resolving.
+Only pages on a code-owned allowlist are fetched. A small HTML response is
+processed in memory to extract public page metadata and a normalized text
+fingerprint; the page body is never persisted or added to RAG. These signals
+help editors decide what to review and do not verify lesson facts.
 """
 
 from __future__ import annotations
 
 import asyncio
+import hashlib
+from html.parser import HTMLParser
 import os
 import re
 import sqlite3
@@ -32,7 +35,10 @@ _MAX_LESSON_FILE_BYTES = 256 * 1024
 _MAX_SOURCES = 20
 _MAX_CONCURRENT_REQUESTS = 5
 _MAX_TITLE_LENGTH = 200
+_MAX_PAGE_DESCRIPTION_LENGTH = 500
 _MAX_VALIDATOR_LENGTH = 512
+_MAX_SOURCE_PAGE_BYTES = 512 * 1024
+_MAX_EXTRACTED_TEXT_CHARS = 200_000
 _TRUSTED_HOSTS = frozenset(
     {
         "animaldiversity.org",
@@ -68,6 +74,101 @@ class SourceReference:
     def lesson_path(self) -> str:
         """Keep the original single-lesson field for the check-result API."""
         return self.lesson_reviews[0].lesson_path
+
+
+class _SourcePageParser(HTMLParser):
+    """Extract bounded, human-readable metadata and visible text from HTML."""
+
+    _SKIPPED_TAGS = frozenset({
+        "script", "style", "noscript", "svg", "nav", "header", "footer", "aside", "form", "button",
+    })
+    _SEMANTIC_TAGS = frozenset({"main", "article"})
+    _VOID_TAGS = frozenset({
+        "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta",
+        "param", "source", "track", "wbr",
+    })
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.title_parts: list[str] = []
+        self.description: str | None = None
+        self.fallback_parts: list[str] = []
+        self.semantic_parts: list[str] = []
+        self.in_title = False
+        self.in_body = False
+        self.semantic_depth = 0
+        self.skip_depth = 0
+        self.text_size = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        tag = tag.casefold()
+        attributes = {key.casefold(): value for key, value in attrs}
+        if tag in self._SKIPPED_TAGS:
+            self.skip_depth += 1
+            return
+        if self.skip_depth:
+            if tag not in self._VOID_TAGS:
+                self.skip_depth += 1
+            return
+        if tag == "title":
+            self.in_title = True
+        elif tag == "body":
+            self.in_body = True
+        elif tag in self._SEMANTIC_TAGS:
+            self.semantic_depth += 1
+        elif tag == "meta":
+            name = (attributes.get("name") or "").casefold()
+            prop = (attributes.get("property") or "").casefold()
+            content = " ".join((attributes.get("content") or "").split())
+            if (
+                content
+                and len(content) <= _MAX_PAGE_DESCRIPTION_LENGTH * 3
+                and (name == "description" or prop == "og:description")
+                and self.description is None
+            ):
+                self.description = content[:_MAX_PAGE_DESCRIPTION_LENGTH]
+
+    def handle_endtag(self, tag: str) -> None:
+        tag = tag.casefold()
+        if self.skip_depth:
+            self.skip_depth -= 1
+            return
+        if tag == "title":
+            self.in_title = False
+        elif tag == "body":
+            self.in_body = False
+        elif tag in self._SEMANTIC_TAGS and self.semantic_depth:
+            self.semantic_depth -= 1
+
+    def handle_data(self, data: str) -> None:
+        if not data.strip() or self.skip_depth:
+            return
+        if self.in_title:
+            self.title_parts.append(data)
+            return
+        if not self.in_body:
+            return
+        remaining = _MAX_EXTRACTED_TEXT_CHARS - self.text_size
+        if remaining <= 0:
+            return
+        value = data[:remaining]
+        self.text_size += len(value)
+        self.fallback_parts.append(value)
+        if self.semantic_depth:
+            self.semantic_parts.append(value)
+
+    @staticmethod
+    def _normalize(parts: list[str]) -> str:
+        return " ".join(" ".join(parts).split())
+
+    def result(self) -> tuple[str | None, str | None, str | None]:
+        title = self._normalize(self.title_parts)[:_MAX_TITLE_LENGTH] or None
+        description = self.description
+        visible_text = self._normalize(self.semantic_parts or self.fallback_parts)
+        if not visible_text:
+            return title, description, None
+        digest = hashlib.sha256(visible_text.encode("utf-8")).hexdigest()
+        return title, description, digest
 
 
 class TrustedSourceMonitor:
@@ -219,6 +320,20 @@ class TrustedSourceMonitor:
                 state TEXT NOT NULL
             )"""
         )
+        columns = {
+            str(row["name"])
+            for row in connection.execute("PRAGMA table_info(trusted_source_checks)").fetchall()
+        }
+        for column, declaration in (
+            ("page_title", "TEXT"),
+            ("page_description", "TEXT"),
+            ("content_digest", "TEXT"),
+            ("content_checked_at", "TEXT"),
+        ):
+            if column not in columns:
+                connection.execute(
+                    f"ALTER TABLE trusted_source_checks ADD COLUMN {column} {declaration}"
+                )
         return connection
 
     def inventory(self, *, today: date | None = None) -> dict[str, object]:
@@ -228,7 +343,8 @@ class TrustedSourceMonitor:
             previous_checks = {
                 str(row["url"]): row
                 for row in connection.execute(
-                    "SELECT url, etag, last_modified, last_checked_at, last_http_status, state "
+                    "SELECT url, etag, last_modified, last_checked_at, last_http_status, state, "
+                    "page_title, page_description, content_checked_at "
                     "FROM trusted_source_checks"
                 ).fetchall()
             }
@@ -290,11 +406,19 @@ class TrustedSourceMonitor:
                 "last_modified": str(previous["last_modified"])
                     if previous is not None and previous["last_modified"] else None,
                 "has_etag": bool(previous["etag"]) if previous is not None else False,
+                "page_title": str(previous["page_title"])
+                    if previous is not None and previous["page_title"] else None,
+                "page_description": str(previous["page_description"])
+                    if previous is not None and previous["page_description"] else None,
+                "content_checked_at": str(previous["content_checked_at"])
+                    if previous is not None and previous["content_checked_at"] else None,
             })
 
         states = [str(item["state"]) for item in items]
         attention_states = {
-            "changed", "redirect_review", "unexpected_not_modified", "unavailable", "network_error"
+            "changed", "content_baseline", "content_unavailable", "content_too_large",
+            "unsupported_content_type", "redirect_review", "unexpected_not_modified",
+            "unavailable", "network_error",
         }
         editorial_states = [str(item["editorial_review_status"]) for item in items]
         return {
@@ -328,19 +452,34 @@ class TrustedSourceMonitor:
         checked_at: str,
         http_status: int | None,
         state: str,
+        page_title: str | None = None,
+        page_description: str | None = None,
+        content_digest: str | None = None,
+        content_checked_at: str | None = None,
+        preserve_content_metadata: bool = False,
     ) -> None:
         with self._db_lock, self._connect() as connection:
             connection.execute(
                 """INSERT INTO trusted_source_checks(
-                    url, etag, last_modified, last_checked_at, last_http_status, state
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                    url, etag, last_modified, last_checked_at, last_http_status, state,
+                    page_title, page_description, content_digest, content_checked_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(url) DO UPDATE SET
                     etag = excluded.etag,
                     last_modified = excluded.last_modified,
                     last_checked_at = excluded.last_checked_at,
                     last_http_status = excluded.last_http_status,
-                    state = excluded.state""",
-                (reference.url, etag, last_modified, checked_at, http_status, state),
+                    state = excluded.state,
+                    page_title = CASE WHEN ? THEN trusted_source_checks.page_title ELSE excluded.page_title END,
+                    page_description = CASE WHEN ? THEN trusted_source_checks.page_description ELSE excluded.page_description END,
+                    content_digest = CASE WHEN ? THEN trusted_source_checks.content_digest ELSE excluded.content_digest END,
+                    content_checked_at = CASE WHEN ? THEN trusted_source_checks.content_checked_at ELSE excluded.content_checked_at END""",
+                (
+                    reference.url, etag, last_modified, checked_at, http_status, state,
+                    page_title, page_description, content_digest, content_checked_at,
+                    preserve_content_metadata, preserve_content_metadata,
+                    preserve_content_metadata, preserve_content_metadata,
+                ),
             )
 
     @staticmethod
@@ -349,6 +488,35 @@ class TrustedSourceMonitor:
             return None
         cleaned = " ".join(value.split())
         return cleaned[:_MAX_VALIDATOR_LENGTH] or None
+
+    @staticmethod
+    async def _read_bounded_html(response: httpx.Response) -> tuple[bytes | None, bool]:
+        """Read at most a fixed number of decoded response bytes into memory."""
+        content_length = response.headers.get("content-length")
+        if content_length:
+            try:
+                if int(content_length) > _MAX_SOURCE_PAGE_BYTES:
+                    return None, True
+            except ValueError:
+                pass
+
+        body = bytearray()
+        async for chunk in response.aiter_bytes(chunk_size=16 * 1024):
+            if len(body) + len(chunk) > _MAX_SOURCE_PAGE_BYTES:
+                return None, True
+            body.extend(chunk)
+        return bytes(body), False
+
+    @staticmethod
+    def _parse_source_page(body: bytes, encoding: str | None) -> tuple[str | None, str | None, str | None]:
+        try:
+            decoded = body.decode(encoding or "utf-8", errors="replace")
+        except LookupError:
+            decoded = body.decode("utf-8", errors="replace")
+        parser = _SourcePageParser()
+        parser.feed(decoded)
+        parser.close()
+        return parser.result()
 
     @staticmethod
     def _validator_changed(
@@ -373,16 +541,33 @@ class TrustedSourceMonitor:
     ) -> dict[str, object]:
         previous = self._previous_check(reference.url)
         headers = {
-            "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.1",
+            "Accept": "text/html,application/xhtml+xml;q=0.9",
+            "Accept-Encoding": "identity",
             "User-Agent": "ColiDev-Reference-Check/1.0",
         }
-        if previous is not None:
+        # Legacy rows have HTTP validators but no content fingerprint. Fetch a
+        # bounded page once to establish a content baseline before using 304.
+        if previous is not None and previous["content_digest"]:
             if previous["etag"]:
                 headers["If-None-Match"] = str(previous["etag"])
             elif previous["last_modified"]:
                 headers["If-Modified-Since"] = str(previous["last_modified"])
 
         checked_at = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+        page_title = str(previous["page_title"]) if previous is not None and previous["page_title"] else None
+        page_description = (
+            str(previous["page_description"])
+            if previous is not None and previous["page_description"] else None
+        )
+        content_digest = (
+            str(previous["content_digest"])
+            if previous is not None and previous["content_digest"] else None
+        )
+        content_checked_at = (
+            str(previous["content_checked_at"])
+            if previous is not None and previous["content_checked_at"] else None
+        )
+        preserve_content_metadata = True
         async with semaphore:
             try:
                 async with client.stream(
@@ -391,31 +576,80 @@ class TrustedSourceMonitor:
                     http_status = response.status_code
                     etag = self._bounded_header(response.headers.get("etag"))
                     last_modified = self._bounded_header(response.headers.get("last-modified"))
+                    if http_status == 304 and previous is not None and previous["content_digest"]:
+                        state = "unchanged"
+                        etag = etag or previous["etag"]
+                        last_modified = last_modified or previous["last_modified"]
+                        content_checked_at = checked_at
+                        preserve_content_metadata = False
+                    elif 200 <= http_status < 300:
+                        content_type = (
+                            response.headers.get("content-type", "")
+                            .split(";", 1)[0]
+                            .strip()
+                            .casefold()
+                        )
+                        if http_status != 200:
+                            state = "content_unavailable"
+                        elif content_type not in {"text/html", "application/xhtml+xml"}:
+                            state = "unsupported_content_type"
+                        else:
+                            body, too_large = await self._read_bounded_html(response)
+                            if too_large:
+                                state = "content_too_large"
+                            elif not body:
+                                state = "content_unavailable"
+                            else:
+                                parsed_title, parsed_description, parsed_digest = self._parse_source_page(
+                                    body, response.encoding
+                                )
+                                if parsed_digest is None:
+                                    state = "content_unavailable"
+                                else:
+                                    metadata_changed = previous is not None and (
+                                        parsed_title != previous["page_title"]
+                                        or parsed_description != previous["page_description"]
+                                    )
+                                    page_title = parsed_title
+                                    page_description = parsed_description
+                                    content_digest = parsed_digest
+                                    content_checked_at = checked_at
+                                    preserve_content_metadata = False
+                                    validator_changed = self._validator_changed(
+                                        previous, etag, last_modified
+                                    )
+                                    if previous is None:
+                                        state = "available_untracked"
+                                    elif previous["content_digest"] is None:
+                                        state = "content_baseline"
+                                    elif (
+                                        parsed_digest != previous["content_digest"]
+                                        or validator_changed is True
+                                        or metadata_changed
+                                    ):
+                                        state = "changed"
+                                    else:
+                                        state = "unchanged"
+                    elif http_status == 304:
+                        state = "unexpected_not_modified"
+                    elif 300 <= http_status < 400:
+                        state = "redirect_review"
+                    else:
+                        state = "unavailable"
             except httpx.HTTPError:
                 state = "network_error"
                 etag = previous["etag"] if previous is not None else None
                 last_modified = previous["last_modified"] if previous is not None else None
                 http_status = None
-            else:
-                if http_status == 304 and previous is not None:
-                    state = "unchanged"
-                    etag = etag or previous["etag"]
-                    last_modified = last_modified or previous["last_modified"]
-                elif 200 <= http_status < 300:
-                    changed = self._validator_changed(previous, etag, last_modified)
-                    state = "changed" if changed is True else "unchanged" if changed is False else "available_untracked"
-                elif http_status == 304:
-                    state = "unexpected_not_modified"
-                    etag = previous["etag"] if previous is not None else None
-                    last_modified = previous["last_modified"] if previous is not None else None
-                elif 300 <= http_status < 400:
-                    state = "redirect_review"
-                    etag = previous["etag"] if previous is not None else None
-                    last_modified = previous["last_modified"] if previous is not None else None
-                else:
-                    state = "unavailable"
-                    etag = previous["etag"] if previous is not None else None
-                    last_modified = previous["last_modified"] if previous is not None else None
+                preserve_content_metadata = True
+
+            if state in {
+                "unsupported_content_type", "content_too_large", "content_unavailable",
+                "unexpected_not_modified", "redirect_review", "unavailable", "network_error",
+            }:
+                etag = previous["etag"] if previous is not None else None
+                last_modified = previous["last_modified"] if previous is not None else None
+                preserve_content_metadata = True
 
             self._save_check(
                 reference,
@@ -424,6 +658,11 @@ class TrustedSourceMonitor:
                 checked_at=checked_at,
                 http_status=http_status,
                 state=state,
+                page_title=page_title,
+                page_description=page_description,
+                content_digest=content_digest,
+                content_checked_at=content_checked_at,
+                preserve_content_metadata=preserve_content_metadata,
             )
         return {
             "url": reference.url,
@@ -434,6 +673,9 @@ class TrustedSourceMonitor:
             "etag": etag,
             "last_modified": last_modified,
             "checked_at": checked_at,
+            "page_title": page_title,
+            "page_description": page_description,
+            "content_checked_at": content_checked_at,
         }
 
     async def check_sources(
@@ -457,18 +699,24 @@ class TrustedSourceMonitor:
             )
 
         counts = {state: sum(item["state"] == state for item in results) for state in (
-            "available_untracked", "changed", "unchanged", "redirect_review", "unexpected_not_modified",
-            "unavailable", "network_error",
+            "available_untracked", "content_baseline", "changed", "unchanged",
+            "content_unavailable", "content_too_large", "unsupported_content_type",
+            "redirect_review", "unexpected_not_modified", "unavailable", "network_error",
         )}
         return {
             "status": "ok",
             "supported_count": len(references) + omitted_count,
-            "checked_count": counts["available_untracked"] + counts["changed"] + counts["unchanged"],
+            "checked_count": (
+                counts["available_untracked"] + counts["content_baseline"]
+                + counts["changed"] + counts["unchanged"]
+            ),
             "changed_count": counts["changed"],
             "unchanged_count": counts["unchanged"],
             "available_untracked_count": counts["available_untracked"],
             "needs_attention_count": (
-                counts["redirect_review"] + counts["unexpected_not_modified"]
+                counts["content_baseline"] + counts["content_unavailable"]
+                + counts["content_too_large"] + counts["unsupported_content_type"]
+                + counts["redirect_review"] + counts["unexpected_not_modified"]
                 + counts["unavailable"] + counts["network_error"]
             ),
             "unsupported_count": unsupported_count,

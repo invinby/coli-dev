@@ -720,6 +720,9 @@ struct TrustedSourceInventoryItem: Decodable, Identifiable {
     let lastHTTPStatus: Int?
     let lastModified: String?
     let hasETag: Bool
+    let pageTitle: String?
+    let pageDescription: String?
+    let contentCheckedAt: String?
 
     var id: String { url }
 
@@ -736,6 +739,9 @@ struct TrustedSourceInventoryItem: Decodable, Identifiable {
         case lastHTTPStatus = "last_http_status"
         case lastModified = "last_modified"
         case hasETag = "has_etag"
+        case pageTitle = "page_title"
+        case pageDescription = "page_description"
+        case contentCheckedAt = "content_checked_at"
     }
 }
 

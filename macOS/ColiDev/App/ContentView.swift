@@ -1083,6 +1083,19 @@ private struct SourceRegistryRow: View {
                 .truncationMode(.middle)
                 .textSelection(.enabled)
 
+            if let pageTitle = source.pageTitle {
+                LabeledContent(L10n.text("management.sourcePageTitle", language), value: pageTitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if let pageDescription = source.pageDescription {
+                Text(pageDescription)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+                    .textSelection(.enabled)
+            }
+
             if let reviewStatus = source.editorialReviewStatus {
                 HStack(spacing: 12) {
                     Label(
@@ -1143,6 +1156,9 @@ private struct SourceRegistryRow: View {
                 if let lastCheckedAt = source.lastCheckedAt {
                     Text("\(L10n.text("management.sourceChecked", language)): \(formatISODate(lastCheckedAt))")
                 }
+                if let contentCheckedAt = source.contentCheckedAt {
+                    Text("\(L10n.text("management.sourceContentChecked", language)): \(formatISODate(contentCheckedAt))")
+                }
                 if let lastModified = source.lastModified {
                     Text("\(L10n.text("management.sourceModified", language)): \(lastModified)")
                 }
@@ -1165,8 +1181,12 @@ private struct SourceRegistryRow: View {
         switch source.state {
         case "not_checked": return "management.sourceNotChecked"
         case "available_untracked": return "management.sourceAvailable"
+        case "content_baseline": return "management.sourceContentBaseline"
         case "unchanged": return "management.sourceUnchanged"
         case "changed": return "management.sourceChanged"
+        case "content_unavailable": return "management.sourceContentUnavailable"
+        case "content_too_large": return "management.sourceContentTooLarge"
+        case "unsupported_content_type": return "management.sourceUnsupportedContent"
         case "redirect_review": return "management.sourceRedirect"
         case "unexpected_not_modified": return "management.sourceUnexpected304"
         case "unavailable": return "management.sourceUnavailable"
@@ -1177,7 +1197,9 @@ private struct SourceRegistryRow: View {
 
     private var statusSymbol: String {
         switch source.state {
-        case "changed", "redirect_review", "unexpected_not_modified", "unavailable", "network_error":
+        case "changed", "content_baseline", "content_unavailable", "content_too_large",
+             "unsupported_content_type", "redirect_review", "unexpected_not_modified",
+             "unavailable", "network_error":
             return "exclamationmark.triangle.fill"
         case "unchanged": return "checkmark.circle"
         case "available_untracked": return "questionmark.circle"
@@ -1187,7 +1209,9 @@ private struct SourceRegistryRow: View {
 
     private var statusTint: Color {
         switch source.state {
-        case "changed", "redirect_review", "unexpected_not_modified", "unavailable", "network_error": return .orange
+        case "changed", "content_baseline", "content_unavailable", "content_too_large",
+             "unsupported_content_type", "redirect_review", "unexpected_not_modified",
+             "unavailable", "network_error": return .orange
         default: return .secondary
         }
     }

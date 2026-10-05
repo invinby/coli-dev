@@ -127,6 +127,9 @@ def test_inventory_exposes_only_approved_reference_metadata_and_saved_state(tmp_
         "last_http_status": None,
         "last_modified": None,
         "has_etag": False,
+        "page_title": None,
+        "page_description": None,
+        "content_checked_at": None,
     }]
 
     monitor._save_check(
@@ -242,27 +245,38 @@ def test_conditional_check_detects_unchanged_then_changed_versions(tmp_path: Pat
     monitor = _monitor(tmp_path, tmp_path)
     requests: list[httpx.Request] = []
     version = '"v1"'
+    page_text = "Inheritance basics"
+    force_full_response = False
 
     def respond(request: httpx.Request) -> httpx.Response:
-        nonlocal version
+        nonlocal version, page_text, force_full_response
         requests.append(request)
-        if request.headers.get("if-none-match") == version and version == '"v1"':
+        if (
+            request.headers.get("if-none-match") == version
+            and version == '"v1"'
+            and not force_full_response
+        ):
             return httpx.Response(304, headers={"ETag": version}, request=request)
         return httpx.Response(
             200,
-            headers={"ETag": version, "Last-Modified": "Mon, 05 Oct 2026 00:00:00 GMT"},
-            content=b"Page body must not be used as lesson content",
+            headers={
+                "ETag": version,
+                "Last-Modified": "Mon, 05 Oct 2026 00:00:00 GMT",
+                "Content-Type": "text/html; charset=utf-8",
+            },
+            content=f"<html><body><main><p>{page_text}</p></main></body></html>".encode(),
             request=request,
         )
 
     async def run_checks() -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
-        nonlocal version
+        nonlocal version, page_text, force_full_response
         async with httpx.AsyncClient(
             transport=httpx.MockTransport(respond), follow_redirects=True
         ) as client:
             first = await monitor.check_sources(client)
             second = await monitor.check_sources(client)
-            version = '"v2"'
+            page_text = "Inheritance and genetics"
+            force_full_response = True
             third = await monitor.check_sources(client)
         return first, second, third
 
@@ -292,8 +306,11 @@ def test_last_modified_is_used_when_etag_is_missing(tmp_path: Path) -> None:
             )
         return httpx.Response(
             200,
-            headers={"Last-Modified": "Mon, 05 Oct 2026 00:00:00 GMT"},
-            content=b"",
+            headers={
+                "Last-Modified": "Mon, 05 Oct 2026 00:00:00 GMT",
+                "Content-Type": "text/html; charset=utf-8",
+            },
+            content=b"<html><body><main>Python control flow</main></body></html>",
             request=request,
         )
 
@@ -331,24 +348,21 @@ def test_redirect_is_not_followed_and_is_reported_for_review(tmp_path: Path) -> 
     assert len(requests) == 1
 
 
-def test_page_body_is_not_read_or_cached(tmp_path: Path) -> None:
+def test_bounded_page_check_saves_only_metadata_and_fingerprint(tmp_path: Path) -> None:
     url = "https://openstax.org/books/biology-2e/pages/12-3-laws-of-inheritance"
     _write_lesson(tmp_path, f"[Inheritance]({url})\n")
     monitor = _monitor(tmp_path, tmp_path)
 
-    class UnreadableBody(httpx.AsyncByteStream):
-        async def __aiter__(self):
-            raise AssertionError("source monitor must stop after response headers")
-            yield b""  # pragma: no cover
-
-        async def aclose(self) -> None:
-            return None
-
     def respond(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
             200,
-            headers={"ETag": '"v1"'},
-            stream=UnreadableBody(),
+            headers={"ETag": '"v1"', "Content-Type": "text/html; charset=utf-8"},
+            content=(
+                "<html><head><title>Official inheritance guide</title>"
+                "<meta name='description' content='A short official guide.'></head>"
+                "<body><nav>Changing navigation</nav><main>Inheritance facts.</main>"
+                "<script>ignored script data</script></body></html>"
+            ).encode(),
             request=request,
         )
 
@@ -359,6 +373,13 @@ def test_page_body_is_not_read_or_cached(tmp_path: Path) -> None:
     result = asyncio.run(run_check())
 
     assert result["available_untracked_count"] == 1
+    check = monitor._previous_check(url)
+    assert check is not None
+    assert check["page_title"] == "Official inheritance guide"
+    assert check["page_description"] == "A short official guide."
+    assert len(check["content_digest"]) == 64
+    assert "Inheritance facts." not in repr(tuple(check))
+    assert result["checks"][0]["content_checked_at"]
 
 
 def test_network_errors_do_not_expose_exception_details_or_erase_validators(
@@ -369,7 +390,12 @@ def test_network_errors_do_not_expose_exception_details_or_erase_validators(
     monitor = _monitor(tmp_path, tmp_path)
 
     def available(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, headers={"ETag": '"v1"'}, request=request)
+        return httpx.Response(
+            200,
+            headers={"ETag": '"v1"', "Content-Type": "text/html"},
+            content=b"<html><body><main>English grammar</main></body></html>",
+            request=request,
+        )
 
     def fail(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("secret proxy configuration", request=request)
