@@ -21,6 +21,15 @@ NET_CHECK_TIMEOUT=0.5 \
 backend_pid=$!
 
 cleanup() {
+    result=$?
+    if [[ "$result" -ne 0 ]]; then
+        echo "Backend runtime smoke test failed; backend log follows:" >&2
+        cat "$smoke_root/backend.log" >&2 2>/dev/null || true
+        if [[ -f "$smoke_root/status.json" ]]; then
+            echo "Backend status response:" >&2
+            cat "$smoke_root/status.json" >&2
+        fi
+    fi
     if kill -0 "$backend_pid" 2>/dev/null; then
         kill "$backend_pid" 2>/dev/null || true
         wait "$backend_pid" 2>/dev/null || true
@@ -30,6 +39,8 @@ cleanup() {
     else
         echo "Backend smoke logs: $smoke_root"
     fi
+    trap - EXIT
+    exit "$result"
 }
 trap cleanup EXIT
 
@@ -59,5 +70,5 @@ grep -Eq '"service"[[:space:]]*:[[:space:]]*"coli-dev Orchestrator' "$smoke_root
 curl --silent --show-error --fail --max-time 5 "http://127.0.0.1:$port/learning/progress" \
     --output "$smoke_root/progress.json"
 curl --silent --show-error --fail --max-time 5 "http://127.0.0.1:$port/" \
-    | grep -qi 'ColiDev'
+    | grep -qi 'coli-dev'
 echo "Bundled backend API, progress store, and tutor page responded successfully"
