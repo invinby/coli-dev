@@ -268,3 +268,11 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 - После чанков backend валидирует `[K#]` относительно извлечённых источников и отправляет исправленный `done.answer`; SwiftUI заменяет временный текст проверенным ответом. Сохранено SSE-событие лога для существующего web UI.
 - Regression-проверки покрывают разбиение citation marker между чанками, неизвестные ссылки, inline/fenced code, NDJSON и оборванный поток; старые integration mocks переведены на `stream_local`. Финальный локальный suite: 208 passed, одно известное предупреждение Starlette/httpx. Repo-wide Ruff, `compileall` и `git diff --check` проходят.
 - GitHub Actions run [37273290441](https://github.com/invinby/coli-dev/actions/runs/37273290441) прошёл backend suite и macOS build/package/smoke checks на Apple Silicon и Intel. Живой Ollama endpoint и производительность установленной модели остаются непроверенными.
+
+### Auto: поток финального синтеза Gemini — 2026-10-05
+
+- После параллельных черновиков и локальной проверки Auto вызывает Gemini `streamGenerateContent?alt=sse` для финального синтеза. Backend отдаёт только текст частей, не помеченных `thought: true`; промежуточные черновики и проверки ученик не видит.
+- Поток должен завершиться корректным `finishReason` (`STOP` или `MAX_TOKENS`). Ошибка, некорректное SSE-событие или поток без результата запускают существующий локальный fallback. Если облачные чанки уже видны, `done.answer` всё равно заменяет их итоговым проверенным ответом. Прямой Google Search режим пока остаётся буферизованным.
+- Формат endpoint и `alt=sse`, а также поле `Part.thought` сверены с [официальной Gemini API reference](https://ai.google.dev/api/generate-content).
+- Mock-regression-тесты покрывают разрезанные SSE-события, скрытие thought parts, ключ только в HTTP-заголовке, отказ на оборванном потоке, маршрутизацию callback в финальную модель и замену частичного облачного текста локальным fallback.
+- Полный backend suite после этого среза: 214 passed; одно известное предупреждение Starlette/httpx. Repo-wide Ruff, `compileall` и `git diff --check` проходят. Использовались только mock-провайдеры; live Gemini streaming, задержка и реальное качество ответа ещё не проверялись. Новая GitHub CI-сборка ждёт push.

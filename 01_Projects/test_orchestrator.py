@@ -1089,7 +1089,14 @@ class TestStreamingChat:
         mock_log.add("consilium", "consensus", "Final", 200)
 
         mock_engine = MagicMock()
-        mock_engine.run = AsyncMock(return_value=(mock_answer, mock_log))
+        provider_chunks = ["Hello ", "world ", "code"]
+
+        async def run_with_provider_chunks(message, system_prompt, on_final_chunk=None):
+            for chunk in provider_chunks:
+                await on_final_chunk(chunk)
+            return mock_answer, mock_log
+
+        mock_engine.run = run_with_provider_chunks
 
         course_source = {
             "title": "Hello World",
@@ -1115,8 +1122,36 @@ class TestStreamingChat:
 
             tokens = [e["content"] for e in events if e["type"] == "token"]
             full_text = "".join(tokens)
-            assert "Hello" in full_text
-            assert "world" in full_text
+            assert tokens == provider_chunks
+            assert full_text == mock_answer
+            done = next(event for event in events if event["type"] == "done")
+            assert done["answer"] == mock_answer
+
+    def test_stream_done_replaces_partial_cloud_text_with_local_fallback(self, client):
+        mock_log = DebateLog()
+        mock_log.add("consilium", "qwen", "Local fallback complete", 20)
+        mock_engine = MagicMock()
+        mock_engine.completion_provider = "local-fallback"
+        mock_engine.completion_model = "qwen-local"
+
+        async def run_with_fallback(message, system_prompt, on_final_chunk=None):
+            await on_final_chunk("Unfinished cloud text")
+            return "Complete local fallback answer", mock_log
+
+        mock_engine.run = run_with_fallback
+        with (
+            patch("orchestrator.ConsiliumEngine", return_value=mock_engine),
+            patch("orchestrator._retrieve_local_course_sources", AsyncMock(return_value=[])),
+            patch("orchestrator._retrieve_obsidian_sources", AsyncMock(return_value=[])),
+        ):
+            response = client.post("/chat/stream", json={"message": "A question"})
+
+        events = _parse_sse(response.text)
+        tokens = [event["content"] for event in events if event["type"] == "token"]
+        done = next(event for event in events if event["type"] == "done")
+        assert tokens == ["Unfinished cloud text"]
+        assert done["provider"] == "local-fallback"
+        assert done["answer"] == "Complete local fallback answer"
 
     def test_stream_done_event_has_metadata(self, client):
         """Событие done содержит метаданные (provider, model, duration_ms)."""
@@ -1161,7 +1196,7 @@ class TestStreamingChat:
             generation_cancelled = asyncio.Event()
             mock_engine = MagicMock()
 
-            async def blocked_generation(*_args):
+            async def blocked_generation(*_args, **_kwargs):
                 generation_started.set()
                 try:
                     await asyncio.Event().wait()
@@ -1742,6 +1777,162 @@ class TestConsiliumEngine:
         monkeypatch.setattr(orchestrator, "OLLAMA_CHAT_URL", "http://127.0.0.1:11434/api/chat")
         with pytest.raises(RuntimeError, match="stream failed"):
             asyncio.run(collect_chunks())
+
+    def test_gemini_stream_emits_final_text_and_filters_thought_parts(self, monkeypatch):
+        events = [
+            {
+                "candidates": [{"content": {"parts": [
+                    {"text": "private reasoning", "thought": True},
+                    {"text": "The answer "},
+                ]}}],
+            },
+            {
+                "candidates": [{
+                    "content": {"parts": [{"text": "is 42."}]},
+                    "finishReason": "STOP",
+                }],
+            },
+        ]
+        body = b"".join(
+            f"data: {json.dumps(event)}\n\n".encode("utf-8")
+            for event in events
+        )
+
+        class ChunkedBody(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                for offset in range(0, len(body), 17):
+                    yield body[offset:offset + 17]
+
+            async def aclose(self):
+                return None
+
+        async def handle_request(request):
+            payload = json.loads(request.content)
+            assert request.url.path.endswith(":streamGenerateContent")
+            assert request.url.query == b"alt=sse"
+            assert "gemini-secret" not in str(request.url)
+            assert request.headers["x-goog-api-key"] == "gemini-secret"
+            assert payload["systemInstruction"]["parts"][0]["text"] == "Tutor system"
+            return httpx.Response(200, stream=ChunkedBody())
+
+        async def make_request():
+            chunks = []
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handle_request)) as http_client:
+                engine = orchestrator.ConsiliumEngine(http_client, "en", http_client)
+
+                async def receive(chunk):
+                    chunks.append(chunk)
+
+                answer = await engine._ask_gemini_streaming(
+                    "Learner question",
+                    "Tutor system",
+                    orchestrator.GEMINI_PRO_URL,
+                    "gemini-pro",
+                    receive,
+                )
+                return answer, chunks
+
+        monkeypatch.setattr(orchestrator, "GEMINI_KEY", "gemini-secret")
+        answer, chunks = asyncio.run(make_request())
+        assert chunks == ["The answer ", "is 42."]
+        assert answer == "The answer is 42."
+
+    def test_gemini_stream_rejects_missing_finish_reason(self, monkeypatch):
+        body = (
+            b'data: {"candidates":[{"content":{"parts":[{"text":"partial"}]}}]}\n\n'
+        )
+
+        class TruncatedBody(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                yield body
+
+            async def aclose(self):
+                return None
+
+        async def handle_request(request):
+            return httpx.Response(200, stream=TruncatedBody())
+
+        async def make_request():
+            chunks = []
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handle_request)) as http_client:
+                engine = orchestrator.ConsiliumEngine(http_client, "en", http_client)
+
+                async def receive(chunk):
+                    chunks.append(chunk)
+
+                answer = await engine._ask_gemini_streaming(
+                    "Q",
+                    "S",
+                    orchestrator.GEMINI_PRO_URL,
+                    "gemini-pro",
+                    receive,
+                )
+                return answer, chunks
+
+        monkeypatch.setattr(orchestrator, "GEMINI_KEY", "gemini-secret")
+        answer, chunks = asyncio.run(make_request())
+        assert chunks == ["partial"]
+        assert orchestrator.ConsiliumEngine._is_provider_error(answer)
+        assert "partial" not in answer
+
+    def test_run_streams_only_the_final_gemini_synthesis(self):
+        engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient), "en")
+        engine._run_cloud_code = AsyncMock(return_value="Reviewed candidate drafts")
+        engine._ask_ollama = AsyncMock(side_effect=["Critical review", "Independent verification"])
+        streamed_chunks = []
+
+        async def emit_final_answer(_message, _system_prompt, _url, _agent_tag, on_chunk):
+            for chunk in ("Final ", "synthesis"):
+                await on_chunk(chunk)
+            return "Final synthesis"
+
+        engine._ask_gemini_streaming = AsyncMock(side_effect=emit_final_answer)
+        engine._ask_gemini = AsyncMock()
+
+        async def collect_run():
+            async def receive(chunk):
+                streamed_chunks.append(chunk)
+
+            return await engine.run("Question", "Lesson context", on_final_chunk=receive)
+
+        answer, _log = asyncio.run(collect_run())
+        assert answer == "Final synthesis"
+        assert streamed_chunks == ["Final ", "synthesis"]
+        engine._ask_gemini_streaming.assert_awaited_once()
+        engine._ask_gemini.assert_not_awaited()
+
+    def test_run_without_stream_callback_keeps_standard_gemini_request(self):
+        engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient), "en")
+        engine._run_cloud_code = AsyncMock(return_value="Reviewed candidate drafts")
+        engine._ask_ollama = AsyncMock(side_effect=["Critical review", "Independent verification"])
+        engine._ask_gemini = AsyncMock(return_value="Final synthesis")
+        engine._ask_gemini_streaming = AsyncMock()
+
+        answer, _log = asyncio.run(engine.run("Question", "Lesson context"))
+
+        assert answer == "Final synthesis"
+        engine._ask_gemini.assert_awaited_once()
+        engine._ask_gemini_streaming.assert_not_awaited()
+
+    def test_nonstream_gemini_answer_omits_thought_parts(self, monkeypatch):
+        response = MagicMock()
+        response.raise_for_status.return_value = None
+        response.json.return_value = {
+            "candidates": [{"content": {"parts": [
+                {"text": "private reasoning", "thought": True},
+                {"text": "Learner-facing answer"},
+            ]}}],
+        }
+        http_client = MagicMock(spec=httpx.AsyncClient)
+        http_client.post = AsyncMock(return_value=response)
+        engine = orchestrator.ConsiliumEngine(http_client, "en")
+        monkeypatch.setattr(orchestrator, "GEMINI_KEY", "gemini-test-key")
+
+        answer = asyncio.run(engine._ask_gemini(
+            "Question", "Tutor system", orchestrator.GEMINI_PRO_URL, "gemini-pro"
+        ))
+
+        assert answer == "Learner-facing answer"
 
     def test_engine_run_local_returns_tuple(self):
         """run_local возвращает (answer, log) кортеж."""

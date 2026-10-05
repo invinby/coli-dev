@@ -859,8 +859,13 @@ class ConsiliumEngine:
     def agent_system(self, task_prompt: str = "") -> str:
         return f"{self.language_system}\n\n{task_prompt}" if task_prompt else self.language_system
 
-    async def run(self, message: str, system_prompt: str) -> tuple[str, DebateLog]:
-        """Запустить полный цикл консилиума.
+    async def run(
+        self,
+        message: str,
+        system_prompt: str,
+        on_final_chunk=None,
+    ) -> tuple[str, DebateLog]:
+        """Запустить полный цикл консилиума и, при необходимости, передавать чанки финального синтеза.
 
         Returns:
             (final_answer, debate_log)
@@ -877,7 +882,12 @@ class ConsiliumEngine:
             draft_bundle = await self._run_cloud_code(message, system_prompt)
 
             # ─── УРОВЕНЬ 2: Общий Консилиум ──────────────
-            final_answer = await self._run_consilium(message, system_prompt, draft_bundle)
+            final_answer = await self._run_consilium(
+                message,
+                system_prompt,
+                draft_bundle,
+                on_final_chunk=on_final_chunk,
+            )
 
         except Exception as exc:
             logger.error("Consilium failed", extra={"error": str(exc)[:200]}, exc_info=True)
@@ -994,8 +1004,13 @@ class ConsiliumEngine:
 
     # ─── УРОВЕНЬ 2: Локальная проверка + Pro-синтез ──────
 
-    async def _run_consilium(self, message: str, system_prompt: str,
-                              draft_bundle: str) -> str:
+    async def _run_consilium(
+        self,
+        message: str,
+        system_prompt: str,
+        draft_bundle: str,
+        on_final_chunk=None,
+    ) -> str:
         """Проверить черновики локально и поручить единый ответ Gemini Pro."""
         logger.info("Level 2: Local review and Gemini Pro final synthesis")
 
@@ -1086,8 +1101,21 @@ class ConsiliumEngine:
                 f"Вопрос ученика: {message}\n\nЧерновики:\n{draft_bundle}\n\n"
                 f"Критический разбор:\n{freebuff_review}\n\nНезависимая проверка:\n{qwen_verify}"
             )
-        final_answer = await self._ask_gemini(consensus_prompt, self.agent_system(system_prompt),
-                                               GEMINI_PRO_URL, "gemini-pro")
+        if on_final_chunk is None:
+            final_answer = await self._ask_gemini(
+                consensus_prompt,
+                self.agent_system(system_prompt),
+                GEMINI_PRO_URL,
+                "gemini-pro",
+            )
+        else:
+            final_answer = await self._ask_gemini_streaming(
+                consensus_prompt,
+                self.agent_system(system_prompt),
+                GEMINI_PRO_URL,
+                "gemini-pro",
+                on_final_chunk,
+            )
         if self._is_provider_error(final_answer):
             raise ConsiliumCloudError("Gemini consensus did not return a usable response")
         consensus_duration = int((datetime.now(timezone.utc) - t2).total_seconds() * 1000)
@@ -1368,7 +1396,11 @@ class ConsiliumEngine:
                 answer_parts = [
                     part.get("text", "")
                     for part in candidate["content"]["parts"]
-                    if isinstance(part, dict) and isinstance(part.get("text"), str)
+                    if (
+                        isinstance(part, dict)
+                        and part.get("thought") is not True
+                        and isinstance(part.get("text"), str)
+                    )
                 ]
                 answer = "\n".join(part for part in answer_parts if part).strip()
                 if not answer:
@@ -1397,6 +1429,109 @@ class ConsiliumEngine:
                 extra={"error_type": type(exc).__name__},
             )
             return "[Ошибка Gemini: некорректный ответ или сбой запроса]"
+
+    async def _ask_gemini_streaming(
+        self,
+        message: str,
+        system_prompt: str,
+        url: str,
+        agent_tag: str,
+        on_chunk,
+    ) -> str:
+        """Stream only learner-facing text from Gemini's final synthesis response."""
+        if not GEMINI_KEY:
+            return f"[GEMINI_API_KEY not set: {agent_tag}]"
+
+        stream_url = url.replace(":generateContent", ":streamGenerateContent", 1)
+        if stream_url == url:
+            return "[Gemini: unsupported streaming endpoint]"
+        payload = {
+            "systemInstruction": {"parts": [{"text": system_prompt}]},
+            "contents": [{"role": "user", "parts": [{"text": message}]}],
+            "generationConfig": {"maxOutputTokens": 2048},
+        }
+        answer_parts: list[str] = []
+        finish_reason: str | None = None
+        data_lines: list[str] = []
+
+        async def consume_event(raw_event: str) -> None:
+            nonlocal finish_reason
+            if raw_event.strip() == "[DONE]":
+                return
+            try:
+                event = json.loads(raw_event)
+            except json.JSONDecodeError:
+                raise RuntimeError("Malformed Gemini stream event") from None
+            if not isinstance(event, dict):
+                raise RuntimeError("Malformed Gemini stream event")
+            if event.get("error"):
+                raise RuntimeError("Gemini stream event reported an error")
+
+            candidates = event.get("candidates")
+            if not isinstance(candidates, list) or not candidates:
+                return
+            candidate = candidates[0]
+            if not isinstance(candidate, dict):
+                raise RuntimeError("Malformed Gemini stream candidate")
+            reason = candidate.get("finishReason")
+            if isinstance(reason, str) and reason:
+                finish_reason = reason
+
+            content = candidate.get("content")
+            parts = content.get("parts") if isinstance(content, dict) else None
+            if not isinstance(parts, list):
+                return
+            for part in parts:
+                if not isinstance(part, dict) or part.get("thought") is True:
+                    continue
+                chunk = part.get("text")
+                if not isinstance(chunk, str) or not chunk:
+                    continue
+                answer_parts.append(chunk)
+                await on_chunk(chunk)
+
+        try:
+            async with self.http.stream(
+                "POST",
+                f"{stream_url}?alt=sse",
+                json=payload,
+                headers={
+                    "Content-Type": "application/json",
+                    "x-goog-api-key": GEMINI_KEY,
+                },
+                timeout=HTTP_TIMEOUT,
+            ) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data:"):
+                        data_lines.append(line[5:].lstrip())
+                    elif not line and data_lines:
+                        await consume_event("\n".join(data_lines))
+                        data_lines.clear()
+                if data_lines:
+                    await consume_event("\n".join(data_lines))
+
+            answer = "".join(answer_parts).strip()
+            if not answer:
+                return "[Gemini: empty streamed response]"
+            if finish_reason not in {"STOP", "MAX_TOKENS"}:
+                raise RuntimeError("Gemini stream ended without a successful finish reason")
+            return answer
+        except httpx.TimeoutException:
+            logger.warning("Gemini stream timeout", extra={"agent": agent_tag})
+            return f"[Таймаут: Gemini не ответил за {HTTP_TIMEOUT}s]"
+        except httpx.HTTPStatusError as exc:
+            logger.error(
+                "Gemini stream HTTP error",
+                extra={"agent": agent_tag, "status": exc.response.status_code},
+            )
+            return f"[Ошибка HTTP {exc.response.status_code}: Gemini]"
+        except Exception as exc:
+            logger.error(
+                "Gemini stream failed",
+                extra={"agent": agent_tag, "error_type": type(exc).__name__},
+            )
+            return "[Ошибка Gemini: incomplete or invalid streamed response]"
 
     async def _researcher_step(self, message: str, cloud_position: str) -> str:
         """Qwen 3 Coder Researcher: поиск в Obsidian + DuckDuckGo + синтез контекста."""
@@ -2019,23 +2154,24 @@ async def _stream_answer_debate(
     sources: list[dict[str, str]] | None = None,
     google_search_suggestions: str | None = None,
     language: str = "ru",
+    tokens_already_streamed: bool = False,
 ):
-    """Универсальный SSE-стример: сначала лог дебатов, затем токены ответа."""
+    """Finalize an SSE answer, adding word chunks only when they were not streamed upstream."""
     answer, citation_warnings = _validate_local_citations(answer, sources, language)
 
     # Grounded web answers are displayed directly and never pass through debate agents.
     if debate_html:
         yield f"data: {json.dumps({'type': 'debate_log', 'html': debate_html}, ensure_ascii=False)}\n\n"
 
-    # Потом стримим ответ слово за словом
     started = datetime.now(timezone.utc)
-    tokens = 0
+    tokens = len(answer.split()) if tokens_already_streamed else 0
     try:
-        words = answer.split(" ")
-        for i, word in enumerate(words):
-            tokens += 1
-            yield f"data: {json.dumps({'type': 'token', 'content': word + (' ' if i < len(words) - 1 else '')}, ensure_ascii=False)}\n\n"
-            await asyncio.sleep(0.005)
+        if not tokens_already_streamed:
+            words = answer.split(" ")
+            for i, word in enumerate(words):
+                tokens += 1
+                yield f"data: {json.dumps({'type': 'token', 'content': word + (' ' if i < len(words) - 1 else '')}, ensure_ascii=False)}\n\n"
+                await asyncio.sleep(0.005)
 
         elapsed = int((datetime.now(timezone.utc) - started).total_seconds() * 1000)
         yield f"data: {json.dumps({'type': 'done', 'provider': provider, 'model': model,
@@ -2527,13 +2663,37 @@ async def _handle_consilium_stream(
         # This also gives ASGI servers a disconnect signal that can cancel
         # provider work instead of leaving it running in the background.
         yield ": connected\n\n"
+        token_queue: asyncio.Queue = asyncio.Queue()
+        stream_end = object()
+        streamed_chunks = 0
+
+        async def forward_final_chunk(chunk: str) -> None:
+            if chunk:
+                await token_queue.put(chunk)
+
+        async def generate_answer():
+            try:
+                return await engine.run(
+                    learner_message if learner_message is not None else req.message,
+                    system_prompt if system_prompt is not None else req.system_prompt,
+                    on_final_chunk=forward_final_chunk,
+                )
+            finally:
+                token_queue.put_nowait(stream_end)
+
+        generation_task = asyncio.create_task(generate_answer())
         try:
-            answer, debate_log = await engine.run(
-                learner_message if learner_message is not None else req.message,
-                system_prompt if system_prompt is not None else req.system_prompt,
-            )
+            while True:
+                chunk = await token_queue.get()
+                if chunk is stream_end:
+                    break
+                streamed_chunks += 1
+                yield f"data: {json.dumps({'type': 'token', 'content': chunk}, ensure_ascii=False)}\n\n"
+            answer, debate_log = await generation_task
         except asyncio.CancelledError:
             logger.info("Consilium tutor request cancelled by client")
+            generation_task.cancel()
+            await asyncio.gather(generation_task, return_exceptions=True)
             raise
         except Exception as exc:
             logger.error(
@@ -2541,6 +2701,8 @@ async def _handle_consilium_stream(
                 extra={"error_type": type(exc).__name__},
                 exc_info=True,
             )
+            generation_task.cancel()
+            await asyncio.gather(generation_task, return_exceptions=True)
             yield _error_event(req.language)
             return
 
@@ -2559,6 +2721,7 @@ async def _handle_consilium_stream(
             completion_model,
             sources,
             language=req.language,
+            tokens_already_streamed=streamed_chunks > 0,
         ):
             yield event
 
