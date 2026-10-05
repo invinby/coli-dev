@@ -1341,6 +1341,18 @@ private struct TutorChatView: View {
                                     Text(L10n.text("tutor.sourceCheckCaveat", language))
                                         .font(.caption2).foregroundStyle(.tertiary)
                                 }
+                                if let intervalDays = item.sourceReviewIntervalDays {
+                                    Text("\(L10n.text("tutor.sourceReviewInterval", language)): \(intervalDays)")
+                                        .font(.caption2).foregroundStyle(.secondary)
+                                }
+                                if let dueOn = item.sourceReviewDueOn {
+                                    let isDue = item.sourceReviewStatus == "due"
+                                    Text("\(L10n.text(isDue ? "tutor.sourceReviewDue" : "tutor.sourceReviewNext", language)): \(dueOn)")
+                                        .font(.caption2)
+                                        .foregroundStyle(isDue ? Color.orange : Color.secondary)
+                                    Text(L10n.text("tutor.sourceReviewScheduleCaveat", language))
+                                        .font(.caption2).foregroundStyle(.tertiary)
+                                }
                                 if !item.excerpt.isEmpty {
                                     Text(item.excerpt)
                                         .font(.caption2).foregroundStyle(.secondary)

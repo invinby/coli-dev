@@ -17,7 +17,7 @@ import sqlite3
 import threading
 import time
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterable, Protocol
 from urllib.parse import urlsplit
@@ -36,7 +36,6 @@ _IGNORED_DIRS = {
     ".git", ".obsidian", "__pycache__", "build", "dist", "node_modules", "vendor",
 }
 _HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$")
-_SOURCE_CHECKED_RE = re.compile(r"^source_checked:\s*(\d{4}-\d{2}-\d{2})\s*$")
 _TOKEN_RE = re.compile(r"[^\W_]+", re.UNICODE)
 _STOP_WORDS = {
     "a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "how",
@@ -79,17 +78,60 @@ def _source_checked_date(text: str) -> str | None:
     bounds = _frontmatter_bounds(lines)
     if bounds is None:
         return None
-    matches = [
-        match.group(1)
-        for line in lines[bounds[0] + 1:bounds[1]]
-        if (match := _SOURCE_CHECKED_RE.fullmatch(line.strip()))
-    ]
-    if len(matches) != 1:
+    values = _frontmatter_values(lines, bounds, "source_checked")
+    if len(values) != 1 or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", values[0]):
         return None
     try:
-        return datetime.strptime(matches[0], "%Y-%m-%d").date().isoformat()
+        return date.fromisoformat(values[0]).isoformat()
     except ValueError:
         return None
+
+
+def _frontmatter_values(lines: list[str], bounds: tuple[int, int], key: str) -> list[str]:
+    """Return all top-level-looking scalar values for one simple frontmatter key."""
+    values: list[str] = []
+    for line in lines[bounds[0] + 1:bounds[1]]:
+        if not line.strip() or line.lstrip().startswith("#") or line[:1].isspace() or ":" not in line:
+            continue
+        field, value = line.split(":", 1)
+        if field.strip() == key:
+            values.append(value.strip())
+    return values
+
+
+def _source_review_interval_days(text: str) -> int | None:
+    """Read one author-declared review interval, bounded to 1 day through 10 years."""
+    lines = text.splitlines()
+    bounds = _frontmatter_bounds(lines)
+    if bounds is None:
+        return None
+    values = _frontmatter_values(lines, bounds, "source_review_interval_days")
+    if len(values) != 1 or not re.fullmatch(r"\d+", values[0]):
+        return None
+    interval = int(values[0])
+    return interval if 1 <= interval <= 3650 else None
+
+
+def _source_review_schedule(
+    checked_at: str | None,
+    interval_days: int | None,
+    today: date | None = None,
+) -> tuple[str | None, str | None]:
+    """Return the author-scheduled review date and whether that date has been reached."""
+    if (
+        checked_at is None
+        or interval_days is None
+        or not 1 <= interval_days <= 3650
+        or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", checked_at)
+    ):
+        return None, None
+    try:
+        checked_date = date.fromisoformat(checked_at)
+        due_date = checked_date + timedelta(days=interval_days)
+    except (OverflowError, ValueError):
+        return None, None
+    current_date = today or datetime.now(timezone.utc).date()
+    return due_date.isoformat(), "due" if due_date <= current_date else "scheduled"
 
 
 def _tokens(text: str) -> list[str]:
@@ -267,7 +309,8 @@ class KnowledgeIndex:
                 modified_ns INTEGER NOT NULL,
                 size_bytes INTEGER NOT NULL,
                 modified_at TEXT NOT NULL,
-                source_checked_at TEXT
+                source_checked_at TEXT,
+                source_review_interval_days INTEGER
             )
             """
         )
@@ -276,6 +319,8 @@ class KnowledgeIndex:
         }
         if "source_checked_at" not in document_columns:
             connection.execute("ALTER TABLE documents ADD COLUMN source_checked_at TEXT")
+        if "source_review_interval_days" not in document_columns:
+            connection.execute("ALTER TABLE documents ADD COLUMN source_review_interval_days INTEGER")
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS chunks (
@@ -430,6 +475,9 @@ class KnowledgeIndex:
                         content = raw.decode("utf-8", errors="replace")
                         is_markdown = path.suffix.casefold() == ".md"
                         source_checked_at = _source_checked_date(content) if is_markdown else None
+                        source_review_interval_days = (
+                            _source_review_interval_days(content) if is_markdown else None
+                        )
                         current = connection.execute(
                             "SELECT digest, title FROM documents WHERE path = ?",
                             (relative_path,),
@@ -437,9 +485,13 @@ class KnowledgeIndex:
                         if current and current["digest"] == digest:
                             connection.execute(
                                 """UPDATE documents
-                                   SET modified_ns = ?, size_bytes = ?, modified_at = ?, source_checked_at = ?
+                                   SET modified_ns = ?, size_bytes = ?, modified_at = ?, source_checked_at = ?,
+                                       source_review_interval_days = ?
                                    WHERE path = ?""",
-                                (after.st_mtime_ns, after.st_size, modified_at, source_checked_at, relative_path),
+                                (
+                                    after.st_mtime_ns, after.st_size, modified_at, source_checked_at,
+                                    source_review_interval_days, relative_path,
+                                ),
                             )
                             continue
 
@@ -448,12 +500,13 @@ class KnowledgeIndex:
                         connection.execute(
                             """
                             INSERT INTO documents(
-                                path, title, digest, modified_ns, size_bytes, modified_at, source_checked_at
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                                path, title, digest, modified_ns, size_bytes, modified_at,
+                                source_checked_at, source_review_interval_days
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                             """,
                             (
                                 relative_path, title, digest, after.st_mtime_ns,
-                                after.st_size, modified_at, source_checked_at,
+                                after.st_size, modified_at, source_checked_at, source_review_interval_days,
                             ),
                         )
                         chunks = _split_markdown(content, title, allow_frontmatter=is_markdown)
@@ -640,7 +693,8 @@ class KnowledgeIndex:
     ) -> list[dict[str, str]]:
         rows = connection.execute(
             """
-            SELECT c.path, d.title, d.modified_at, d.source_checked_at, c.heading, c.start_line,
+            SELECT c.path, d.title, d.modified_at, d.source_checked_at,
+                   d.source_review_interval_days, c.heading, c.start_line,
                    c.end_line, c.text, c.chunk_index
             FROM chunks AS c
             JOIN documents AS d ON d.path = c.path
@@ -774,6 +828,14 @@ class KnowledgeIndex:
             }
             if row["source_checked_at"]:
                 result["source_checked_at"] = row["source_checked_at"]
+            if row["source_review_interval_days"] is not None:
+                result["source_review_interval_days"] = str(row["source_review_interval_days"])
+                due_on, review_status = _source_review_schedule(
+                    row["source_checked_at"], row["source_review_interval_days"]
+                )
+                if due_on and review_status:
+                    result["source_review_due_on"] = due_on
+                    result["source_review_status"] = review_status
             results.append(result)
             if len(results) >= limit:
                 break

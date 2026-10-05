@@ -52,7 +52,13 @@ Obsidian worker сам отвергает удалённые target URL до о�
 
 ASGI middleware ограничивает запросы размером 1 MiB до разбора JSON, включая chunked body, и проверяет согласованность `Content-Length`. Для tutor prompt/context и Obsidian write/search установлены отдельные максимумы; чрезмерный HTTP body возвращает 413, некорректный `Content-Length` — 400.
 
-Локальный полный backend suite: 175 passed; `compileall` и `git diff --check` прошли. GitHub Actions для этого среза ещё ожидается.
+Локальный полный backend suite: 175 passed; `compileall` и `git diff --check` прошли. GitHub Actions run [37253856279](https://github.com/invinby/coli-dev/actions/runs/37253856279) успешно выполнил backend checks, macOS build и bundle-check.
+
+## Author-scheduled RAG review reminders — 2026-10-05
+
+Markdown course notes can optionally declare `source_checked` and `source_review_interval_days` (1–3650). The local index migrates the interval column in existing SQLite databases and returns the author-scheduled next-review date/status. The RU/EN chat source card and prompt explicitly label it as a reminder, not an automatic fact freshness check. It does not fetch or verify outside sources.
+
+The full local backend suite passed 177 tests with one existing Starlette/httpx deprecation warning; `compileall` and `git diff --check` passed. GitHub Actions for this increment is pending. The SwiftUI UI is awaiting the macOS CI build; no manual app launch on a Mac has been done.
 
 ## Не подтверждено запуском
 

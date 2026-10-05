@@ -8,7 +8,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from knowledge_index import KnowledgeIndex, OllamaEmbeddingProvider, _source_checked_date, _split_markdown
+from knowledge_index import (
+    KnowledgeIndex,
+    OllamaEmbeddingProvider,
+    _source_checked_date,
+    _source_review_interval_days,
+    _source_review_schedule,
+    _split_markdown,
+)
 
 
 class FakeEmbeddingProvider:
@@ -60,7 +67,7 @@ def test_source_review_date_is_distinct_and_migrates_existing_index(tmp_path: Pa
     course.mkdir(parents=True)
     lesson = course / "periods.md"
     content = (
-        "---\nsource_checked: 2026-10-05\n---\n"
+        "---\nsource_checked: 2026-10-05\nsource_review_interval_days: 30\n---\n"
         "# Orbital periods\n\n"
         "Orbital periods scale with the semimajor axis in a two-body model.\n"
     )
@@ -101,6 +108,9 @@ def test_source_review_date_is_distinct_and_migrates_existing_index(tmp_path: Pa
     result = index.refresh_and_search("orbital periods semimajor axis", limit=1)[0]
 
     assert result["source_checked_at"] == "2026-10-05"
+    assert result["source_review_interval_days"] == "30"
+    assert result["source_review_due_on"] == "2026-11-04"
+    assert result["source_review_status"] in {"due", "scheduled"}
     assert result["modified_at"].endswith("Z")
     assert result["modified_at"] != result["source_checked_at"]
     assert "source_checked" not in result["excerpt"]
@@ -112,12 +122,44 @@ def test_source_review_date_rejects_invalid_or_ambiguous_frontmatter() -> None:
     assert _source_checked_date(
         "---\nsource_checked: 2026-10-05\nsource_checked: 2026-10-04\n---\nBody"
     ) is None
+    assert _source_checked_date(
+        "---\nmetadata:\n  source_checked: 2026-10-05\n---\nBody"
+    ) is None
     assert _source_checked_date("# Body\nsource_checked: 2026-10-05") is None
+
+
+def test_source_review_interval_is_strict_and_bounded() -> None:
+    assert _source_review_interval_days(
+        "---\nsource_review_interval_days: 30\n---\nBody"
+    ) == 30
+    assert _source_review_interval_days(
+        "---\nsource_review_interval_days: 0\n---\nBody"
+    ) is None
+    assert _source_review_interval_days(
+        "---\nsource_review_interval_days: 3651\n---\nBody"
+    ) is None
+    assert _source_review_interval_days(
+        "---\nsource_review_interval_days: 30\nsource_review_interval_days: 45\n---\nBody"
+    ) is None
+    assert _source_review_interval_days(
+        "---\nsource_review_interval_days: \"30\"\n---\nBody"
+    ) is None
+    assert _source_review_interval_days(
+        "---\nmetadata:\n  source_review_interval_days: 30\n---\nBody"
+    ) is None
+
+
+def test_author_declared_review_schedule_has_deterministic_due_status() -> None:
+    from datetime import date
+
+    assert _source_review_schedule("2026-10-01", 3, date(2026, 10, 3)) == ("2026-10-04", "scheduled")
+    assert _source_review_schedule("2026-10-01", 3, date(2026, 10, 4)) == ("2026-10-04", "due")
+    assert _source_review_schedule("2026-10-01", None, date(2026, 10, 4)) == (None, None)
 
 
 def test_markdown_frontmatter_is_not_indexed_and_line_numbers_stay_absolute() -> None:
     chunks = _split_markdown(
-        "---\nsource_checked: 2026-10-05\n---\n"
+        "---\nsource_checked: 2026-10-05\nsource_review_interval_days: 30\n---\n"
         "# Orbital periods\n\n"
         "Use orbital period to estimate a body's year.\n",
         "Orbital periods",
@@ -126,6 +168,7 @@ def test_markdown_frontmatter_is_not_indexed_and_line_numbers_stay_absolute() ->
     assert chunks
     assert all(start_line > 3 for start_line, _, _, _ in chunks)
     assert "source_checked" not in "\n".join(chunk for _, _, _, chunk in chunks)
+    assert "source_review_interval_days" not in "\n".join(chunk for _, _, _, chunk in chunks)
     assert "orbital period" in "\n".join(chunk for _, _, _, chunk in chunks)
 
 
