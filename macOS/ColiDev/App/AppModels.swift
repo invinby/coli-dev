@@ -751,6 +751,10 @@ struct TrustedSourceInventoryItem: Decodable, Identifiable {
     let pageTitle: String?
     let pageDescription: String?
     let contentCheckedAt: String?
+    let ragContentState: String?
+    let ragContentFetchedAt: String?
+    let ragLicense: String?
+    let ragLicenseURL: String?
 
     var id: String { url }
 
@@ -770,6 +774,10 @@ struct TrustedSourceInventoryItem: Decodable, Identifiable {
         case pageTitle = "page_title"
         case pageDescription = "page_description"
         case contentCheckedAt = "content_checked_at"
+        case ragContentState = "rag_content_state"
+        case ragContentFetchedAt = "rag_content_fetched_at"
+        case ragLicense = "rag_license"
+        case ragLicenseURL = "rag_license_url"
     }
 }
 
@@ -937,6 +945,9 @@ struct TutorSource: Decodable, Identifiable {
     let sourceReviewStatus: String?
     let sourceType: String?
     let officialReferences: [TutorSourceReference]?
+    let license: String?
+    let licenseURL: String?
+    let attribution: String?
 
     enum CodingKeys: String, CodingKey {
         case id, title, excerpt
@@ -949,6 +960,9 @@ struct TutorSource: Decodable, Identifiable {
         case sourceReviewStatus = "source_review_status"
         case sourceType = "source_type"
         case officialReferences = "official_references"
+        case license
+        case licenseURL = "license_url"
+        case attribution
     }
 
     var displayRetrievedAt: String {

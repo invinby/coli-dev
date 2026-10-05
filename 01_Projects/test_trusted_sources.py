@@ -116,6 +116,57 @@ def test_approved_markdown_links_preserve_titles_and_reject_unapproved_urls() ->
     }]
 
 
+def test_only_licensed_python_tutorial_text_is_cached_for_rag_and_refreshes(
+    tmp_path: Path,
+) -> None:
+    url = "https://docs.python.org/3/tutorial/controlflow.html"
+    _write_lesson(tmp_path, f"[Python control flow]({url})")
+    monitor = _monitor(tmp_path, tmp_path)
+    page_text = "Python control flow includes conditional statements. For loops iterate over items."
+    version = 1
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/html; charset=utf-8", "etag": f'"v{version}"'},
+            text=(
+                "<html><head><title>More Control Flow Tools</title></head><body>"
+                f"<main><article><p>{page_text}</p></article></main></body></html>"
+            ),
+        )
+
+    async def check() -> dict[str, object]:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await monitor.check_sources(client)
+
+    first = asyncio.run(check())
+    found = monitor.search_rag_sources("Python control flow statements")
+    assert first["checks"][0]["state"] == "available_untracked"
+    assert len(found) == 1
+    assert found[0]["source_type"] == "official_web"
+    assert found[0]["license"] == "Python Software Foundation License Version 2"
+    assert found[0]["license_url"] == "https://docs.python.org/3/license.html"
+    assert "control flow" in found[0]["excerpt"].casefold()
+
+    version = 2
+    page_text = "Python control flow uses pattern matching and while loops."
+    second = asyncio.run(check())
+    refreshed = monitor.search_rag_sources("Python pattern matching")
+    assert second["checks"][0]["state"] == "changed"
+    assert len(refreshed) == 1
+    assert "pattern matching" in refreshed[0]["excerpt"].casefold()
+    assert monitor.inventory()["sources"][0]["rag_content_state"] == "cached"
+
+
+def test_unlicensed_official_sources_remain_metadata_only_for_rag(tmp_path: Path) -> None:
+    url = "https://openstax.org/books/college-physics-2e/pages/7-1-work-the-scientific-definition"
+    _write_lesson(tmp_path, f"[OpenStax work page]({url})")
+    monitor = _monitor(tmp_path, tmp_path)
+
+    assert monitor._rag_policy(url) is None
+    assert monitor.inventory()["sources"][0]["rag_content_state"] == "metadata_only"
+
+
 @pytest.mark.parametrize(
     "url",
     [
@@ -192,6 +243,10 @@ def test_inventory_exposes_only_approved_reference_metadata_and_saved_state(tmp_
         "page_title": None,
         "page_description": None,
         "content_checked_at": None,
+        "rag_content_state": "metadata_only",
+        "rag_content_fetched_at": None,
+        "rag_license": None,
+        "rag_license_url": None,
     }]
 
     monitor._save_check(

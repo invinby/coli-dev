@@ -1370,6 +1370,41 @@ private struct SourceRegistryRow: View {
                     .textSelection(.enabled)
             }
 
+            if let ragContentState = source.ragContentState {
+                HStack(spacing: 8) {
+                    Label(
+                        L10n.text(
+                            ragContentState == "cached"
+                                ? "management.sourceRAGCached"
+                                : ragContentState == "license_approved_pending_check"
+                                    ? "management.sourceRAGPending"
+                                    : "management.sourceRAGMetadataOnly",
+                            language
+                        ),
+                        systemImage: ragContentState == "cached" ? "doc.text.magnifyingglass" : "doc.text"
+                    )
+                    if let license = source.ragLicense {
+                        Text(license)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        if let licenseURL = source.ragLicenseURL,
+                           let destination = URL(string: licenseURL) {
+                            Link(destination: destination) {
+                                Image(systemName: "arrow.up.right.square")
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(licenseURL)
+                        }
+                    }
+                    if let fetchedAt = source.ragContentFetchedAt {
+                        Text("\(L10n.text("management.sourceRAGFetched", language)): \(formatISODate(fetchedAt))")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            }
+
             if let reviewStatus = source.editorialReviewStatus {
                 HStack(spacing: 12) {
                     Label(

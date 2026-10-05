@@ -40,6 +40,10 @@ _MAX_VALIDATOR_LENGTH = 512
 _MAX_SOURCE_PAGE_BYTES = 512 * 1024
 _MAX_EXTRACTED_TEXT_CHARS = 200_000
 _MAX_SOURCE_PREVIEW_CHARS = 4_000
+_MAX_RAG_SOURCE_CHARS = 120_000
+_MAX_RAG_RESULTS = 2
+_MAX_RAG_EXCERPT_CHARS = 1_400
+_MAX_RAG_SNAPSHOT_AGE = timedelta(hours=48)
 _AUTO_CHECK_INTERVAL = timedelta(hours=24)
 _AUTO_RETRY_INTERVAL = timedelta(hours=6)
 _TRANSIENT_SOURCE_STATES = frozenset({"network_error", "unavailable"})
@@ -58,6 +62,17 @@ _ALLOWED_PATHS = {
         r"^/free-resources/grammar/(?:english-grammar-reference|b1-b2)/[A-Za-z0-9-]+/?$"
     ),
     "openstax.org": re.compile(r"^/books/[a-z0-9-]+/pages/[a-z0-9-]+/?$"),
+}
+
+# Only pages with a documented reuse license enter the automatic RAG cache.
+# Other approved official sources remain metadata/preview-only pending review.
+_RAG_SOURCE_POLICIES = {
+    "docs.python.org": {
+        "path": re.compile(r"^/3/tutorial/[A-Za-z0-9_.-]+\.html$"),
+        "license": "Python Software Foundation License Version 2",
+        "license_url": "https://docs.python.org/3/license.html",
+        "attribution": "Copyright © 2001 Python Software Foundation; All Rights Reserved. Python 3 Tutorial; PSF License Version 2.",
+    },
 }
 
 
@@ -331,6 +346,18 @@ class TrustedSourceMonitor:
                 state TEXT NOT NULL
             )"""
         )
+        connection.execute(
+            """CREATE TABLE IF NOT EXISTS trusted_source_rag_snapshots (
+                url TEXT PRIMARY KEY,
+                page_title TEXT NOT NULL,
+                page_text TEXT NOT NULL,
+                content_digest TEXT NOT NULL,
+                fetched_at TEXT NOT NULL,
+                license_name TEXT NOT NULL,
+                license_url TEXT NOT NULL,
+                attribution TEXT NOT NULL
+            )"""
+        )
         columns = {
             str(row["name"])
             for row in connection.execute("PRAGMA table_info(trusted_source_checks)").fetchall()
@@ -375,6 +402,12 @@ class TrustedSourceMonitor:
                     "SELECT url, etag, last_modified, last_checked_at, last_http_status, state, "
                     "page_title, page_description, content_digest, content_checked_at "
                     "FROM trusted_source_checks"
+                ).fetchall()
+            }
+            rag_snapshots = {
+                str(row["url"]): row
+                for row in connection.execute(
+                    "SELECT url, fetched_at, license_name FROM trusted_source_rag_snapshots"
                 ).fetchall()
             }
             manual_reviews = {
@@ -442,6 +475,8 @@ class TrustedSourceMonitor:
                 if item["editorial_review_due_on"] is not None
             ]
             first_review = reference.lesson_reviews[0]
+            rag_policy = self._rag_policy(reference.url)
+            rag_snapshot = rag_snapshots.get(reference.url)
             items.append({
                 "url": reference.url,
                 "title": reference.title[:_MAX_TITLE_LENGTH],
@@ -465,6 +500,20 @@ class TrustedSourceMonitor:
                     if previous is not None and previous["page_description"] else None,
                 "content_checked_at": str(previous["content_checked_at"])
                     if previous is not None and previous["content_checked_at"] else None,
+                "rag_content_state": (
+                    "cached" if rag_snapshot is not None
+                    else "license_approved_pending_check" if rag_policy is not None
+                    else "metadata_only"
+                ),
+                "rag_content_fetched_at": (
+                    str(rag_snapshot["fetched_at"]) if rag_snapshot is not None else None
+                ),
+                "rag_license": (
+                    rag_policy["license"] if rag_policy is not None else None
+                ),
+                "rag_license_url": (
+                    rag_policy["license_url"] if rag_policy is not None else None
+                ),
             })
 
         states = [str(item["state"]) for item in items]
@@ -550,6 +599,129 @@ class TrustedSourceMonitor:
             return connection.execute(
                 "SELECT * FROM trusted_source_checks WHERE url = ?", (url,)
             ).fetchone()
+
+    def _has_rag_snapshot(self, url: str) -> bool:
+        if self._rag_policy(url) is None:
+            return False
+        with self._db_lock, self._connect() as connection:
+            return connection.execute(
+                "SELECT 1 FROM trusted_source_rag_snapshots WHERE url = ?", (url,)
+            ).fetchone() is not None
+
+    @classmethod
+    def _rag_policy(cls, url: str) -> dict[str, str] | None:
+        canonical = cls._canonical_url(url)
+        if canonical is None:
+            return None
+        parsed = urlsplit(canonical)
+        policy = _RAG_SOURCE_POLICIES.get(parsed.hostname or "")
+        if policy is None or not policy["path"].fullmatch(parsed.path):
+            return None
+        return {key: value for key, value in policy.items() if key != "path"}
+
+    def _save_rag_snapshot(
+        self,
+        url: str,
+        *,
+        title: str,
+        text: str,
+        digest: str,
+        fetched_at: str,
+    ) -> None:
+        policy = self._rag_policy(url)
+        if policy is None or not text:
+            return
+        with self._db_lock, self._connect() as connection:
+            connection.execute(
+                """INSERT INTO trusted_source_rag_snapshots(
+                    url, page_title, page_text, content_digest, fetched_at,
+                    license_name, license_url, attribution
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(url) DO UPDATE SET
+                    page_title = excluded.page_title,
+                    page_text = excluded.page_text,
+                    content_digest = excluded.content_digest,
+                    fetched_at = excluded.fetched_at,
+                    license_name = excluded.license_name,
+                    license_url = excluded.license_url,
+                    attribution = excluded.attribution""",
+                (
+                    url, title[:_MAX_TITLE_LENGTH], text[:_MAX_RAG_SOURCE_CHARS], digest,
+                    fetched_at, policy["license"], policy["license_url"], policy["attribution"],
+                ),
+            )
+
+    def search_rag_sources(
+        self, query: str, limit: int = _MAX_RAG_RESULTS
+    ) -> list[dict[str, str]]:
+        """Return relevant excerpts from fresh snapshots with an explicit reuse license."""
+        terms = {
+            token.casefold() for token in re.findall(r"[^\W_]+", query, re.UNICODE)
+            if len(token) > 2
+        }
+        if not terms or limit <= 0:
+            return []
+        references, _, _ = self._references()
+        eligible_urls = [
+            reference.url for reference in references
+            if self._rag_policy(reference.url) is not None
+        ]
+        if not eligible_urls:
+            return []
+        now = datetime.now(timezone.utc)
+        cutoff = (now - _MAX_RAG_SNAPSHOT_AGE).isoformat(timespec="seconds").replace("+00:00", "Z")
+        placeholders = ",".join("?" for _ in eligible_urls)
+        with self._db_lock, self._connect() as connection:
+            rows = connection.execute(
+                f"""SELECT snapshot.url, snapshot.page_title, snapshot.page_text,
+                           snapshot.fetched_at, snapshot.license_name, snapshot.license_url,
+                           snapshot.attribution, check_record.state
+                    FROM trusted_source_rag_snapshots AS snapshot
+                    JOIN trusted_source_checks AS check_record ON check_record.url = snapshot.url
+                    WHERE snapshot.url IN ({placeholders})
+                      AND snapshot.fetched_at >= ?
+                      AND check_record.last_checked_at >= ?
+                      AND check_record.state IN (
+                          'available_untracked', 'content_baseline', 'changed', 'unchanged'
+                      )
+                    ORDER BY snapshot.url LIMIT 20""",
+                (*eligible_urls, cutoff, cutoff),
+            ).fetchall()
+
+        ranked: list[tuple[int, dict[str, str]]] = []
+        for row in rows:
+            sentences = [
+                part.strip() for part in re.split(r"(?<=[.!?])\s+", str(row["page_text"]))
+                if part.strip()
+            ]
+            best_score = 0
+            best_excerpt = ""
+            for start in range(0, len(sentences), 3):
+                excerpt = " ".join(sentences[start:start + 5])[:_MAX_RAG_EXCERPT_CHARS]
+                excerpt_terms = {
+                    token.casefold()
+                    for token in re.findall(r"[^\W_]+", excerpt, re.UNICODE)
+                }
+                score = len(terms & excerpt_terms)
+                if score > best_score:
+                    best_score, best_excerpt = score, excerpt
+            if best_score <= 0:
+                continue
+            ranked.append((best_score, {
+                "id": "",
+                "title": str(row["page_title"] or row["url"])[:_MAX_TITLE_LENGTH],
+                "path": str(row["url"]),
+                "location": str(row["url"]),
+                "excerpt": best_excerpt,
+                "retrieved_at": now.isoformat(timespec="seconds"),
+                "source_type": "official_web",
+                "source_checked_at": str(row["fetched_at"]),
+                "license": str(row["license_name"]),
+                "license_url": str(row["license_url"]),
+                "attribution": str(row["attribution"]),
+            }))
+        ranked.sort(key=lambda item: (-item[0], item[1]["path"]))
+        return [item for _, item in ranked[:min(limit, _MAX_RAG_RESULTS)]]
 
     def _save_check(
         self,
@@ -669,7 +841,9 @@ class TrustedSourceMonitor:
         }
         # Legacy rows have HTTP validators but no content fingerprint. Fetch a
         # bounded page once to establish a content baseline before using 304.
-        if previous is not None and previous["content_digest"]:
+        if previous is not None and previous["content_digest"] and (
+            self._rag_policy(reference.url) is None or self._has_rag_snapshot(reference.url)
+        ):
             if previous["etag"]:
                 headers["If-None-Match"] = str(previous["etag"])
             elif previous["last_modified"]:
@@ -690,6 +864,7 @@ class TrustedSourceMonitor:
             if previous is not None and previous["content_checked_at"] else None
         )
         preserve_content_metadata = True
+        rag_page_text: str | None = None
         async with semaphore:
             try:
                 async with client.stream(
@@ -722,9 +897,12 @@ class TrustedSourceMonitor:
                             elif not body:
                                 state = "content_unavailable"
                             else:
-                                parsed_title, parsed_description, parsed_digest = self._parse_source_page(
-                                    body, response.encoding
-                                )
+                                (
+                                    parsed_title,
+                                    parsed_description,
+                                    parsed_digest,
+                                    parsed_text,
+                                ) = self._parse_source_page_preview(body, response.encoding)
                                 if parsed_digest is None:
                                     state = "content_unavailable"
                                 else:
@@ -736,6 +914,8 @@ class TrustedSourceMonitor:
                                     page_description = parsed_description
                                     content_digest = parsed_digest
                                     content_checked_at = checked_at
+                                    if self._rag_policy(reference.url) is not None:
+                                        rag_page_text = parsed_text
                                     preserve_content_metadata = False
                                     validator_changed = self._validator_changed(
                                         previous, etag, last_modified
@@ -786,6 +966,21 @@ class TrustedSourceMonitor:
                 content_checked_at=content_checked_at,
                 preserve_content_metadata=preserve_content_metadata,
             )
+            if rag_page_text is not None and content_digest is not None:
+                self._save_rag_snapshot(
+                    reference.url,
+                    title=page_title or reference.title,
+                    text=rag_page_text,
+                    digest=content_digest,
+                    fetched_at=checked_at,
+                )
+            elif state == "unchanged" and previous is not None and self._rag_policy(reference.url):
+                # A 304 revalidates the stored source without downloading a new body.
+                with self._db_lock, self._connect() as connection:
+                    connection.execute(
+                        "UPDATE trusted_source_rag_snapshots SET fetched_at = ? WHERE url = ?",
+                        (checked_at, reference.url),
+                    )
         return {
             "url": reference.url,
             "title": reference.title[:_MAX_TITLE_LENGTH],

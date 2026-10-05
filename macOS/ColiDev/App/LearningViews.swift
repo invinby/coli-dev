@@ -2025,7 +2025,7 @@ private struct TutorChatView: View {
                             .font(.caption2).foregroundStyle(.secondary)
                         ForEach(message.sources) { item in
                             VStack(alignment: .leading, spacing: 3) {
-                                if item.sourceType == "google_grounding",
+                                if ["google_grounding", "official_web"].contains(item.sourceType ?? ""),
                                    let path = item.path,
                                    let url = URL(string: path),
                                    ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
@@ -2036,7 +2036,9 @@ private struct TutorChatView: View {
                                         .font(.caption.weight(.medium))
                                         .textSelection(.enabled)
                                 }
-                                if let path = item.path, path != item.title, item.sourceType != "google_grounding" {
+                                if let path = item.path,
+                                   path != item.title,
+                                   !["google_grounding", "official_web"].contains(item.sourceType ?? "") {
                                     Text(path)
                                         .font(.caption2).foregroundStyle(.tertiary)
                                         .textSelection(.enabled)
@@ -2053,10 +2055,29 @@ private struct TutorChatView: View {
                                         .font(.caption2).foregroundStyle(.tertiary)
                                 }
                                 if let sourceCheckedAt = item.sourceCheckedAt {
-                                    Text("\(L10n.text("tutor.sourceReviewDate", language)): \(sourceCheckedAt)")
+                                    Text("\(L10n.text(item.sourceType == "official_web" ? "tutor.sourceSyncedAt" : "tutor.sourceReviewDate", language)): \(sourceCheckedAt)")
                                         .font(.caption2).foregroundStyle(.secondary)
-                                    Text(L10n.text("tutor.sourceCheckCaveat", language))
+                                    if item.sourceType != "official_web" {
+                                        Text(L10n.text("tutor.sourceCheckCaveat", language))
                                         .font(.caption2).foregroundStyle(.tertiary)
+                                    }
+                                }
+                                if let license = item.license {
+                                    HStack(spacing: 4) {
+                                        Text("\(L10n.text("tutor.sourceLicense", language)): \(license)")
+                                        if let licenseURL = item.licenseURL,
+                                           let url = URL(string: licenseURL) {
+                                            Link(L10n.text("tutor.sourceLicenseTerms", language), destination: url)
+                                        }
+                                    }
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                }
+                                if let attribution = item.attribution {
+                                    Text(attribution)
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
+                                        .textSelection(.enabled)
                                 }
                                 if let officialReferences = item.officialReferences,
                                    !officialReferences.isEmpty {
