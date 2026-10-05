@@ -208,6 +208,45 @@ class TestAPIEndpoints:
         assert replay.json() == saved.json()
         assert client.get("/learning/progress").json()["records"][0]["review_count"] == 1
 
+    def test_learning_progress_backup_api_exports_and_merges_local_progress(self, client):
+        event = {
+            "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+            "lesson_id": "intro.physics",
+            "quality": 4,
+            "reflection": "I understand force.",
+        }
+        assert client.post("/learning/reviews", json=event).status_code == 200
+
+        backup = client.get("/learning/progress/backup")
+        assert backup.status_code == 200
+        assert backup.json()["format"] == "colidev-learning-progress"
+        assert backup.json()["records"][0]["reflection"] == "I understand force."
+
+        assert client.post("/learning/reviews", json={
+            **event,
+            "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d480",
+            "quality": 5,
+            "reflection": "I can apply the law.",
+        }).status_code == 200
+
+        restored = client.post("/learning/progress/backup/restore", json=backup.json())
+        assert restored.status_code == 200
+        assert restored.json() == {"status": "ok", "restored": 0, "unchanged": 1}
+        current = client.get("/learning/progress").json()["records"][0]
+        assert current["review_count"] == 2
+        assert current["reflection"] == "I can apply the law."
+
+        malformed = client.post("/learning/progress/backup/restore", json={
+            "format": "colidev-learning-progress",
+            "version": 1,
+            "records": [{"lesson_id": "../outside"}],
+        })
+        assert malformed.status_code == 422
+        forbidden = client.get(
+            "/learning/progress/backup", headers={"Origin": "https://attacker.example"}
+        )
+        assert forbidden.status_code == 403
+
     def test_learning_review_rejects_invalid_payload_and_cross_origin_requests(self, client):
         invalid = client.post(
             "/learning/reviews",

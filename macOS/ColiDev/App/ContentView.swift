@@ -1,5 +1,24 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
+
+private struct LearningProgressBackupFile: FileDocument {
+    static var readableContentTypes: [UTType] { [.json] }
+    let data: Data
+
+    init(data: Data) { self.data = data }
+
+    init(configuration: ReadConfiguration) throws {
+        guard let data = configuration.file.regularFileContents else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        self.data = data
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: data)
+    }
+}
 
 struct ContentView: View {
     @EnvironmentObject private var store: LearningStore
@@ -572,6 +591,13 @@ private struct ManagementView: View {
     @State private var routeProvider = "auto"
     @State private var routeModel = ""
     @State private var isSavingRoute = false
+    @State private var isPreparingBackup = false
+    @State private var isRestoringBackup = false
+    @State private var isExportingBackup = false
+    @State private var isImportingBackup = false
+    @State private var showingRestoreConfirmation = false
+    @State private var progressBackupDocument: LearningProgressBackupFile?
+    @State private var pendingBackupData: Data?
     @State private var statusMessage: String?
     @State private var statusIsError = false
 
@@ -647,6 +673,72 @@ private struct ManagementView: View {
                     sourceInventory = latestInventory
                 }
             }
+        }
+        .fileExporter(
+            isPresented: $isExportingBackup,
+            document: progressBackupDocument,
+            contentType: .json,
+            defaultFilename: "ColiDev-Learning-Progress"
+        ) { result in
+            switch result {
+            case .success(let url):
+                statusMessage = String(
+                    format: L10n.text("management.backupExported", store.language),
+                    url.lastPathComponent
+                )
+                statusIsError = false
+            case .failure(let error):
+                if (error as? CocoaError)?.code == .userCancelled {
+                    statusMessage = nil
+                } else {
+                    reportError("management.backupFailed")
+                }
+            }
+        }
+        .fileImporter(
+            isPresented: $isImportingBackup,
+            allowedContentTypes: [.json],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else { return }
+                let didAccess = url.startAccessingSecurityScopedResource()
+                defer { if didAccess { url.stopAccessingSecurityScopedResource() } }
+                do {
+                    let handle = try FileHandle(forReadingFrom: url)
+                    defer { try? handle.close() }
+                    let data = try handle.read(upToCount: 1_048_577) ?? Data()
+                    guard data.count <= 1_048_576 else {
+                        reportError("management.backupTooLarge")
+                        return
+                    }
+                    pendingBackupData = data
+                    showingRestoreConfirmation = true
+                } catch {
+                    reportError("management.backupFailed")
+                }
+            case .failure(let error):
+                if (error as? CocoaError)?.code == .userCancelled {
+                    statusMessage = nil
+                } else {
+                    reportError("management.backupFailed")
+                }
+            }
+        }
+        .confirmationDialog(
+            L10n.text("management.backupConfirmTitle", store.language),
+            isPresented: $showingRestoreConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(L10n.text("management.backupConfirmAction", store.language), role: .destructive) {
+                Task { await restoreProgressBackup() }
+            }
+            Button(L10n.text("management.backupCancel", store.language), role: .cancel) {
+                pendingBackupData = nil
+            }
+        } message: {
+            Text(L10n.text("management.backupConfirmMessage", store.language))
         }
     }
 
@@ -1023,6 +1115,42 @@ private struct ManagementView: View {
                     .padding(.top, 6)
                 }
 
+                GroupBox(label: Text(L10n.text("management.backupTitle", store.language))) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(L10n.text("management.backupDescription", store.language))
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(L10n.text("management.backupPrivacy", store.language))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        HStack(spacing: 10) {
+                            Button {
+                                Task { await prepareProgressBackup() }
+                            } label: {
+                                if isPreparingBackup {
+                                    ProgressView().controlSize(.small)
+                                } else {
+                                    Label(L10n.text("management.backupExport", store.language), systemImage: "square.and.arrow.down")
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(isPreparingBackup || isRestoringBackup)
+
+                            Button {
+                                isImportingBackup = true
+                            } label: {
+                                Label(L10n.text("management.backupImport", store.language), systemImage: "square.and.arrow.up")
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(isPreparingBackup || isRestoringBackup)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 6)
+                }
+
                 GroupBox(label: Text(L10n.text("management.subjectRouting", store.language))) {
                     VStack(alignment: .leading, spacing: 12) {
                         Picker(L10n.text("management.routeSubject", store.language), selection: $routeSubject) {
@@ -1162,6 +1290,59 @@ private struct ManagementView: View {
     private func reloadSourceInventory() async {
         guard let latest = try? await OrchestratorClient.trustedSourceInventory() else { return }
         sourceInventory = latest
+    }
+
+    @MainActor
+    private func prepareProgressBackup() async {
+        isPreparingBackup = true
+        defer { isPreparingBackup = false }
+        guard await backendSupervisor.ensureRunning() else {
+            reportError("management.backupFailed")
+            return
+        }
+        await store.syncStudyProgress()
+        guard store.pendingStudyReviewCount == 0 else {
+            reportError("management.backupSyncFailed")
+            return
+        }
+        do {
+            let data = try await OrchestratorClient.learningProgressBackup()
+            progressBackupDocument = LearningProgressBackupFile(data: data)
+            isExportingBackup = true
+        } catch {
+            reportError("management.backupFailed")
+        }
+    }
+
+    @MainActor
+    private func restoreProgressBackup() async {
+        guard let pendingBackupData else { return }
+        isRestoringBackup = true
+        defer {
+            isRestoringBackup = false
+            self.pendingBackupData = nil
+        }
+        guard await backendSupervisor.ensureRunning() else {
+            reportError("management.backupFailed")
+            return
+        }
+        await store.syncStudyProgress()
+        guard store.pendingStudyReviewCount == 0 else {
+            reportError("management.backupSyncFailed")
+            return
+        }
+        do {
+            let result = try await OrchestratorClient.restoreLearningProgressBackup(pendingBackupData)
+            await store.syncStudyProgress()
+            statusMessage = String(
+                format: L10n.text("management.backupRestored", store.language),
+                result.restored,
+                result.unchanged
+            )
+            statusIsError = false
+        } catch {
+            reportError("management.backupFailed")
+        }
     }
 
     @MainActor

@@ -145,6 +145,11 @@ struct StudyProgressSnapshot: Decodable {
     }
 }
 
+struct ProgressBackupRestoreSummary: Decodable {
+    let restored: Int
+    let unchanged: Int
+}
+
 @MainActor
 final class LearningStore: ObservableObject {
     @Published var language: AppLanguage {
@@ -355,6 +360,8 @@ final class LearningStore: ObservableObject {
     var completedSubjectCount: Int {
         Subject.allCases.filter(isComplete).count
     }
+
+    var pendingStudyReviewCount: Int { pendingStudyReviews.count }
 
     private func queueStudyReview(lessonID: String, quality: Int, reflection: String) {
         guard !hasPendingReview(lessonID: lessonID) else { return }
@@ -1170,6 +1177,35 @@ enum OrchestratorClient {
             throw ClientError.unavailable
         }
         return try JSONDecoder().decode(StudyProgressSnapshot.self, from: data)
+    }
+
+    static func learningProgressBackup() async throws -> Data {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/learning/progress/backup") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 15
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return data
+    }
+
+    static func restoreLearningProgressBackup(_ data: Data) async throws -> ProgressBackupRestoreSummary {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/learning/progress/backup/restore") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 15
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = data
+        let (responseData, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(ProgressBackupRestoreSummary.self, from: responseData)
     }
 
     static func recordStudyReview(_ event: StudyReviewEvent) async throws -> StudyProgressRecord {

@@ -499,6 +499,12 @@ class StudyReviewRequest(BaseModel):
     reflection: str = Field(default="", max_length=500)
 
 
+class StudyProgressBackupRequest(BaseModel):
+    format: Literal["colidev-learning-progress"]
+    version: int = Field(strict=True, ge=1, le=1)
+    records: list[dict[str, Any]] = Field(max_length=500)
+
+
 class TrustedSourcePreviewRequest(BaseModel):
     url: str = Field(min_length=1, max_length=2048)
 
@@ -3097,6 +3103,29 @@ async def get_learning_progress(request: Request):
     """Return local lesson completion and spaced-repetition scheduling data."""
     _require_local_settings_request(request)
     return await asyncio.to_thread(study_progress_store.get_progress)
+
+
+@app.get("/learning/progress/backup")
+async def export_learning_progress_backup(request: Request):
+    """Export portable lesson state; excludes chat, provider settings, and API keys."""
+    _require_local_settings_request(request)
+    return await asyncio.to_thread(study_progress_store.export_backup)
+
+
+@app.post("/learning/progress/backup/restore")
+@limiter.limit("5/minute")
+async def restore_learning_progress_backup(
+    request: Request, backup: StudyProgressBackupRequest
+):
+    """Merge a local backup without replacing newer lesson progress."""
+    _require_local_settings_request(request)
+    try:
+        result = await asyncio.to_thread(
+            study_progress_store.restore_backup, backup.model_dump()
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    return {"status": "ok", **result}
 
 
 @app.post("/knowledge/refresh")

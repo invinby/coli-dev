@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import math
 import os
+import re
 import sqlite3
 import sys
 import uuid
@@ -251,3 +253,130 @@ class StudyProgressStore:
             "next_due_at": next_due,
             "generated_at": now_text,
         }
+
+    def export_backup(self) -> dict[str, Any]:
+        """Export portable current lesson state without private review-event history."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT * FROM lesson_progress ORDER BY lesson_id"
+            ).fetchall()
+        return {
+            "format": "colidev-learning-progress",
+            "version": 1,
+            "records": [self._row(row) for row in rows],
+        }
+
+    @staticmethod
+    def _backup_record(record: Any) -> dict[str, Any]:
+        if not isinstance(record, dict):
+            raise ValueError("Each backup record must be an object")
+        lesson_id = record.get("lesson_id")
+        if not isinstance(lesson_id, str) or not re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9._:-]{0,119}", lesson_id
+        ):
+            raise ValueError("Backup contains an invalid lesson identifier")
+
+        def integer(name: str, maximum: int = 1_000_000) -> int:
+            value = record.get(name)
+            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= maximum:
+                raise ValueError(f"Backup contains an invalid {name}")
+            return value
+
+        def timestamp(name: str, optional: bool = False) -> str | None:
+            value = record.get(name)
+            if value is None and optional:
+                return None
+            if not isinstance(value, str):
+                raise ValueError(f"Backup contains an invalid {name}")
+            try:
+                parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError:
+                raise ValueError(f"Backup contains an invalid {name}") from None
+            if parsed.tzinfo is None:
+                raise ValueError(f"Backup contains an invalid {name}")
+            return _timestamp(parsed)
+
+        completed = record.get("completed")
+        if not isinstance(completed, bool):
+            raise ValueError("Backup contains an invalid completed flag")
+        ease_factor = record.get("ease_factor")
+        if (
+            isinstance(ease_factor, bool)
+            or not isinstance(ease_factor, (int, float))
+            or not math.isfinite(ease_factor)
+            or not 1.3 <= ease_factor <= 10
+        ):
+            raise ValueError("Backup contains an invalid ease_factor")
+        reflection = record.get("reflection", "")
+        if not isinstance(reflection, str) or len(reflection) > 500:
+            raise ValueError("Backup contains an invalid reflection")
+
+        return {
+            "lesson_id": lesson_id,
+            "completed": completed,
+            "repetitions": integer("repetitions"),
+            "interval_days": integer("interval_days"),
+            "ease_factor": round(float(ease_factor), 2),
+            "review_count": integer("review_count"),
+            "due_at": timestamp("due_at", optional=True),
+            "last_reviewed_at": timestamp("last_reviewed_at", optional=True),
+            "reflection": " ".join(reflection.split()),
+            "updated_at": timestamp("updated_at"),
+        }
+
+    def restore_backup(self, payload: Any) -> dict[str, int]:
+        """Merge validated records, choosing the newer state for each lesson."""
+        if not isinstance(payload, dict) or payload.get("format") != "colidev-learning-progress":
+            raise ValueError("Unsupported learning progress backup")
+        if type(payload.get("version")) is not int or payload["version"] != 1:
+            raise ValueError("Unsupported learning progress backup version")
+        records = payload.get("records")
+        if not isinstance(records, list) or len(records) > 500:
+            raise ValueError("Backup must contain no more than 500 progress records")
+        normalized = [self._backup_record(record) for record in records]
+        lesson_ids = [record["lesson_id"] for record in normalized]
+        if len(lesson_ids) != len(set(lesson_ids)):
+            raise ValueError("Backup contains duplicate lesson identifiers")
+
+        restored = 0
+        unchanged = 0
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            for record in normalized:
+                existing = connection.execute(
+                    "SELECT updated_at FROM lesson_progress WHERE lesson_id = ?",
+                    (record["lesson_id"],),
+                ).fetchone()
+                if existing is not None and existing["updated_at"] >= record["updated_at"]:
+                    unchanged += 1
+                    continue
+                connection.execute(
+                    """INSERT INTO lesson_progress (
+                           lesson_id, completed, repetitions, interval_days, ease_factor,
+                           review_count, due_at, last_reviewed_at, reflection, updated_at
+                       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                       ON CONFLICT(lesson_id) DO UPDATE SET
+                           completed = excluded.completed,
+                           repetitions = excluded.repetitions,
+                           interval_days = excluded.interval_days,
+                           ease_factor = excluded.ease_factor,
+                           review_count = excluded.review_count,
+                           due_at = excluded.due_at,
+                           last_reviewed_at = excluded.last_reviewed_at,
+                           reflection = excluded.reflection,
+                           updated_at = excluded.updated_at""",
+                    (
+                        record["lesson_id"],
+                        int(record["completed"]),
+                        record["repetitions"],
+                        record["interval_days"],
+                        record["ease_factor"],
+                        record["review_count"],
+                        record["due_at"],
+                        record["last_reviewed_at"],
+                        record["reflection"],
+                        record["updated_at"],
+                    ),
+                )
+                restored += 1
+        return {"restored": restored, "unchanged": unchanged}

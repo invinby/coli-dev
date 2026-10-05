@@ -125,6 +125,69 @@ def test_reflection_columns_migrate_existing_progress_database(tmp_path: Path) -
     assert saved["reflection"] == "Понял область значений"
 
 
+def test_progress_backup_roundtrips_current_state_and_keeps_newer_local_records(
+    tmp_path: Path,
+) -> None:
+    original_time = datetime(2026, 10, 1, tzinfo=timezone.utc)
+    original = StudyProgressStore(tmp_path / "original.sqlite3", clock=lambda: original_time)
+    original.initialize()
+    original.record_review(
+        "f47ac10b-58cc-4372-a567-0e02b2c3d479", "physics.motion", 4, "I understand acceleration"
+    )
+    backup = original.export_backup()
+    assert backup["format"] == "colidev-learning-progress"
+    assert backup["version"] == 1
+    assert len(backup["records"]) == 1
+
+    restored_time = [original_time]
+    restored = StudyProgressStore(
+        tmp_path / "restored.sqlite3", clock=lambda: restored_time[0]
+    )
+    restored.initialize()
+    assert restored.restore_backup(backup) == {"restored": 1, "unchanged": 0}
+    assert restored.export_backup() == backup
+    assert restored.restore_backup(backup) == {"restored": 0, "unchanged": 1}
+
+    restored_time[0] = datetime(2026, 10, 4, tzinfo=timezone.utc)
+    restored.record_review(
+        "f47ac10b-58cc-4372-a567-0e02b2c3d480", "physics.motion", 5, "I can solve examples"
+    )
+    newer = restored.export_backup()
+    assert newer["records"][0]["updated_at"] > backup["records"][0]["updated_at"]
+    assert original.restore_backup(newer) == {"restored": 1, "unchanged": 0}
+    assert original.export_backup() == newer
+
+
+def test_progress_backup_validation_is_atomic_and_rejects_duplicates(tmp_path: Path) -> None:
+    store = StudyProgressStore(tmp_path / "progress.sqlite3")
+    store.initialize()
+    valid = {
+        "lesson_id": "biology.osmosis",
+        "completed": True,
+        "repetitions": 1,
+        "interval_days": 1,
+        "ease_factor": 2.5,
+        "review_count": 1,
+        "due_at": "2026-10-07T00:00:00Z",
+        "last_reviewed_at": "2026-10-06T00:00:00Z",
+        "reflection": "I understand osmosis",
+        "updated_at": "2026-10-06T00:00:00Z",
+    }
+    with pytest.raises(ValueError, match="invalid lesson identifier"):
+        store.restore_backup({
+            "format": "colidev-learning-progress",
+            "version": 1,
+            "records": [valid, {**valid, "lesson_id": "../outside"}],
+        })
+    with pytest.raises(ValueError, match="duplicate"):
+        store.restore_backup({
+            "format": "colidev-learning-progress",
+            "version": 1,
+            "records": [valid, valid],
+        })
+    assert store.get_progress()["records"] == []
+
+
 @pytest.mark.parametrize(
     ("event_id", "lesson_id", "quality"),
     [
