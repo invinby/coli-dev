@@ -488,6 +488,8 @@ struct OrchestratorHealth: Decodable {
     let ollamaEmbeddingModel: String?
     let ollamaModelReady: Bool?
     let geminiKeyConfigured: Bool?
+    let openRouterKeyConfigured: Bool?
+    let openRouterModel: String?
     let ollamaEndpointLocal: Bool?
     let obsidianEndpointLocal: Bool?
     let sessionMode: String?
@@ -521,6 +523,8 @@ struct OrchestratorHealth: Decodable {
         case ollamaEmbeddingModel = "ollama_embedding_model"
         case ollamaModelReady = "ollama_model_ready"
         case geminiKeyConfigured = "gemini_key_configured"
+        case openRouterKeyConfigured = "openrouter_key_configured"
+        case openRouterModel = "openrouter_model"
         case ollamaEndpointLocal = "ollama_endpoint_local"
         case obsidianEndpointLocal = "obsidian_endpoint_local"
         case sessionMode = "session_mode"

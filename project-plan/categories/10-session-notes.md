@@ -200,3 +200,9 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 - Полный локальный suite: 179 passed перед последним API error-case тестом; затем целевые integration/index suites — 46 passed. GitHub Actions run [37257110910](https://github.com/invinby/coli-dev/actions/runs/37257110910) подтвердил 180 passed, backend runtime packaging/smoke на Apple Silicon и Intel, и Xcode build для обеих архитектур. Осталось одно известное предупреждение Starlette/httpx. Commit `d5f1d6e` в `main`.
 - Исправлен устаревший `01_Projects/README.md`: backend layout, loopback запуск, локальный индекс и тестовые команды теперь описаны фактически.
 - Сам SwiftUI `.app` CI не запускает; GUI, Keychain пользователя, live Gemini/Kimi/Ollama/Obsidian пока не проверены. Нажатие ручного refresh обновляет локальные курсы, но не загружает веб-контент и не проверяет истинность материала.
+
+### OpenRouter fallback для облачного specialist — 2026-10-05
+
+- Добавлен необязательный OpenRouter route в backend Keychain/settings API и статус/настройки SwiftUI. В Auto-консилиуме сначала вызывается Kimi, затем OpenRouter при отсутствующем ключе или ошибочном/пустом ответе; результат OpenRouter маркируется отдельно. Local-only и главный Gemini judge не подменяются.
+- Подправлена обработка нестрокового ответа Kimi, а OpenRouter HTTP-ошибка не логирует тело ответа или текст исключения. Добавлены регрессии на Keychain, порядок fallback и секреты в ошибочном ответе.
+- По умолчанию используется `openrouter/free`; доступность, выбранная модель и бесплатные лимиты не гарантированы. Полный локальный backend suite прошёл: 185 passed, одно известное предупреждение совместимости Starlette/httpx; `compileall` и `git diff --check` прошли. macOS GitHub Actions для этой рабочей копии ожидается; живой OpenRouter и запуск SwiftUI на Mac не проверялись.

@@ -63,6 +63,7 @@ def _reset_session_tracker(monkeypatch, tmp_path):
     """Сброс сессий перед каждым тестом."""
     monkeypatch.setattr(orchestrator, "GEMINI_KEY", "test-gemini-key")
     monkeypatch.setattr(orchestrator, "KIMI_KEY", "test-kimi-key")
+    monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "")
     monkeypatch.setattr(orchestrator, "OBSIDIAN_API_KEY", "")
     monkeypatch.setattr(orchestrator, "OBSIDIAN_URL", "http://127.0.0.1:27123")
     monkeypatch.setattr(orchestrator, "OLLAMA_BASE", "http://127.0.0.1:11434")
@@ -70,6 +71,7 @@ def _reset_session_tracker(monkeypatch, tmp_path):
     monkeypatch.setattr(orchestrator, "_ENV_PROVIDER_VALUES", {
         "GEMINI_API_KEY": "test-gemini-key",
         "KIMI_API_KEY": "test-kimi-key",
+        "OPENROUTER_API_KEY": "",
         "OBSIDIAN_API_KEY": "",
     })
     monkeypatch.setattr(orchestrator.state, "obsidian", None)
@@ -281,17 +283,21 @@ class TestAPIEndpoints:
         assert providers["gemini"] == {
             "provider": "gemini", "configured": True, "source": "environment",
         }
+        assert providers["openrouter"]["configured"] is False
         assert providers["obsidian"]["configured"] is False
         assert "test-gemini-key" not in response.text
 
     def test_keychain_value_takes_precedence_over_environment(self, monkeypatch):
         _, passwords = _mock_keyring(monkeypatch)
         passwords[("ColiDev", "KIMI_API_KEY")] = "keychain-kimi-secret"
+        passwords[("ColiDev", "OPENROUTER_API_KEY")] = "keychain-openrouter-secret"
 
         orchestrator._load_provider_secrets()
 
         assert orchestrator.KIMI_KEY == "keychain-kimi-secret"
         assert orchestrator._PROVIDER_SOURCES["kimi"] == "keychain"
+        assert orchestrator.OPENROUTER_KEY == "keychain-openrouter-secret"
+        assert orchestrator._PROVIDER_SOURCES["openrouter"] == "keychain"
         assert orchestrator.GEMINI_KEY == "test-gemini-key"
         assert orchestrator._PROVIDER_SOURCES["gemini"] == "environment"
 
@@ -321,6 +327,21 @@ class TestAPIEndpoints:
         assert orchestrator.GEMINI_KEY == secret
         assert secret not in response.text
         fake.set_password.assert_called_once_with("ColiDev", "GEMINI_API_KEY", secret)
+
+    def test_openrouter_secret_is_saved_to_keychain_without_echoing_it(self, client, monkeypatch):
+        fake, passwords = _mock_keyring(monkeypatch)
+        secret = "openrouter-test-secret-483"
+
+        response = client.put("/settings/api-keys/openrouter", json={"api_key": secret})
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "provider": "openrouter", "configured": True, "source": "keychain",
+        }
+        assert passwords[("ColiDev", "OPENROUTER_API_KEY")] == secret
+        assert orchestrator.OPENROUTER_KEY == secret
+        assert secret not in response.text
+        fake.set_password.assert_called_once_with("ColiDev", "OPENROUTER_API_KEY", secret)
 
     def test_invalid_secret_requests_never_echo_submitted_values(self, client):
         oversized = "private-input-" * 350
@@ -367,6 +388,8 @@ class TestAPIEndpoints:
         assert response.json()["ollama_endpoint_local"] is False
         assert response.json()["obsidian_endpoint_local"] is False
         assert response.json()["gemini_key_configured"] is True
+        assert response.json()["openrouter_key_configured"] is False
+        assert response.json()["openrouter_model"] == "openrouter/free"
 
     def test_remote_obsidian_key_save_is_rejected(self, client, monkeypatch):
         monkeypatch.setattr(orchestrator, "OBSIDIAN_URL", "https://vault.example/api")
@@ -395,6 +418,102 @@ class TestAPIEndpoints:
         data = resp.json()
         assert data["status"] == "ok"
         assert data["mode"] == "online"
+
+
+def test_cloud_specialist_uses_openrouter_free_when_kimi_is_missing(monkeypatch):
+    monkeypatch.setattr(orchestrator, "KIMI_KEY", "")
+    monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "openrouter-test-key")
+    response = MagicMock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = {
+        "choices": [{"message": {"content": "OpenRouter draft"}}],
+    }
+    http_client = MagicMock(spec=httpx.AsyncClient)
+    http_client.post = AsyncMock(return_value=response)
+    engine = orchestrator.ConsiliumEngine(http_client)
+
+    draft, provider = asyncio.run(
+        engine._ask_cloud_specialist("Question", "System instructions", "test-specialist")
+    )
+
+    assert draft == "OpenRouter draft"
+    assert provider == "openrouter"
+    http_client.post.assert_awaited_once()
+    request = http_client.post.await_args
+    assert request.args[0] == orchestrator.OPENROUTER_URL
+    assert request.kwargs["json"]["model"] == "openrouter/free"
+    assert request.kwargs["headers"]["Authorization"] == "Bearer openrouter-test-key"
+
+
+def test_cloud_specialist_falls_back_to_openrouter_when_kimi_fails(monkeypatch):
+    monkeypatch.setattr(orchestrator, "KIMI_KEY", "kimi-test-key")
+    monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "openrouter-test-key")
+    kimi_response = MagicMock()
+    kimi_request = httpx.Request("POST", orchestrator.KIMI_URL)
+    kimi_error_response = httpx.Response(429, request=kimi_request, text="rate limited")
+    kimi_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "rate limited", request=kimi_request, response=kimi_error_response,
+    )
+    openrouter_response = MagicMock()
+    openrouter_response.raise_for_status.return_value = None
+    openrouter_response.json.return_value = {
+        "choices": [{"message": {"content": "Fallback draft"}}],
+    }
+    http_client = MagicMock(spec=httpx.AsyncClient)
+    http_client.post = AsyncMock(side_effect=[kimi_response, openrouter_response])
+    engine = orchestrator.ConsiliumEngine(http_client)
+
+    draft, provider = asyncio.run(
+        engine._ask_cloud_specialist("Question", "System instructions", "test-specialist")
+    )
+
+    assert draft == "Fallback draft"
+    assert provider == "openrouter"
+    assert [call.args[0] for call in http_client.post.await_args_list] == [
+        orchestrator.KIMI_URL,
+        orchestrator.OPENROUTER_URL,
+    ]
+
+
+def test_cloud_specialist_falls_back_when_kimi_returns_non_text(monkeypatch):
+    monkeypatch.setattr(orchestrator, "KIMI_KEY", "kimi-test-key")
+    monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "openrouter-test-key")
+    response = MagicMock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = {"choices": [{"message": {"content": "Usable fallback"}}]}
+    http_client = MagicMock(spec=httpx.AsyncClient)
+    http_client.post = AsyncMock(return_value=response)
+    engine = orchestrator.ConsiliumEngine(http_client)
+    engine._ask_kimi = AsyncMock(return_value=None)
+
+    draft, provider = asyncio.run(
+        engine._ask_cloud_specialist("Question", "System instructions", "test-specialist")
+    )
+
+    assert draft == "Usable fallback"
+    assert provider == "openrouter"
+    http_client.post.assert_awaited_once()
+
+
+def test_openrouter_http_error_does_not_echo_provider_body_or_key(monkeypatch, caplog):
+    monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "openrouter-test-secret")
+    request = httpx.Request("POST", orchestrator.OPENROUTER_URL)
+    response = httpx.Response(
+        401,
+        request=request,
+        text="provider echoed openrouter-test-secret",
+    )
+    http_client = MagicMock(spec=httpx.AsyncClient)
+    http_client.post = AsyncMock(
+        side_effect=httpx.HTTPStatusError("unauthorized", request=request, response=response)
+    )
+    engine = orchestrator.ConsiliumEngine(http_client)
+
+    result = asyncio.run(engine._ask_openrouter("Question", "System instructions", "test-specialist"))
+
+    assert result == "[Ошибка HTTP 401: OpenRouter]"
+    assert "openrouter-test-secret" not in caplog.text
+    assert "provider echoed" not in caplog.text
 
 
 class TestObsidianEndpoints:

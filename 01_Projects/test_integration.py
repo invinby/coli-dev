@@ -46,6 +46,7 @@ def _reset(monkeypatch, tmp_path):
     """Сброс состояния перед каждым тестом."""
     monkeypatch.setattr(orchestrator, "GEMINI_KEY", "test-gemini-key")
     monkeypatch.setattr(orchestrator, "KIMI_KEY", "test-kimi-key")
+    monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "")
     monkeypatch.setattr(orchestrator, "OBSIDIAN_API_KEY", "")
     monkeypatch.setattr(orchestrator, "OBSIDIAN_URL", "http://127.0.0.1:27123")
     monkeypatch.setattr(orchestrator, "OLLAMA_BASE", "http://127.0.0.1:11434")
@@ -53,6 +54,7 @@ def _reset(monkeypatch, tmp_path):
     monkeypatch.setattr(orchestrator, "_ENV_PROVIDER_VALUES", {
         "GEMINI_API_KEY": "test-gemini-key",
         "KIMI_API_KEY": "test-kimi-key",
+        "OPENROUTER_API_KEY": "",
         "OBSIDIAN_API_KEY": "",
     })
     monkeypatch.setattr(orchestrator.state, "obsidian", None)

@@ -196,6 +196,12 @@ KIMI_KEY = os.getenv("KIMI_API_KEY", "")
 KIMI_URL = "https://api.moonshot.cn/v1/chat/completions"
 KIMI_MODEL = os.getenv("KIMI_MODEL", "moonshot-v1-auto")  # Kimi K3
 
+# OpenRouter → optional cloud specialist fallback. The free router chooses a
+# currently available free model; its capabilities and limits can change.
+OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY", "")
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openrouter/free").strip() or "openrouter/free"
+
 # Google → Gemini (напрямую)
 GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_FLASH_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent"
@@ -220,11 +226,13 @@ OBSIDIAN_API_KEY = os.getenv("OBSIDIAN_API_KEY", "")
 PROVIDER_ENV_NAMES = {
     "gemini": "GEMINI_API_KEY",
     "kimi": "KIMI_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
     "obsidian": "OBSIDIAN_API_KEY",
 }
 _ENV_PROVIDER_VALUES = {
     "GEMINI_API_KEY": GEMINI_KEY,
     "KIMI_API_KEY": KIMI_KEY,
+    "OPENROUTER_API_KEY": OPENROUTER_KEY,
     "OBSIDIAN_API_KEY": OBSIDIAN_API_KEY,
 }
 _PROVIDER_SOURCES = {
@@ -279,7 +287,9 @@ def _load_provider_secrets() -> None:
             globals()["GEMINI_KEY"] = secret
         elif provider == "kimi":
             globals()["KIMI_KEY"] = secret
-        else:
+        elif provider == "openrouter":
+            globals()["OPENROUTER_KEY"] = secret
+        elif provider == "obsidian":
             globals()["OBSIDIAN_API_KEY"] = secret
         _PROVIDER_SOURCES[provider] = source
 
@@ -306,6 +316,8 @@ def _provider_secret_value(provider: str) -> str:
         return GEMINI_KEY
     if provider == "kimi":
         return KIMI_KEY
+    if provider == "openrouter":
+        return OPENROUTER_KEY
     return OBSIDIAN_API_KEY
 
 
@@ -314,7 +326,9 @@ def _set_provider_secret_value(provider: str, value: str) -> None:
         globals()["GEMINI_KEY"] = value
     elif provider == "kimi":
         globals()["KIMI_KEY"] = value
-    else:
+    elif provider == "openrouter":
+        globals()["OPENROUTER_KEY"] = value
+    elif provider == "obsidian":
         globals()["OBSIDIAN_API_KEY"] = value
 
 
@@ -463,6 +477,8 @@ class HealthResponse(BaseModel):
     ollama_models: list[str] | None = None
     ollama_model_ready: bool | None = None
     gemini_key_configured: bool = False
+    openrouter_key_configured: bool = False
+    openrouter_model: str = "openrouter/free"
     ollama_endpoint_local: bool = False
     obsidian_endpoint_local: bool = False
     uptime_sec: int
@@ -748,7 +764,7 @@ class DebateLog:
             "gemini-flash": "⚡", "gemini-pro": "◇", "judge": "⚖️",
             "cloud-code": "☁️", "ollama-gen": "🧠",
             "freebuff": "🦊", "qwen": "🐉",
-            "consensus": "✅", "kimi": "👑",
+            "consensus": "✅", "kimi": "👑", "openrouter": "◉",
         }
         return icons.get(agent, "🤖")
 
@@ -764,6 +780,7 @@ class DebateLog:
             "qwen": "Ollama (проверка результата)",
             "consensus": "Финальный ответ",
             "kimi": "Kimi (черновик)",
+            "openrouter": "OpenRouter (резервная модель)",
         }
         return labels.get(agent, agent)
 
@@ -775,6 +792,7 @@ class DebateLog:
             "ollama-gen": "#58a6ff",
             "freebuff": "#f78166", "qwen": "#3fb950",
             "consensus": "#f0883e", "kimi": "#ff6b9d",
+            "openrouter": "#b48ead",
         }
         return colors.get(agent, "#8b949e")
 
@@ -879,7 +897,8 @@ class ConsiliumEngine:
     def _is_provider_error(response: str) -> bool:
         return response.lstrip().startswith((
             "[Ошибка", "[Таймаут", "[Gemini:", "[KIMI_API_KEY not set",
-            "[GEMINI_API_KEY not set", "[Google Search:",
+            "[GEMINI_API_KEY not set", "[OPENROUTER_API_KEY not set",
+            "[OpenRouter:", "[Google Search:",
         ))
 
     # ─── УРОВЕНЬ 1: Генераторы + Верховный Судья (Kimi K3) ──
@@ -890,29 +909,38 @@ class ConsiliumEngine:
         Returns:
             Единая облачная позиция (cloud position).
         """
-        logger.info("Level 1: Cloud Code — requesting Gemini Flash + Kimi K3 + Ollama")
+        logger.info("Level 1: Cloud Code — requesting Gemini Flash + Kimi/OpenRouter + Ollama")
 
         # 1. Параллельные запросы к трём генераторам
         t0 = datetime.now(timezone.utc)
         agent_system = self.agent_system(system_prompt)
         gemini_flash_task = self._ask_gemini(message, agent_system,
                                              GEMINI_FLASH_URL, "gemini-flash")
-        kimi_task = self._ask_kimi(message, agent_system, "kimi")
+        specialist_task = self._ask_cloud_specialist(message, agent_system, "cloud-specialist")
         ollama_task = self._ask_ollama(message, agent_system, "ollama-gen")
 
-        flash_result, kimi_result, ollama_result = await asyncio.gather(
-            gemini_flash_task, kimi_task, ollama_task, return_exceptions=True
+        flash_result, specialist_result, ollama_result = await asyncio.gather(
+            gemini_flash_task, specialist_task, ollama_task, return_exceptions=True
         )
 
         flash_draft = flash_result if isinstance(flash_result, str) else f"[Ошибка: {flash_result}]"
-        kimi_draft = kimi_result if isinstance(kimi_result, str) else f"[Ошибка: {kimi_result}]"
+        specialist_agent = "kimi"
+        if (
+            isinstance(specialist_result, tuple)
+            and len(specialist_result) == 2
+            and isinstance(specialist_result[0], str)
+            and isinstance(specialist_result[1], str)
+        ):
+            specialist_draft, specialist_agent = specialist_result
+        else:
+            specialist_draft = f"[Ошибка: {specialist_result}]"
         ollama_draft = ollama_result if isinstance(ollama_result, str) else f"[Ошибка: {ollama_result}]"
 
         # Если все три вернули ошибки
-        if all(self._is_provider_error(d) for d in [flash_draft, kimi_draft, ollama_draft]):
+        if all(self._is_provider_error(d) for d in [flash_draft, specialist_draft, ollama_draft]):
             logger.warning("All generators unavailable → ConsiliumCloudError")
             raise ConsiliumCloudError(
-                "Все генераторы недоступны. Проверьте GEMINI_API_KEY, KIMI_API_KEY и Ollama"
+                "Все генераторы недоступны. Проверьте GEMINI_API_KEY, KIMI_API_KEY/OPENROUTER_API_KEY и Ollama"
             )
 
         # 2. Gemini 2.5 Pro — Судья: анализирует все три черновика
@@ -923,7 +951,7 @@ class ConsiliumEngine:
             "Учти: правильность, производительность, читаемость кода, "
             "совместимость с Python 3.11+, FastAPI, асинхронность.\n\n"
             f"Черновик Gemini 2.0 Flash:\n{flash_draft}\n\n"
-            f"Черновик Kimi K3:\n{kimi_draft}\n\n"
+            f"Черновик {DebateLog._agent_label(specialist_agent)}:\n{specialist_draft}\n\n"
             f"Черновик Ollama (Qwen 2.5 Coder):\n{ollama_draft}\n\n"
             f"Final verdict in {self.output_language}:"
         )
@@ -938,12 +966,13 @@ class ConsiliumEngine:
 
         self.log.add("cloud-code", "gemini-flash",
                      flash_draft[:400], int((t1 - t0).total_seconds() * 1000))
-        self.log.add("cloud-code", "kimi",
-                     kimi_draft[:400], int((t1 - t0).total_seconds() * 1000))
+        self.log.add("cloud-code", specialist_agent,
+                     specialist_draft[:400], int((t1 - t0).total_seconds() * 1000))
         self.log.add("cloud-code", "ollama-gen",
                      ollama_draft[:400], int((t1 - t0).total_seconds() * 1000))
         logger.info("Cloud Code complete", extra={
-            "flash_len": len(flash_draft), "kimi_len": len(kimi_draft),
+            "flash_len": len(flash_draft), "specialist_len": len(specialist_draft),
+            "specialist_provider": specialist_agent,
             "ollama_len": len(ollama_draft), "judge_len": len(cloud_position),
         })
 
@@ -966,7 +995,7 @@ class ConsiliumEngine:
             "3) Корректность асинхронного кода (FastAPI/httpx)\n"
             "4) Безопасность (нет SQL-инъекций, XSS, hardcoded secrets)\n"
             "5) Читаемость и документацию\n\n"
-            f"Облачная позиция Cloud Code (от Kimi K3):\n{cloud_position}\n\n"
+            f"Облачная позиция Cloud Code:\n{cloud_position}\n\n"
             f"Critical review in {self.output_language}:"
         )
         freebuff_review = await self._ask_ollama(freebuff_prompt, self.agent_system(system_prompt), "freebuff")
@@ -1085,6 +1114,82 @@ class ConsiliumEngine:
             return error, self.log
 
     # ─── HTTP-запросы ↓ ─────────────────────────────────
+
+    async def _ask_cloud_specialist(
+        self,
+        message: str,
+        system_prompt: str,
+        agent_tag: str,
+    ) -> tuple[str, str]:
+        """Prefer direct Kimi and use OpenRouter only when Kimi is unavailable."""
+        if KIMI_KEY:
+            kimi_response = await self._ask_kimi(message, system_prompt, agent_tag)
+            if (
+                isinstance(kimi_response, str)
+                and kimi_response.strip()
+                and not self._is_provider_error(kimi_response)
+            ):
+                return kimi_response, "kimi"
+            if not isinstance(kimi_response, str) or not kimi_response.strip():
+                kimi_response = "[Ошибка Kimi: пустой или некорректный ответ]"
+            if not OPENROUTER_KEY:
+                return kimi_response, "kimi"
+            logger.warning("Kimi unavailable; retrying cloud specialist with OpenRouter")
+
+        if OPENROUTER_KEY:
+            return await self._ask_openrouter(message, system_prompt, agent_tag), "openrouter"
+
+        return await self._ask_kimi(message, system_prompt, agent_tag), "kimi"
+
+    async def _ask_openrouter(self, message: str, system_prompt: str, agent_tag: str) -> str:
+        """Request an OpenAI-compatible completion from the configured OpenRouter model."""
+        if not OPENROUTER_KEY:
+            return f"[OPENROUTER_API_KEY not set: {agent_tag}]"
+        payload = {
+            "model": OPENROUTER_MODEL,
+            "max_tokens": 2048,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": message},
+            ],
+        }
+        headers = {
+            "Authorization": f"Bearer {OPENROUTER_KEY}",
+            "Content-Type": "application/json",
+        }
+        try:
+            response = await self.http.post(
+                OPENROUTER_URL,
+                json=payload,
+                headers=headers,
+                timeout=HTTP_TIMEOUT,
+            )
+            response.raise_for_status()
+            data = response.json()
+            choices = data.get("choices") if isinstance(data, dict) else None
+            content = (
+                choices[0].get("message", {}).get("content")
+                if isinstance(choices, list) and choices and isinstance(choices[0], dict)
+                else None
+            )
+            if not isinstance(content, str) or not content.strip():
+                return "[OpenRouter: empty response]"
+            return content.strip()
+        except httpx.TimeoutException:
+            logger.warning("OpenRouter timeout", extra={"agent": agent_tag, "model": OPENROUTER_MODEL})
+            return f"[Таймаут: OpenRouter не ответил за {HTTP_TIMEOUT}s]"
+        except httpx.HTTPStatusError as exc:
+            logger.error(
+                "OpenRouter HTTP error",
+                extra={"status": exc.response.status_code, "model": OPENROUTER_MODEL},
+            )
+            return f"[Ошибка HTTP {exc.response.status_code}: OpenRouter]"
+        except Exception as exc:
+            logger.error(
+                "OpenRouter error",
+                extra={"agent": agent_tag, "error_type": type(exc).__name__},
+            )
+            return "[Ошибка OpenRouter: некорректный ответ или сбой запроса]"
 
     async def _ask_kimi(self, message: str, system_prompt: str, agent_tag: str) -> str:
         """Запрос к Kimi K3 через Moonshot AI (напрямую)."""
@@ -1846,6 +1951,8 @@ async def api_status(request: Request):
         "provider": "consilium",
         "kimi_model": KIMI_MODEL,
         "gemini_key_set": bool(GEMINI_KEY),
+        "openrouter_model": OPENROUTER_MODEL,
+        "openrouter_key_set": bool(OPENROUTER_KEY),
         "researcher": OLLAMA_MODEL_RESEARCHER,
         "session": session_status,
     }
@@ -1876,6 +1983,8 @@ async def health(request: Request):
         ollama_models=ollama_info["models"],
         ollama_model_ready=ollama_info["model_ready"],
         gemini_key_configured=bool(GEMINI_KEY),
+        openrouter_key_configured=bool(OPENROUTER_KEY),
+        openrouter_model=OPENROUTER_MODEL,
         ollama_endpoint_local=_is_loopback_http_url(OLLAMA_BASE),
         obsidian_endpoint_local=_is_loopback_http_url(OBSIDIAN_URL),
         uptime_sec=state.uptime_sec,

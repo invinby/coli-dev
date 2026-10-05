@@ -24,7 +24,7 @@ python -m pip install -r requirements-orchestrator.txt
 python -m uvicorn orchestrator:app --app-dir 01_Projects --host 127.0.0.1 --port 8000
 ```
 
-Use a Python virtual environment for development. Optional provider keys can be configured through the repository `.env` file; on macOS, keys entered in the app Settings are stored in Keychain. Keep the service bound to `127.0.0.1` for local use.
+Use a Python virtual environment for development. Optional provider keys can be configured through the repository `.env` file; on macOS, keys entered in the app Settings are stored in Keychain. Keep the service bound to `127.0.0.1` for local use. OpenRouter is a fallback cloud specialist when direct Kimi is missing or unavailable; the default `openrouter/free` route can select different free models over time, and paid model IDs may incur charges.
 
 ## Local knowledge index
 

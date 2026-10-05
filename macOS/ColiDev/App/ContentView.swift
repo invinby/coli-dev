@@ -310,6 +310,13 @@ private struct SettingsView: View {
                                 .foregroundStyle(.green)
                             Text(routeDescription(for: health))
                                 .font(.caption).foregroundStyle(.secondary)
+                            if health.openRouterKeyConfigured == true {
+                                Text(String(
+                                    format: L10n.text("settings.aiOpenRouterReady", store.language),
+                                    health.openRouterModel ?? "openrouter/free"
+                                ))
+                                .font(.caption2).foregroundStyle(.secondary)
+                            }
                             if !health.isOllamaEndpointLocal {
                                 Label(L10n.text("settings.aiOllamaRemote", store.language), systemImage: "exclamationmark.triangle.fill")
                                     .font(.caption).foregroundStyle(.orange)
@@ -385,6 +392,7 @@ private struct SettingsView: View {
             Section {
                 ProviderKeyEntryView(provider: "gemini", title: "Gemini")
                 ProviderKeyEntryView(provider: "kimi", title: "Kimi")
+                ProviderKeyEntryView(provider: "openrouter", title: "OpenRouter")
                 ProviderKeyEntryView(provider: "obsidian", title: "Obsidian Local REST API")
             } header: {
                 Text(L10n.text("settings.keysTitle", store.language))
