@@ -1335,6 +1335,12 @@ private struct TutorChatView: View {
                                     Text(L10n.text("tutor.modifiedDateUnavailable", language))
                                         .font(.caption2).foregroundStyle(.tertiary)
                                 }
+                                if let sourceCheckedAt = item.sourceCheckedAt {
+                                    Text("\(L10n.text("tutor.sourceReviewDate", language)): \(sourceCheckedAt)")
+                                        .font(.caption2).foregroundStyle(.secondary)
+                                    Text(L10n.text("tutor.sourceCheckCaveat", language))
+                                        .font(.caption2).foregroundStyle(.tertiary)
+                                }
                                 if !item.excerpt.isEmpty {
                                     Text(item.excerpt)
                                         .font(.caption2).foregroundStyle(.secondary)

@@ -429,6 +429,7 @@ struct TutorSource: Decodable, Identifiable {
     let path: String?
     let location: String?
     let modifiedAt: String?
+    let sourceCheckedAt: String?
     let sourceType: String?
 
     enum CodingKeys: String, CodingKey {
@@ -436,6 +437,7 @@ struct TutorSource: Decodable, Identifiable {
         case retrievedAt = "retrieved_at"
         case path, location
         case modifiedAt = "modified_at"
+        case sourceCheckedAt = "source_checked_at"
         case sourceType = "source_type"
     }
 

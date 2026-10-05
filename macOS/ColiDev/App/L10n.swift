@@ -160,6 +160,8 @@ enum L10n {
         "tutor.retrievedAt": ("Найдены", "Retrieved"),
         "tutor.location": ("Строки", "Lines"),
         "tutor.fileModifiedAt": ("Файл изменён", "File modified"),
+        "tutor.sourceReviewDate": ("Ссылки сверены", "Source references checked"),
+        "tutor.sourceCheckCaveat": ("Это дата из заметки, не гарантия актуальности фактов.", "This date is note metadata, not a guarantee that facts are current."),
         "tutor.modifiedDateUnavailable": ("Дата изменения источника недоступна", "Source modification date unavailable"),
         "tutor.localUnavailable": ("Локальная модель Ollama не готова. Установи выбранную модель или переключись на «Авто».", "The configured Ollama model is not ready. Install it or switch to Auto."),
         "tutor.localEndpointBlocked": ("Адрес Ollama не подтверждён как этот Mac. Для локального режима укажи localhost или loopback IP.", "Ollama is not confirmed to be on this Mac. Use localhost or a loopback IP for Local mode."),

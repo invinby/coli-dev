@@ -518,6 +518,7 @@ class TestStreamingChat:
                 "path": "02_Areas/math.md",
                 "location": "3-7",
                 "modified_at": "2026-10-04T10:00:00Z",
+                "source_checked_at": "2026-10-05",
                 "excerpt": "An example excerpt.",
             }],
             "en",
@@ -527,6 +528,8 @@ class TestStreamingChat:
         assert "02_Areas/math.md" in prompt
         assert "Lines: 3-7" in prompt
         assert "File modified at: 2026-10-04T10:00:00Z" in prompt
+        assert "Source references checked (note metadata): 2026-10-05" in prompt
+        assert "not independent verification" in prompt
         assert "not proof of publication" in prompt
 
     def test_stream_returns_sse(self, client):

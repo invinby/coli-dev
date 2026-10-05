@@ -35,6 +35,7 @@ _IGNORED_DIRS = {
     ".git", ".obsidian", "__pycache__", "build", "dist", "node_modules", "vendor",
 }
 _HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$")
+_SOURCE_CHECKED_RE = re.compile(r"^source_checked:\s*(\d{4}-\d{2}-\d{2})\s*$")
 _TOKEN_RE = re.compile(r"[^\W_]+", re.UNICODE)
 _STOP_WORDS = {
     "a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "how",
@@ -67,6 +68,35 @@ def _utc_timestamp(timestamp: float) -> str:
     return datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
+def _frontmatter_bounds(lines: list[str]) -> tuple[int, int] | None:
+    """Return inclusive zero-based frontmatter bounds for a fenced YAML header."""
+    if not lines or lines[0].lstrip("\ufeff").strip() != "---":
+        return None
+    for index in range(1, len(lines)):
+        if lines[index].strip() == "---":
+            return 0, index
+    return None
+
+
+def _source_checked_date(text: str) -> str | None:
+    """Read one strict YYYY-MM-DD source review date from Markdown frontmatter."""
+    lines = text.splitlines()
+    bounds = _frontmatter_bounds(lines)
+    if bounds is None:
+        return None
+    matches = [
+        match.group(1)
+        for line in lines[bounds[0] + 1:bounds[1]]
+        if (match := _SOURCE_CHECKED_RE.fullmatch(line.strip()))
+    ]
+    if len(matches) != 1:
+        return None
+    try:
+        return datetime.strptime(matches[0], "%Y-%m-%d").date().isoformat()
+    except ValueError:
+        return None
+
+
 def _tokens(text: str) -> list[str]:
     return [token for token in _TOKEN_RE.findall(text.casefold()) if len(token) >= 2 and token not in _STOP_WORDS]
 
@@ -82,9 +112,20 @@ def _expanded_tokens(tokens: Iterable[str]) -> list[str]:
     return result
 
 
-def _split_markdown(text: str, fallback_heading: str) -> list[tuple[int, int, str, str]]:
+def _split_markdown(
+    text: str,
+    fallback_heading: str,
+    *,
+    allow_frontmatter: bool = True,
+) -> list[tuple[int, int, str, str]]:
     """Split Markdown into bounded heading-aware chunks with source line spans."""
     lines = text.splitlines()
+    frontmatter = _frontmatter_bounds(lines) if allow_frontmatter else None
+    indexed_lines = [
+        (line_number, line)
+        for line_number, line in enumerate(lines, start=1)
+        if frontmatter is None or not frontmatter[0] <= line_number - 1 <= frontmatter[1]
+    ]
     chunks: list[tuple[int, int, str, str]] = []
     heading = fallback_heading
     buffer: list[str] = []
@@ -100,7 +141,7 @@ def _split_markdown(text: str, fallback_heading: str) -> list[tuple[int, int, st
         buffer = []
         buffer_chars = 0
 
-    for line_number, line in enumerate(lines, start=1):
+    for line_number, line in indexed_lines:
         heading_match = _HEADING_RE.match(line)
         if heading_match:
             flush()
@@ -123,8 +164,11 @@ def _split_markdown(text: str, fallback_heading: str) -> list[tuple[int, int, st
             end_line = line_number
 
     flush()
-    if not chunks and text.strip():
-        chunks.append((1, max(1, len(lines)), fallback_heading, text[:_CHUNK_CHARS].strip()))
+    body_text = "\n".join(line for _, line in indexed_lines).strip()
+    if not chunks and body_text:
+        first_line = indexed_lines[0][0]
+        last_line = indexed_lines[-1][0]
+        chunks.append((first_line, last_line, fallback_heading, body_text[:_CHUNK_CHARS]))
     return chunks
 
 
@@ -227,10 +271,16 @@ class KnowledgeIndex:
                 digest TEXT NOT NULL,
                 modified_ns INTEGER NOT NULL,
                 size_bytes INTEGER NOT NULL,
-                modified_at TEXT NOT NULL
+                modified_at TEXT NOT NULL,
+                source_checked_at TEXT
             )
             """
         )
+        document_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(documents)").fetchall()
+        }
+        if "source_checked_at" not in document_columns:
+            connection.execute("ALTER TABLE documents ADD COLUMN source_checked_at TEXT")
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS chunks (
@@ -382,28 +432,36 @@ class KnowledgeIndex:
                         accepted_bytes += len(raw)
                         digest = hashlib.sha256(raw).hexdigest()
                         modified_at = _utc_timestamp(after.st_mtime)
+                        content = raw.decode("utf-8", errors="replace")
+                        is_markdown = path.suffix.casefold() == ".md"
+                        source_checked_at = _source_checked_date(content) if is_markdown else None
                         current = connection.execute(
                             "SELECT digest, title FROM documents WHERE path = ?",
                             (relative_path,),
                         ).fetchone()
                         if current and current["digest"] == digest:
                             connection.execute(
-                                "UPDATE documents SET modified_ns = ?, size_bytes = ?, modified_at = ? WHERE path = ?",
-                                (after.st_mtime_ns, after.st_size, modified_at, relative_path),
+                                """UPDATE documents
+                                   SET modified_ns = ?, size_bytes = ?, modified_at = ?, source_checked_at = ?
+                                   WHERE path = ?""",
+                                (after.st_mtime_ns, after.st_size, modified_at, source_checked_at, relative_path),
                             )
                             continue
 
-                        content = raw.decode("utf-8", errors="replace")
                         title = self._document_title(relative_path, content)
                         connection.execute("DELETE FROM documents WHERE path = ?", (relative_path,))
                         connection.execute(
                             """
-                            INSERT INTO documents(path, title, digest, modified_ns, size_bytes, modified_at)
-                            VALUES (?, ?, ?, ?, ?, ?)
+                            INSERT INTO documents(
+                                path, title, digest, modified_ns, size_bytes, modified_at, source_checked_at
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?)
                             """,
-                            (relative_path, title, digest, after.st_mtime_ns, after.st_size, modified_at),
+                            (
+                                relative_path, title, digest, after.st_mtime_ns,
+                                after.st_size, modified_at, source_checked_at,
+                            ),
                         )
-                        chunks = _split_markdown(content, title)
+                        chunks = _split_markdown(content, title, allow_frontmatter=is_markdown)
                         connection.executemany(
                             """
                             INSERT INTO chunks(path, chunk_index, heading, start_line, end_line, text)
@@ -587,7 +645,7 @@ class KnowledgeIndex:
     ) -> list[dict[str, str]]:
         rows = connection.execute(
             """
-            SELECT c.path, d.title, d.modified_at, c.heading, c.start_line,
+            SELECT c.path, d.title, d.modified_at, d.source_checked_at, c.heading, c.start_line,
                    c.end_line, c.text, c.chunk_index
             FROM chunks AS c
             JOIN documents AS d ON d.path = c.path
@@ -710,17 +768,18 @@ class KnowledgeIndex:
             excerpt = row["text"].strip()[:_CHUNK_CHARS]
             if row["heading"] and row["heading"].casefold() not in excerpt.casefold():
                 excerpt = f"{row['heading']}\n{excerpt}"[:_CHUNK_CHARS + 200]
-            results.append(
-                {
-                    "title": row["title"],
-                    "excerpt": excerpt,
-                    "retrieved_at": retrieved_at,
-                    "modified_at": row["modified_at"],
-                    "path": row["path"],
-                    "location": f"{row['start_line']}-{row['end_line']}",
-                    "source_type": "course",
-                }
-            )
+            result = {
+                "title": row["title"],
+                "excerpt": excerpt,
+                "retrieved_at": retrieved_at,
+                "modified_at": row["modified_at"],
+                "path": row["path"],
+                "location": f"{row['start_line']}-{row['end_line']}",
+                "source_type": "course",
+            }
+            if row["source_checked_at"]:
+                result["source_checked_at"] = row["source_checked_at"]
+            results.append(result)
             if len(results) >= limit:
                 break
         return results

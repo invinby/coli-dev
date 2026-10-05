@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import hashlib
 import re
+import sqlite3
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from knowledge_index import KnowledgeIndex, OllamaEmbeddingProvider
+from knowledge_index import KnowledgeIndex, OllamaEmbeddingProvider, _source_checked_date, _split_markdown
 
 
 class FakeEmbeddingProvider:
@@ -50,6 +52,91 @@ def test_local_index_searches_russian_and_english_and_reports_file_metadata(tmp_
     assert any("conserved" in source["excerpt"].casefold() for source in english)
     assert index.status()["document_count"] == 1
     assert index.status()["last_checked_at"]
+
+
+def test_source_review_date_is_distinct_and_migrates_existing_index(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    course = project / "02_Areas" / "Physics"
+    course.mkdir(parents=True)
+    lesson = course / "periods.md"
+    content = (
+        "---\nsource_checked: 2026-10-05\n---\n"
+        "# Orbital periods\n\n"
+        "Orbital periods scale with the semimajor axis in a two-body model.\n"
+    )
+    lesson.write_text(content, encoding="utf-8")
+    stat = lesson.stat()
+    database = tmp_path / "state" / "knowledge.sqlite3"
+    database.parent.mkdir(parents=True)
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """CREATE TABLE documents (
+                path TEXT PRIMARY KEY, title TEXT NOT NULL, digest TEXT NOT NULL,
+                modified_ns INTEGER NOT NULL, size_bytes INTEGER NOT NULL, modified_at TEXT NOT NULL
+            )"""
+        )
+        connection.execute(
+            """CREATE TABLE chunks (
+                path TEXT NOT NULL REFERENCES documents(path) ON DELETE CASCADE,
+                chunk_index INTEGER NOT NULL, heading TEXT NOT NULL, start_line INTEGER NOT NULL,
+                end_line INTEGER NOT NULL, text TEXT NOT NULL, PRIMARY KEY (path, chunk_index)
+            )"""
+        )
+        connection.execute(
+            "INSERT INTO documents VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                "02_Areas/Physics/periods.md", "Orbital periods", hashlib.sha256(content.encode()).hexdigest(),
+                stat.st_mtime_ns, stat.st_size, "2026-10-04T00:00:00Z",
+            ),
+        )
+        connection.execute(
+            "INSERT INTO chunks VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                "02_Areas/Physics/periods.md", 0, "Orbital periods", 6, 6,
+                "Orbital periods scale with the semimajor axis in a two-body model.",
+            ),
+        )
+
+    index = KnowledgeIndex(project, database)
+    result = index.refresh_and_search("orbital periods semimajor axis", limit=1)[0]
+
+    assert result["source_checked_at"] == "2026-10-05"
+    assert result["modified_at"].endswith("Z")
+    assert result["modified_at"] != result["source_checked_at"]
+    assert "source_checked" not in result["excerpt"]
+
+
+def test_source_review_date_rejects_invalid_or_ambiguous_frontmatter() -> None:
+    assert _source_checked_date("---\nsource_checked: 2026-10-05\n---\nBody") == "2026-10-05"
+    assert _source_checked_date("---\nsource_checked: 2026-02-30\n---\nBody") is None
+    assert _source_checked_date(
+        "---\nsource_checked: 2026-10-05\nsource_checked: 2026-10-04\n---\nBody"
+    ) is None
+    assert _source_checked_date("# Body\nsource_checked: 2026-10-05") is None
+
+
+def test_markdown_frontmatter_is_not_indexed_and_line_numbers_stay_absolute() -> None:
+    chunks = _split_markdown(
+        "---\nsource_checked: 2026-10-05\n---\n"
+        "# Orbital periods\n\n"
+        "Use orbital period to estimate a body's year.\n",
+        "Orbital periods",
+    )
+
+    assert chunks
+    assert all(start_line > 3 for start_line, _, _, _ in chunks)
+    assert "source_checked" not in "\n".join(chunk for _, _, _, chunk in chunks)
+    assert "orbital period" in "\n".join(chunk for _, _, _, chunk in chunks)
+
+
+def test_plain_text_cheatsheet_is_not_treated_as_yaml_frontmatter() -> None:
+    chunks = _split_markdown(
+        "---\nsource_checked: keep this literal text\n---\nUseful cheat-sheet data.\n",
+        "Cheat sheet",
+        allow_frontmatter=False,
+    )
+
+    assert "source_checked: keep this literal text" in "\n".join(chunk for _, _, _, chunk in chunks)
 
 
 def test_index_refreshes_changed_and_removed_files_and_ignores_unapproved_roots(tmp_path: Path) -> None:
@@ -149,6 +236,8 @@ def test_bilingual_foundation_modules_are_retrievable(
 
     assert results
     assert results[0]["path"] == f"02_Areas/{expected_path}"
+    assert results[0]["source_checked_at"] == "2026-10-05"
+    assert "source_checked" not in results[0]["excerpt"]
 
 
 def test_curriculum_lesson_links_resolve_to_bilingual_module_files() -> None:
