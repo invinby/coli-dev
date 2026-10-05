@@ -325,6 +325,14 @@ def test_priority_curriculum_roadmaps_are_retrievable(
         "English/lessons/present_simple_and_continuous.md",
     ),
     (
+        "present perfect simple continuous result quantity duration for since has read has been reading",
+        "English/lessons/present_perfect_simple_continuous.md",
+    ),
+    (
+        "результат количество длительность for since has read has been reading present perfect",
+        "English/lessons/present_perfect_simple_continuous.md",
+    ),
+    (
         "east 14 N west 6 N 4 kg free-body diagram resultant force",
         "Physics/lessons/net_force_and_acceleration.md",
     ),

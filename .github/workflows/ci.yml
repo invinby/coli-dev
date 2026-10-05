@@ -96,6 +96,7 @@ jobs:
           Mathematics:functions_as_models
           Mathematics:domain_and_range
           English:present_simple_and_continuous
+          English:present_perfect_simple_continuous
           Physics:net_force_and_acceleration
           Physics:work_and_kinetic_energy
           Biology:passive_transport_osmosis

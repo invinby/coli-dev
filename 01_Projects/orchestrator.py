@@ -2673,6 +2673,17 @@ async def check_trusted_source_references(request: Request):
         raise HTTPException(status_code=503, detail="Trusted source check failed") from None
 
 
+@app.get("/knowledge/sources")
+async def get_trusted_source_inventory(request: Request):
+    """Return the fixed official-source inventory and saved validators without fetching pages."""
+    _require_local_settings_request(request)
+    try:
+        return trusted_source_monitor.inventory()
+    except Exception:
+        logger.exception("Trusted course source inventory is unavailable")
+        raise HTTPException(status_code=503, detail="Trusted course source inventory is unavailable") from None
+
+
 @app.post("/learning/reviews")
 async def record_learning_review(payload: StudyReviewRequest, request: Request):
     """Record one idempotent review grade and calculate its next due date."""

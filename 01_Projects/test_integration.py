@@ -704,6 +704,33 @@ def test_manual_trusted_source_check_hides_internal_errors(client_online, monkey
     assert "private source monitor detail" not in response.text
 
 
+def test_trusted_source_inventory_is_local_and_does_not_trigger_a_check(client_online, monkeypatch):
+    inventory = {
+        "status": "ok",
+        "supported_count": 1,
+        "listed_count": 1,
+        "unchecked_count": 1,
+        "changed_count": 0,
+        "needs_attention_count": 0,
+        "unsupported_count": 0,
+        "omitted_count": 0,
+        "sources": [{"url": "https://openstax.org/example", "state": "not_checked"}],
+    }
+    read_inventory = MagicMock(return_value=inventory)
+    monkeypatch.setattr(orchestrator.trusted_source_monitor, "inventory", read_inventory)
+
+    rejected = client_online.get(
+        "/knowledge/sources", headers={"Origin": "https://example.test"}
+    )
+    assert rejected.status_code == 403
+    read_inventory.assert_not_called()
+
+    accepted = client_online.get("/knowledge/sources")
+    assert accepted.status_code == 200
+    assert accepted.json() == inventory
+    read_inventory.assert_called_once_with()
+
+
 def test_provider_usage_endpoint_is_local_and_bounds_the_requested_window(client_online, monkeypatch):
     expected = {
         "generated_at": "2026-10-05T00:00:00Z",

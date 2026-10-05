@@ -745,6 +745,8 @@ private struct PracticeLab: View {
             DomainRangeLab()
         } else if subject == .english, moduleResource == "present_simple_and_continuous" {
             TenseContrastLab()
+        } else if subject == .english, moduleResource == "present_perfect_simple_continuous" {
+            PresentPerfectAspectLab()
         } else if subject == .biology, moduleResource == "passive_transport_osmosis" {
             OsmosisLab()
         } else if subject == .biology, moduleResource == "mendelian_inheritance" {
@@ -951,6 +953,67 @@ private struct TenseContrastLab: View {
                 .foregroundStyle(selectedAnswer == correctAnswer ? Color.green : Color.orange)
             }
         }
+    }
+}
+
+private struct PresentPerfectAspectLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var scenario = 0
+    @State private var selectedAnswer: Int?
+
+    private let correctAnswers = [1, 1, 0]
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.perfectPrompt", store.language))
+                .font(.headline)
+
+            Picker(L10n.text("lab.perfectSituation", store.language), selection: $scenario) {
+                ForEach(0..<3, id: \.self) { index in
+                    Text(L10n.text("lab.perfectScenario\(index)", store.language)).tag(index)
+                }
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: scenario) { _ in selectedAnswer = nil }
+
+            Text(L10n.text("lab.perfectSentence\(scenario)", store.language))
+                .font(.title3.weight(.medium))
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+
+            HStack(spacing: 10) {
+                ForEach(0..<2, id: \.self) { option in
+                    Button {
+                        selectedAnswer = option
+                    } label: {
+                        Text(L10n.text("lab.perfectOption\(scenario)\(option)", store.language))
+                            .frame(maxWidth: .infinity)
+                            .padding(10)
+                            .background(answerColor(for: option), in: RoundedRectangle(cornerRadius: 10))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if let selectedAnswer {
+                let isCorrect = selectedAnswer == correctAnswers[scenario]
+                Label(
+                    L10n.text("lab.perfectFeedback\(scenario)\(isCorrect ? 1 : 0)", store.language),
+                    systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
+                )
+                .foregroundStyle(isCorrect ? Color.green : Color.orange)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func answerColor(for option: Int) -> Color {
+        guard let selectedAnswer, selectedAnswer == option else {
+            return Color.secondary.opacity(0.08)
+        }
+        return option == correctAnswers[scenario] ? Color.green.opacity(0.16) : Color.orange.opacity(0.16)
     }
 }
 

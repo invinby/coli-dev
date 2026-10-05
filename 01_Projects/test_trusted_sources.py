@@ -57,6 +57,12 @@ def test_reference_policy_rejects_noncanonical_or_unapproved_urls(url: str) -> N
     assert TrustedSourceMonitor._canonical_url(url) is None
 
 
+def test_reference_policy_accepts_official_british_council_b1_b2_lesson() -> None:
+    url = "https://learnenglish.britishcouncil.org/free-resources/grammar/b1-b2/present-perfect-simple-continuous"
+
+    assert TrustedSourceMonitor._canonical_url(url) == url
+
+
 def test_reference_scan_reports_links_omitted_by_the_request_cap(tmp_path: Path) -> None:
     urls = [
         f"https://openstax.org/books/biology-2e/pages/chapter-{index}"
@@ -69,6 +75,65 @@ def test_reference_scan_reports_links_omitted_by_the_request_cap(tmp_path: Path)
     assert len(references) == 20
     assert omitted_count == 5
     assert unsupported_count == 0
+
+
+def test_inventory_exposes_only_approved_reference_metadata_and_saved_state(tmp_path: Path) -> None:
+    url = "https://openstax.org/books/biology-2e/pages/12-3-laws-of-inheritance"
+    _write_lesson(
+        tmp_path,
+        "---\nsubject: Physics\nsource_checked: 2026-10-02\n---\n"
+        f"[OpenStax inheritance]({url})\n[Other](https://example.test/page)\n",
+    )
+    monitor = _monitor(tmp_path, tmp_path)
+
+    unchecked = monitor.inventory()
+
+    assert unchecked["listed_count"] == 1
+    assert unchecked["unsupported_count"] == 1
+    assert unchecked["unchecked_count"] == 1
+    assert unchecked["needs_attention_count"] == 0
+    assert unchecked["sources"] == [{
+        "url": url,
+        "title": "OpenStax inheritance",
+        "lesson_path": "02_Areas/Physics/lessons/source_test.md",
+        "lesson_reviewed_on": "2026-10-02",
+        "state": "not_checked",
+        "last_checked_at": None,
+        "last_http_status": None,
+        "last_modified": None,
+        "has_etag": False,
+    }]
+
+    monitor._save_check(
+        monitor._references()[0][0],
+        etag='"version-1"',
+        last_modified="Mon, 05 Oct 2026 00:00:00 GMT",
+        checked_at="2026-10-05T01:00:00Z",
+        http_status=200,
+        state="changed",
+    )
+    checked = monitor.inventory()
+
+    assert checked["changed_count"] == 1
+    assert checked["needs_attention_count"] == 1
+    item = checked["sources"][0]
+    assert item["state"] == "changed"
+    assert item["last_http_status"] == 200
+    assert item["last_modified"] == "Mon, 05 Oct 2026 00:00:00 GMT"
+    assert item["has_etag"] is True
+    assert "etag" not in item
+
+
+def test_lesson_review_date_must_be_a_single_valid_front_matter_date() -> None:
+    reviewed = "---\nsource_checked: 2026-10-02\n---\nLesson body"
+    invalid = "---\nsource_checked: 2026-02-30\n---\nLesson body"
+    duplicate = "---\nsource_checked: 2026-10-02\nsource_checked: 2026-10-03\n---\nLesson body"
+    body_only = "Lesson body\nsource_checked: 2026-10-02"
+
+    assert TrustedSourceMonitor._lesson_reviewed_on(reviewed) == "2026-10-02"
+    assert TrustedSourceMonitor._lesson_reviewed_on(invalid) is None
+    assert TrustedSourceMonitor._lesson_reviewed_on(duplicate) is None
+    assert TrustedSourceMonitor._lesson_reviewed_on(body_only) is None
 
 
 def test_conditional_check_detects_unchanged_then_changed_versions(tmp_path: Path) -> None:

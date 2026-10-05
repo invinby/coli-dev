@@ -13,7 +13,7 @@ import re
 import sqlite3
 import threading
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
@@ -21,6 +21,7 @@ import httpx
 
 _URL_RE = re.compile(r"https?://[^\s<>)\]\"`]+", re.IGNORECASE)
 _MARKDOWN_LINK_RE = re.compile(r"\[([^\]]{1,200})\]\(\s*(https://[^)\s]+)\s*\)", re.IGNORECASE)
+_SOURCE_CHECKED_RE = re.compile(r"^source_checked:\s*(\d{4}-\d{2}-\d{2})\s*$", re.MULTILINE)
 _TRAILING_PUNCTUATION = ".,;:!?"
 _MAX_LESSON_FILES = 200
 _MAX_LESSON_FILE_BYTES = 256 * 1024
@@ -40,7 +41,7 @@ _ALLOWED_PATHS = {
     "animaldiversity.org": re.compile(r"^/accounts/[A-Za-z0-9_.-]+/?$"),
     "docs.python.org": re.compile(r"^/3/tutorial/[A-Za-z0-9_.-]+\.html$"),
     "learnenglish.britishcouncil.org": re.compile(
-        r"^/free-resources/grammar/english-grammar-reference/[A-Za-z0-9-]+/?$"
+        r"^/free-resources/grammar/(?:english-grammar-reference|b1-b2)/[A-Za-z0-9-]+/?$"
     ),
     "openstax.org": re.compile(r"^/books/[a-z0-9-]+/pages/[a-z0-9-]+/?$"),
 }
@@ -51,6 +52,7 @@ class SourceReference:
     url: str
     title: str
     lesson_path: str
+    lesson_reviewed_on: str | None
 
 
 class TrustedSourceMonitor:
@@ -104,6 +106,24 @@ class TrustedSourceMonitor:
                         return sorted(files)
         return sorted(files)
 
+    @staticmethod
+    def _lesson_reviewed_on(content: str) -> str | None:
+        """Read one valid source_checked date from the lesson's YAML front matter."""
+        lines = content.splitlines()
+        if not lines or lines[0].strip() != "---":
+            return None
+        try:
+            closing = lines.index("---", 1)
+        except ValueError:
+            return None
+        matches = _SOURCE_CHECKED_RE.findall("\n".join(lines[1:closing]))
+        if len(matches) != 1:
+            return None
+        try:
+            return date.fromisoformat(matches[0]).isoformat()
+        except ValueError:
+            return None
+
     def _references(self) -> tuple[list[SourceReference], int, int]:
         refs: dict[str, SourceReference] = {}
         unsupported_urls: set[str] = set()
@@ -116,6 +136,7 @@ class TrustedSourceMonitor:
                 continue
 
             relative_path = path.relative_to(self.project_root).as_posix()
+            lesson_reviewed_on = self._lesson_reviewed_on(content)
             for line in content.splitlines():
                 labels = {
                     self._canonical_url(match.group(2)): match.group(1).strip()
@@ -135,6 +156,7 @@ class TrustedSourceMonitor:
                             url=canonical,
                             title=labels.get(canonical, canonical.split("/", 3)[2]),
                             lesson_path=relative_path,
+                            lesson_reviewed_on=lesson_reviewed_on,
                         ),
                     )
         ordered_refs = [refs[url] for url in sorted(refs)]
@@ -157,6 +179,51 @@ class TrustedSourceMonitor:
             )"""
         )
         return connection
+
+    def inventory(self) -> dict[str, object]:
+        """Return the approved source registry and saved check metadata without network access."""
+        references, unsupported_count, omitted_count = self._references()
+        with self._db_lock, self._connect() as connection:
+            previous_checks = {
+                str(row["url"]): row
+                for row in connection.execute(
+                    "SELECT url, etag, last_modified, last_checked_at, last_http_status, state "
+                    "FROM trusted_source_checks"
+                ).fetchall()
+            }
+
+        items: list[dict[str, object]] = []
+        for reference in references:
+            previous = previous_checks.get(reference.url)
+            items.append({
+                "url": reference.url,
+                "title": reference.title[:_MAX_TITLE_LENGTH],
+                "lesson_path": reference.lesson_path,
+                "lesson_reviewed_on": reference.lesson_reviewed_on,
+                "state": str(previous["state"]) if previous is not None else "not_checked",
+                "last_checked_at": str(previous["last_checked_at"]) if previous is not None else None,
+                "last_http_status": int(previous["last_http_status"])
+                    if previous is not None and previous["last_http_status"] is not None else None,
+                "last_modified": str(previous["last_modified"])
+                    if previous is not None and previous["last_modified"] else None,
+                "has_etag": bool(previous["etag"]) if previous is not None else False,
+            })
+
+        states = [str(item["state"]) for item in items]
+        attention_states = {
+            "changed", "redirect_review", "unexpected_not_modified", "unavailable", "network_error"
+        }
+        return {
+            "status": "ok",
+            "supported_count": len(references) + omitted_count,
+            "listed_count": len(references),
+            "unchecked_count": states.count("not_checked"),
+            "changed_count": states.count("changed"),
+            "needs_attention_count": sum(state in attention_states for state in states),
+            "unsupported_count": unsupported_count,
+            "omitted_count": omitted_count,
+            "sources": items,
+        }
 
     def _previous_check(self, url: str) -> sqlite3.Row | None:
         with self._db_lock, self._connect() as connection:

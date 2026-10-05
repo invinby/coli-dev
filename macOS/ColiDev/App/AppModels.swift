@@ -674,6 +674,53 @@ struct TrustedSourceCheck: Decodable, Identifiable {
     }
 }
 
+struct TrustedSourceInventory: Decodable {
+    let status: String
+    let supportedCount: Int
+    let listedCount: Int
+    let uncheckedCount: Int
+    let changedCount: Int
+    let needsAttentionCount: Int
+    let unsupportedCount: Int
+    let omittedCount: Int
+    let sources: [TrustedSourceInventoryItem]
+
+    enum CodingKeys: String, CodingKey {
+        case status, sources
+        case supportedCount = "supported_count"
+        case listedCount = "listed_count"
+        case uncheckedCount = "unchecked_count"
+        case changedCount = "changed_count"
+        case needsAttentionCount = "needs_attention_count"
+        case unsupportedCount = "unsupported_count"
+        case omittedCount = "omitted_count"
+    }
+}
+
+struct TrustedSourceInventoryItem: Decodable, Identifiable {
+    let url: String
+    let title: String
+    let lessonPath: String
+    let lessonReviewedOn: String?
+    let state: String
+    let lastCheckedAt: String?
+    let lastHTTPStatus: Int?
+    let lastModified: String?
+    let hasETag: Bool
+
+    var id: String { url }
+
+    enum CodingKeys: String, CodingKey {
+        case url, title, state
+        case lessonPath = "lesson_path"
+        case lessonReviewedOn = "lesson_reviewed_on"
+        case lastCheckedAt = "last_checked_at"
+        case lastHTTPStatus = "last_http_status"
+        case lastModified = "last_modified"
+        case hasETag = "has_etag"
+    }
+}
+
 struct ProviderSecretStatus: Decodable, Identifiable {
     let provider: String
     let configured: Bool
@@ -851,6 +898,19 @@ enum OrchestratorClient {
             throw ClientError.unavailable
         }
         return try JSONDecoder().decode(TrustedSourceCheckResult.self, from: data)
+    }
+
+    static func trustedSourceInventory() async throws -> TrustedSourceInventory {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/knowledge/sources") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 8
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(TrustedSourceInventory.self, from: data)
     }
 
     static func studyProgress() async throws -> StudyProgressSnapshot {
@@ -1140,5 +1200,6 @@ enum AppSection: Hashable {
     case subject(Subject)
     case lesson(Subject)
     case courseLesson(Subject, String)
+    case management
     case settings
 }

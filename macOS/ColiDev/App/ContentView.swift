@@ -28,6 +28,10 @@ struct ContentView: View {
                 }
 
                 Section {
+                    Label { Text(L10n.text("nav.management", store.language)) } icon: {
+                        Image(systemName: "wrench.and.screwdriver")
+                    }
+                    .tag(AppSection.management)
                     Label { Text(L10n.text("nav.settings", store.language)) } icon: { Image(systemName: "gearshape") }
                         .tag(AppSection.settings)
                 }
@@ -56,6 +60,8 @@ struct ContentView: View {
                     }
                 case .courseLesson(let subject, let resource):
                     CurriculumModuleView(subject: subject, resource: resource)
+                case .management:
+                    ManagementView(openSettings: { selection = .settings })
                 case .settings:
                     SettingsView()
                 }
@@ -276,13 +282,6 @@ private struct SubjectCard: View {
 private struct SettingsView: View {
     @EnvironmentObject private var store: LearningStore
     @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
-    @State private var isRefreshingKnowledge = false
-    @State private var knowledgeRefreshMessage: String?
-    @State private var knowledgeRefreshFailed = false
-    @State private var isCheckingSourceReferences = false
-    @State private var sourceCheckMessage: String?
-    @State private var sourceCheckFailed = false
-    @State private var changedSourceTitles: [String] = []
 
     var body: some View {
         Form {
@@ -378,57 +377,6 @@ private struct SettingsView: View {
                         }
                     }
                 }
-                VStack(alignment: .leading, spacing: 6) {
-                    Button {
-                        Task { await refreshKnowledgeIndex() }
-                    } label: {
-                        if isRefreshingKnowledge {
-                            ProgressView().controlSize(.small)
-                            Text(L10n.text("settings.knowledgeRefreshing", store.language))
-                        } else {
-                            Label(
-                                L10n.text("settings.knowledgeRefresh", store.language),
-                                systemImage: "arrow.clockwise"
-                            )
-                        }
-                    }
-                    .disabled(isRefreshingKnowledge)
-                    Text(L10n.text("settings.knowledgeRefreshExplanation", store.language))
-                        .font(.caption).foregroundStyle(.secondary)
-                    if let knowledgeRefreshMessage {
-                        Text(knowledgeRefreshMessage)
-                            .font(.caption)
-                            .foregroundStyle(knowledgeRefreshFailed ? Color.orange : Color.secondary)
-                    }
-                }
-                VStack(alignment: .leading, spacing: 6) {
-                    Button {
-                        Task { await checkTrustedSourceReferences() }
-                    } label: {
-                        if isCheckingSourceReferences {
-                            ProgressView().controlSize(.small)
-                            Text(L10n.text("settings.sourceCheckRunning", store.language))
-                        } else {
-                            Label(
-                                L10n.text("settings.sourceCheck", store.language),
-                                systemImage: "checkmark.icloud"
-                            )
-                        }
-                    }
-                    .disabled(isCheckingSourceReferences)
-                    Text(L10n.text("settings.sourceCheckExplanation", store.language))
-                        .font(.caption).foregroundStyle(.secondary)
-                    if let sourceCheckMessage {
-                        Text(sourceCheckMessage)
-                            .font(.caption)
-                            .foregroundStyle(sourceCheckFailed ? Color.orange : Color.secondary)
-                    }
-                    ForEach(changedSourceTitles, id: \.self) { title in
-                        Label(title, systemImage: "arrow.triangle.2.circlepath")
-                            .font(.caption2)
-                            .foregroundStyle(.orange)
-                    }
-                }
                 VStack(alignment: .leading, spacing: 5) {
                     Text(L10n.text("settings.aiLaunch", store.language)).font(.caption.weight(.semibold))
                     Text(L10n.text(backendSupervisor.status.localizationKey, store.language))
@@ -437,88 +385,6 @@ private struct SettingsView: View {
                 }
             } header: {
                 Text(L10n.text("settings.aiTitle", store.language))
-            }
-            Section {
-                ProviderKeyEntryView(provider: "gemini", title: "Gemini")
-                ProviderKeyEntryView(provider: "kimi", title: "Kimi")
-                ProviderKeyEntryView(provider: "openrouter", title: "OpenRouter")
-                ProviderKeyEntryView(provider: "obsidian", title: "Obsidian Local REST API")
-            } header: {
-                Text(L10n.text("settings.keysTitle", store.language))
-            } footer: {
-                Text(L10n.text("settings.keysPrivacy", store.language))
-            }
-            Section {
-                HStack(alignment: .top, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 10) {
-                        if let usage = store.providerUsage {
-                            Text(String(
-                                format: L10n.text("settings.usageSummary", store.language),
-                                usage.totals.successfulResponses,
-                                usage.totals.totalTokens
-                            ))
-                            .font(.callout.weight(.medium))
-                            if usage.providers.isEmpty {
-                                Text(L10n.text("settings.usageNoCalls", store.language))
-                                    .font(.caption).foregroundStyle(.secondary)
-                            } else {
-                                ForEach(usage.providers) { provider in
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text("\(providerTitle(provider.provider)) · \(provider.model)")
-                                            .font(.caption.weight(.medium))
-                                            .lineLimit(2)
-                                            .truncationMode(.middle)
-                                            .textSelection(.enabled)
-                                        Text(String(
-                                            format: L10n.text("settings.usageProviderCounts", store.language),
-                                            provider.successfulResponses,
-                                            provider.responsesWithReportedUsage,
-                                            provider.totalTokens,
-                                            provider.inputTokens,
-                                            provider.outputTokens
-                                        ))
-                                        .font(.caption2).foregroundStyle(.secondary)
-                                    }
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                }
-                            }
-                        } else if store.providerUsageUnavailable {
-                            Label(
-                                L10n.text("settings.usageUnavailable", store.language),
-                                systemImage: "exclamationmark.triangle"
-                            )
-                            .font(.caption).foregroundStyle(.secondary)
-                        } else {
-                            Text(L10n.text("settings.usageLoading", store.language))
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
-                        Text(L10n.text("settings.usageCaveat", store.language))
-                            .font(.caption2).foregroundStyle(.tertiary)
-                        if store.providerUsageUnavailable && store.providerUsage != nil {
-                            Label(
-                                L10n.text("settings.usageUnavailable", store.language),
-                                systemImage: "exclamationmark.triangle"
-                            )
-                            .font(.caption2).foregroundStyle(.orange)
-                        }
-                    }
-                    Spacer(minLength: 0)
-                    Button {
-                        Task { await store.refreshProviderUsage() }
-                    } label: {
-                        if store.isRefreshingProviderUsage {
-                            ProgressView().controlSize(.small)
-                        } else {
-                            Image(systemName: "arrow.clockwise")
-                        }
-                    }
-                    .disabled(store.isRefreshingProviderUsage)
-                    .help(L10n.text("settings.usageRefresh", store.language))
-                    .accessibilityLabel(L10n.text("settings.usageRefresh", store.language))
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            } header: {
-                Text(L10n.text("settings.usageTitle", store.language))
             }
             Section {
                 Label { Text(L10n.text("settings.localBody", store.language)) } icon: { Image(systemName: "internaldrive") }
@@ -533,8 +399,6 @@ private struct SettingsView: View {
         .task {
             guard await backendSupervisor.ensureRunning() else { return }
             await store.refreshAIStatus()
-            await store.refreshProviderSecretStatuses()
-            await store.refreshProviderUsage()
         }
         .formStyle(.grouped)
         .padding(24)
@@ -552,73 +416,6 @@ private struct SettingsView: View {
         return L10n.text("settings.aiNoRoute", store.language)
     }
 
-    private func providerTitle(_ identifier: String) -> String {
-        switch identifier {
-        case "gemini": return "Gemini"
-        case "kimi": return "Kimi"
-        case "openrouter": return "OpenRouter"
-        case "ollama": return "Ollama"
-        default: return identifier
-        }
-    }
-
-    @MainActor
-    private func refreshKnowledgeIndex() async {
-        isRefreshingKnowledge = true
-        knowledgeRefreshMessage = nil
-        knowledgeRefreshFailed = false
-        defer { isRefreshingKnowledge = false }
-        guard await backendSupervisor.ensureRunning() else {
-            knowledgeRefreshFailed = true
-            knowledgeRefreshMessage = L10n.text("settings.knowledgeRefreshFailed", store.language)
-            return
-        }
-        do {
-            let result = try await OrchestratorClient.refreshKnowledgeIndex()
-            await store.refreshAIStatus()
-            knowledgeRefreshMessage = String(
-                format: L10n.text("settings.knowledgeRefreshDone", store.language),
-                result.documentCount
-            )
-        } catch {
-            knowledgeRefreshFailed = true
-            knowledgeRefreshMessage = L10n.text("settings.knowledgeRefreshFailed", store.language)
-        }
-    }
-
-    @MainActor
-    private func checkTrustedSourceReferences() async {
-        isCheckingSourceReferences = true
-        sourceCheckMessage = nil
-        sourceCheckFailed = false
-        changedSourceTitles = []
-        defer { isCheckingSourceReferences = false }
-        guard await backendSupervisor.ensureRunning() else {
-            sourceCheckFailed = true
-            sourceCheckMessage = L10n.text("settings.sourceCheckFailed", store.language)
-            return
-        }
-        do {
-            let result = try await OrchestratorClient.checkTrustedSourceReferences()
-            changedSourceTitles = result.checks
-                .filter { $0.state == "changed" }
-                .prefix(5)
-                .map { "\($0.title) · \($0.lessonPath)" }
-            sourceCheckMessage = String(
-                format: L10n.text("settings.sourceCheckDone", store.language),
-                result.checkedCount,
-                result.supportedCount,
-                result.changedCount,
-                result.needsAttentionCount,
-                result.availableUntrackedCount,
-                result.unsupportedCount,
-                result.omittedCount
-            )
-        } catch {
-            sourceCheckFailed = true
-            sourceCheckMessage = L10n.text("settings.sourceCheckFailed", store.language)
-        }
-    }
 }
 
 private struct ProviderKeyEntryView: View {
@@ -724,5 +521,603 @@ private struct ProviderKeyEntryView: View {
             feedback = L10n.text("settings.keyFailed", store.language)
             feedbackIsError = true
         }
+    }
+}
+
+private enum ManagementPane: String, CaseIterable, Identifiable {
+    case overview
+    case sources
+    case integrations
+
+    var id: String { rawValue }
+
+    var titleKey: String {
+        switch self {
+        case .overview: return "management.overview"
+        case .sources: return "management.sources"
+        case .integrations: return "management.integrations"
+        }
+    }
+}
+
+private struct ManagementView: View {
+    @EnvironmentObject private var store: LearningStore
+    @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
+    @State private var pane: ManagementPane = .overview
+    @State private var sourceInventory: TrustedSourceInventory?
+    @State private var isLoading = false
+    @State private var isRefreshingIndex = false
+    @State private var isCheckingSources = false
+    @State private var statusMessage: String?
+    @State private var statusIsError = false
+
+    let openSettings: () -> Void
+
+    private let metricColumns = [GridItem(.adaptive(minimum: 190), spacing: 12)]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(L10n.text("management.title", store.language))
+                        .font(.largeTitle.weight(.bold))
+                    Text(L10n.text("management.subtitle", store.language))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                Button {
+                    Task { await reload() }
+                } label: {
+                    if isLoading {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                }
+                .buttonStyle(.bordered)
+                .disabled(isLoading)
+                .help(L10n.text("management.reload", store.language))
+                .accessibilityLabel(L10n.text("management.reload", store.language))
+            }
+
+            Picker(L10n.text("management.title", store.language), selection: $pane) {
+                ForEach(ManagementPane.allCases) { section in
+                    Text(L10n.text(section.titleKey, store.language)).tag(section)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(maxWidth: 520)
+
+            if let statusMessage {
+                Label(statusMessage, systemImage: statusIsError ? "exclamationmark.triangle" : "checkmark.circle")
+                    .font(.callout)
+                    .foregroundStyle(statusIsError ? Color.orange : Color.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            switch pane {
+            case .overview:
+                overviewPane
+            case .sources:
+                sourcesPane
+            case .integrations:
+                integrationsPane
+            }
+        }
+        .padding(28)
+        .frame(maxWidth: 1120, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .navigationTitle(Text(L10n.text("management.title", store.language)))
+        .task { await reload() }
+    }
+
+    private var overviewPane: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                LazyVGrid(columns: metricColumns, alignment: .leading, spacing: 12) {
+                    metric(
+                        title: L10n.text("management.backend", store.language),
+                        value: backendSupervisor.isReady
+                            ? L10n.text("management.backendReady", store.language)
+                            : L10n.text("management.backendUnavailable", store.language),
+                        symbol: backendSupervisor.isReady ? "checkmark.circle.fill" : "exclamationmark.circle",
+                        tint: backendSupervisor.isReady ? .green : .orange
+                    )
+                    metric(
+                        title: L10n.text("management.indexedDocuments", store.language),
+                        value: store.aiHealth?.knowledgeDocumentCount.map { String($0) } ?? "—",
+                        symbol: "doc.text.magnifyingglass",
+                        tint: .accentColor
+                    )
+                    metric(
+                        title: L10n.text("management.sourcesTotal", store.language),
+                        value: sourceInventory.map { String($0.listedCount) } ?? "—",
+                        symbol: "link",
+                        tint: .accentColor
+                    )
+                    metric(
+                        title: L10n.text("management.sourcesAttention", store.language),
+                        value: sourceInventory.map { String($0.needsAttentionCount + $0.uncheckedCount) } ?? "—",
+                        symbol: "exclamationmark.bubble",
+                        tint: .orange
+                    )
+                    metric(
+                        title: L10n.text("management.reviewDue", store.language),
+                        value: store.aiHealth?.knowledgeReviewDueDocumentCount.map { String($0) } ?? "—",
+                        symbol: "calendar.badge.exclamationmark",
+                        tint: .orange
+                    )
+                    metric(
+                        title: L10n.text("management.reviewScheduleMissing", store.language),
+                        value: store.aiHealth?.knowledgeReviewScheduleMissingDocumentCount.map { String($0) } ?? "—",
+                        symbol: "calendar.badge.questionmark",
+                        tint: .secondary
+                    )
+                }
+
+                GroupBox(label: Text(L10n.text("management.systemStatus", store.language))) {
+                    VStack(spacing: 10) {
+                        statusRow(
+                            title: L10n.text("management.network", store.language),
+                            value: L10n.text(
+                                store.aiHealth?.online == true ? "management.networkOnline" : "management.networkOffline",
+                                store.language
+                            ),
+                            symbol: store.aiHealth?.online == true ? "network" : "wifi.slash"
+                        )
+                        statusRow(
+                            title: L10n.text("management.indexChecked", store.language),
+                            value: store.aiHealth?.displayKnowledgeIndexCheckedAt ?? "—",
+                            symbol: "clock"
+                        )
+                        statusRow(
+                            title: L10n.text("management.embedding", store.language),
+                            value: store.aiHealth?.ollamaEmbeddingModel
+                                ?? L10n.text("settings.aiSemanticKeyword", store.language),
+                            symbol: "point.3.connected.trianglepath.dotted"
+                        )
+                    }
+                    .padding(.top, 6)
+                }
+
+                HStack(spacing: 10) {
+                    Button {
+                        Task { await refreshIndex() }
+                    } label: {
+                        if isRefreshingIndex {
+                            ProgressView().controlSize(.small)
+                            Text(L10n.text("management.refreshIndexRunning", store.language))
+                        } else {
+                            Label(L10n.text("management.refreshIndex", store.language), systemImage: "arrow.clockwise")
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isRefreshingIndex || isCheckingSources)
+
+                    Button {
+                        Task { await checkSources() }
+                    } label: {
+                        if isCheckingSources {
+                            ProgressView().controlSize(.small)
+                            Text(L10n.text("management.checkSourcesRunning", store.language))
+                        } else {
+                            Label(L10n.text("management.checkSources", store.language), systemImage: "checkmark.icloud")
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isCheckingSources || isRefreshingIndex)
+                }
+
+                if let usage = store.providerUsage {
+                    GroupBox(label: Text(L10n.text("settings.usageTitle", store.language))) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(String(format: L10n.text("management.usageResponses", store.language), usage.totals.successfulResponses))
+                            Text(String(format: L10n.text("management.usageTokens", store.language), usage.totals.totalTokens))
+                                .foregroundStyle(.secondary)
+                            if usage.providers.isEmpty {
+                                Text(L10n.text("settings.usageNoCalls", store.language))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                ForEach(usage.providers) { provider in
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text("\(provider.provider) · \(provider.model)")
+                                            .font(.callout.weight(.medium))
+                                            .textSelection(.enabled)
+                                        Text(String(format: L10n.text("settings.usageProviderCounts", store.language),
+                                                    provider.successfulResponses,
+                                                    provider.responsesWithReportedUsage,
+                                                    provider.totalTokens,
+                                                    provider.inputTokens,
+                                                    provider.outputTokens))
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
+                                    .padding(.vertical, 3)
+                                }
+                            }
+                            Text(usage.note)
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 6)
+                    }
+                }
+            }
+            .padding(.bottom, 18)
+        }
+    }
+
+    private var sourcesPane: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(L10n.text("management.sourceExplanation", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 10) {
+                Button {
+                    Task { await checkSources() }
+                } label: {
+                    if isCheckingSources {
+                        ProgressView().controlSize(.small)
+                        Text(L10n.text("management.checkSourcesRunning", store.language))
+                    } else {
+                        Label(L10n.text("management.checkSources", store.language), systemImage: "checkmark.icloud")
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(isCheckingSources || isRefreshingIndex)
+
+                if let sourceInventory {
+                    Text("\(sourceInventory.listedCount) / \(sourceInventory.supportedCount)")
+                        .font(.callout.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if let sourceInventory {
+                if sourceInventory.sources.isEmpty {
+                    Label(L10n.text("management.noSources", store.language), systemImage: "link")
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List(sourceInventory.sources) { source in
+                        SourceRegistryRow(source: source, language: store.language)
+                    }
+                    .listStyle(.inset)
+                    .frame(minHeight: 320)
+                }
+                if sourceInventory.unsupportedCount > 0 || sourceInventory.omittedCount > 0 {
+                    Text(String(format: L10n.text("management.sourceOmissions", store.language), sourceInventory.unsupportedCount, sourceInventory.omittedCount))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } else if isLoading {
+                ProgressView(L10n.text("management.loading", store.language))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                Label(L10n.text("management.loadFailed", store.language), systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var integrationsPane: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                GroupBox(label: Text(L10n.text("management.providers", store.language))) {
+                    VStack(spacing: 10) {
+                        integrationRow(
+                            title: "Gemini",
+                            symbol: "sparkles",
+                            detail: keyStatus("gemini"),
+                            ready: store.providerSecretStatuses["gemini"]?.configured == true
+                        )
+                        integrationRow(
+                            title: "Kimi",
+                            symbol: "brain.head.profile",
+                            detail: keyStatus("kimi"),
+                            ready: store.providerSecretStatuses["kimi"]?.configured == true
+                        )
+                        integrationRow(
+                            title: "OpenRouter",
+                            symbol: "point.3.connected.trianglepath.dotted",
+                            detail: store.aiHealth?.openRouterModel ?? keyStatus("openrouter"),
+                            ready: store.providerSecretStatuses["openrouter"]?.configured == true
+                        )
+                        integrationRow(
+                            title: "Ollama",
+                            symbol: "desktopcomputer",
+                            detail: store.aiHealth?.ollamaModel ?? L10n.text("management.serviceUnavailable", store.language),
+                            ready: store.aiHealth?.hasLocalModel == true
+                        )
+                        integrationRow(
+                            title: "Obsidian",
+                            symbol: "externaldrive",
+                            detail: store.aiHealth?.isObsidianEndpointLocal == true
+                                ? keyStatus("obsidian")
+                                : L10n.text("management.serviceUnavailable", store.language),
+                            ready: store.aiHealth?.isObsidianEndpointLocal == true
+                                && store.providerSecretStatuses["obsidian"]?.configured == true
+                        )
+                        integrationRow(
+                            title: "NotebookLM",
+                            symbol: "doc.on.doc",
+                            detail: L10n.text("management.notebookManual", store.language),
+                            ready: nil
+                        )
+                    }
+                    .padding(.top, 6)
+                }
+
+                GroupBox(label: Text(L10n.text("settings.keysTitle", store.language))) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        ProviderKeyEntryView(provider: "gemini", title: "Gemini")
+                        ProviderKeyEntryView(provider: "kimi", title: "Kimi")
+                        ProviderKeyEntryView(provider: "openrouter", title: "OpenRouter")
+                        ProviderKeyEntryView(provider: "obsidian", title: "Obsidian Local REST API")
+                        Text(L10n.text("settings.keysPrivacy", store.language))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.top, 6)
+                }
+
+                GroupBox(label: Text(L10n.text("management.agents", store.language))) {
+                    VStack(alignment: .leading, spacing: 7) {
+                        Text(L10n.text("management.agentStatus", store.language))
+                            .font(.callout)
+                        Text(L10n.text("management.agentCaveat", store.language))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 6)
+                }
+
+                Button(L10n.text("management.openSettings", store.language), action: openSettings)
+                    .buttonStyle(.bordered)
+            }
+            .padding(.bottom, 18)
+        }
+    }
+
+    private func metric(title: String, value: String, symbol: String, tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(title, systemImage: symbol)
+                .font(.callout.weight(.medium))
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.title2.weight(.semibold).monospacedDigit())
+                .foregroundStyle(tint)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 88, alignment: .leading)
+        .background(Color.secondary.opacity(0.055), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func statusRow(title: String, value: String, symbol: String) -> some View {
+        HStack(spacing: 9) {
+            Image(systemName: symbol)
+                .foregroundStyle(.secondary)
+                .frame(width: 20)
+            Text(title)
+            Spacer(minLength: 12)
+            Text(value)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.trailing)
+                .textSelection(.enabled)
+        }
+        .font(.callout)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func integrationRow(title: String, symbol: String, detail: String, ready: Bool?) -> some View {
+        HStack(spacing: 10) {
+            Label(title, systemImage: symbol)
+            Spacer(minLength: 10)
+            Text(detail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.trailing)
+                .lineLimit(2)
+            if let ready {
+                Image(systemName: ready ? "checkmark.circle.fill" : "minus.circle")
+                    .foregroundStyle(ready ? Color.green : Color.secondary)
+                    .accessibilityLabel(L10n.text(ready ? "management.serviceReady" : "management.serviceUnavailable", store.language))
+            }
+        }
+        .font(.callout)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func keyStatus(_ provider: String) -> String {
+        guard let status = store.providerSecretStatuses[provider] else {
+            return L10n.text("management.notConfigured", store.language)
+        }
+        switch status.source {
+        case "keychain": return L10n.text("settings.keyStatusKeychain", store.language)
+        case "environment": return L10n.text("settings.keyStatusEnvironment", store.language)
+        case "missing": return L10n.text("management.notConfigured", store.language)
+        default: return L10n.text("management.serviceUnavailable", store.language)
+        }
+    }
+
+    @MainActor
+    private func reload() async {
+        isLoading = true
+        defer { isLoading = false }
+        guard await backendSupervisor.ensureRunning() else {
+            statusMessage = L10n.text("management.loadFailed", store.language)
+            statusIsError = true
+            return
+        }
+        await store.refreshAIStatus()
+        await store.refreshProviderSecretStatuses()
+        await store.refreshProviderUsage()
+        do {
+            sourceInventory = try await OrchestratorClient.trustedSourceInventory()
+            statusMessage = nil
+            statusIsError = false
+        } catch {
+            sourceInventory = nil
+            statusMessage = L10n.text("management.loadFailed", store.language)
+            statusIsError = true
+        }
+    }
+
+    @MainActor
+    private func refreshIndex() async {
+        isRefreshingIndex = true
+        defer { isRefreshingIndex = false }
+        guard await backendSupervisor.ensureRunning() else {
+            reportError("management.refreshIndexFailed")
+            return
+        }
+        do {
+            let result = try await OrchestratorClient.refreshKnowledgeIndex()
+            await store.refreshAIStatus()
+            statusMessage = String(format: L10n.text("management.refreshIndexDone", store.language), result.documentCount)
+            statusIsError = false
+        } catch {
+            reportError("management.refreshIndexFailed")
+        }
+    }
+
+    @MainActor
+    private func checkSources() async {
+        isCheckingSources = true
+        defer { isCheckingSources = false }
+        guard await backendSupervisor.ensureRunning() else {
+            reportError("management.checkSourcesFailed")
+            return
+        }
+        do {
+            let result = try await OrchestratorClient.checkTrustedSourceReferences()
+            sourceInventory = try await OrchestratorClient.trustedSourceInventory()
+            statusMessage = String(
+                format: L10n.text("management.checkSourcesDone", store.language),
+                result.checkedCount,
+                result.changedCount,
+                result.needsAttentionCount
+            )
+            statusIsError = result.needsAttentionCount > 0
+        } catch {
+            reportError("management.checkSourcesFailed")
+        }
+    }
+
+    @MainActor
+    private func reportError(_ key: String) {
+        statusMessage = L10n.text(key, store.language)
+        statusIsError = true
+    }
+}
+
+private struct SourceRegistryRow: View {
+    let source: TrustedSourceInventoryItem
+    let language: AppLanguage
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(source.title)
+                        .font(.headline)
+                        .lineLimit(2)
+                    Text(source.lessonPath)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                Spacer(minLength: 8)
+                Label(L10n.text(statusKey, language), systemImage: statusSymbol)
+                    .font(.caption)
+                    .foregroundStyle(statusTint)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let url = URL(string: source.url) {
+                    Link(destination: url) {
+                        Image(systemName: "arrow.up.right.square")
+                    }
+                    .buttonStyle(.plain)
+                    .help(source.url)
+                    .accessibilityLabel(source.title)
+                }
+            }
+            Text(source.url)
+                .font(.caption2.monospaced())
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .textSelection(.enabled)
+
+            HStack(spacing: 12) {
+                Text("\(L10n.text("management.lessonReviewed", language)): \(source.lessonReviewedOn ?? L10n.text("management.unknownDate", language))")
+                if let lastCheckedAt = source.lastCheckedAt {
+                    Text("\(L10n.text("management.sourceChecked", language)): \(formatISODate(lastCheckedAt))")
+                }
+                if let lastModified = source.lastModified {
+                    Text("\(L10n.text("management.sourceModified", language)): \(lastModified)")
+                }
+                if let lastHTTPStatus = source.lastHTTPStatus {
+                    Text("HTTP \(lastHTTPStatus)")
+                }
+                if source.hasETag {
+                    Text("ETag")
+                }
+            }
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
+            .textSelection(.enabled)
+        }
+        .padding(.vertical, 5)
+        .accessibilityElement(children: .contain)
+    }
+
+    private var statusKey: String {
+        switch source.state {
+        case "not_checked": return "management.sourceNotChecked"
+        case "available_untracked": return "management.sourceAvailable"
+        case "unchanged": return "management.sourceUnchanged"
+        case "changed": return "management.sourceChanged"
+        case "redirect_review": return "management.sourceRedirect"
+        case "unexpected_not_modified": return "management.sourceUnexpected304"
+        case "unavailable": return "management.sourceUnavailable"
+        case "network_error": return "management.sourceNetworkError"
+        default: return "management.sourceUnknown"
+        }
+    }
+
+    private var statusSymbol: String {
+        switch source.state {
+        case "changed", "redirect_review", "unexpected_not_modified", "unavailable", "network_error":
+            return "exclamationmark.triangle.fill"
+        case "unchanged": return "checkmark.circle"
+        case "available_untracked": return "questionmark.circle"
+        default: return "clock"
+        }
+    }
+
+    private var statusTint: Color {
+        switch source.state {
+        case "changed", "redirect_review", "unexpected_not_modified", "unavailable", "network_error": return .orange
+        default: return .secondary
+        }
+    }
+
+    private func formatISODate(_ value: String) -> String {
+        guard let date = ISO8601DateFormatter().date(from: value) else { return value }
+        return DateFormatter.localizedString(from: date, dateStyle: .short, timeStyle: .short)
     }
 }
