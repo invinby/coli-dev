@@ -188,7 +188,6 @@ class TestFullStreamingPipeline:
         pro_answer = "def sort_list(lst):\n    return sorted(lst)"
         kimi_answer = "Оба черновика верны. Используйте sorted()."
         qwen_context = "Актуальные практики сортировки в Python."
-        consensus = "def sort_list(lst):\n    return sorted(lst)\n\n# Оптимальное решение"
 
         flash_call_count = 0
 
@@ -199,14 +198,14 @@ class TestFullStreamingPipeline:
             if "generativelanguage.googleapis.com" in url:
                 if "gemini-3-flash-preview" in url:
                     flash_call_count += 1
-                    return _make_gemini_response(flash_answer if flash_call_count == 1 else consensus)
+                    return _make_gemini_response(flash_answer)
                 if "gemini-3.1-pro-preview" in url:
                     return _make_gemini_response(pro_answer)
             if "api.moonshot.cn" in url:
                 return _make_kimi_response(kimi_answer)
 
             # Ollama
-            if "localhost:11434" in url:
+            if "11434" in url:
                 return _make_ollama_response(qwen_context)
 
             # DuckDuckGo
@@ -234,10 +233,9 @@ class TestFullStreamingPipeline:
         # Проверяем агентов в логе
         agents = [e["agent"] for e in log._entries]
         assert "gemini-flash" in agents
-        assert "judge" in agents
         assert "freebuff" in agents
         assert "qwen" in agents
-        assert "consensus" in agents
+        assert "gemini-pro" in agents
 
     def test_full_pipeline_local_mode(self, client_offline):
         """Полный пайплайн: оффлайн → run_local → SSE-события."""
@@ -467,12 +465,11 @@ class TestDebateLogPipeline:
         """debate_log event содержит HTML с именами агентов."""
         log = DebateLog()
         log.add("cloud-code", "gemini-flash", "Flash draft", 100)
-        log.add("cloud-code", "judge", "Pro verdict", 120)
         log.add("cloud-code", "kimi", "Kimi draft", 80)
         log.add("cloud-code", "ollama-gen", "Local draft", 80)
         log.add("consilium", "freebuff", "Code review", 60)
         log.add("consilium", "qwen", "Research context", 40)
-        log.add("consilium", "consensus", "Final answer", 20)
+        log.add("consilium", "gemini-pro", "Final answer", 20)
 
         mock_engine = MagicMock()
         mock_engine.run = AsyncMock(return_value=("Answer text", log))
@@ -488,16 +485,15 @@ class TestDebateLogPipeline:
         # Уровень 1
         assert "УРОВЕНЬ 1" in html
         assert "Gemini Flash (черновик)" in html
-        assert "Gemini Pro (судья)" in html
         assert "Kimi (черновик)" in html
         assert "Ollama (локальный черновик)" in html
         # Уровень 2
         assert "УРОВЕНЬ 2" in html
         assert "Ollama (критический разбор)" in html
         assert "Ollama (проверка результата)" in html
-        assert "Финальный ответ" in html
+        assert "Gemini Pro (финальный синтез)" in html
         # Сводка
-        assert "Всего агентов: 7" in html
+        assert "Всего агентов: 6" in html
 
     def test_empty_debate_log(self, client_online):
         """Пустой DebateLog → пустой HTML в SSE."""
@@ -592,7 +588,7 @@ class TestConsiliumEngineFullCycle:
                     raise httpx.ConnectError("Pro unavailable")
             if "api.moonshot.cn" in url:
                 return _make_kimi_response("Kimi draft")
-            if "localhost:11434" in url:
+            if "11434" in url:
                 return _make_ollama_response("Qwen context")
             if "duckduckgo" in url:
                 return MagicMock(status_code=200, text="")
@@ -605,9 +601,9 @@ class TestConsiliumEngineFullCycle:
         answer, log = asyncio.run(engine.run(TEST_MSG, SYSTEM_PROMPT))
 
         assert isinstance(answer, str)
-        # Лог должен содержать ошибку для Pro
-        pro_entries = [e for e in log._entries if e["agent"] == "judge"]
-        assert any("Ошибка" in e["content"] for e in pro_entries)
+        # A failed final Pro synthesis must fall back to the local model.
+        assert engine.completion_provider == "local-fallback"
+        assert engine.completion_model == orchestrator.OLLAMA_MODEL_RESEARCHER
 
     def test_engine_local_mode_with_ollama_error(self):
         """run_local: Ollama недоступен → возвращает ошибку."""

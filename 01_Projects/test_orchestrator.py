@@ -460,19 +460,28 @@ def test_cloud_code_surfaces_provider_reported_openrouter_model(monkeypatch):
     http_client = MagicMock(spec=httpx.AsyncClient)
     http_client.post = AsyncMock(return_value=response)
     engine = orchestrator.ConsiliumEngine(http_client)
-    engine._ask_gemini = AsyncMock(side_effect=["Flash draft", "Judge draft"])
+    engine._ask_gemini = AsyncMock(side_effect=["Flash draft", "Final answer"])
     engine._ask_ollama = AsyncMock(return_value="Local draft")
 
-    asyncio.run(engine._run_cloud_code("Question", "Instructions"))
+    async def run_pipeline():
+        draft_bundle = await engine._run_cloud_code("Question", "Instructions")
+        return await engine._run_consilium("Question", "Instructions", draft_bundle)
 
-    assert engine.completion_model == "multi-agent · OpenRouter: provider/specialist-free-v2"
+    asyncio.run(run_pipeline())
+
+    assert engine.completion_model == (
+        "Gemini Pro final: gemini-3.1-pro-preview · OpenRouter: provider/specialist-free-v2"
+    )
+    assert engine._ask_gemini.await_count == 2
+    assert engine._ask_gemini.await_args_list[0].args[2] == orchestrator.GEMINI_FLASH_URL
+    assert engine._ask_gemini.await_args_list[1].args[2] == orchestrator.GEMINI_PRO_URL
 
 
 @pytest.mark.parametrize(
     ("language", "expected_phrase"),
     [
         ("en", "subject-neutral learning critic"),
-        ("ru", "предметный критик учебного ответа"),
+        ("ru", "предметный критик учебных черновиков"),
     ],
 )
 def test_auto_consilium_prompts_are_learning_focused_for_both_languages(language, expected_phrase):
@@ -480,7 +489,7 @@ def test_auto_consilium_prompts_are_learning_focused_for_both_languages(language
         MagicMock(spec=httpx.AsyncClient),
         language=language,
     )
-    engine._ask_gemini = AsyncMock(side_effect=["Flash draft", "Judge draft", "Final answer"])
+    engine._ask_gemini = AsyncMock(side_effect=["Flash draft", "Final answer"])
     engine._ask_cloud_specialist = AsyncMock(return_value=("Specialist draft", "kimi"))
     engine._ask_ollama = AsyncMock(
         side_effect=["Local draft", "Critical notes", "Verification notes"]
@@ -488,24 +497,29 @@ def test_auto_consilium_prompts_are_learning_focused_for_both_languages(language
     engine._save_to_obsidian = AsyncMock()
 
     async def run_both_levels():
-        cloud_position = await engine._run_cloud_code(
+        draft_bundle = await engine._run_cloud_code(
             "Explain photosynthesis", "Subject: biology; explain the light-dependent reactions."
         )
-        await engine._run_consilium("Explain photosynthesis", "Biology lesson context", cloud_position)
+        await engine._run_consilium("Explain photosynthesis", "Biology lesson context", draft_bundle)
 
     asyncio.run(run_both_levels())
 
-    judge_prompt = engine._ask_gemini.await_args_list[1].args[0]
     critic_prompt = engine._ask_ollama.await_args_list[1].args[0]
     verifier_prompt = engine._ask_ollama.await_args_list[2].args[0]
-    consensus_prompt = engine._ask_gemini.await_args_list[2].args[0]
-    for prompt in (judge_prompt, critic_prompt, verifier_prompt, consensus_prompt):
+    consensus_prompt = engine._ask_gemini.await_args_list[1].args[0]
+    for prompt in (critic_prompt, verifier_prompt, consensus_prompt):
         assert "PEP 8" not in prompt
         assert "FastAPI/httpx" not in prompt
         assert "Python 3.11+" not in prompt
     assert expected_phrase in (critic_prompt if language == "en" else critic_prompt.lower())
-    assert "photosynthesis" in judge_prompt
     assert "photosynthesis" in consensus_prompt
+    if language == "en":
+        assert "candidate drafts" in consensus_prompt.lower()
+    else:
+        assert "черновики" in consensus_prompt.lower()
+    assert engine._ask_gemini.await_args_list[1].args[2] == orchestrator.GEMINI_PRO_URL
+    assert engine._ask_gemini.await_args_list[1].args[3] == "gemini-pro"
+    assert engine.completion_model == "Gemini Pro final: gemini-3.1-pro-preview"
 
 
 def test_cloud_specialist_falls_back_to_openrouter_when_kimi_fails(monkeypatch):
@@ -1256,7 +1270,7 @@ class TestConsiliumEngine:
         assert isinstance(log, DebateLog)
         assert answer == FAKE_ANSWER
         agents = {entry["agent"] for entry in log._entries}
-        assert {"gemini-flash", "judge", "kimi", "ollama-gen", "freebuff", "qwen", "consensus"} <= agents
+        assert {"gemini-flash", "kimi", "ollama-gen", "freebuff", "qwen", "gemini-pro"} <= agents
 
     def test_engine_run_local_returns_tuple(self):
         """run_local возвращает (answer, log) кортеж."""

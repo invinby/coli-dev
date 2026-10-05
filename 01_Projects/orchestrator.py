@@ -4,16 +4,15 @@ coli-dev Orchestrator  v4.0 — Коворкинг
 ────────────────────────────────────────────────────────
 Архитектура дебатов v4.0:
 
-  УРОВЕНЬ 1: облачные и локальный черновики → судья Gemini Pro
+  УРОВЕНЬ 1: Gemini Flash, Kimi/OpenRouter и Ollama готовят черновики
     ├─ Gemini Flash API        → черновик
     ├─ Moonshot/Kimi API       → черновик
     ├─ Ollama                  → локальный черновик
-    └─ Gemini Pro API          → общая позиция
 
-  УРОВЕНЬ 2: локальная проверка через Ollama + финальный синтез Gemini
+  УРОВЕНЬ 2: локальная проверка Ollama + финальный синтез Gemini Pro
     ├─ Freebuff prompt         → критический разбор
     ├─ Qwen prompt             → проверка результата
-    └─ Gemini Flash API        → итоговый ответ
+    └─ Gemini 3.1 Pro API      → итоговый ответ
 
   ВЫХОД: Obsidian Vault (HTTP, Bearer auth)
 
@@ -204,8 +203,10 @@ OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openrouter/free").strip() or "
 
 # Google → Gemini (напрямую)
 GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_FLASH_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent"
-GEMINI_PRO_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent"
+GEMINI_FLASH_MODEL = "gemini-3-flash-preview"
+GEMINI_PRO_MODEL = "gemini-3.1-pro-preview"
+GEMINI_FLASH_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_FLASH_MODEL}:generateContent"
+GEMINI_PRO_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_PRO_MODEL}:generateContent"
 
 # Ollama (локально)
 OLLAMA_BASE = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
@@ -772,8 +773,8 @@ class DebateLog:
     def _agent_label(agent: str) -> str:
         labels = {
             "gemini-flash": "Gemini Flash (черновик)",
-            "gemini-pro": "Gemini Pro",
-            "judge": "Gemini Pro (судья)",
+            "gemini-pro": "Gemini Pro (финальный синтез)",
+            "judge": "Gemini Pro (судья)",  # Legacy label for older stored debate logs.
             "cloud-code": "Общая облачная позиция",
             "ollama-gen": "Ollama (локальный черновик)",
             "freebuff": "Ollama (критический разбор)",
@@ -866,10 +867,10 @@ class ConsiliumEngine:
 
         try:
             # ─── УРОВЕНЬ 1: Cloud Code ───────────────────
-            cloud_position = await self._run_cloud_code(message, system_prompt)
+            draft_bundle = await self._run_cloud_code(message, system_prompt)
 
             # ─── УРОВЕНЬ 2: Общий Консилиум ──────────────
-            final_answer = await self._run_consilium(message, system_prompt, cloud_position)
+            final_answer = await self._run_consilium(message, system_prompt, draft_bundle)
 
         except Exception as exc:
             logger.error("Consilium failed", extra={"error": str(exc)[:200]}, exc_info=True)
@@ -917,13 +918,13 @@ class ConsiliumEngine:
             "[OpenRouter:", "[Google Search:",
         ))
 
-    # ─── УРОВЕНЬ 1: Генераторы + Верховный Судья (Kimi K3) ──
+    # ─── УРОВЕНЬ 1: Независимые черновики ────────────────
 
     async def _run_cloud_code(self, message: str, system_prompt: str) -> str:
-        """Параллельный опрос 3 генераторов + судейство Gemini Pro.
+        """Собрать независимые черновики Gemini Flash, Kimi/OpenRouter и Ollama.
 
         Returns:
-            Единая облачная позиция (cloud position).
+            Подписанная подборка пригодных черновиков для критики и синтеза.
         """
         logger.info("Level 1: Cloud Code — requesting Gemini Flash + Kimi/OpenRouter + Ollama")
 
@@ -952,174 +953,146 @@ class ConsiliumEngine:
             specialist_draft = f"[Ошибка: {specialist_result}]"
         ollama_draft = ollama_result if isinstance(ollama_result, str) else f"[Ошибка: {ollama_result}]"
 
-        # Если все три вернули ошибки
-        if all(self._is_provider_error(d) for d in [flash_draft, specialist_draft, ollama_draft]):
+        drafts = (
+            ("Gemini Flash", flash_draft),
+            (DebateLog._agent_label(specialist_agent), specialist_draft),
+            ("Local Ollama", ollama_draft),
+        )
+        usable_drafts = [
+            (label, draft.strip())
+            for label, draft in drafts
+            if isinstance(draft, str) and draft.strip() and not self._is_provider_error(draft)
+        ]
+
+        if not usable_drafts:
             logger.warning("All generators unavailable → ConsiliumCloudError")
             raise ConsiliumCloudError(
                 "Все генераторы недоступны. Проверьте GEMINI_API_KEY, KIMI_API_KEY/OPENROUTER_API_KEY и Ollama"
             )
 
-        # 2. Gemini Pro evaluates subject learning content, not software architecture by default.
-        if self.language == "en":
-            judge_instructions = (
-                "You are ColiDev's lead learning specialist and final judge. Compare these independent "
-                "draft answers to the learner's actual question in the course context. Assess domain "
-                "correctness, sound reasoning, fit to the learner's level, clarity, useful examples, "
-                "and honest treatment of limitations or uncertainty. Do not assume every question is "
-                "about software; review syntax, security, or performance only when code is actually "
-                "part of the question. Reject unsupported claims, preserve valid [K#] source markers, "
-                "and form one evidence-conscious position for the final tutor answer."
-            )
-            question_label = "Learner question"
-            draft_labels = (
-                "Gemini Flash draft",
-                f"{DebateLog._agent_label(specialist_agent)} draft",
-                "Local Ollama draft",
-            )
-            verdict_label = "Judging notes"
-        else:
-            judge_instructions = (
-                "Ты — главный методист и судья учебного тьютора ColiDev. Сравни независимые черновики "
-                "ответа на реальный вопрос ученика с учётом контекста курса. Оцени точность в предметной "
-                "области, правильность рассуждений, соответствие уровню ученика, ясность, полезные примеры, "
-                "а также честное описание ограничений и неопределённости. Не считай каждый вопрос задачей "
-                "по программированию: проверяй синтаксис, безопасность или производительность только когда "
-                "в вопросе действительно есть код. Отклоняй неподтверждённые утверждения, сохраняй уместные "
-                "маркеры источников [K#] и составь одну обоснованную позицию для итогового ответа тьютора."
-            )
-            question_label = "Вопрос ученика"
-            draft_labels = (
-                "Черновик Gemini Flash",
-                f"Черновик {DebateLog._agent_label(specialist_agent)}",
-                "Черновик локальной Ollama",
-            )
-            verdict_label = "Заметки судьи"
-        judge_prompt = (
-            f"{judge_instructions}\n\n"
-            f"{question_label}: {message}\n\n"
-            f"{draft_labels[0]}:\n{flash_draft}\n\n"
-            f"{draft_labels[1]}:\n{specialist_draft}\n\n"
-            f"{draft_labels[2]}:\n{ollama_draft}\n\n"
-            f"{verdict_label} ({self.output_language}):"
-        )
-
-        t1 = datetime.now(timezone.utc)
-        cloud_position = await self._ask_gemini(judge_prompt, self.agent_system(system_prompt),
-                                                GEMINI_PRO_URL, "judge")
-        judge_duration = int((datetime.now(timezone.utc) - t1).total_seconds() * 1000)
-        self.log.add("cloud-code", "judge", cloud_position[:400], judge_duration)
-        if self._is_provider_error(cloud_position):
-            raise ConsiliumCloudError("Gemini judge did not return a usable response")
-
+        draft_bundle = "\n\n".join(f"{label} draft:\n{draft}" for label, draft in usable_drafts)
         self.log.add("cloud-code", "gemini-flash",
-                     flash_draft[:400], int((t1 - t0).total_seconds() * 1000))
+                     flash_draft[:400], int((datetime.now(timezone.utc) - t0).total_seconds() * 1000))
         self.log.add("cloud-code", specialist_agent,
-                     specialist_draft[:400], int((t1 - t0).total_seconds() * 1000))
+                     specialist_draft[:400], int((datetime.now(timezone.utc) - t0).total_seconds() * 1000))
         self.log.add("cloud-code", "ollama-gen",
-                     ollama_draft[:400], int((t1 - t0).total_seconds() * 1000))
-        if self.specialist_model_label:
-            self.completion_model = f"multi-agent · {self.specialist_model_label}"
-        logger.info("Cloud Code complete", extra={
+                     ollama_draft[:400], int((datetime.now(timezone.utc) - t0).total_seconds() * 1000))
+        logger.info("Cloud drafts complete", extra={
             "flash_len": len(flash_draft), "specialist_len": len(specialist_draft),
             "specialist_provider": specialist_agent,
-            "ollama_len": len(ollama_draft), "judge_len": len(cloud_position),
+            "ollama_len": len(ollama_draft), "usable_draft_count": len(usable_drafts),
         })
 
-        return cloud_position
+        return draft_bundle
 
-    # ─── УРОВЕНЬ 2: Локальный Критик ────────────────────
+    # ─── УРОВЕНЬ 2: Локальная проверка + Pro-синтез ──────
 
     async def _run_consilium(self, message: str, system_prompt: str,
-                              cloud_position: str) -> str:
-        """Freebuff (Ollama) + Qwen 2.5 Coder → валидация + финальный ответ."""
-        logger.info("Level 2: Local Critic — Freebuff + Qwen 2.5 Coder verifying")
+                              draft_bundle: str) -> str:
+        """Проверить черновики локально и поручить единый ответ Gemini Pro."""
+        logger.info("Level 2: Local review and Gemini Pro final synthesis")
 
         # 1. Local critic checks the subject content, not only source-code style.
         t0 = datetime.now(timezone.utc)
         if self.language == "en":
             freebuff_prompt = (
-                "Act as a careful, subject-neutral learning critic. Review the main position for "
+                "Act as a careful, subject-neutral learning critic. Review the candidate drafts for "
                 "factual and reasoning errors, fit to the question and lesson, unsupported assumptions, "
                 "learner-level clarity, useful mechanisms/examples, and relevant limitations or safety "
                 "concerns. Check code syntax, security, or performance only if code is present. Flag "
                 "actionable issues; distinguish a confirmed error from uncertainty.\n\n"
-                f"Learner question: {message}\n\nMain position:\n{cloud_position}\n\n"
+                f"Learner question: {message}\n\nCandidate drafts:\n{draft_bundle}\n\n"
                 f"Critical review in {self.output_language}:"
             )
         else:
             freebuff_prompt = (
-                "Действуй как внимательный предметный критик учебного ответа. Проверь точность фактов и "
+                "Действуй как внимательный предметный критик учебных черновиков. Проверь точность фактов и "
                 "рассуждений, соответствие вопросу и уроку, неподтверждённые допущения, ясность для уровня "
                 "ученика, полезность объяснения/примеров, существенные ограничения и безопасность. Проверяй "
                 "синтаксис, безопасность и скорость кода только если код действительно есть. Отмечай конкретные "
                 "исправимые проблемы и отличай доказанную ошибку от неопределённости.\n\n"
-                f"Вопрос ученика: {message}\n\nОсновная позиция:\n{cloud_position}\n\n"
+                f"Вопрос ученика: {message}\n\nЧерновики:\n{draft_bundle}\n\n"
                 f"Критический разбор на языке {self.output_language}:"
             )
         freebuff_review = await self._ask_ollama(freebuff_prompt, self.agent_system(system_prompt), "freebuff")
+        if not isinstance(freebuff_review, str) or not freebuff_review.strip() or self._is_provider_error(freebuff_review):
+            freebuff_review = (
+                "Local critic unavailable." if self.language == "en" else "Локальная критическая проверка недоступна."
+            )
         fb_duration = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
 
         # 2. Local verifier independently checks claims and reasoning.
         t1 = datetime.now(timezone.utc)
         if self.language == "en":
             qwen_verify_prompt = (
-                "Independently verify the key factual claims and reasoning in the main position using "
+                "Independently verify the key factual claims and reasoning in the candidate drafts using "
                 "the learner's question and course context. If code is present, check relevant syntax "
                 "and logic; otherwise apply checks appropriate to the subject. Do not rubber-stamp the "
                 "answer. State a specific supported issue or say that no clear issue was found, and mark "
                 "uncertainty honestly.\n\n"
-                f"Learner question: {message}\n\nMain position:\n{cloud_position[:4000]}\n\n"
+                f"Learner question: {message}\n\nCandidate drafts:\n{draft_bundle[:6000]}\n\n"
                 f"Verification in {self.output_language} (2-4 sentences):"
             )
         else:
             qwen_verify_prompt = (
-                "Независимо проверь ключевые факты и рассуждения в основной позиции, учитывая вопрос ученика "
+                "Независимо проверь ключевые факты и рассуждения в черновиках, учитывая вопрос ученика "
                 "и контекст курса. Если в ответе есть код, проверь относящийся к нему синтаксис и логику; в "
                 "остальных случаях применяй проверки по предмету. Не подтверждай ответ автоматически. Назови "
                 "конкретную подтверждённую проблему либо сообщи, что явной ошибки не нашёл; честно обозначь "
                 "неопределённость.\n\n"
-                f"Вопрос ученика: {message}\n\nОсновная позиция:\n{cloud_position[:4000]}\n\n"
+                f"Вопрос ученика: {message}\n\nЧерновики:\n{draft_bundle[:6000]}\n\n"
                 f"Проверка на языке {self.output_language} (2–4 предложения):"
             )
         qwen_verify = await self._ask_ollama(qwen_verify_prompt, self.agent_system(system_prompt), "qwen")
+        if not isinstance(qwen_verify, str) or not qwen_verify.strip() or self._is_provider_error(qwen_verify):
+            qwen_verify = (
+                "Independent local verification unavailable."
+                if self.language == "en" else "Независимая локальная проверка недоступна."
+            )
         qw_duration = int((datetime.now(timezone.utc) - t1).total_seconds() * 1000)
 
         # 3. Финальный синтез
         t2 = datetime.now(timezone.utc)
         if self.language == "en":
             consensus_prompt = (
-                "You coordinate ColiDev's learning tutor. Use supported insights from the main position, "
-                "critical review, and independent verification; do not blindly accept an unsupported "
-                "suggestion. Answer the learner's question in clear English at the level implied by the "
+                "You are ColiDev's lead learning tutor and final synthesizer. Compare the independent "
+                "candidate drafts with the learner's question and course context. Use the critical review "
+                "and independent verification as evidence to assess, not as unquestionable truth. Resolve "
+                "conflicts using sound subject knowledge, reject unsupported claims, and do not invent facts. "
+                "Answer in clear English at the level implied by the "
                 "course context. Explain the core idea or steps and add one relevant example when useful. "
                 "State material uncertainty or limits, preserve supplied [K#] citations beside the claims "
                 "they support, and never invent citations. Do not mention internal agents.\n\n"
-                f"Learner question: {message}\n\nMain position:\n{cloud_position}\n\n"
+                f"Learner question: {message}\n\nCandidate drafts:\n{draft_bundle}\n\n"
                 f"Critical review:\n{freebuff_review}\n\nIndependent verification:\n{qwen_verify}"
             )
         else:
             consensus_prompt = (
-                "Ты координируешь учебного тьютора ColiDev. Используй подтверждённые выводы основной позиции, "
-                "критического разбора и независимой проверки; не принимай неподтверждённые замечания на веру. "
-                "Ответь на вопрос ученика ясным русским языком на уровне, который задаёт контекст курса. "
+                "Ты — главный учебный тьютор и финальный синтезатор ColiDev. Сопоставь независимые черновики "
+                "с вопросом ученика и контекстом курса. Используй критический разбор и независимую проверку "
+                "как основания для оценки, но не принимай их замечания на веру. Разрешай противоречия с опорой "
+                "на знания по предмету, отклоняй неподтверждённые утверждения и не выдумывай факты. Ответь "
+                "ясным русским языком на уровне, который задаёт контекст курса. "
                 "Объясни основную идею или шаги и, когда полезно, приведи один подходящий пример. Укажи "
                 "существенную неопределённость или ограничения, сохрани переданные цитаты [K#] рядом с "
                 "поддерживаемыми ими утверждениями и не выдумывай источники. Не упоминай внутренних агентов.\n\n"
-                f"Вопрос ученика: {message}\n\nОсновная позиция:\n{cloud_position}\n\n"
+                f"Вопрос ученика: {message}\n\nЧерновики:\n{draft_bundle}\n\n"
                 f"Критический разбор:\n{freebuff_review}\n\nНезависимая проверка:\n{qwen_verify}"
             )
         final_answer = await self._ask_gemini(consensus_prompt, self.agent_system(system_prompt),
-                                               GEMINI_FLASH_URL, "consensus")
+                                               GEMINI_PRO_URL, "gemini-pro")
         if self._is_provider_error(final_answer):
             raise ConsiliumCloudError("Gemini consensus did not return a usable response")
         consensus_duration = int((datetime.now(timezone.utc) - t2).total_seconds() * 1000)
 
-        self.log.add("consilium", "freebuff",
-                     freebuff_review[:400], fb_duration)
-        self.log.add("consilium", "qwen",
-                     qwen_verify[:400], qw_duration)
-        self.log.add("consilium", "consensus",
+        self.log.add("consilium", "freebuff", freebuff_review[:400], fb_duration)
+        self.log.add("consilium", "qwen", qwen_verify[:400], qw_duration)
+        self.log.add("consilium", "gemini-pro",
                      f"Финальный ответ ({len(final_answer)} символов)", consensus_duration)
+
+        self.completion_model = f"Gemini Pro final: {GEMINI_PRO_MODEL}"
+        if self.specialist_model_label:
+            self.completion_model += f" · {self.specialist_model_label}"
 
         logger.info("Consilium complete", extra={
             "fb_len": len(freebuff_review), "qw_len": len(qwen_verify),
@@ -2072,7 +2045,7 @@ async def health(request: Request):
         status="ok" if (net_ok or ollama_info["available"]) else "degraded",
         online=net_ok,
         provider=state.provider,
-        gemini_model="gemini-3-flash / gemini-3.1-pro",
+        gemini_model=f"{GEMINI_FLASH_MODEL} drafts / {GEMINI_PRO_MODEL} final",
         ollama_model=OLLAMA_MODEL_RESEARCHER,
         ollama_embedding_model=(
             _embedding_provider.model_name if _embedding_provider is not None else None
@@ -2218,8 +2191,8 @@ async def chat_stream(request: Request, req: ChatRequest):
     """
     Streaming chat с двухуровневым консилиумом (SSE).
 
-    УРОВЕНЬ 1: Cloud Code (Gemini + GLM)
-    УРОВЕНЬ 2: Консилиум (Freebuff + Qwen 3)
+    УРОВЕНЬ 1: Независимые черновики (Gemini Flash + Kimi/OpenRouter + Ollama)
+    УРОВЕНЬ 2: Проверка Ollama и финальный синтез Gemini Pro
 
     Если лимит сессий исчерпан → автономный локальный режим (Qwen 3).
     """
