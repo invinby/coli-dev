@@ -1264,9 +1264,53 @@ class TestStreamingChat:
         assert done["sources"] == [source]
         assert done["google_search_suggestions"] == "<a>Google Search</a>"
         assert "debate_log" not in [event["type"] for event in events]
-        instances[0].run_grounded.assert_awaited_once_with(
-            "What changed this year?", "Lesson context"
-        )
+        grounded_call = instances[0].run_grounded.await_args
+        assert grounded_call.args == ("What changed this year?", "Lesson context")
+        assert callable(grounded_call.kwargs["on_chunk"])
+        local_search.assert_not_awaited()
+        obsidian_search.assert_not_awaited()
+
+    def test_grounded_web_search_forwards_provider_chunks_without_resplitting(self, client):
+        source = {
+            "id": "1",
+            "title": "Current source",
+            "excerpt": "",
+            "retrieved_at": "2026-10-05T12:00:00Z",
+            "path": "https://example.org/current",
+            "source_type": "google_grounding",
+        }
+        instances = []
+
+        class StreamingGroundedEngine(orchestrator.ConsiliumEngine):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.web_sources = [source]
+                self.search_entry_point_html = "<a>Google Search</a>"
+                instances.append(self)
+
+            async def run_grounded(self, message, system_prompt, on_chunk=None):
+                await on_chunk("Current ")
+                await on_chunk("fact")
+                return "Current fact. [1](<https://example.org/current>)"
+
+        with (
+            patch("orchestrator.ConsiliumEngine", StreamingGroundedEngine),
+            patch("orchestrator._retrieve_local_course_sources", AsyncMock()) as local_search,
+            patch("orchestrator._retrieve_obsidian_sources", AsyncMock()) as obsidian_search,
+        ):
+            response = client.post("/chat/stream", json={
+                "message": "What changed this year?",
+                "use_web_search": True,
+                "grounding_age_confirmed": True,
+            })
+
+        events = _parse_sse(response.text)
+        tokens = [event["content"] for event in events if event["type"] == "token"]
+        done = next(event for event in events if event["type"] == "done")
+        assert tokens == ["Current ", "fact"]
+        assert done["answer"] == "Current fact. [1](<https://example.org/current>)"
+        assert done["sources"] == [source]
+        assert done["google_search_suggestions"] == "<a>Google Search</a>"
         local_search.assert_not_awaited()
         obsidian_search.assert_not_awaited()
 
@@ -1580,6 +1624,35 @@ class TestConsiliumEngine:
         assert suggestions == "<a>Google Search</a>"
         assert cited == "Current fact. [1](<https://vertexaisearch.cloud.google.com/redirect?x=1&y=2>)"
 
+    def test_google_grounding_byte_offsets_place_citations_after_unicode_text(self):
+        text = "Физика"
+        candidate = {
+            "groundingMetadata": {
+                "groundingChunks": [{"web": {
+                    "uri": "https://example.org/physics",
+                    "title": "Physics source",
+                }}],
+                "groundingSupports": [{
+                    "segment": {"endIndex": len(text.encode("utf-8"))},
+                    "groundingChunkIndices": [0],
+                }],
+            },
+        }
+        malformed_boundary = {
+            "groundingMetadata": {
+                "groundingChunks": candidate["groundingMetadata"]["groundingChunks"],
+                "groundingSupports": [{
+                    "segment": {"endIndex": 1},
+                    "groundingChunkIndices": [0],
+                }],
+            },
+        }
+
+        assert orchestrator._add_grounding_citations(text, candidate) == (
+            "Физика [1](<https://example.org/physics>)"
+        )
+        assert orchestrator._add_grounding_citations(text, malformed_boundary) == text
+
     @pytest.mark.parametrize(("url", "expected"), [
         ("https://example.org/source", True),
         ("https://xn--e1afmkfd.xn--p1ai/source", True),
@@ -1629,6 +1702,132 @@ class TestConsiliumEngine:
         assert answer.startswith("The current fact is supported. [1](<https://")
         assert engine.web_sources[0]["title"] == "Official source"
         assert engine.search_entry_point_html == "<a>Google Search</a>"
+
+    def test_grounded_gemini_stream_accumulates_sources_and_cites_unicode_text(self, monkeypatch):
+        answer_chunks = ["Физика", " важна"]
+        events = [
+            {
+                "candidates": [{
+                    "content": {"parts": [{"text": answer_chunks[0]}]},
+                    "groundingMetadata": {
+                        "groundingChunks": [{"web": {
+                            "uri": "https://example.org/physics",
+                            "title": "Physics reference",
+                        }}],
+                        "groundingSupports": [{
+                            "segment": {
+                                "startIndex": 0,
+                                "endIndex": len(answer_chunks[0].encode("utf-8")),
+                                "text": answer_chunks[0],
+                                "partIndex": 0,
+                            },
+                            "groundingChunkIndices": [0],
+                        }],
+                        "searchEntryPoint": {"renderedContent": "<a>Google Search</a>"},
+                    },
+                }],
+            },
+            {
+                "candidates": [{
+                    "content": {"parts": [{"text": answer_chunks[1]}]},
+                    "finishReason": "STOP",
+                    "groundingMetadata": {
+                        "groundingChunks": [{"web": {
+                            "uri": "https://example.org/lesson",
+                            "title": "Lesson source",
+                        }}],
+                        "groundingSupports": [{
+                            "segment": {
+                                "startIndex": 0,
+                                "endIndex": len(answer_chunks[1].encode("utf-8")),
+                                "text": answer_chunks[1],
+                                "partIndex": 0,
+                            },
+                            "groundingChunkIndices": [1],
+                        }],
+                    },
+                }],
+            },
+        ]
+        body = b"".join(
+            f"data: {json.dumps(event, ensure_ascii=False)}\n\n".encode("utf-8")
+            for event in events
+        )
+
+        class GroundedBody(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                for offset in range(0, len(body), 23):
+                    yield body[offset:offset + 23]
+
+            async def aclose(self):
+                return None
+
+        async def handle_request(request):
+            payload = json.loads(request.content)
+            assert request.url.path.endswith(":streamGenerateContent")
+            assert request.url.query == b"alt=sse"
+            assert payload["tools"] == [{"google_search": {}}]
+            assert request.headers["x-goog-api-key"] == "gemini-test-key"
+            return httpx.Response(200, stream=GroundedBody())
+
+        async def make_request():
+            received_chunks = []
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handle_request)) as http_client:
+                engine = orchestrator.ConsiliumEngine(http_client, "ru", http_client)
+
+                async def receive(chunk):
+                    received_chunks.append(chunk)
+
+                answer = await engine.run_grounded(
+                    "What matters?",
+                    "Biology context",
+                    on_chunk=receive,
+                )
+                return answer, engine, received_chunks
+
+        monkeypatch.setattr(orchestrator, "GEMINI_KEY", "gemini-test-key")
+        answer, engine, received_chunks = asyncio.run(make_request())
+        assert received_chunks == answer_chunks
+        assert answer == (
+            "Физика [1](<https://example.org/physics>) важна "
+            "[2](<https://example.org/lesson>)"
+        )
+        assert [source["id"] for source in engine.web_sources] == ["1", "2"]
+        assert engine.search_entry_point_html == "<a>Google Search</a>"
+
+    def test_grounded_gemini_stream_rejects_missing_search_metadata(self, monkeypatch):
+        body = (
+            b'data: {"candidates":[{"content":{"parts":[{"text":"Unattributed"}]},'
+            b'"finishReason":"STOP"}]}\n\n'
+        )
+
+        class UngroundedBody(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                yield body
+
+            async def aclose(self):
+                return None
+
+        async def handle_request(request):
+            return httpx.Response(200, stream=UngroundedBody())
+
+        async def make_request():
+            chunks = []
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handle_request)) as http_client:
+                engine = orchestrator.ConsiliumEngine(http_client, "en", http_client)
+
+                async def receive(chunk):
+                    chunks.append(chunk)
+
+                answer = await engine.run_grounded("Question", "Tutor", on_chunk=receive)
+                return answer, engine, chunks
+
+        monkeypatch.setattr(orchestrator, "GEMINI_KEY", "gemini-test-key")
+        answer, engine, chunks = asyncio.run(make_request())
+        assert chunks == ["Unattributed"]
+        assert answer.startswith("[Google Search:")
+        assert engine.web_sources == []
+        assert engine.search_entry_point_html is None
 
     def test_grounded_gemini_rejects_unattributed_answer(self, monkeypatch):
         monkeypatch.setattr(orchestrator, "GEMINI_KEY", "test-gemini-key")

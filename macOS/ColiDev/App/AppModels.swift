@@ -949,8 +949,10 @@ final class TutorChatModel: ObservableObject {
             } catch is CancellationError {
                 // Keep a partial answer visible when the learner stops generation.
             } catch OrchestratorClient.ClientError.serverError(let message) {
+                discard(reply.id)
                 errorMessage = message
             } catch {
+                discard(reply.id)
                 errorMessage = language == .ru
                     ? "Не удалось получить ответ. Проверь, запущен ли локальный оркестратор."
                     : "The tutor could not reply. Check that the local orchestrator is running."
@@ -972,6 +974,10 @@ final class TutorChatModel: ObservableObject {
     private func replace(_ text: String, in messageID: UUID) {
         guard let index = messages.firstIndex(where: { $0.id == messageID }) else { return }
         messages[index].text = text
+    }
+
+    private func discard(_ messageID: UUID) {
+        messages.removeAll { $0.id == messageID }
     }
 }
 

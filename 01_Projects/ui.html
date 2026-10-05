@@ -772,9 +772,11 @@
                 }
                 chat.scrollTop = chat.scrollHeight;
               } else if (data.type === 'done') {
+                if (typeof data.answer === 'string') streamContent = data.answer;
                 finalizeStream(streamContent);
                 chat.removeChild(sysEl.el);
               } else if (data.type === 'error') {
+                if (typeof data.error === 'string') streamContent = data.error;
                 finalizeStream(streamContent);
                 chat.removeChild(sysEl.el);
                 showToast('Ошибка: ' + data.error, 'error', 5000);

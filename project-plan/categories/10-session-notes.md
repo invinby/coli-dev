@@ -276,3 +276,9 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 - Формат endpoint и `alt=sse`, а также поле `Part.thought` сверены с [официальной Gemini API reference](https://ai.google.dev/api/generate-content).
 - Mock-regression-тесты покрывают разрезанные SSE-события, скрытие thought parts, ключ только в HTTP-заголовке, отказ на оборванном потоке, маршрутизацию callback в финальную модель и замену частичного облачного текста локальным fallback.
 - Полный backend suite после этого среза: 214 passed; одно известное предупреждение Starlette/httpx. Repo-wide Ruff, `compileall` и `git diff --check` проходят. Использовались только mock-провайдеры; live Gemini streaming, задержка и реальное качество ответа ещё не проверялись. Новая GitHub CI-сборка ждёт push.
+
+### Прямой Google Search через нативный Gemini SSE — 2026-10-05
+
+- Grounded Search больше не ждёт весь ответ: backend передаёт текстовые чанки Gemini сразу в SSE, накапливает источники, citation supports и `searchEntryPoint`, а финальный `done.answer` содержит итоговые inline-ссылки. При отсутствии обязательных grounding-источников/Google Search Suggestions поток завершается ошибкой, а UI не оставляет частичный текст как готовый ответ.
+- Смещения `Segment.startIndex/endIndex` трактуются как UTF-8 bytes и привязываются к общей позиции соответствующего текстового `Part` в собранном потоке; поддержки с некорректной границей внутри многобайтного символа пропускаются. Регрессии проверяют русский текст, несколько чанков, накопление индексов источников и отсутствие повторного разбиения provider chunks.
+- Полный backend suite: 218 passed, одно известное предупреждение совместимости Starlette/httpx. Repo-wide Ruff, `compileall` и `git diff --check` проходят. Использовались mock-ответы; live Gemini Google Search, реальная выдача цитат и ручной запуск SwiftUI на Mac не проверялись. GitHub CI для этого среза ещё ожидается после push.

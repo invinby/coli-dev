@@ -160,6 +160,7 @@ def _add_grounding_citations(text: str, candidate: dict[str, Any]) -> str:
     supports = metadata.get("groundingSupports") or []
     if not isinstance(chunks, list) or not isinstance(supports, list):
         return text
+    encoded_text = text.encode("utf-8")
     insertions: list[tuple[int, str]] = []
     for support in supports:
         if not isinstance(support, dict):
@@ -167,13 +168,25 @@ def _add_grounding_citations(text: str, candidate: dict[str, Any]) -> str:
         segment = support.get("segment") or {}
         if not isinstance(segment, dict):
             continue
-        end_index = segment.get("endIndex")
+        end_byte_index = segment.get("endIndex")
         indices = support.get("groundingChunkIndices") or []
-        if not isinstance(end_index, int) or not 0 <= end_index <= len(text):
+        if (
+            isinstance(end_byte_index, bool)
+            or not isinstance(end_byte_index, int)
+            or not 0 <= end_byte_index <= len(encoded_text)
+        ):
+            continue
+        try:
+            end_index = len(encoded_text[:end_byte_index].decode("utf-8"))
+        except UnicodeDecodeError:
             continue
         citation_ids = []
         for index in indices:
-            if not isinstance(index, int) or not 0 <= index < min(len(chunks), 5):
+            if (
+                isinstance(index, bool)
+                or not isinstance(index, int)
+                or not 0 <= index < min(len(chunks), 5)
+            ):
                 continue
             if not isinstance(chunks[index], dict):
                 continue
@@ -915,10 +928,19 @@ class ConsiliumEngine:
 
         return final_answer, self.log
 
-    async def run_grounded(self, message: str, system_prompt: str) -> str:
+    async def run_grounded(self, message: str, system_prompt: str, on_chunk=None) -> str:
         """Return one directly grounded Gemini answer without forwarding or saving it."""
         self.web_sources = []
         self.search_entry_point_html = None
+        if on_chunk is not None:
+            return await self._ask_gemini_streaming(
+                message,
+                self.agent_system(system_prompt),
+                GEMINI_FLASH_URL,
+                "google-search",
+                on_chunk,
+                use_google_search=True,
+            )
         return await self._ask_gemini(
             message,
             self.agent_system(system_prompt),
@@ -1437,6 +1459,7 @@ class ConsiliumEngine:
         url: str,
         agent_tag: str,
         on_chunk,
+        use_google_search: bool = False,
     ) -> str:
         """Stream only learner-facing text from Gemini's final synthesis response."""
         if not GEMINI_KEY:
@@ -1450,12 +1473,18 @@ class ConsiliumEngine:
             "contents": [{"role": "user", "parts": [{"text": message}]}],
             "generationConfig": {"maxOutputTokens": 2048},
         }
+        if use_google_search:
+            payload["tools"] = [{"google_search": {}}]
         answer_parts: list[str] = []
+        answer_byte_length = 0
         finish_reason: str | None = None
         data_lines: list[str] = []
+        grounding_chunks: list[Any] = []
+        grounding_supports: list[Any] = []
+        search_entry_point: dict[str, Any] | None = None
 
         async def consume_event(raw_event: str) -> None:
-            nonlocal finish_reason
+            nonlocal answer_byte_length, finish_reason, search_entry_point
             if raw_event.strip() == "[DONE]":
                 return
             try:
@@ -1479,15 +1508,69 @@ class ConsiliumEngine:
 
             content = candidate.get("content")
             parts = content.get("parts") if isinstance(content, dict) else None
-            if not isinstance(parts, list):
-                return
-            for part in parts:
-                if not isinstance(part, dict) or part.get("thought") is True:
-                    continue
-                chunk = part.get("text")
-                if not isinstance(chunk, str) or not chunk:
-                    continue
+            learner_parts: list[tuple[int, str]] = []
+            if isinstance(parts, list):
+                for part_index, part in enumerate(parts):
+                    if not isinstance(part, dict) or part.get("thought") is True:
+                        continue
+                    chunk = part.get("text")
+                    if isinstance(chunk, str) and chunk:
+                        learner_parts.append((part_index, chunk))
+
+            if use_google_search:
+                grounding_metadata = candidate.get("groundingMetadata")
+                if isinstance(grounding_metadata, dict):
+                    new_chunks = grounding_metadata.get("groundingChunks")
+                    if isinstance(new_chunks, list):
+                        grounding_chunks.extend(new_chunks)
+                    new_supports = grounding_metadata.get("groundingSupports")
+                    if isinstance(new_supports, list):
+                        response_prefix_bytes = answer_byte_length
+                        part_prefix_bytes: dict[int, int] = {}
+                        part_texts: dict[int, str] = {}
+                        next_part_prefix = 0
+                        for part_index, chunk in learner_parts:
+                            part_prefix_bytes[part_index] = next_part_prefix
+                            part_texts[part_index] = chunk
+                            next_part_prefix += len(chunk.encode("utf-8"))
+                        for support in new_supports:
+                            if not isinstance(support, dict):
+                                continue
+                            segment = support.get("segment")
+                            if not isinstance(segment, dict):
+                                continue
+                            part_index = segment.get("partIndex", 0)
+                            if isinstance(part_index, bool) or not isinstance(part_index, int):
+                                continue
+                            part_prefix = part_prefix_bytes.get(part_index)
+                            if part_prefix is None:
+                                continue
+                            end_index = segment.get("endIndex")
+                            chunk = part_texts.get(part_index)
+                            if (
+                                isinstance(end_index, bool)
+                                or not isinstance(end_index, int)
+                                or chunk is None
+                                or not 0 <= end_index <= len(chunk.encode("utf-8"))
+                            ):
+                                continue
+                            adjusted_support = dict(support)
+                            adjusted_segment = dict(segment)
+                            for offset_name in ("startIndex", "endIndex"):
+                                offset = adjusted_segment.get(offset_name)
+                                if isinstance(offset, int) and not isinstance(offset, bool):
+                                    adjusted_segment[offset_name] = (
+                                        response_prefix_bytes + part_prefix + offset
+                                    )
+                            adjusted_support["segment"] = adjusted_segment
+                            grounding_supports.append(adjusted_support)
+                    entry_point = grounding_metadata.get("searchEntryPoint")
+                    if isinstance(entry_point, dict):
+                        search_entry_point = entry_point
+
+            for _, chunk in learner_parts:
                 answer_parts.append(chunk)
+                answer_byte_length += len(chunk.encode("utf-8"))
                 await on_chunk(chunk)
 
         try:
@@ -1511,12 +1594,24 @@ class ConsiliumEngine:
                 if data_lines:
                     await consume_event("\n".join(data_lines))
 
-            answer = "".join(answer_parts).strip()
-            if not answer:
+            answer = "".join(answer_parts)
+            if not answer.strip():
                 return "[Gemini: empty streamed response]"
             if finish_reason not in {"STOP", "MAX_TOKENS"}:
                 raise RuntimeError("Gemini stream ended without a successful finish reason")
-            return answer
+            if use_google_search:
+                grounded_candidate = {
+                    "groundingMetadata": {
+                        "groundingChunks": grounding_chunks,
+                        "groundingSupports": grounding_supports,
+                        "searchEntryPoint": search_entry_point,
+                    },
+                }
+                self.web_sources, self.search_entry_point_html = _grounding_sources(grounded_candidate)
+                if not self.web_sources or not self.search_entry_point_html:
+                    return "[Google Search: grounded response or required search suggestions were missing]"
+                answer = _add_grounding_citations(answer, grounded_candidate)
+            return answer.strip()
         except httpx.TimeoutException:
             logger.warning("Gemini stream timeout", extra={"agent": agent_tag})
             return f"[Таймаут: Gemini не ответил за {HTTP_TIMEOUT}s]"
@@ -2516,40 +2611,69 @@ async def _handle_grounded_web_search(req: ChatRequest) -> StreamingResponse:
         # client disconnects, cancellation propagates through this generator
         # into the in-flight HTTPX request.
         yield ": connected\n\n"
-        try:
-            session_tracker.start_session()
-            learner_message = req.message
-            if req.include_local_sources_in_web_search:
-                retrieval_query = (req.retrieval_query or req.message).strip()
-                retrieval_results = await asyncio.gather(
-                    _retrieve_local_course_sources(retrieval_query),
-                    _retrieve_obsidian_sources(retrieval_query),
-                    return_exceptions=True,
+        token_queue: asyncio.Queue = asyncio.Queue()
+        stream_end = object()
+        streamed_chunks = 0
+
+        async def forward_chunk(chunk: str) -> None:
+            if chunk:
+                await token_queue.put(chunk)
+
+        async def generate_answer():
+            try:
+                session_tracker.start_session()
+                learner_message = req.message
+                if req.include_local_sources_in_web_search:
+                    retrieval_query = (req.retrieval_query or req.message).strip()
+                    retrieval_results = await asyncio.gather(
+                        _retrieve_local_course_sources(retrieval_query),
+                        _retrieve_obsidian_sources(retrieval_query),
+                        return_exceptions=True,
+                    )
+                    course_sources, obsidian_sources = retrieval_results
+                    if isinstance(course_sources, Exception):
+                        logger.warning(
+                            "Course retrieval failed during grounded search",
+                            extra={"error_type": type(course_sources).__name__},
+                        )
+                        course_sources = []
+                    if isinstance(obsidian_sources, Exception):
+                        logger.warning(
+                            "Obsidian retrieval failed during grounded search",
+                            extra={"error_type": type(obsidian_sources).__name__},
+                        )
+                        obsidian_sources = []
+                    local_sources.extend(_combine_retrieval_sources(course_sources, obsidian_sources))
+                    learner_message = _augment_message_with_sources(req.message, local_sources, req.language)
+                return await engine.run_grounded(
+                    learner_message,
+                    req.system_prompt,
+                    on_chunk=forward_chunk,
                 )
-                course_sources, obsidian_sources = retrieval_results
-                if isinstance(course_sources, Exception):
-                    logger.warning(
-                        "Course retrieval failed during grounded search",
-                        extra={"error_type": type(course_sources).__name__},
-                    )
-                    course_sources = []
-                if isinstance(obsidian_sources, Exception):
-                    logger.warning(
-                        "Obsidian retrieval failed during grounded search",
-                        extra={"error_type": type(obsidian_sources).__name__},
-                    )
-                    obsidian_sources = []
-                local_sources.extend(_combine_retrieval_sources(course_sources, obsidian_sources))
-                learner_message = _augment_message_with_sources(req.message, local_sources, req.language)
-            answer = await engine.run_grounded(learner_message, req.system_prompt)
+            finally:
+                token_queue.put_nowait(stream_end)
+
+        generation_task = asyncio.create_task(generate_answer())
+        try:
+            while True:
+                chunk = await token_queue.get()
+                if chunk is stream_end:
+                    break
+                streamed_chunks += 1
+                yield f"data: {json.dumps({'type': 'token', 'content': chunk}, ensure_ascii=False)}\n\n"
+            answer = await generation_task
         except asyncio.CancelledError:
             logger.info("Grounded tutor request cancelled by client")
+            generation_task.cancel()
+            await asyncio.gather(generation_task, return_exceptions=True)
             raise
         except Exception as exc:
             logger.warning(
                 "Grounded tutor request failed",
                 extra={"error_type": type(exc).__name__},
             )
+            generation_task.cancel()
+            await asyncio.gather(generation_task, return_exceptions=True)
             yield _error_event(
                 req.language,
                 message("Не удалось выполнить веб-поиск.", "Could not complete web search."),
@@ -2576,6 +2700,7 @@ async def _handle_grounded_web_search(req: ChatRequest) -> StreamingResponse:
             [*engine.web_sources, *local_sources],
             engine.search_entry_point_html,
             req.language,
+            tokens_already_streamed=streamed_chunks > 0,
         ):
             yield event
 
