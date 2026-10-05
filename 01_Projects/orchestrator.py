@@ -2223,11 +2223,48 @@ async def _record_provider_usage(
 def _gemini_model_from_url(url: str) -> str:
     return url.split("/models/", 1)[-1].split(":", 1)[0][:160]
 
+
+AUTO_SOURCE_CHECK_ENABLED = os.getenv("COLIDEV_AUTO_SOURCE_CHECK", "true").strip().casefold() not in {
+    "0", "false", "no", "off",
+}
+AUTO_SOURCE_CHECK_INTERVAL_SECONDS = 24 * 60 * 60
+
+
+async def _trusted_source_check_scheduler() -> None:
+    """Check approved lesson references while the local backend is running."""
+    while True:
+        try:
+            delay = trusted_source_monitor.seconds_until_automatic_check()
+            if delay is None:
+                delay = float(AUTO_SOURCE_CHECK_INTERVAL_SECONDS)
+            if delay > 0:
+                await asyncio.sleep(delay)
+                continue
+            result = await trusted_source_monitor.check_sources()
+            logger.info(
+                "Automatic trusted-source check completed",
+                extra={
+                    "checked_count": result.get("checked_count", 0),
+                    "changed_count": result.get("changed_count", 0),
+                    "needs_attention_count": result.get("needs_attention_count", 0),
+                },
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning(
+                "Automatic trusted-source check failed",
+                extra={"error_type": type(exc).__name__},
+            )
+            await asyncio.sleep(6 * 60 * 60)
+
+
 # ─── Lifespan ──────────────────────────────────────────
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    source_check_task: asyncio.Task | None = None
     await asyncio.to_thread(study_progress_store.initialize)
     try:
         await asyncio.to_thread(provider_usage_store.initialize)
@@ -2291,7 +2328,18 @@ async def lifespan(app: FastAPI):
             "session_mode": session_tracker.mode,
         },
     )
+    if AUTO_SOURCE_CHECK_ENABLED:
+        source_check_task = asyncio.create_task(
+            _trusted_source_check_scheduler(),
+            name="trusted-source-auto-check",
+        )
     yield
+    if source_check_task is not None:
+        source_check_task.cancel()
+        try:
+            await source_check_task
+        except asyncio.CancelledError:
+            pass
     if state.http_client:
         await state.http_client.aclose()
     if state.ollama_client:
@@ -3031,7 +3079,12 @@ async def get_trusted_source_inventory(request: Request):
     """Return the fixed official-source inventory and saved validators without fetching pages."""
     _require_local_settings_request(request)
     try:
-        return trusted_source_monitor.inventory()
+        inventory = dict(trusted_source_monitor.inventory())
+        inventory["automatic_check_enabled"] = AUTO_SOURCE_CHECK_ENABLED
+        inventory["automatic_check_interval_hours"] = int(
+            AUTO_SOURCE_CHECK_INTERVAL_SECONDS / 3600
+        )
+        return inventory
     except Exception:
         logger.exception("Trusted course source inventory is unavailable")
         raise HTTPException(status_code=503, detail="Trusted course source inventory is unavailable") from None

@@ -638,6 +638,16 @@ private struct ManagementView: View {
             if provider == "auto" { routeModel = "" }
         }
         .task { await reload() }
+        .task(id: pane) {
+            guard pane == .sources else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 300_000_000_000)
+                guard !Task.isCancelled else { break }
+                if let latestInventory = try? await OrchestratorClient.trustedSourceInventory() {
+                    sourceInventory = latestInventory
+                }
+            }
+        }
     }
 
     private var overviewPane: some View {
@@ -786,6 +796,21 @@ private struct ManagementView: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            if let automaticCheckEnabled = sourceInventory?.automaticCheckEnabled {
+                Label(
+                    automaticCheckEnabled
+                        ? String(
+                            format: L10n.text("management.autoSourceCheckEnabled", store.language),
+                            sourceInventory?.automaticCheckIntervalHours ?? 24
+                        )
+                        : L10n.text("management.autoSourceCheckDisabled", store.language),
+                    systemImage: automaticCheckEnabled ? "clock.arrow.circlepath" : "pause.circle"
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            }
 
             HStack(spacing: 10) {
                 TextField(L10n.text("management.sourceSearch", store.language), text: $sourceSearchText)

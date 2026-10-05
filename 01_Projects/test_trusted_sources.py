@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import httpx
@@ -18,6 +18,68 @@ def _write_lesson(root: Path, body: str) -> None:
 
 def _monitor(root: Path, tmp_path: Path) -> TrustedSourceMonitor:
     return TrustedSourceMonitor(root, tmp_path / "knowledge.sqlite3")
+
+
+def test_automatic_check_is_due_for_new_and_stale_sources(tmp_path: Path) -> None:
+    monitor = _monitor(tmp_path, tmp_path)
+    url = "https://openstax.org/books/college-physics-2e/pages/7-1-work-the-scientific-definition"
+    _write_lesson(tmp_path, f"[OpenStax work page]({url})")
+    checked_at = datetime(2025, 1, 1, tzinfo=timezone.utc)
+
+    assert monitor.seconds_until_automatic_check(now=checked_at) == 0
+
+    reference = monitor._references()[0][0]
+    checked_text = checked_at.isoformat().replace("+00:00", "Z")
+    monitor._save_check(
+        reference,
+        etag='"version-1"',
+        last_modified=None,
+        checked_at=checked_text,
+        http_status=200,
+        state="unchanged",
+        content_digest="digest-1",
+        content_checked_at=checked_text,
+    )
+
+    assert monitor.seconds_until_automatic_check(
+        now=checked_at + timedelta(hours=23)
+    ) == 3600
+    assert monitor.seconds_until_automatic_check(
+        now=checked_at + timedelta(hours=24)
+    ) == 0
+
+
+@pytest.mark.parametrize("state", ["network_error", "unavailable"])
+def test_automatic_check_retries_transient_source_failures_after_six_hours(
+    tmp_path: Path, state: str,
+) -> None:
+    monitor = _monitor(tmp_path, tmp_path)
+    url = "https://openstax.org/books/college-physics-2e/pages/7-1-work-the-scientific-definition"
+    _write_lesson(tmp_path, f"[OpenStax work page]({url})")
+    reference = monitor._references()[0][0]
+    checked_at = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    checked_text = checked_at.isoformat().replace("+00:00", "Z")
+    monitor._save_check(
+        reference,
+        etag=None,
+        last_modified=None,
+        checked_at=checked_text,
+        http_status=None,
+        state=state,
+    )
+
+    assert monitor.seconds_until_automatic_check(
+        now=checked_at + timedelta(hours=5)
+    ) == 3600
+    assert monitor.seconds_until_automatic_check(
+        now=checked_at + timedelta(hours=6)
+    ) == 0
+
+
+def test_automatic_check_has_no_schedule_without_approved_sources(tmp_path: Path) -> None:
+    monitor = _monitor(tmp_path, tmp_path)
+
+    assert monitor.seconds_until_automatic_check() is None
 
 
 def test_reference_scan_deduplicates_allowed_urls_and_ignores_untrusted_domains(

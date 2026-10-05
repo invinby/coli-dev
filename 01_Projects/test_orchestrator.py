@@ -61,6 +61,7 @@ def _mock_keyring(monkeypatch):
 @pytest.fixture(autouse=True)
 def _reset_session_tracker(monkeypatch, tmp_path):
     """Сброс сессий перед каждым тестом."""
+    monkeypatch.setattr(orchestrator, "AUTO_SOURCE_CHECK_ENABLED", False)
     monkeypatch.setattr(orchestrator, "GEMINI_KEY", "test-gemini-key")
     monkeypatch.setattr(orchestrator, "KIMI_KEY", "test-kimi-key")
     monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "")
@@ -564,6 +565,35 @@ class TestSubjectModelRouting:
         assert (draft, provider) == ("Kimi fallback draft", "kimi")
         engine._ask_kimi.assert_awaited_once()
         assert "private failure" not in draft
+
+
+def test_automatic_source_scheduler_checks_when_due_and_stops_cleanly(monkeypatch):
+    checked = asyncio.Event()
+
+    class DueSourceMonitor:
+        checks = 0
+
+        def seconds_until_automatic_check(self):
+            return 0 if self.checks == 0 else 3600
+
+        async def check_sources(self):
+            self.checks += 1
+            checked.set()
+            return {"checked_count": 2, "changed_count": 1, "needs_attention_count": 1}
+
+    monitor = DueSourceMonitor()
+    monkeypatch.setattr(orchestrator, "trusted_source_monitor", monitor)
+
+    async def run_scheduler_once():
+        task = asyncio.create_task(orchestrator._trusted_source_check_scheduler())
+        await asyncio.wait_for(checked.wait(), timeout=1)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    asyncio.run(run_scheduler_once())
+
+    assert monitor.checks == 1
 
 
 def test_cloud_specialist_uses_openrouter_free_when_kimi_is_missing(monkeypatch):

@@ -41,6 +41,7 @@ SYSTEM_PROMPT = "You are a Python mentor."
 @pytest.fixture(autouse=True)
 def _reset(monkeypatch, tmp_path):
     """Сброс состояния перед каждым тестом."""
+    monkeypatch.setattr(orchestrator, "AUTO_SOURCE_CHECK_ENABLED", False)
     monkeypatch.setattr(orchestrator, "GEMINI_KEY", "test-gemini-key")
     monkeypatch.setattr(orchestrator, "KIMI_KEY", "test-kimi-key")
     monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "")
@@ -705,7 +706,7 @@ def test_manual_trusted_source_check_hides_internal_errors(client_online, monkey
 
 
 def test_trusted_source_inventory_is_local_and_does_not_trigger_a_check(client_online, monkeypatch):
-    inventory = {
+    source_inventory = {
         "status": "ok",
         "supported_count": 1,
         "listed_count": 1,
@@ -716,7 +717,12 @@ def test_trusted_source_inventory_is_local_and_does_not_trigger_a_check(client_o
         "omitted_count": 0,
         "sources": [{"url": "https://openstax.org/example", "state": "not_checked"}],
     }
-    read_inventory = MagicMock(return_value=inventory)
+    expected = {
+        **source_inventory,
+        "automatic_check_enabled": False,
+        "automatic_check_interval_hours": 24,
+    }
+    read_inventory = MagicMock(return_value=source_inventory)
     monkeypatch.setattr(orchestrator.trusted_source_monitor, "inventory", read_inventory)
 
     rejected = client_online.get(
@@ -727,7 +733,8 @@ def test_trusted_source_inventory_is_local_and_does_not_trigger_a_check(client_o
 
     accepted = client_online.get("/knowledge/sources")
     assert accepted.status_code == 200
-    assert accepted.json() == inventory
+    assert accepted.json() == expected
+    assert source_inventory == {key: value for key, value in expected.items() if not key.startswith("automatic_")}
     read_inventory.assert_called_once_with()
 
 

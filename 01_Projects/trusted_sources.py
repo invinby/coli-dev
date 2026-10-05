@@ -16,7 +16,7 @@ import re
 import sqlite3
 import threading
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
@@ -39,6 +39,9 @@ _MAX_PAGE_DESCRIPTION_LENGTH = 500
 _MAX_VALIDATOR_LENGTH = 512
 _MAX_SOURCE_PAGE_BYTES = 512 * 1024
 _MAX_EXTRACTED_TEXT_CHARS = 200_000
+_AUTO_CHECK_INTERVAL = timedelta(hours=24)
+_AUTO_RETRY_INTERVAL = timedelta(hours=6)
+_TRANSIENT_SOURCE_STATES = frozenset({"network_error", "unavailable"})
 _TRUSTED_HOSTS = frozenset(
     {
         "animaldiversity.org",
@@ -436,6 +439,43 @@ class TrustedSourceMonitor:
             "omitted_count": omitted_count,
             "sources": items,
         }
+
+    def seconds_until_automatic_check(self, *, now: datetime | None = None) -> float | None:
+        """Return delay until the next bounded check, retrying transient failures sooner."""
+        references, _, _ = self._references()
+        if not references:
+            return None
+        current = now or datetime.now(timezone.utc)
+        if current.tzinfo is None:
+            current = current.replace(tzinfo=timezone.utc)
+        with self._db_lock, self._connect() as connection:
+            previous_checks = {
+                str(row["url"]): row
+                for row in connection.execute(
+                    "SELECT url, last_checked_at, state FROM trusted_source_checks"
+                ).fetchall()
+            }
+
+        delays: list[float] = []
+        for reference in references:
+            previous = previous_checks.get(reference.url)
+            if previous is None:
+                return 0.0
+            try:
+                checked_at = datetime.fromisoformat(
+                    str(previous["last_checked_at"]).replace("Z", "+00:00")
+                )
+            except (TypeError, ValueError):
+                return 0.0
+            if checked_at.tzinfo is None:
+                checked_at = checked_at.replace(tzinfo=timezone.utc)
+            interval = (
+                _AUTO_RETRY_INTERVAL
+                if str(previous["state"]) in _TRANSIENT_SOURCE_STATES
+                else _AUTO_CHECK_INTERVAL
+            )
+            delays.append((checked_at + interval - current).total_seconds())
+        return max(0.0, min(delays))
 
     def _previous_check(self, url: str) -> sqlite3.Row | None:
         with self._db_lock, self._connect() as connection:
