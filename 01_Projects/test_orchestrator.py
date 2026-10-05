@@ -1057,6 +1057,69 @@ class TestStreamingChat:
         local_search.assert_not_awaited()
         obsidian_search.assert_not_awaited()
 
+    def test_grounded_web_search_combines_local_sources_only_after_opt_in(self, client):
+        web_source = {
+            "id": "1",
+            "title": "Current official source",
+            "excerpt": "",
+            "retrieved_at": "2026-10-05T12:00:00Z",
+            "path": "https://example.org/current",
+            "source_type": "google_grounding",
+        }
+        course_source = {
+            "id": "",
+            "title": "Course note",
+            "excerpt": "A local explanation.",
+            "retrieved_at": "2026-10-05T11:00:00Z",
+            "path": "02_Areas/Physics/lesson.md",
+            "source_type": "course",
+        }
+        obsidian_source = {
+            "id": "",
+            "title": "Personal note",
+            "excerpt": "A private observation.",
+            "retrieved_at": "2026-10-05T11:00:00Z",
+            "path": "Notes/physics.md",
+            "source_type": "obsidian",
+        }
+        instances = []
+
+        class StubEngine(orchestrator.ConsiliumEngine):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.web_sources = [web_source]
+                self.search_entry_point_html = "<a>Google Search</a>"
+                self.run_grounded = AsyncMock(return_value="Current result. [1]")
+                instances.append(self)
+
+        with (
+            patch("orchestrator.ConsiliumEngine", StubEngine),
+            patch("orchestrator._retrieve_local_course_sources", AsyncMock(return_value=[course_source])) as local_search,
+            patch("orchestrator._retrieve_obsidian_sources", AsyncMock(return_value=[obsidian_source])) as obsidian_search,
+        ):
+            response = client.post("/chat/stream", json={
+                "message": "What changed?",
+                "system_prompt": "Physics tutor context",
+                "retrieval_query": "Physics motion current lesson",
+                "use_web_search": True,
+                "grounding_age_confirmed": True,
+                "include_local_sources_in_web_search": True,
+            })
+
+        assert response.status_code == 200
+        events = _parse_sse(response.text)
+        done = next(event for event in events if event["type"] == "done")
+        learner_message, system_prompt = instances[0].run_grounded.await_args.args
+        assert "A local explanation." in learner_message
+        assert "A private observation." in learner_message
+        assert "Сообщение ученика:\nWhat changed?" in learner_message
+        assert system_prompt == "Physics tutor context"
+        assert [source["id"] for source in done["sources"]] == ["1", "K1", "K2"]
+        assert done["sources"][1]["source_type"] == "course"
+        assert done["sources"][2]["source_type"] == "obsidian"
+        local_search.assert_awaited_once_with("Physics motion current lesson")
+        obsidian_search.assert_awaited_once_with("Physics motion current lesson")
+
     @pytest.mark.parametrize(("mode", "online"), [("local", True), ("auto", False)])
     def test_grounded_web_search_requires_auto_and_network(self, client, monkeypatch, mode, online):
         monkeypatch.setattr(orchestrator, "_check_network", AsyncMock(return_value=online))
@@ -1075,16 +1138,23 @@ class TestStreamingChat:
 
     def test_grounded_web_search_requires_age_confirmation(self, client):
         with patch("orchestrator.ConsiliumEngine") as engine_factory:
-            response = client.post("/chat/stream", json={
-                "message": "Find current information",
-                "use_web_search": True,
-            })
+            with (
+                patch("orchestrator._retrieve_local_course_sources", AsyncMock()) as local_search,
+                patch("orchestrator._retrieve_obsidian_sources", AsyncMock()) as obsidian_search,
+            ):
+                response = client.post("/chat/stream", json={
+                    "message": "Find current information",
+                    "use_web_search": True,
+                    "include_local_sources_in_web_search": True,
+                })
 
         assert response.status_code == 200
         events = _parse_sse(response.text)
         error = next(event for event in events if event["type"] == "error")
         assert "18" in error["error"]
         engine_factory.assert_not_called()
+        local_search.assert_not_awaited()
+        obsidian_search.assert_not_awaited()
 
     def test_grounded_web_search_requires_gemini_key(self, client, monkeypatch):
         monkeypatch.setattr(orchestrator, "GEMINI_KEY", "")

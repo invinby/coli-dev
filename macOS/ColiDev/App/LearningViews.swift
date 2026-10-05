@@ -1262,6 +1262,7 @@ private struct TutorChatView: View {
     @StateObject private var chat: TutorChatModel
     @State private var draft = ""
     @State private var useWebSearch = false
+    @State private var includeLocalSourcesInWebSearch = false
     @State private var hasConfirmedGoogleSearchAge = false
     @State private var showGoogleSearchAgeConfirmation = false
     let language: AppLanguage
@@ -1334,6 +1335,7 @@ private struct TutorChatView: View {
                         set: { enabled in
                             guard enabled else {
                                 useWebSearch = false
+                                includeLocalSourcesInWebSearch = false
                                 return
                             }
                             if hasConfirmedGoogleSearchAge {
@@ -1357,7 +1359,17 @@ private struct TutorChatView: View {
                         Text(L10n.text("tutor.webSearchAgeMessage", language))
                     }
                     if useWebSearch {
-                        Text(L10n.text("tutor.webSearchPrivacy", language))
+                        Toggle(isOn: $includeLocalSourcesInWebSearch) {
+                            Label(L10n.text("tutor.webSearchIncludeLocalSources", language), systemImage: "folder")
+                        }
+                        .toggleStyle(.checkbox)
+                        .disabled(chat.isSending)
+                        Text(L10n.text(
+                            includeLocalSourcesInWebSearch
+                                ? "tutor.webSearchPrivacyWithLocalSources"
+                                : "tutor.webSearchPrivacy",
+                            language
+                        ))
                             .font(.caption2).foregroundStyle(.secondary)
                         if store.aiHealth?.geminiKeyConfigured != true {
                             Label(L10n.text("tutor.webSearchNeedsGeminiKey", language), systemImage: "exclamationmark.triangle.fill")
@@ -1535,7 +1547,8 @@ private struct TutorChatView: View {
             chat.send(
                 message,
                 useWebSearch: useWebSearch,
-                groundingAgeConfirmed: hasConfirmedGoogleSearchAge
+                groundingAgeConfirmed: hasConfirmedGoogleSearchAge,
+                includeLocalSourcesInWebSearch: includeLocalSourcesInWebSearch
             )
         }
     }

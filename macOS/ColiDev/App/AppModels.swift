@@ -582,6 +582,7 @@ private struct TutorRequest: Encodable {
     let retrievalQuery: String
     let useWebSearch: Bool
     let groundingAgeConfirmed: Bool
+    let includeLocalSourcesInWebSearch: Bool
 
     enum CodingKeys: String, CodingKey {
         case message, language, mode
@@ -589,6 +590,7 @@ private struct TutorRequest: Encodable {
         case retrievalQuery = "retrieval_query"
         case useWebSearch = "use_web_search"
         case groundingAgeConfirmed = "grounding_age_confirmed"
+        case includeLocalSourcesInWebSearch = "include_local_sources_in_web_search"
     }
 }
 
@@ -771,6 +773,7 @@ enum OrchestratorClient {
         mode: AIRoutingMode,
         useWebSearch: Bool = false,
         groundingAgeConfirmed: Bool = false,
+        includeLocalSourcesInWebSearch: Bool = false,
         onToken: @MainActor (String) -> Void
     ) async throws -> TutorCompletion {
         guard let url = URL(string: LearningStore.orchestratorBaseURL + "/chat/stream") else {
@@ -788,7 +791,8 @@ enum OrchestratorClient {
             mode: mode.rawValue,
             retrievalQuery: retrievalQuery,
             useWebSearch: useWebSearch,
-            groundingAgeConfirmed: groundingAgeConfirmed
+            groundingAgeConfirmed: groundingAgeConfirmed,
+            includeLocalSourcesInWebSearch: includeLocalSourcesInWebSearch
         ))
 
         let (bytes, response) = try await URLSession.shared.bytes(for: request)
@@ -860,7 +864,8 @@ final class TutorChatModel: ObservableObject {
     func send(
         _ rawText: String,
         useWebSearch: Bool = false,
-        groundingAgeConfirmed: Bool = false
+        groundingAgeConfirmed: Bool = false,
+        includeLocalSourcesInWebSearch: Bool = false
     ) {
         let question = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !question.isEmpty, !isSending else { return }
@@ -916,6 +921,7 @@ final class TutorChatModel: ObservableObject {
                     mode: mode,
                     useWebSearch: useWebSearch,
                     groundingAgeConfirmed: groundingAgeConfirmed,
+                    includeLocalSourcesInWebSearch: includeLocalSourcesInWebSearch,
                     onToken: { [weak self] token in self?.append(token, to: reply.id) }
                 )
                 completionLabel = [result.provider, result.model].filter { !$0.isEmpty }.joined(separator: " · ")
