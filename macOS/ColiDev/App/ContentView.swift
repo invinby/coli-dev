@@ -37,17 +37,24 @@ struct ContentView: View {
             Group {
                 switch selection ?? .today {
                 case .today:
-                    TodayView(open: open)
+                    TodayView(open: open, openDueReview: openDueReview)
                 case .subjects:
                     SubjectCatalogView(open: open)
                 case .subject(let subject):
-                    SubjectOverviewView(subject: subject) {
+                    SubjectOverviewView(
+                        subject: subject,
+                        openCourseLesson: { resource in
+                            selection = .courseLesson(subject, resource)
+                        }
+                    ) {
                         selection = .lesson(subject)
                     }
                 case .lesson(let subject):
                     LessonSessionView(subject: subject) {
                         selection = .subject(subject)
                     }
+                case .courseLesson(let subject, let resource):
+                    CurriculumModuleView(subject: subject, resource: resource)
                 case .settings:
                     SettingsView()
                 }
@@ -72,11 +79,22 @@ struct ContentView: View {
     private func open(_ subject: Subject) {
         selection = .subject(subject)
     }
+
+    private func openDueReview(_ subject: Subject, lessonID: String) {
+        if lessonID == subject.lessonID {
+            selection = .lesson(subject)
+        } else {
+            let prefix = "\(subject.rawValue)."
+            let resource = String(lessonID.dropFirst(prefix.count))
+            selection = .courseLesson(subject, resource)
+        }
+    }
 }
 
 private struct TodayView: View {
     @EnvironmentObject private var store: LearningStore
     let open: (Subject) -> Void
+    let openDueReview: (Subject, String) -> Void
 
     private let columns = [GridItem(.adaptive(minimum: 210), spacing: 16)]
 
@@ -159,10 +177,12 @@ private struct TodayView: View {
             }
             Spacer(minLength: 0)
             Button {
-                let next = store.nextDueSubject
-                    ?? Subject.allCases.first(where: { !store.isComplete($0) })
-                    ?? .mathematics
-                open(next)
+                if let subject = store.nextDueSubject, let lessonID = store.nextDueLessonID {
+                    openDueReview(subject, lessonID)
+                } else {
+                    let next = Subject.allCases.first(where: { !store.isComplete($0) }) ?? .mathematics
+                    open(next)
+                }
             } label: {
                 Label {
                     Text(L10n.text(store.dueReviewCount > 0 ? "home.reviewNow" : "home.continue", store.language))

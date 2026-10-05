@@ -21,17 +21,6 @@ enum Subject: String, CaseIterable, Identifiable, Hashable {
     var id: String { rawValue }
     var lessonID: String { "intro.\(rawValue)" }
 
-    var starterRoadmapTopic: String {
-        switch self {
-        case .mathematics: return "Coordinates, graphs, functions"
-        case .english: return "Aspect, modal verbs, conditionals"
-        case .physics: return "Forces and Newton's laws"
-        case .biology: return "Cells, membranes, metabolism"
-        case .zoology: return "Habitat, adaptation, behavior"
-        case .programming: return "Conditionals, loops, functions"
-        }
-    }
-
     func title(in language: AppLanguage) -> String {
         L10n.text("subject.\(rawValue)", language)
     }
@@ -224,34 +213,61 @@ final class LearningStore: ObservableObject {
     }
 
     func isComplete(_ subject: Subject) -> Bool {
-        completedLessonIDs.contains(subject.lessonID)
+        isComplete(lessonID: subject.lessonID)
+    }
+
+    func isComplete(lessonID: String) -> Bool {
+        completedLessonIDs.contains(lessonID)
     }
 
     func markComplete(_ subject: Subject) {
-        completedLessonIDs.insert(subject.lessonID)
-        queueStudyReview(for: subject)
+        markComplete(lessonID: subject.lessonID, quality: 4)
+    }
+
+    func markComplete(lessonID: String, quality: Int) {
+        completedLessonIDs.insert(lessonID)
+        queueStudyReview(lessonID: lessonID, quality: quality)
     }
 
     func recordReview(for subject: Subject) {
-        queueStudyReview(for: subject)
+        recordReview(lessonID: subject.lessonID, quality: 4)
+    }
+
+    func recordReview(lessonID: String, quality: Int) {
+        queueStudyReview(lessonID: lessonID, quality: quality)
     }
 
     func isReviewDue(_ subject: Subject) -> Bool {
-        guard let dueDate = studyProgress[subject.lessonID]?.dueDate else { return false }
+        isReviewDue(lessonID: subject.lessonID)
+    }
+
+    func isReviewDue(lessonID: String) -> Bool {
+        guard let dueDate = studyProgress[lessonID]?.dueDate else { return false }
         return dueDate <= Date()
     }
 
     func hasPendingReview(_ subject: Subject) -> Bool {
-        pendingStudyReviews.contains(where: { $0.lessonID == subject.lessonID })
+        hasPendingReview(lessonID: subject.lessonID)
     }
 
-    var nextDueSubject: Subject? {
+    func hasPendingReview(lessonID: String) -> Bool {
+        pendingStudyReviews.contains(where: { $0.lessonID == lessonID })
+    }
+
+    var nextDueLessonID: String? {
         let dueRecord = studyProgress.values
             .filter { ($0.dueDate ?? .distantFuture) <= Date() }
             .sorted { ($0.dueDate ?? .distantFuture) < ($1.dueDate ?? .distantFuture) }
             .first
-        guard let lessonID = dueRecord?.lessonID else { return nil }
-        return Subject.allCases.first(where: { $0.lessonID == lessonID })
+        return dueRecord?.lessonID
+    }
+
+    var nextDueSubject: Subject? {
+        guard let lessonID = nextDueLessonID else { return nil }
+        let subjectID = lessonID.hasPrefix("intro.")
+            ? String(lessonID.dropFirst("intro.".count))
+            : String(lessonID.split(separator: ".", maxSplits: 1).first ?? "")
+        return Subject(rawValue: subjectID)
     }
 
     func syncStudyProgress() async {
@@ -272,10 +288,7 @@ final class LearningStore: ObservableObject {
             do {
                 let record = try await OrchestratorClient.recordStudyReview(event)
                 studyProgress[event.lessonID] = record
-                if record.completed,
-                   let subject = Subject.allCases.first(where: { $0.lessonID == event.lessonID }) {
-                    completedLessonIDs.insert(subject.lessonID)
-                }
+                if record.completed { completedLessonIDs.insert(event.lessonID) }
                 pendingStudyReviews.removeAll(where: { $0.id == event.id })
             } catch {
                 return
@@ -286,11 +299,10 @@ final class LearningStore: ObservableObject {
             let snapshot = try await OrchestratorClient.studyProgress()
             studyProgress = Dictionary(uniqueKeysWithValues: snapshot.records.map { ($0.lessonID, $0) })
             dueReviewCount = snapshot.records.filter { record in
-                Subject.allCases.contains(where: { $0.lessonID == record.lessonID })
-                    && (record.dueDate ?? .distantFuture) <= Date()
+                (record.dueDate ?? .distantFuture) <= Date()
             }.count
-            for subject in Subject.allCases where studyProgress[subject.lessonID]?.completed == true {
-                completedLessonIDs.insert(subject.lessonID)
+            for record in snapshot.records where record.completed {
+                completedLessonIDs.insert(record.lessonID)
             }
         } catch {
             // Keep the local lesson state and queued review events while the backend is offline.
@@ -301,12 +313,12 @@ final class LearningStore: ObservableObject {
         Subject.allCases.filter(isComplete).count
     }
 
-    private func queueStudyReview(for subject: Subject) {
-        guard !hasPendingReview(subject) else { return }
+    private func queueStudyReview(lessonID: String, quality: Int) {
+        guard !hasPendingReview(lessonID: lessonID) else { return }
         pendingStudyReviews.append(StudyReviewEvent(
             id: UUID().uuidString.lowercased(),
-            lessonID: subject.lessonID,
-            quality: 4
+            lessonID: lessonID,
+            quality: quality
         ))
         Task { await syncStudyProgress() }
     }
@@ -748,5 +760,6 @@ enum AppSection: Hashable {
     case subjects
     case subject(Subject)
     case lesson(Subject)
+    case courseLesson(Subject, String)
     case settings
 }

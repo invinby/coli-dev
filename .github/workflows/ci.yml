@@ -75,3 +75,13 @@ jobs:
           for subject in Mathematics English Physics Biology Zoology Programming; do
             test -s "$resources/$subject/curriculum.md"
           done
+          while IFS=: read -r subject lesson; do
+            test -s "$resources/$subject/lessons/$lesson.md"
+          done <<'LESSONS'
+          Mathematics:functions_as_models
+          English:present_simple_and_continuous
+          Physics:net_force_and_acceleration
+          Biology:passive_transport_osmosis
+          Zoology:adaptation_and_behavior
+          Programming:conditions_loops_functions
+          LESSONS

@@ -8,6 +8,7 @@ struct SubjectOverviewView: View {
     @State private var levels: [CurriculumLevel] = []
 
     let subject: Subject
+    let openCourseLesson: (String) -> Void
     let startLesson: () -> Void
 
     var body: some View {
@@ -71,13 +72,14 @@ struct SubjectOverviewView: View {
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
                                         .fixedSize(horizontal: false, vertical: true)
-                                    if topic.name.english == subject.starterRoadmapTopic {
-                                        Button(action: startLesson) {
-                                            Label {
-                                                Text(L10n.text("roadmap.moduleLesson", store.language))
-                                            } icon: {
-                                                Image(systemName: "play.circle")
-                                            }
+                                    if let lessonResource = topic.lessonResource {
+                                        Button { openCourseLesson(lessonResource) } label: {
+                                            Label(
+                                                L10n.text("roadmap.openFullLesson", store.language),
+                                                systemImage: store.isComplete(lessonID: "\(subject.rawValue).\(lessonResource)")
+                                                    ? "checkmark.circle.fill"
+                                                    : "book.closed"
+                                            )
                                         }
                                         .buttonStyle(.borderless)
                                         .padding(.top, 3)
@@ -101,6 +103,285 @@ struct SubjectOverviewView: View {
         }
         .navigationTitle(Text(subject.title(in: store.language)))
         .onAppear { levels = CurriculumCatalog.roadmap(for: subject) }
+    }
+}
+
+private struct CurriculumLessonDocument {
+    let title: String
+    let objective: String
+    let theory: String
+    let practice: String
+    let answer: String
+    let checkQuestion: String
+    let checkOptions: [String]
+    let checkAnswerIndex: Int?
+    let limitations: String
+    let sources: String
+
+    static func load(subject: Subject, resource: String, language: AppLanguage) -> CurriculumLessonDocument? {
+        guard let raw = CurriculumCatalog.lessonMarkdown(for: subject, resource: resource) else { return nil }
+        var lines = raw.components(separatedBy: .newlines)
+        if lines.first?.trimmingCharacters(in: .whitespaces) == "---",
+           let end = lines.dropFirst().firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == "---" }) {
+            lines = Array(lines.dropFirst(end + 1))
+        }
+        guard let titleLine = lines.first(where: { $0.hasPrefix("# ") }) else { return nil }
+        let titleValue = String(titleLine.dropFirst(2))
+        let titleParts = titleValue.components(separatedBy: " / ")
+        let title = language == .ru ? titleParts.first ?? titleValue : titleParts.last ?? titleValue
+
+        let languageHeader = language == .ru ? "## Русский" : "## English"
+        guard let languageStart = lines.firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == languageHeader }) else {
+            return nil
+        }
+        let languageLines = Array(lines.dropFirst(languageStart + 1))
+            .prefix(while: { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("## ") })
+        let section = languageLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        let objective = extract(section, headings: language == .ru ? ["Цель"] : ["Goal"])
+        let theory = extract(section, headings: language == .ru ? ["Идея и механизм"] : ["Idea and mechanism"])
+        var practice = extract(section, headings: language == .ru
+            ? ["Исследуй и потренируйся"]
+            : ["Explore and practise", "Explore and practice"])
+        let checkQuestion = extract(section, headings: language == .ru ? ["Вопрос"] : ["Question"])
+        let checkOptions = parseOptions(extract(section, headings: language == .ru ? ["Варианты"] : ["Options"]))
+        let checkAnswer = Int(extract(section, headings: language == .ru ? ["Ответ"] : ["Answer"]).trimmingCharacters(in: .whitespacesAndNewlines))
+        let checkAnswerIndex = checkAnswer.map { $0 - 1 }.flatMap { checkOptions.indices.contains($0) ? $0 : nil }
+        let answer = extract(section, headings: language == .ru ? ["Разбор"] : ["Explanation"])
+        let limitations = extract(section, headings: language == .ru
+            ? ["Границы модели", "Границы правила", "Границы вывода", "Границы и безопасный запуск"]
+            : ["Limits", "Limits of the inference", "Limits and safe execution"])
+        let sourceLines = lines.drop { $0.trimmingCharacters(in: .whitespaces) != "## Sources" }.dropFirst()
+        let sources = sourceLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        return CurriculumLessonDocument(
+            title: title,
+            objective: objective,
+            theory: theory,
+            practice: practice,
+            answer: answer,
+            checkQuestion: checkQuestion,
+            checkOptions: checkOptions,
+            checkAnswerIndex: checkAnswerIndex,
+            limitations: limitations,
+            sources: sources
+        )
+    }
+
+    var tutorContext: LessonContent {
+        LessonContent(
+            title: title,
+            objective: objective,
+            explanation: theory,
+            mechanism: practice,
+            example: answer,
+            limitations: limitations,
+            question: "",
+            options: [],
+            answerIndex: 0,
+            feedback: answer
+        )
+    }
+
+    private static func extract(_ markdown: String, headings: [String]) -> String {
+        let lines = markdown.components(separatedBy: .newlines)
+        guard let start = lines.firstIndex(where: { line in
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            return trimmed.hasPrefix("### ") && headings.contains(String(trimmed.dropFirst(4)))
+        }) else { return "" }
+        let body = lines.dropFirst(start + 1).prefix(while: {
+            !$0.trimmingCharacters(in: .whitespaces).hasPrefix("### ")
+        })
+        return body.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func parseOptions(_ markdown: String) -> [String] {
+        markdown.components(separatedBy: .newlines).compactMap { line in
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("- ") {
+                return String(trimmed.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+            }
+            guard let range = trimmed.range(of: "^\\d+[.)]\\s+", options: .regularExpression) else { return nil }
+            return String(trimmed[range.upperBound...]).trimmingCharacters(in: .whitespaces)
+        }
+    }
+}
+
+struct CurriculumModuleView: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var document: CurriculumLessonDocument?
+    @State private var showingTutor = false
+    @State private var learnerConfirmed = false
+    @State private var recallQuality = 4
+    @State private var selectedCheckAnswer: Int?
+
+    let subject: Subject
+    let resource: String
+
+    private var lessonID: String { "\(subject.rawValue).\(resource)" }
+    private var isComplete: Bool { store.isComplete(lessonID: lessonID) }
+    private var isReviewDue: Bool { store.isReviewDue(lessonID: lessonID) }
+    private var hasPendingReview: Bool { store.hasPendingReview(lessonID: lessonID) }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                if let document {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(L10n.text("session.lesson", store.language))
+                            .font(.caption.weight(.semibold))
+                            .tracking(1.3)
+                            .foregroundStyle(subject.tint)
+                        Text(document.title)
+                            .font(.system(size: 32, weight: .bold, design: .rounded))
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(subject.title(in: store.language) + " · " + L10n.text("roadmap.fullModule", store.language))
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.top, 24)
+
+                    Button { showingTutor = true } label: {
+                        Label(L10n.text("tutor.title", store.language), systemImage: "sparkles")
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    ModuleTextCard(title: L10n.text("session.goal", store.language), text: document.objective, tint: subject.tint)
+                    ModuleTextCard(title: L10n.text("session.theory", store.language), text: document.theory, tint: subject.tint)
+                    if !document.practice.isEmpty {
+                        ModuleTextCard(title: L10n.text("session.lab", store.language), text: document.practice, tint: subject.tint)
+                    }
+                    PracticeLab(subject: subject, moduleResource: resource)
+
+                    if !document.checkQuestion.isEmpty, !document.checkOptions.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text(L10n.text("module.check", store.language))
+                                .font(.title2.weight(.semibold))
+                            Text(document.checkQuestion)
+                                .font(.headline)
+                            ForEach(document.checkOptions.indices, id: \.self) { index in
+                                Button {
+                                    selectedCheckAnswer = index
+                                } label: {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: selectedCheckAnswer == index ? "largecircle.fill.circle" : "circle")
+                                        Text(document.checkOptions[index])
+                                            .multilineTextAlignment(.leading)
+                                        Spacer(minLength: 0)
+                                    }
+                                    .padding(11)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(.background, in: RoundedRectangle(cornerRadius: 11))
+                                    .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(.quaternary, lineWidth: 1))
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            if let selectedCheckAnswer {
+                                let isCorrect = selectedCheckAnswer == document.checkAnswerIndex
+                                Label(
+                                    L10n.text(isCorrect ? "module.correct" : "module.incorrect", store.language),
+                                    systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
+                                )
+                                .foregroundStyle(isCorrect ? Color.green : Color.orange)
+                                if isCorrect, !document.answer.isEmpty {
+                                    Text((try? AttributedString(markdown: document.answer)) ?? AttributedString(document.answer))
+                                        .textSelection(.enabled)
+                                        .padding(.top, 2)
+                                }
+                            }
+                        }
+                        .padding(18)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+                    }
+
+                    if !document.limitations.isEmpty {
+                        ModuleTextCard(title: L10n.text("session.limitations", store.language), text: document.limitations, tint: subject.tint)
+                    }
+                    if !document.sources.isEmpty {
+                        ModuleTextCard(title: L10n.text("module.sources", store.language), text: document.sources, tint: subject.tint)
+                    }
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(L10n.text("session.listen", store.language)).font(.headline)
+                        Toggle(L10n.text("session.doneCheck", store.language), isOn: $learnerConfirmed)
+                            .toggleStyle(.checkbox)
+                        Picker(L10n.text("session.recallQuality", store.language), selection: $recallQuality) {
+                            Text(L10n.text("session.recallHard", store.language)).tag(2)
+                            Text(L10n.text("session.recallGood", store.language)).tag(4)
+                            Text(L10n.text("session.recallEasy", store.language)).tag(5)
+                        }
+                        .pickerStyle(.segmented)
+                    }
+                    .padding(16)
+                    .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+
+                    Button {
+                        if isComplete {
+                            store.recordReview(lessonID: lessonID, quality: recallQuality)
+                        } else {
+                            store.markComplete(lessonID: lessonID, quality: recallQuality)
+                        }
+                    } label: {
+                        let title = hasPendingReview
+                            ? "session.reviewSaved"
+                            : (isComplete
+                                ? (isReviewDue ? "session.recordReview" : "session.completed")
+                                : "session.complete")
+                        Label(L10n.text(title, store.language), systemImage: isComplete ? "checkmark.circle.fill" : "checkmark")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(
+                        !learnerConfirmed
+                            || selectedCheckAnswer != document.checkAnswerIndex
+                            || hasPendingReview
+                            || (isComplete && !isReviewDue)
+                    )
+                    .padding(.bottom, 32)
+                } else {
+                    Label(L10n.text("module.unavailable", store.language), systemImage: "doc.questionmark")
+                        .foregroundStyle(.secondary)
+                        .padding(24)
+                }
+            }
+            .padding(.horizontal, 34)
+            .frame(maxWidth: 900, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .background(Color(nsColor: .windowBackgroundColor))
+        .navigationTitle(Text(document?.title ?? L10n.text("module.title", store.language)))
+        .onAppear { loadDocument() }
+        .onChange(of: store.language) { _ in loadDocument() }
+        .sheet(isPresented: $showingTutor) {
+            if let document {
+                TutorChatView(subject: subject, lesson: document.tutorContext, language: store.language, mode: store.aiMode)
+                    .environmentObject(store)
+                    .frame(minWidth: 680, minHeight: 520)
+            }
+        }
+    }
+
+    private func loadDocument() {
+        document = CurriculumLessonDocument.load(subject: subject, resource: resource, language: store.language)
+        learnerConfirmed = isComplete
+    }
+}
+
+private struct ModuleTextCard: View {
+    let title: String
+    let text: String
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(tint)
+            Text((try? AttributedString(markdown: text)) ?? AttributedString(text))
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+                .lineSpacing(4)
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
     }
 }
 
@@ -317,10 +598,21 @@ private struct LessonConceptCard: View {
 
 private struct PracticeLab: View {
     let subject: Subject
+    let moduleResource: String?
+
+    init(subject: Subject, moduleResource: String? = nil) {
+        self.subject = subject
+        self.moduleResource = moduleResource
+    }
 
     @ViewBuilder
     var body: some View {
-        switch subject {
+        if subject == .english, moduleResource == "present_simple_and_continuous" {
+            TenseContrastLab()
+        } else if subject == .biology, moduleResource == "passive_transport_osmosis" {
+            OsmosisLab()
+        } else {
+            switch subject {
         case .mathematics:
             SlopeLab()
         case .english:
@@ -333,6 +625,151 @@ private struct PracticeLab: View {
             AdaptationLab()
         case .programming:
             ConditionalLab()
+            }
+        }
+    }
+}
+
+private struct TenseContrastLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var scenario = 0
+    @State private var selectedAnswer: Int?
+
+    private var correctAnswer: Int { scenario }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.tensePrompt", store.language))
+                .font(.headline)
+            Picker("", selection: $scenario) {
+                Text(L10n.text("lab.tenseScenario0", store.language)).tag(0)
+                Text(L10n.text("lab.tenseScenario1", store.language)).tag(1)
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: scenario) { _ in selectedAnswer = nil }
+
+            HStack(spacing: 10) {
+                ForEach(0..<2, id: \.self) { option in
+                    Button {
+                        selectedAnswer = option
+                    } label: {
+                        Text(L10n.text("lab.tenseOption\(scenario)\(option)", store.language))
+                            .frame(maxWidth: .infinity)
+                            .padding(10)
+                            .background(
+                                selectedAnswer == option
+                                    ? (option == correctAnswer ? Color.green.opacity(0.16) : Color.orange.opacity(0.16))
+                                    : Color.secondary.opacity(0.08),
+                                in: RoundedRectangle(cornerRadius: 10)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if let selectedAnswer {
+                Label(
+                    L10n.text(selectedAnswer == correctAnswer ? "lab.tenseCorrect" : "lab.tenseIncorrect", store.language),
+                    systemImage: selectedAnswer == correctAnswer ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
+                )
+                .foregroundStyle(selectedAnswer == correctAnswer ? Color.green : Color.orange)
+            }
+        }
+    }
+}
+
+private struct OsmosisLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var insideConcentration = 4.0
+    @State private var outsideConcentration = 6.0
+
+    private var netFlowKey: String {
+        if outsideConcentration > insideConcentration { return "lab.osmosisWaterEnters" }
+        if insideConcentration > outsideConcentration { return "lab.osmosisWaterLeaves" }
+        return "lab.osmosisBalanced"
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.osmosisHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            HStack(alignment: .center, spacing: 14) {
+                concentrationDisplay(
+                    title: L10n.text("lab.osmosisOutside", store.language),
+                    value: outsideConcentration
+                )
+                Image(systemName: outsideConcentration == insideConcentration
+                    ? "arrow.left.and.right"
+                    : (outsideConcentration > insideConcentration ? "arrow.right" : "arrow.left"))
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(.blue)
+                    .accessibilityHidden(true)
+                ZStack {
+                    Circle()
+                        .fill(Color.cyan.opacity(0.12))
+                        .frame(width: 118, height: 118)
+                    Circle()
+                        .strokeBorder(Color.cyan.opacity(0.75), lineWidth: 3)
+                        .frame(width: 118, height: 118)
+                    VStack(spacing: 5) {
+                        Text(L10n.text("lab.osmosisInside", store.language))
+                            .font(.caption.weight(.semibold))
+                        Text("\(insideConcentration, specifier: "%.0f")")
+                            .font(.title2.monospacedDigit().weight(.bold))
+                        soluteDots(insideConcentration)
+                    }
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(Text(L10n.text("lab.osmosisInside", store.language) + ", \(Int(insideConcentration))"))
+            }
+            .frame(maxWidth: .infinity)
+
+            concentrationSlider(title: L10n.text("lab.osmosisOutside", store.language), value: $outsideConcentration)
+            concentrationSlider(title: L10n.text("lab.osmosisInside", store.language), value: $insideConcentration)
+
+            Label(L10n.text(netFlowKey, store.language), systemImage: "drop.fill")
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(.blue)
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        }
+    }
+
+    private func concentrationDisplay(title: String, value: Double) -> some View {
+        VStack(spacing: 8) {
+            Text(title)
+                .font(.caption.weight(.medium))
+                .multilineTextAlignment(.center)
+            Text("\(value, specifier: "%.0f")")
+                .font(.title2.monospacedDigit().weight(.bold))
+            soluteDots(value)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func soluteDots(_ value: Double) -> some View {
+        HStack(spacing: 3) {
+            ForEach(0..<Int(value), id: \.self) { _ in
+                Circle().fill(Color.purple.opacity(0.78)).frame(width: 6, height: 6)
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    private func concentrationSlider(title: String, value: Binding<Double>) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(title)
+                Spacer()
+                Text(value.wrappedValue, format: .number.precision(.fractionLength(0)))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+            Slider(value: value, in: 0...10, step: 1)
         }
     }
 }

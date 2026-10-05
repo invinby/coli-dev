@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -110,6 +111,91 @@ def test_priority_curriculum_roadmaps_are_retrievable(
         source["path"] == f"02_Areas/{expected_path}/curriculum.md"
         for source in results
     )
+
+
+@pytest.mark.parametrize(("query", "expected_path"), [
+    (
+        "taxi starting charge kilometres slope domain range exactly one output",
+        "Mathematics/lessons/functions_as_models.md",
+    ),
+    (
+        "present simple present continuous habits temporary be ing stative verbs she studies",
+        "English/lessons/present_simple_and_continuous.md",
+    ),
+    (
+        "east 14 N west 6 N 4 kg free-body diagram resultant force",
+        "Physics/lessons/net_force_and_acceleration.md",
+    ),
+    (
+        "erythrocyte hypertonic water leaves aquaporins osmosis solute",
+        "Biology/lessons/passive_transport_osmosis.md",
+    ),
+    (
+        "thicker coat fox heritable trait population generations acclimation behavior",
+        "Zoology/lessons/adaptation_and_behavior.md",
+    ),
+    (
+        "count_even number modulo two return count list empty list",
+        "Programming/lessons/conditions_loops_functions.md",
+    ),
+])
+def test_bilingual_foundation_modules_are_retrievable(
+    tmp_path: Path, query: str, expected_path: str
+) -> None:
+    project = Path(__file__).resolve().parent.parent
+    index = KnowledgeIndex(project, tmp_path / "knowledge.sqlite3")
+
+    results = index.refresh_and_search(query, limit=4)
+
+    assert results
+    assert results[0]["path"] == f"02_Areas/{expected_path}"
+
+
+def test_curriculum_lesson_links_resolve_to_bilingual_module_files() -> None:
+    project = Path(__file__).resolve().parent.parent
+    areas = project / "02_Areas"
+    linked_subjects: set[str] = set()
+
+    for curriculum in areas.glob("*/curriculum.md"):
+        subject = curriculum.parent.name
+        content = curriculum.read_text(encoding="utf-8")
+        resources = re.findall(r"\|\s*lesson:([a-z0-9_-]+)\s*\|", content)
+        assert resources, f"{curriculum.relative_to(project)} has no linked lesson"
+
+        for resource in resources:
+            lesson = curriculum.parent / "lessons" / f"{resource}.md"
+            assert lesson.is_file(), f"Missing lesson linked from {curriculum}: {resource}"
+            lesson_text = lesson.read_text(encoding="utf-8")
+            expected_id = f"{subject.casefold()}.{resource}"
+            assert f"lesson_id: {expected_id}" in lesson_text
+            assert "## Русский" in lesson_text
+            assert "## English" in lesson_text
+            russian_remainder = lesson_text.split("## Русский", 1)[1]
+            russian = russian_remainder.split("## English", 1)[0]
+            english_remainder = lesson_text.split("## English", 1)[1]
+            english = english_remainder.split("## Sources", 1)[0]
+            for section, question_heading in ((russian, "Вопрос"), (english, "Question")):
+                def heading_body(name: str) -> str:
+                    match = re.search(
+                        rf"^### {re.escape(name)}\s*\n(.*?)(?=^### |\Z)",
+                        section,
+                        flags=re.MULTILINE | re.DOTALL,
+                    )
+                    return match.group(1).strip() if match else ""
+
+                question = heading_body(question_heading)
+                options = re.findall(r"(?m)^- .+$", heading_body("Варианты" if question_heading == "Вопрос" else "Options"))
+                answer = heading_body("Ответ" if question_heading == "Вопрос" else "Answer")
+                explanation = heading_body("Разбор" if question_heading == "Вопрос" else "Explanation")
+                assert question, f"Missing {question_heading.lower()} in {lesson}"
+                assert options, f"Missing answer choices in {lesson}"
+                assert answer.isdigit() and 1 <= int(answer) <= len(options), f"Invalid answer index in {lesson}"
+                assert explanation, f"Missing answer explanation in {lesson}"
+            linked_subjects.add(subject)
+
+    assert linked_subjects == {
+        "Biology", "English", "Mathematics", "Physics", "Programming", "Zoology"
+    }
 
 
 def test_local_embeddings_find_semantic_match_and_cache_document_vectors(tmp_path: Path) -> None:

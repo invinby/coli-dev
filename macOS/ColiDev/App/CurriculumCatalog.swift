@@ -12,6 +12,7 @@ struct CurriculumText {
 struct CurriculumTopic: Identifiable {
     let name: CurriculumText
     let learningOutcome: CurriculumText
+    let lessonResource: String?
 
     var id: String { "\(name.russian)|\(name.english)" }
 }
@@ -35,6 +36,18 @@ enum CurriculumCatalog {
             return []
         }
         return parse(markdown)
+    }
+
+    static func lessonMarkdown(for subject: Subject, resource: String) -> String? {
+        guard resource.range(of: "^[a-z0-9_-]{1,80}$", options: .regularExpression) != nil,
+              let resourcesURL = Bundle.main.resourceURL else { return nil }
+        let lessonURL = resourcesURL
+            .appendingPathComponent("02_Areas", isDirectory: true)
+            .appendingPathComponent(subject.rawValue.capitalized, isDirectory: true)
+            .appendingPathComponent("lessons", isDirectory: true)
+            .appendingPathComponent(resource)
+            .appendingPathExtension("md")
+        return try? String(contentsOf: lessonURL, encoding: .utf8)
     }
 
     private static func parse(_ markdown: String) -> [CurriculumLevel] {
@@ -65,7 +78,10 @@ enum CurriculumCatalog {
             levels[activeLevelIndex].topics.append(
                 CurriculumTopic(
                     name: localized(columns[0]),
-                    learningOutcome: localized(columns[1])
+                    learningOutcome: localized(columns[1]),
+                    lessonResource: columns.count >= 3 && columns[2].hasPrefix("lesson:")
+                        ? String(columns[2].dropFirst("lesson:".count))
+                        : nil
                 )
             )
         }
