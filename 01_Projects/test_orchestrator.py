@@ -1120,6 +1120,91 @@ class TestStreamingChat:
         local_search.assert_awaited_once_with("Physics motion current lesson")
         obsidian_search.assert_awaited_once_with("Physics motion current lesson")
 
+    def test_grounded_web_search_continues_when_optional_course_retrieval_fails(self, client):
+        web_source = {
+            "id": "1",
+            "title": "Current official source",
+            "excerpt": "",
+            "retrieved_at": "2026-10-05T12:00:00Z",
+            "path": "https://example.org/current",
+            "source_type": "google_grounding",
+        }
+        obsidian_source = {
+            "id": "",
+            "title": "Personal note",
+            "excerpt": "A private observation.",
+            "retrieved_at": "2026-10-05T11:00:00Z",
+            "path": "Notes/physics.md",
+            "source_type": "obsidian",
+        }
+        instances = []
+
+        class StubEngine(orchestrator.ConsiliumEngine):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.web_sources = [web_source]
+                self.search_entry_point_html = "<a>Google Search</a>"
+                self.run_grounded = AsyncMock(return_value="Current result. [1] [K1]")
+                instances.append(self)
+
+        with (
+            patch("orchestrator.ConsiliumEngine", StubEngine),
+            patch(
+                "orchestrator._retrieve_local_course_sources",
+                AsyncMock(side_effect=RuntimeError("index unavailable")),
+            ) as local_search,
+            patch(
+                "orchestrator._retrieve_obsidian_sources",
+                AsyncMock(return_value=[obsidian_source]),
+            ) as obsidian_search,
+        ):
+            response = client.post("/chat/stream", json={
+                "message": "What changed?",
+                "system_prompt": "Physics tutor context",
+                "use_web_search": True,
+                "grounding_age_confirmed": True,
+                "include_local_sources_in_web_search": True,
+            })
+
+        assert response.status_code == 200
+        events = _parse_sse(response.text)
+        done = next(event for event in events if event["type"] == "done")
+        learner_message, system_prompt = instances[0].run_grounded.await_args.args
+        assert "A private observation." in learner_message
+        assert "Сообщение ученика:\nWhat changed?" in learner_message
+        assert system_prompt == "Physics tutor context"
+        assert [source["id"] for source in done["sources"]] == ["1", "K1"]
+        local_search.assert_awaited_once_with("What changed?")
+        obsidian_search.assert_awaited_once_with("What changed?")
+
+    def test_grounded_web_search_emits_before_local_retrieval(self):
+        request = orchestrator.ChatRequest(
+            message="What changed?",
+            use_web_search=True,
+            grounding_age_confirmed=True,
+            include_local_sources_in_web_search=True,
+        )
+        local_search = AsyncMock()
+        obsidian_search = AsyncMock()
+
+        async def read_first_event():
+            response = await orchestrator._handle_grounded_web_search(request)
+            first_event = await response.body_iterator.__anext__()
+            assert first_event == ": connected\n\n"
+            local_search.assert_not_awaited()
+            obsidian_search.assert_not_awaited()
+            await response.body_iterator.aclose()
+
+        with (
+            patch("orchestrator.GEMINI_KEY", "test-key"),
+            patch.object(orchestrator.session_tracker, "can_start_session", return_value=True),
+            patch("orchestrator._check_network", AsyncMock(return_value=True)),
+            patch("orchestrator.ConsiliumEngine"),
+            patch("orchestrator._retrieve_local_course_sources", local_search),
+            patch("orchestrator._retrieve_obsidian_sources", obsidian_search),
+        ):
+            asyncio.run(read_first_event())
+
     @pytest.mark.parametrize(("mode", "online"), [("local", True), ("auto", False)])
     def test_grounded_web_search_requires_auto_and_network(self, client, monkeypatch, mode, online):
         monkeypatch.setattr(orchestrator, "_check_network", AsyncMock(return_value=online))

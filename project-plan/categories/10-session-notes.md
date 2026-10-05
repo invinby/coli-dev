@@ -219,3 +219,16 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 - Общие judge, critic, local verifier и final synthesis prompts переписаны для учебных вопросов по разным дисциплинам. RU/EN версия выбрана явно; никаких требований FastAPI/PEP 8/Python-бэкенда в общих рубриках больше нет. Кодовые проверки активируются условно, когда в запросе есть код.
 - Автосохранение в Obsidian запускается только при настроенном локальном bridge, без лишней no-op-задачи в остальных сессиях.
 - Целевые тесты на обоих языках прошли: 4 passed. Полный backend suite: 193 passed, одно известное предупреждение Starlette/httpx. `compileall` и `git diff --check` прошли. Изменения пока локальные; GitHub CI и live-модельные ответы не проверены.
+
+### Отдельное согласие на гибридный Google Search + local RAG — 2026-10-05
+
+- Добавлен второй явный переключатель для поиска до четырёх подходящих фрагментов локальных курсов и Obsidian. Он выключен по умолчанию; при включении интерфейс показывает отдельное предупреждение об отправке этих фрагментов в Gemini/Google. Без него grounded search не запускает локальный retrieval.
+- Локальные фрагменты сериализуются как JSON-данные в user message, остаются вне system prompt и показываются среди источников с `[K#]` рядом с Google grounding citations. Локальный retrieval начинается после первого SSE-события, чтобы медленный Obsidian не задерживал открытие потока.
+- Полный локальный backend suite прошёл: 196 passed, одно известное предупреждение Starlette/httpx. Ruff, `compileall` и `git diff --check` чистые. Commit `a98b5e2`; GitHub Actions run [37265525811](https://github.com/invinby/coli-dev/actions/runs/37265525811) успешно проверил backend, Xcode-сборки и bundled-backend smoke tests на Apple Silicon и Intel.
+- Live Gemini/Obsidian и ручной запуск GUI на Mac пользователя не проверялись. Этот срез остаётся одноразовым web grounding, а не индексированным web-RAG; trusted-source policy, persistent web indexing/freshness, полный курс, видео, предметные 3D-модули и полноценный релиз остаются незакрытыми.
+
+### Устойчивость гибридного поиска при сбое локального retrieval — 2026-10-05
+
+- Если локальный course index или Obsidian retrieval завершается ошибкой, backend логирует только тип ошибки и продолжает Google grounding с тем источником, который ответил. Содержание приватной заметки в лог не записывается; отмена клиентского запроса по-прежнему распространяется наружу.
+- Добавлены проверки, что SSE начинается до local retrieval и что отказ course index не мешает получить веб-ответ вместе с найденной заметкой Obsidian. Полный backend suite прошёл: 198 passed, одно известное предупреждение Starlette/httpx. Ruff, `compileall` и `git diff --check` чистые.
+- Эти дополнительные проверки пока не прошли GitHub CI; нужен следующий push и зелёные backend/macOS jobs. Live Gemini, Obsidian и запуск GUI на Mac пользователя не тестировались.

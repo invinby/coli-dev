@@ -2177,10 +2177,24 @@ async def _handle_grounded_web_search(req: ChatRequest) -> StreamingResponse:
             learner_message = req.message
             if req.include_local_sources_in_web_search:
                 retrieval_query = (req.retrieval_query or req.message).strip()
-                course_sources, obsidian_sources = await asyncio.gather(
+                retrieval_results = await asyncio.gather(
                     _retrieve_local_course_sources(retrieval_query),
                     _retrieve_obsidian_sources(retrieval_query),
+                    return_exceptions=True,
                 )
+                course_sources, obsidian_sources = retrieval_results
+                if isinstance(course_sources, Exception):
+                    logger.warning(
+                        "Course retrieval failed during grounded search",
+                        extra={"error_type": type(course_sources).__name__},
+                    )
+                    course_sources = []
+                if isinstance(obsidian_sources, Exception):
+                    logger.warning(
+                        "Obsidian retrieval failed during grounded search",
+                        extra={"error_type": type(obsidian_sources).__name__},
+                    )
+                    obsidian_sources = []
                 local_sources.extend(_combine_retrieval_sources(course_sources, obsidian_sources))
                 learner_message = _augment_message_with_sources(req.message, local_sources, req.language)
             answer = await engine.run_grounded(learner_message, req.system_prompt)
