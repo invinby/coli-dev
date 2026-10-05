@@ -440,17 +440,17 @@ class TestObsidianEndpoints:
 class TestSessionTracker:
     """Проверка трекера сессий."""
 
-    def test_can_start_session_initially(self):
+    def test_can_start_session_initially(self, tmp_path):
         """Изначально можно начать сессию."""
-        tracker = SessionTracker(max_per_day=5, duration_hours=1)
+        tracker = SessionTracker(max_per_day=5, duration_hours=1, file=tmp_path / "sessions.json")
         tracker.reset_mode()
         tracker._sessions = []
         assert tracker.can_start_session() is True
         assert tracker.mode == "online"
 
-    def test_session_limit_switches_to_local(self):
+    def test_session_limit_switches_to_local(self, tmp_path):
         """При исчерпании лимита переключается на local."""
-        tracker = SessionTracker(max_per_day=2, duration_hours=1)
+        tracker = SessionTracker(max_per_day=2, duration_hours=1, file=tmp_path / "sessions.json")
         tracker.reset_mode()
         tracker._sessions = []
         tracker.start_session()
@@ -459,16 +459,16 @@ class TestSessionTracker:
         assert status["mode"] == "local"
         assert status["remaining"] == 0
 
-    def test_local_mode_blocks_sessions(self):
+    def test_local_mode_blocks_sessions(self, tmp_path):
         """В local-режиме новые сессии не начинаются."""
-        tracker = SessionTracker(max_per_day=5, duration_hours=1)
+        tracker = SessionTracker(max_per_day=5, duration_hours=1, file=tmp_path / "sessions.json")
         tracker._mode = "local"
         tracker._sessions = []
         assert tracker.can_start_session() is False
 
-    def test_get_status_returns_correct_fields(self):
+    def test_get_status_returns_correct_fields(self, tmp_path):
         """get_status возвращает все нужные поля."""
-        tracker = SessionTracker(max_per_day=3, duration_hours=1)
+        tracker = SessionTracker(max_per_day=3, duration_hours=1, file=tmp_path / "sessions.json")
         tracker.reset_mode()
         tracker._sessions = []
         status = tracker.get_status()
@@ -478,6 +478,50 @@ class TestSessionTracker:
         assert "remaining" in status
         assert "can_start" in status
         assert status["max"] == 3
+
+    @pytest.mark.parametrize(
+        "contents",
+        [
+            "{broken json",
+            "[]",
+            '{"sessions": "not-a-list", "mode": "online"}',
+            '{"sessions": [{"date": null}], "mode": ["local"]}',
+        ],
+    )
+    def test_corrupt_session_state_recovers_without_crashing(self, tmp_path, contents):
+        session_file = tmp_path / "sessions.json"
+        session_file.write_text(contents, encoding="utf-8")
+
+        tracker = SessionTracker(file=session_file)
+
+        assert tracker.mode == "online"
+        assert tracker._sessions == []
+        assert tracker._dirty is True
+        tracker._save()
+        assert json.loads(session_file.read_text(encoding="utf-8")) == {
+            "sessions": [],
+            "mode": "online",
+        }
+
+    def test_session_save_is_atomic_when_replace_fails(self, tmp_path, monkeypatch):
+        session_file = tmp_path / "sessions.json"
+        tracker = SessionTracker(file=session_file)
+        tracker.reset_mode()
+        previous_contents = session_file.read_text(encoding="utf-8")
+        tracker._mode = "local"
+        tracker._mark_dirty()
+
+        def fail_replace(source, destination):
+            raise OSError("simulated replace failure")
+
+        with monkeypatch.context() as context:
+            context.setattr(orchestrator.os, "replace", fail_replace)
+            with pytest.raises(OSError, match="simulated replace failure"):
+                tracker._save()
+
+        assert session_file.read_text(encoding="utf-8") == previous_contents
+        assert tracker._dirty is True
+        assert list(tmp_path.glob(".sessions.json.*.tmp")) == []
 
 
 # ─── Тесты DebateLog ───────────────────────────────────

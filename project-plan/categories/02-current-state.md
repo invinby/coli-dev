@@ -40,7 +40,13 @@ Commit `a8b7320`; run [37252284801](https://github.com/invinby/coli-dev/actions/
 
 ## Obsidian bridge hardening — 2026-10-05
 
-Obsidian worker сам отвергает удалённые target URL до отправки Bearer token; перед построением endpoint проверяются и URL-кодируются vault-relative пути. Абсолютные пути, traversal, закодированные `..`, контрольные символы и чрезмерно длинные пути блокируются; API возвращает 422 на неверный путь. Полный локальный backend suite прошёл: 160 тестов; CI для этого среза ещё ожидается.
+Obsidian worker сам отвергает удалённые target URL до отправки Bearer token; перед построением endpoint проверяются и URL-кодируются vault-relative пути. Абсолютные пути, traversal, закодированные `..`, контрольные символы и чрезмерно длинные пути блокируются; API возвращает 422 на неверный путь. Commit `e1ee8db`; GitHub Actions run [37252817814](https://github.com/invinby/coli-dev/actions/runs/37252817814) прошёл backend checks и macOS build/bundle-check. Локальный backend suite: 160 тестов.
+
+## Session state resilience — 2026-10-05
+
+Файл квоты/режима сессий теперь загружается с проверкой схемы и размера; повреждённые записи сбрасываются безопасно. Запись идёт во временный файл с `fsync` и атомарным `replace`, чтобы прерванная операция не затёрла прежнее состояние. Unit-тесты передают временный путь вместо пользовательского app-data файла.
+
+Полный локальный backend suite: 165 passed; `compileall` и `git diff --check` прошли. GitHub Actions для этого среза ещё ожидается.
 
 ## Не подтверждено запуском
 

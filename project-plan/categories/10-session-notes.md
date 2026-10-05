@@ -172,4 +172,10 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 
 - Вынесена единая проверка loopback URL и использована в оркестраторе и Obsidian worker; remote endpoint отбрасывается до запроса с Bearer token.
 - Валидируются vault-relative пути: абсолютные и traversal-пути, включая URL-encoded/double-encoded варианты, control characters и строки длиннее лимита отклоняются. Допустимые сегменты URL-encode-ятся, чтобы `?` и `#` не меняли endpoint.
-- `/obsidian/list`, `read`, `write`, `delete` возвращают 422 для неверного пути. `test_obsidian_worker.py`, тест API-обработчика и loopback URL suite прошли; полный backend suite: 160 passed, одно предупреждение Starlette/httpx. `compileall` и `git diff --check` чистые; CI ещё ожидается.
+- `/obsidian/list`, `read`, `write`, `delete` возвращают 422 для неверного пути. `test_obsidian_worker.py`, тест API-обработчика и loopback URL suite прошли; полный backend suite: 160 passed, одно предупреждение Starlette/httpx. `compileall` и `git diff --check` чистые. Commit `e1ee8db`; GitHub Actions run [37252817814](https://github.com/invinby/coli-dev/actions/runs/37252817814) прошёл backend checks и macOS build/bundle-check.
+
+### Session state resilience — 2026-10-05
+
+- `SessionTracker` теперь принимает путь хранилища для изолированных тестов, валидирует top-level JSON/schema/date/mode и не читает state file больше 1 MB.
+- Сохранение идёт во временный файл в той же папке, с flush/fsync, затем `os.replace`; при ошибке оригинал сохраняется, а временный файл очищается.
+- Проверены битый JSON, неверный top-level тип, неверные sessions/mode и сбой `replace`. Полный `pytest 01_Projects -q`: 165 passed, одно известное предупреждение Starlette/httpx; `compileall` и `git diff --check` чистые. CI для этого среза ещё ожидается.

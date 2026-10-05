@@ -35,10 +35,11 @@ import logging
 import os
 import re
 import sys
+import tempfile
 import uuid
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
-from datetime import datetime, timezone, timedelta
+from datetime import date, datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import quote, urlsplit
@@ -332,6 +333,7 @@ CHAT_RATE_LIMIT = os.getenv("CHAT_RATE_LIMIT", "30/minute")
 SESSION_MAX_PER_DAY = int(os.getenv("SESSION_MAX_PER_DAY", "999"))
 SESSION_DURATION_HOURS = int(os.getenv("SESSION_DURATION_HOURS", "1"))
 SESSION_FILE = session_file_path()
+_MAX_SESSION_FILE_BYTES = 1_000_000
 
 # DuckDuckGo search
 DDG_URL = "https://html.duckduckgo.com/html/"
@@ -478,38 +480,87 @@ class SessionTracker:
     'Автономный локальный' (Digital Twin на базе Qwen 3).
     """
 
-    def __init__(self, max_per_day: int = 5, duration_hours: int = 1) -> None:
+    def __init__(self, max_per_day: int = 5, duration_hours: int = 1, file: Path | None = None) -> None:
         self.max_per_day = max_per_day
         self.duration_hours = duration_hours
-        self._file = SESSION_FILE
+        self._file = file or SESSION_FILE
         self._file.parent.mkdir(parents=True, exist_ok=True)
         self._sessions: list[dict[str, Any]] = []
         self._mode: str = "online"  # "online" | "local"
+        self._dirty = False
         self._load()
 
     def _load(self) -> None:
-        """Загрузить сессии из JSON-файла."""
+        """Load and validate persisted session state without failing app startup."""
         if self._file.exists():
             try:
+                if self._file.stat().st_size > _MAX_SESSION_FILE_BYTES:
+                    raise ValueError("Session state file is too large")
                 data = json.loads(self._file.read_text(encoding="utf-8"))
-                self._sessions = data.get("sessions", [])
-                self._mode = data.get("mode", "online")
-            except (json.JSONDecodeError, KeyError):
+                if not isinstance(data, dict):
+                    raise ValueError("Session state must be a JSON object")
+
+                raw_sessions = data.get("sessions", [])
+                if not isinstance(raw_sessions, list):
+                    raw_sessions = []
+                    self._mark_dirty()
+                valid_sessions: list[dict[str, Any]] = []
+                for session in raw_sessions:
+                    if not isinstance(session, dict):
+                        self._mark_dirty()
+                        continue
+                    try:
+                        date.fromisoformat(session.get("date", ""))
+                    except (TypeError, ValueError):
+                        self._mark_dirty()
+                        continue
+                    valid_sessions.append(session)
+                self._sessions = valid_sessions
+
+                mode = data.get("mode", "online")
+                if not isinstance(mode, str) or mode not in {"online", "local"}:
+                    mode = "online"
+                    self._mark_dirty()
+                self._mode = mode
+            except (OSError, UnicodeError, TypeError, ValueError):
                 self._sessions = []
                 self._mode = "online"
+                self._mark_dirty()
         self._prune_expired()
 
-    _dirty: bool = False
-
     def _save(self) -> None:
-        """Сохранить сессии в JSON-файл (только если были изменения)."""
+        """Atomically save session state so interrupted writes preserve the old file."""
         if not self._dirty:
             return
-        self._file.write_text(
-            json.dumps({"sessions": self._sessions, "mode": self._mode}, ensure_ascii=False, default=str),
-            encoding="utf-8"
-        )
-        self._dirty = False
+        temporary_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=self._file.parent,
+                prefix=f".{self._file.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as temporary_file:
+                temporary_path = Path(temporary_file.name)
+                json.dump(
+                    {"sessions": self._sessions, "mode": self._mode},
+                    temporary_file,
+                    ensure_ascii=False,
+                )
+                temporary_file.flush()
+                os.fsync(temporary_file.fileno())
+            os.replace(temporary_path, self._file)
+            self._dirty = False
+        finally:
+            if temporary_path and temporary_path.exists():
+                try:
+                    temporary_path.unlink()
+                except OSError as error:
+                    logger.warning(
+                        "Could not remove temporary session state",
+                        extra={"error_type": type(error).__name__},
+                    )
 
     def _mark_dirty(self) -> None:
         self._dirty = True
