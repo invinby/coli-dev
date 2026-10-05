@@ -227,6 +227,42 @@ class TestAPIEndpoints:
 
         assert "access-control-allow-origin" not in response.headers
 
+    @pytest.mark.parametrize(("method", "path", "payload"), [
+        ("GET", "/api/status", None),
+        ("GET", "/health", None),
+        ("GET", "/api/session", None),
+        ("POST", "/api/session/reset", None),
+        ("POST", "/chat/stream", {"message": "private lesson context"}),
+        ("GET", "/obsidian/ping", None),
+        ("GET", "/obsidian/list", None),
+        ("GET", "/obsidian/read/private.md", None),
+        ("PUT", "/obsidian/write/private.md", {"content": "private note"}),
+        ("DELETE", "/obsidian/delete/private.md", None),
+        ("POST", "/obsidian/search", {"query": "private topic"}),
+    ])
+    def test_local_api_rejects_untrusted_origins(self, client, method, path, payload):
+        response = client.request(
+            method,
+            path,
+            json=payload,
+            headers={"Origin": "https://attacker.example"},
+        )
+
+        assert response.status_code == 403
+
+    @pytest.mark.parametrize(("method", "path", "payload"), [
+        ("GET", "/health", None),
+        ("POST", "/chat/stream", {"message": "private lesson context"}),
+        ("GET", "/obsidian/read/private.md", None),
+        ("PUT", "/obsidian/write/private.md", {"content": "private note"}),
+        ("DELETE", "/obsidian/delete/private.md", None),
+    ])
+    def test_sensitive_routes_reject_non_loopback_clients(self, method, path, payload):
+        with TestClient(app, client=("203.0.113.42", 50000)) as remote_client:
+            response = remote_client.request(method, path, json=payload)
+
+        assert response.status_code == 403
+
     def test_provider_secret_status_does_not_return_values(self, client):
         response = client.get("/settings/api-keys")
 

@@ -155,3 +155,9 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 - Индекс читает одиночное строгое поле `source_checked: YYYY-MM-DD` только из YAML frontmatter, хранит его отдельно от mtime и не включает frontmatter в RAG-выдержки. Позиции цитат остаются абсолютными строками файла.
 - Старые SQLite-базы мигрируются добавлением nullable-колонки без пересборки схемы вручную; prompt и SwiftUI отдельно подписывают declared review date и говорят, что это не гарантия свежести фактов.
 - Добавлены проверки миграции прежней схемы, неверных/двойных дат, удаления frontmatter из excerpt, сохранения line numbers, `.txt`-контента и RU/EN отображения metadata. Полный `pytest 01_Projects -q` прошёл: 121 passed, одно предупреждение Starlette/httpx; `compileall`, 82 строковых L10n-ключа и `git diff --check` тоже прошли. Commit `304717a` в `main`; GitHub Actions run [37250882001](https://github.com/invinby/coli-dev/actions/runs/37250882001) успешно прошёл backend checks, macOS build и bundle check. Приложение вручную на Mac не запускалось.
+
+### Backend API guard — 2026-10-05
+
+- Добавлена та же loopback/Origin проверка для `/health`, `/api/status`, `/api/session`, `/api/session/reset`, `/chat/stream` и всех `/obsidian/*` endpoints. Settings и learning progress уже проверяли эти условия.
+- Это закрывает неодинаковую защиту локального API: чужой сайт или удалённый клиент не должен читать vault через backend, запускать запросы к провайдерам или сбрасывать режим сессии.
+- Регрессии проверены полным `pytest 01_Projects -q`: 137 passed, одно известное предупреждение совместимости Starlette/httpx. `compileall` и `git diff --check` прошли; GitHub Actions для кода ещё ожидается.

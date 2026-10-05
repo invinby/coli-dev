@@ -1792,7 +1792,8 @@ async def delete_provider_secret(provider: str, request: Request):
 
 
 @app.get("/api/status")
-async def api_status():
+async def api_status(request: Request):
+    _require_local_settings_request(request)
     session_status = session_tracker.get_status()
     return {
         "service": "coli-dev Orchestrator v4.0",
@@ -1807,7 +1808,8 @@ async def api_status():
 
 
 @app.get("/health")
-async def health():
+async def health(request: Request):
+    _require_local_settings_request(request)
     net_ok, ollama_info, knowledge_status = await asyncio.gather(
         _check_network(),
         _check_ollama(),
@@ -1842,14 +1844,16 @@ async def health():
 
 
 @app.get("/api/session")
-async def get_session_status():
+async def get_session_status(request: Request):
     """Получить статус сессий Freebuff."""
+    _require_local_settings_request(request)
     return session_tracker.get_status()
 
 
 @app.post("/api/session/reset")
-async def reset_session():
+async def reset_session(request: Request):
     """Сбросить режим в онлайн (для администратора)."""
+    _require_local_settings_request(request)
     session_tracker.reset_mode()
     logger.info("Session mode reset to online")
     return {"status": "ok", "mode": "online"}
@@ -1955,6 +1959,7 @@ async def chat_stream(request: Request, req: ChatRequest):
 
     Если лимит сессий исчерпан → автономный локальный режим (Qwen 3).
     """
+    _require_local_settings_request(request)
     if req.use_web_search:
         return await _handle_grounded_web_search(req)
 
@@ -2054,7 +2059,8 @@ class ObsidianSearchRequest(BaseModel):
 
 
 @app.get("/obsidian/ping")
-async def obsidian_ping():
+async def obsidian_ping(request: Request):
+    _require_local_settings_request(request)
     if not state.obsidian or not state.obsidian.configured:
         raise HTTPException(status_code=503, detail="Obsidian not configured (set OBSIDIAN_API_KEY)")
     ok = await state.obsidian.ping()
@@ -2062,7 +2068,8 @@ async def obsidian_ping():
 
 
 @app.get("/obsidian/list")
-async def obsidian_list(path: str = ""):
+async def obsidian_list(request: Request, path: str = ""):
+    _require_local_settings_request(request)
     if not state.obsidian or not state.obsidian.configured:
         raise HTTPException(status_code=503, detail="Obsidian not configured")
     try:
@@ -2073,7 +2080,8 @@ async def obsidian_list(path: str = ""):
 
 
 @app.get("/obsidian/read/{path:path}")
-async def obsidian_read(path: str):
+async def obsidian_read(request: Request, path: str):
+    _require_local_settings_request(request)
     if not state.obsidian or not state.obsidian.configured:
         raise HTTPException(status_code=503, detail="Obsidian not configured")
     try:
@@ -2087,7 +2095,8 @@ async def obsidian_read(path: str):
 
 
 @app.put("/obsidian/write/{path:path}")
-async def obsidian_write(path: str, req: ObsidianWriteRequest):
+async def obsidian_write(request: Request, path: str, req: ObsidianWriteRequest):
+    _require_local_settings_request(request)
     if not state.obsidian or not state.obsidian.configured:
         raise HTTPException(status_code=503, detail="Obsidian not configured")
     try:
@@ -2099,7 +2108,8 @@ async def obsidian_write(path: str, req: ObsidianWriteRequest):
 
 
 @app.delete("/obsidian/delete/{path:path}")
-async def obsidian_delete(path: str):
+async def obsidian_delete(request: Request, path: str):
+    _require_local_settings_request(request)
     if not state.obsidian or not state.obsidian.configured:
         raise HTTPException(status_code=503, detail="Obsidian not configured")
     try:
@@ -2114,7 +2124,8 @@ async def obsidian_delete(path: str):
 
 
 @app.post("/obsidian/search")
-async def obsidian_search(req: ObsidianSearchRequest):
+async def obsidian_search(request: Request, req: ObsidianSearchRequest):
+    _require_local_settings_request(request)
     if not state.obsidian or not state.obsidian.configured:
         raise HTTPException(status_code=503, detail="Obsidian not configured")
     try:
