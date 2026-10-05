@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import AppKit
 import SceneKit
@@ -746,6 +747,8 @@ private struct PracticeLab: View {
             TenseContrastLab()
         } else if subject == .biology, moduleResource == "passive_transport_osmosis" {
             OsmosisLab()
+        } else if subject == .physics, moduleResource == "work_and_kinetic_energy" {
+            KineticEnergyLab()
         } else {
             switch subject {
         case .mathematics:
@@ -1299,6 +1302,171 @@ private struct Force3DVisualization: View {
             head.eulerAngles.z = -.pi / 2
             head.position = SCNVector3(Float(arrowBaseX + arrowLength + 0.12), Float(arrowY), 0)
         }
+    }
+}
+
+private struct KineticEnergyLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var mass = 2.0
+    @State private var initialSpeed = 3.0
+    @State private var netWork = 20.0
+
+    private var initialEnergy: Double { 0.5 * mass * initialSpeed * initialSpeed }
+    private var proposedFinalEnergy: Double { initialEnergy + netWork }
+    private var finalEnergy: Double { max(0, proposedFinalEnergy) }
+    private var finalSpeed: Double { sqrt(2 * finalEnergy / mass) }
+    private var stopsBeforeWorkCompletes: Bool { proposedFinalEnergy < 0 }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.energyHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            Energy3DVisualization(mass: mass, speed: finalSpeed)
+                .frame(height: 190)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .accessibilityLabel(Text(L10n.text("lab.energy3DHint", store.language)))
+            Text(L10n.text("lab.energy3DHint", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            HStack(alignment: .firstTextBaseline, spacing: 14) {
+                energyReadout(title: L10n.text("lab.energyInitial", store.language), value: initialEnergy, unit: "J")
+                Image(systemName: "arrow.right")
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
+                energyReadout(title: L10n.text("lab.energyFinal", store.language), value: finalEnergy, unit: "J")
+                Spacer(minLength: 0)
+                energyReadout(title: L10n.text("lab.energyFinalSpeed", store.language), value: finalSpeed, unit: "m/s")
+            }
+
+            valueSlider(title: L10n.text("lab.mass", store.language), value: $mass, range: 1...8, suffix: " kg")
+            valueSlider(title: L10n.text("lab.energyInitialSpeed", store.language), value: $initialSpeed, range: 0...12, suffix: " m/s")
+            valueSlider(title: L10n.text("lab.energyNetWork", store.language), value: $netWork, range: -80...120, suffix: " J")
+
+            if stopsBeforeWorkCompletes {
+                Label(L10n.text("lab.energyStops", store.language), systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func energyReadout(title: String, value: Double, unit: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text("\(value, specifier: "%.1f") \(unit)")
+                .font(.callout.monospacedDigit().weight(.semibold))
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func valueSlider(title: String, value: Binding<Double>, range: ClosedRange<Double>, suffix: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(title)
+                Spacer()
+                Text("\(value.wrappedValue, specifier: "%.0f")\(suffix)")
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+            Slider(value: value, in: range, step: 1)
+                .accessibilityLabel(Text(title))
+        }
+    }
+}
+
+private struct Energy3DVisualization: View {
+    let mass: Double
+    let speed: Double
+    @State private var scene: SCNScene
+
+    init(mass: Double, speed: Double) {
+        self.mass = mass
+        self.speed = speed
+        _scene = State(initialValue: Self.makeScene(mass: mass, speed: speed))
+    }
+
+    var body: some View {
+        SceneView(scene: scene, options: [.allowsCameraControl])
+            .background(Color(nsColor: .windowBackgroundColor))
+            .onChange(of: mass) { _ in updateScene() }
+            .onChange(of: speed) { _ in updateScene() }
+    }
+
+    private static func makeScene(mass: Double, speed: Double) -> SCNScene {
+        let scene = SCNScene()
+        scene.background.contents = NSColor.windowBackgroundColor
+
+        let cartGeometry = SCNBox(width: 0.78, height: 0.46, length: 0.62, chamferRadius: 0.08)
+        let cartMaterial = SCNMaterial()
+        cartMaterial.diffuse.contents = NSColor.systemBlue
+        cartMaterial.metalness.contents = 0.08
+        cartMaterial.roughness.contents = 0.4
+        cartGeometry.materials = [cartMaterial]
+        let cart = SCNNode(geometry: cartGeometry)
+        cart.name = "energy-cart"
+        let wheelXPositions: [Float] = [-0.25, 0.25]
+        let wheelZPositions: [Float] = [-0.34, 0.34]
+        for x in wheelXPositions {
+            for z in wheelZPositions {
+                let wheel = SCNCylinder(radius: 0.12, height: 0.1)
+                wheel.firstMaterial?.diffuse.contents = NSColor.darkGray
+                let wheelNode = SCNNode(geometry: wheel)
+                wheelNode.eulerAngles.x = .pi / 2
+                wheelNode.position = SCNVector3(x, -0.26, z)
+                cart.addChildNode(wheelNode)
+            }
+        }
+        scene.rootNode.addChildNode(cart)
+
+        let track = SCNBox(width: 3.8, height: 0.07, length: 1.8, chamferRadius: 0.02)
+        track.firstMaterial?.diffuse.contents = NSColor.tertiaryLabelColor
+        let trackNode = SCNNode(geometry: track)
+        trackNode.position = SCNVector3(0, -0.08, 0)
+        scene.rootNode.addChildNode(trackNode)
+
+        let cameraNode = SCNNode()
+        let camera = SCNCamera()
+        camera.fieldOfView = 46
+        cameraNode.camera = camera
+        cameraNode.position = SCNVector3(2.7, 1.9, 4.8)
+        cameraNode.look(at: SCNVector3(0, 0.25, 0))
+        scene.rootNode.addChildNode(cameraNode)
+
+        let light = SCNLight()
+        light.type = .omni
+        light.intensity = 850
+        let lightNode = SCNNode()
+        lightNode.light = light
+        lightNode.position = SCNVector3(0, 4, 4)
+        scene.rootNode.addChildNode(lightNode)
+
+        update(scene: scene, mass: mass, speed: speed)
+        return scene
+    }
+
+    private func updateScene() {
+        Self.update(scene: scene, mass: mass, speed: speed)
+    }
+
+    private static func update(scene: SCNScene, mass: Double, speed: Double) {
+        guard let cart = scene.rootNode.childNode(withName: "energy-cart", recursively: false) else { return }
+        let scale = Float(0.82 + mass * 0.035)
+        let start = SCNVector3(-1.15, 0.23 * scale, 0)
+        cart.removeAction(forKey: "motion")
+        cart.scale = SCNVector3(scale, scale, scale)
+        cart.position = start
+
+        guard speed > 0 else { return }
+        let finish = SCNVector3(1.15, 0.23 * scale, 0)
+        let travel = SCNAction.move(to: finish, duration: max(0.12, 2.3 / speed))
+        let reset = SCNAction.run { node in node.position = start }
+        cart.runAction(.repeatForever(.sequence([travel, reset])), forKey: "motion")
     }
 }
 

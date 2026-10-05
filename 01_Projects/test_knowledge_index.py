@@ -329,6 +329,10 @@ def test_priority_curriculum_roadmaps_are_retrievable(
         "Physics/lessons/net_force_and_acceleration.md",
     ),
     (
+        "work-energy theorem net work changes kinetic energy mass speed joules",
+        "Physics/lessons/work_and_kinetic_energy.md",
+    ),
+    (
         "erythrocyte hypertonic water leaves aquaporins osmosis solute",
         "Biology/lessons/passive_transport_osmosis.md",
     ),
