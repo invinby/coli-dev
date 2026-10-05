@@ -26,13 +26,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import orchestrator
 from orchestrator import (
-    ConsiliumCloudError,
     ConsiliumEngine,
     DebateLog,
-    SessionTracker,
     app,
     session_tracker,
-    state,
 )
 
 TEST_MSG = "Напиши функцию сортировки на Python"

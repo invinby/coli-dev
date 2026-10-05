@@ -8,7 +8,6 @@
 
 import asyncio
 import os
-import sys
 import traceback
 from pathlib import Path
 
@@ -46,11 +45,11 @@ async def check_url(url: str, api_key: str) -> None:
             else:
                 print(f"    Body: {resp.text[:200]}")
     except httpx.ConnectError:
-        print(f"    ❌ Connection refused")
+        print("    ❌ Connection refused")
     except httpx.TimeoutException:
-        print(f"    ❌ Timeout (5s)")
+        print("    ❌ Timeout (5s)")
     except Exception:
-        print(f"    ❌ Error:")
+        print("    ❌ Error:")
         traceback.print_exc()
 
 
@@ -60,7 +59,7 @@ async def main() -> None:
     print("=" * 60)
 
     # 1. Check .env
-    print(f"\n📋 .env check:")
+    print("\n📋 .env check:")
     print(f"  OBSIDIAN_API_KEY = {'[SET]' if OBSIDIAN_API_KEY else '[EMPTY]'}")
     print(f"  OPENROUTER_API_KEY = {'[SET]' if OPENROUTER_KEY else '[EMPTY]'}")
 
