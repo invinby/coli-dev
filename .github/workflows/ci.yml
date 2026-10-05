@@ -98,6 +98,7 @@ jobs:
           English:present_simple_and_continuous
           English:present_perfect_simple_continuous
           Physics:net_force_and_acceleration
+          Physics:motion_with_constant_acceleration
           Physics:work_and_kinetic_energy
           Biology:passive_transport_osmosis
           Biology:mendelian_inheritance
