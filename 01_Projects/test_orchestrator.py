@@ -1380,8 +1380,11 @@ class TestMemoryFootprint:
         gc.collect()
         return PROC.memory_info().rss / 1024 / 1024
 
-    def test_memory_does_not_leak(self, client):
+    def test_memory_does_not_leak(self, client, monkeypatch):
         """Память не должна существенно расти после 10 запросов."""
+        # This test measures memory, not the shared per-minute rate-limit bucket.
+        # Fast CI runners can execute the whole suite inside the same 60-second window.
+        monkeypatch.setattr(orchestrator.limiter, "enabled", False)
         rss_before = self._rss_mb()
 
         mock_answer = "test response"
