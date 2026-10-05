@@ -427,6 +427,7 @@ def test_cloud_specialist_uses_openrouter_free_when_kimi_is_missing(monkeypatch)
     response.raise_for_status.return_value = None
     response.json.return_value = {
         "choices": [{"message": {"content": "OpenRouter draft"}}],
+        "model": "provider/specialist-free-v2",
     }
     http_client = MagicMock(spec=httpx.AsyncClient)
     http_client.post = AsyncMock(return_value=response)
@@ -438,11 +439,33 @@ def test_cloud_specialist_uses_openrouter_free_when_kimi_is_missing(monkeypatch)
 
     assert draft == "OpenRouter draft"
     assert provider == "openrouter"
+    assert engine.specialist_model_label == "OpenRouter: provider/specialist-free-v2"
+    assert engine.openrouter_used is True
     http_client.post.assert_awaited_once()
     request = http_client.post.await_args
     assert request.args[0] == orchestrator.OPENROUTER_URL
     assert request.kwargs["json"]["model"] == "openrouter/free"
     assert request.kwargs["headers"]["Authorization"] == "Bearer openrouter-test-key"
+
+
+def test_cloud_code_surfaces_provider_reported_openrouter_model(monkeypatch):
+    monkeypatch.setattr(orchestrator, "KIMI_KEY", "")
+    monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "openrouter-test-key")
+    response = MagicMock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = {
+        "choices": [{"message": {"content": "Specialist draft"}}],
+        "model": "provider/specialist-free-v2",
+    }
+    http_client = MagicMock(spec=httpx.AsyncClient)
+    http_client.post = AsyncMock(return_value=response)
+    engine = orchestrator.ConsiliumEngine(http_client)
+    engine._ask_gemini = AsyncMock(side_effect=["Flash draft", "Judge draft"])
+    engine._ask_ollama = AsyncMock(return_value="Local draft")
+
+    asyncio.run(engine._run_cloud_code("Question", "Instructions"))
+
+    assert engine.completion_model == "multi-agent · OpenRouter: provider/specialist-free-v2"
 
 
 def test_cloud_specialist_falls_back_to_openrouter_when_kimi_fails(monkeypatch):
@@ -493,6 +516,31 @@ def test_cloud_specialist_falls_back_when_kimi_returns_non_text(monkeypatch):
     assert draft == "Usable fallback"
     assert provider == "openrouter"
     http_client.post.assert_awaited_once()
+
+
+def test_consilium_fallback_reports_local_provider_when_cloud_fails(monkeypatch):
+    engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient))
+    engine._run_cloud_code = AsyncMock(side_effect=RuntimeError("cloud unavailable"))
+    engine._fallback_local = AsyncMock(return_value="Local answer")
+
+    answer, _ = asyncio.run(engine.run("Question", "Instructions"))
+
+    assert answer == "Local answer"
+    assert engine.completion_provider == "local-fallback"
+    assert engine.completion_model == orchestrator.OLLAMA_MODEL_RESEARCHER
+
+
+@pytest.mark.parametrize("invalid_answer", [None, "", "   ", "[Ошибка local unavailable]"])
+def test_consilium_marks_unusable_local_fallback_unavailable(invalid_answer):
+    engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient))
+    engine._run_cloud_code = AsyncMock(side_effect=RuntimeError("cloud unavailable"))
+    engine._fallback_local = AsyncMock(return_value=invalid_answer)
+
+    answer, _ = asyncio.run(engine.run("Question", "Instructions"))
+
+    assert "⚠️" in answer
+    assert engine.completion_provider == "unavailable"
+    assert engine.completion_model == ""
 
 
 def test_openrouter_http_error_does_not_echo_provider_body_or_key(monkeypatch, caplog):
@@ -812,6 +860,8 @@ class TestStreamingChat:
 
         mock_engine = MagicMock()
         mock_engine.run = AsyncMock(return_value=(mock_answer, mock_log))
+        mock_engine.completion_provider = "consilium"
+        mock_engine.completion_model = "multi-agent · OpenRouter: provider/specialist-free-v2"
 
         course_source = {
             "title": "Hello World",
@@ -833,7 +883,7 @@ class TestStreamingChat:
             assert len(done_events) == 1
             done = done_events[0]
             assert done["provider"] == "consilium"
-            assert done["model"] == "multi-agent"
+            assert done["model"] == "multi-agent · OpenRouter: provider/specialist-free-v2"
             assert "duration_ms" in done
             assert "tokens" in done
             assert done["sources"][0]["id"] == "K1"

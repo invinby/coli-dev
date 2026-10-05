@@ -74,5 +74,6 @@ curl --silent --show-error --fail --max-time 10 -X POST "http://127.0.0.1:$port/
 grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"' "$smoke_root/knowledge-refresh.json"
 grep -Eq '"document_count"[[:space:]]*:[[:space:]]*[1-9][0-9]*' "$smoke_root/knowledge-refresh.json"
 curl --silent --show-error --fail --max-time 5 "http://127.0.0.1:$port/" \
-    | grep -qi 'coli-dev'
+    --output "$smoke_root/tutor.html"
+grep -qi 'coli-dev' "$smoke_root/tutor.html"
 echo "Bundled backend API, progress store, knowledge refresh, and tutor page responded successfully"

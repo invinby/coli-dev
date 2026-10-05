@@ -825,6 +825,10 @@ class ConsiliumEngine:
         self.log = DebateLog()
         self.web_sources: list[dict[str, str]] = []
         self.search_entry_point_html: str | None = None
+        self.specialist_model_label: str | None = None
+        self.openrouter_used = False
+        self.completion_provider = "consilium"
+        self.completion_model = "multi-agent"
 
     @property
     def output_language(self) -> str:
@@ -854,6 +858,10 @@ class ConsiliumEngine:
             (final_answer, debate_log)
         """
         self.log = DebateLog()
+        self.specialist_model_label = None
+        self.openrouter_used = False
+        self.completion_provider = "consilium"
+        self.completion_model = "multi-agent"
         final_answer = ""
 
         try:
@@ -868,8 +876,14 @@ class ConsiliumEngine:
             # Фолбек: пытаемся получить хоть какой-то ответ от локальной модели
             try:
                 final_answer = await self._fallback_local(message, system_prompt)
-                if self._is_provider_error(final_answer):
-                    raise RuntimeError(final_answer)
+                if (
+                    not isinstance(final_answer, str)
+                    or not final_answer.strip()
+                    or self._is_provider_error(final_answer)
+                ):
+                    raise RuntimeError("Local fallback returned no usable answer")
+                self.completion_provider = "local-fallback"
+                self.completion_model = OLLAMA_MODEL_RESEARCHER
                 self.log.add("consilium", "qwen",
                              f"[ФОЛБЕК] Консилиум не завершился. Ответ от локальной модели:\n{final_answer[:300]}...")
             except Exception:
@@ -878,6 +892,8 @@ class ConsiliumEngine:
                     if self.language == "ru" else
                     "⚠️ The tutor could not process this request. Try again or switch to the local route."
                 )
+                self.completion_provider = "unavailable"
+                self.completion_model = ""
 
         return final_answer, self.log
 
@@ -970,6 +986,8 @@ class ConsiliumEngine:
                      specialist_draft[:400], int((t1 - t0).total_seconds() * 1000))
         self.log.add("cloud-code", "ollama-gen",
                      ollama_draft[:400], int((t1 - t0).total_seconds() * 1000))
+        if self.specialist_model_label:
+            self.completion_model = f"multi-agent · {self.specialist_model_label}"
         logger.info("Cloud Code complete", extra={
             "flash_len": len(flash_draft), "specialist_len": len(specialist_draft),
             "specialist_provider": specialist_agent,
@@ -1122,6 +1140,8 @@ class ConsiliumEngine:
         agent_tag: str,
     ) -> tuple[str, str]:
         """Prefer direct Kimi and use OpenRouter only when Kimi is unavailable."""
+        self.specialist_model_label = None
+        self.openrouter_used = False
         if KIMI_KEY:
             kimi_response = await self._ask_kimi(message, system_prompt, agent_tag)
             if (
@@ -1129,6 +1149,7 @@ class ConsiliumEngine:
                 and kimi_response.strip()
                 and not self._is_provider_error(kimi_response)
             ):
+                self.specialist_model_label = f"Kimi: {KIMI_MODEL}"
                 return kimi_response, "kimi"
             if not isinstance(kimi_response, str) or not kimi_response.strip():
                 kimi_response = "[Ошибка Kimi: пустой или некорректный ответ]"
@@ -1137,7 +1158,13 @@ class ConsiliumEngine:
             logger.warning("Kimi unavailable; retrying cloud specialist with OpenRouter")
 
         if OPENROUTER_KEY:
-            return await self._ask_openrouter(message, system_prompt, agent_tag), "openrouter"
+            response = await self._ask_openrouter(message, system_prompt, agent_tag)
+            if self.openrouter_used:
+                model = self.specialist_model_label or (
+                    f"route {OPENROUTER_MODEL} (resolved model not reported)"
+                )
+                self.specialist_model_label = f"OpenRouter: {model}"
+            return response, "openrouter"
 
         return await self._ask_kimi(message, system_prompt, agent_tag), "kimi"
 
@@ -1174,6 +1201,13 @@ class ConsiliumEngine:
             )
             if not isinstance(content, str) or not content.strip():
                 return "[OpenRouter: empty response]"
+            model = data.get("model") if isinstance(data, dict) else None
+            if isinstance(model, str):
+                model = " ".join(model.split())[:160]
+            else:
+                model = None
+            self.openrouter_used = True
+            self.specialist_model_label = model
             return content.strip()
         except httpx.TimeoutException:
             logger.warning("OpenRouter timeout", extra={"agent": agent_tag, "model": OPENROUTER_MODEL})
@@ -2179,9 +2213,21 @@ async def _handle_consilium_stream(
     engine = ConsiliumEngine(state.http_client, req.language, state.ollama_client)
     answer, debate_log = await engine.run(req.message, system_prompt if system_prompt is not None else req.system_prompt)
     debate_html = debate_log.to_html()
+    completion_provider = getattr(engine, "completion_provider", "consilium")
+    completion_model = getattr(engine, "completion_model", "multi-agent")
+    if not isinstance(completion_provider, str) or not completion_provider:
+        completion_provider = "consilium"
+    if not isinstance(completion_model, str):
+        completion_model = "multi-agent"
 
     return StreamingResponse(
-        _stream_answer_debate(answer, debate_html, "consilium", "multi-agent", sources),
+        _stream_answer_debate(
+            answer,
+            debate_html,
+            completion_provider,
+            completion_model,
+            sources,
+        ),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
