@@ -656,6 +656,49 @@ def test_manual_knowledge_refresh_hides_internal_errors(client_online, monkeypat
     assert "private filesystem detail" not in response.text
 
 
+def test_manual_trusted_source_check_requires_local_origin_and_returns_summary(
+    client_online, monkeypatch
+):
+    expected = {
+        "status": "ok",
+        "supported_count": 2,
+        "checked_count": 2,
+        "changed_count": 1,
+        "unchanged_count": 1,
+        "available_untracked_count": 0,
+        "needs_attention_count": 0,
+        "unsupported_count": 3,
+        "omitted_count": 0,
+        "checks": [],
+    }
+    check = AsyncMock(return_value=expected)
+    monkeypatch.setattr(orchestrator.trusted_source_monitor, "check_sources", check)
+
+    rejected = client_online.post(
+        "/knowledge/sources/check", headers={"Origin": "https://example.test"}
+    )
+    assert rejected.status_code == 403
+    check.assert_not_awaited()
+
+    accepted = client_online.post("/knowledge/sources/check")
+    assert accepted.status_code == 200
+    assert accepted.json() == expected
+    check.assert_awaited_once_with()
+
+
+def test_manual_trusted_source_check_hides_internal_errors(client_online, monkeypatch):
+    monkeypatch.setattr(
+        orchestrator.trusted_source_monitor,
+        "check_sources",
+        AsyncMock(side_effect=RuntimeError("private source monitor detail")),
+    )
+
+    response = client_online.post("/knowledge/sources/check")
+
+    assert response.status_code == 503
+    assert "private source monitor detail" not in response.text
+
+
 # ═══════════════════════════════════════════════════════
 #  Запуск
 # ═══════════════════════════════════════════════════════

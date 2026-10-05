@@ -553,6 +553,44 @@ struct KnowledgeIndexRefreshResult: Decodable {
     }
 }
 
+struct TrustedSourceCheckResult: Decodable {
+    let supportedCount: Int
+    let checkedCount: Int
+    let changedCount: Int
+    let needsAttentionCount: Int
+    let availableUntrackedCount: Int
+    let unsupportedCount: Int
+    let omittedCount: Int
+    let checks: [TrustedSourceCheck]
+
+    enum CodingKeys: String, CodingKey {
+        case supportedCount = "supported_count"
+        case checkedCount = "checked_count"
+        case changedCount = "changed_count"
+        case needsAttentionCount = "needs_attention_count"
+        case availableUntrackedCount = "available_untracked_count"
+        case unsupportedCount = "unsupported_count"
+        case omittedCount = "omitted_count"
+        case checks
+    }
+}
+
+struct TrustedSourceCheck: Decodable, Identifiable {
+    let url: String
+    let title: String
+    let lessonPath: String
+    let state: String
+
+    var id: String { url }
+
+    enum CodingKeys: String, CodingKey {
+        case url
+        case title
+        case lessonPath = "lesson_path"
+        case state
+    }
+}
+
 struct ProviderSecretStatus: Decodable, Identifiable {
     let provider: String
     let configured: Bool
@@ -701,6 +739,20 @@ enum OrchestratorClient {
             throw ClientError.unavailable
         }
         return try JSONDecoder().decode(KnowledgeIndexRefreshResult.self, from: data)
+    }
+
+    static func checkTrustedSourceReferences() async throws -> TrustedSourceCheckResult {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/knowledge/sources/check") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 45
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(TrustedSourceCheckResult.self, from: data)
     }
 
     static func studyProgress() async throws -> StudyProgressSnapshot {

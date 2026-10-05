@@ -279,6 +279,10 @@ private struct SettingsView: View {
     @State private var isRefreshingKnowledge = false
     @State private var knowledgeRefreshMessage: String?
     @State private var knowledgeRefreshFailed = false
+    @State private var isCheckingSourceReferences = false
+    @State private var sourceCheckMessage: String?
+    @State private var sourceCheckFailed = false
+    @State private var changedSourceTitles: [String] = []
 
     var body: some View {
         Form {
@@ -397,6 +401,34 @@ private struct SettingsView: View {
                             .foregroundStyle(knowledgeRefreshFailed ? Color.orange : Color.secondary)
                     }
                 }
+                VStack(alignment: .leading, spacing: 6) {
+                    Button {
+                        Task { await checkTrustedSourceReferences() }
+                    } label: {
+                        if isCheckingSourceReferences {
+                            ProgressView().controlSize(.small)
+                            Text(L10n.text("settings.sourceCheckRunning", store.language))
+                        } else {
+                            Label(
+                                L10n.text("settings.sourceCheck", store.language),
+                                systemImage: "checkmark.icloud"
+                            )
+                        }
+                    }
+                    .disabled(isCheckingSourceReferences)
+                    Text(L10n.text("settings.sourceCheckExplanation", store.language))
+                        .font(.caption).foregroundStyle(.secondary)
+                    if let sourceCheckMessage {
+                        Text(sourceCheckMessage)
+                            .font(.caption)
+                            .foregroundStyle(sourceCheckFailed ? Color.orange : Color.secondary)
+                    }
+                    ForEach(changedSourceTitles, id: \.self) { title in
+                        Label(title, systemImage: "arrow.triangle.2.circlepath")
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                    }
+                }
                 VStack(alignment: .leading, spacing: 5) {
                     Text(L10n.text("settings.aiLaunch", store.language)).font(.caption.weight(.semibold))
                     Text(L10n.text(backendSupervisor.status.localizationKey, store.language))
@@ -468,6 +500,40 @@ private struct SettingsView: View {
         } catch {
             knowledgeRefreshFailed = true
             knowledgeRefreshMessage = L10n.text("settings.knowledgeRefreshFailed", store.language)
+        }
+    }
+
+    @MainActor
+    private func checkTrustedSourceReferences() async {
+        isCheckingSourceReferences = true
+        sourceCheckMessage = nil
+        sourceCheckFailed = false
+        changedSourceTitles = []
+        defer { isCheckingSourceReferences = false }
+        guard await backendSupervisor.ensureRunning() else {
+            sourceCheckFailed = true
+            sourceCheckMessage = L10n.text("settings.sourceCheckFailed", store.language)
+            return
+        }
+        do {
+            let result = try await OrchestratorClient.checkTrustedSourceReferences()
+            changedSourceTitles = result.checks
+                .filter { $0.state == "changed" }
+                .prefix(5)
+                .map { "\($0.title) · \($0.lessonPath)" }
+            sourceCheckMessage = String(
+                format: L10n.text("settings.sourceCheckDone", store.language),
+                result.checkedCount,
+                result.supportedCount,
+                result.changedCount,
+                result.needsAttentionCount,
+                result.availableUntrackedCount,
+                result.unsupportedCount,
+                result.omittedCount
+            )
+        } catch {
+            sourceCheckFailed = true
+            sourceCheckMessage = L10n.text("settings.sourceCheckFailed", store.language)
         }
     }
 }

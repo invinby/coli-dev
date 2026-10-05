@@ -52,6 +52,7 @@ from learning_progress import StudyProgressStore, default_database_path
 from network_safety import is_loopback_http_url as _is_loopback_http_url
 from obsidian_worker import ObsidianWorker
 from request_limits import RequestBodyLimitMiddleware
+from trusted_sources import TrustedSourceMonitor
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
@@ -1842,6 +1843,7 @@ knowledge_index = KnowledgeIndex(
     embedding_provider=_embedding_provider,
 )
 study_progress_store = StudyProgressStore(default_database_path())
+trusted_source_monitor = TrustedSourceMonitor(PROJECT_ROOT, default_database_path())
 
 # ─── Lifespan ──────────────────────────────────────────
 
@@ -2548,6 +2550,18 @@ async def refresh_local_knowledge(request: Request):
         logger.exception("Local knowledge index refresh failed")
         raise HTTPException(status_code=503, detail="Local course index refresh failed") from None
     return {"status": "ok", **status}
+
+
+@app.post("/knowledge/sources/check")
+@limiter.limit("5/minute")
+async def check_trusted_source_references(request: Request):
+    """Check fixed-domain course references without consuming or indexing page bodies."""
+    _require_local_settings_request(request)
+    try:
+        return await trusted_source_monitor.check_sources()
+    except Exception:
+        logger.exception("Trusted course source check failed")
+        raise HTTPException(status_code=503, detail="Trusted source check failed") from None
 
 
 @app.post("/learning/reviews")
