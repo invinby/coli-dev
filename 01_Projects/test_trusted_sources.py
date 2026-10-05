@@ -158,6 +158,58 @@ def test_only_licensed_python_tutorial_text_is_cached_for_rag_and_refreshes(
     assert monitor.inventory()["sources"][0]["rag_content_state"] == "cached"
 
 
+def test_public_domain_medlineplus_genetics_basics_are_cached_for_rag(tmp_path: Path) -> None:
+    url = "https://medlineplus.gov/genetics/understanding/basics/gene/"
+    _write_lesson(tmp_path, f"[What is a gene?]({url})")
+    monitor = _monitor(tmp_path, tmp_path)
+    page_text = (
+        "Genes are made of DNA and can provide instructions for proteins. "
+        "Some genes help regulate other genes. A gene variant may or may not change a trait."
+    )
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/html; charset=utf-8", "etag": '"v1"'},
+            text=(
+                "<html><head><title>What is a gene?</title></head><body>"
+                f"<main><article><p>{page_text}</p></article></main></body></html>"
+            ),
+        )
+
+    async def check() -> dict[str, object]:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await monitor.check_sources(client)
+
+    result = asyncio.run(check())
+    found = monitor.search_rag_sources("genes DNA proteins regulate variant trait")
+
+    assert result["checks"][0]["state"] == "available_untracked"
+    assert len(found) == 1
+    assert found[0]["source_type"] == "official_web"
+    assert found[0]["license"] == (
+        "U.S. federal government work; public-domain MedlinePlus Genetics summary"
+    )
+    assert found[0]["license_url"] == "https://medlineplus.gov/about/using/usingcontent/"
+    assert "Source: MedlinePlus" in found[0]["attribution"]
+    assert "genes are made of dna" in found[0]["excerpt"].casefold()
+
+
+def test_medlineplus_genetics_ingestion_is_restricted_to_public_domain_basics() -> None:
+    assert TrustedSourceMonitor._rag_policy(
+        "https://medlineplus.gov/genetics/understanding/basics/dna/"
+    ) is not None
+    assert TrustedSourceMonitor._rag_policy(
+        "https://medlineplus.gov/genetics/understanding/basics/gene/"
+    ) is not None
+    assert TrustedSourceMonitor._rag_policy(
+        "https://medlineplus.gov/genetics/condition/cystic-fibrosis/"
+    ) is None
+    assert TrustedSourceMonitor._canonical_url(
+        "https://medlineplus.gov/genetics/understanding/basics/dna/?download=1"
+    ) is None
+
+
 def test_unlicensed_official_sources_remain_metadata_only_for_rag(tmp_path: Path) -> None:
     url = "https://openstax.org/books/college-physics-2e/pages/7-1-work-the-scientific-definition"
     _write_lesson(tmp_path, f"[OpenStax work page]({url})")

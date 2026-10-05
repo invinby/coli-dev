@@ -2,8 +2,10 @@
 
 Only pages on a code-owned allowlist are fetched. A small HTML response is
 processed in memory to extract public page metadata and a normalized text
-fingerprint; the page body is never persisted or added to RAG. These signals
-help editors decide what to review and do not verify lesson facts.
+fingerprint. Full bounded text snapshots enter RAG only for exact paths whose
+reuse terms are documented below; all other approved pages remain
+metadata/preview-only. Freshness signals help editors decide what to review
+and do not verify lesson facts.
 """
 
 from __future__ import annotations
@@ -52,6 +54,7 @@ _TRUSTED_HOSTS = frozenset(
         "animaldiversity.org",
         "docs.python.org",
         "learnenglish.britishcouncil.org",
+        "medlineplus.gov",
         "openstax.org",
     }
 )
@@ -61,6 +64,7 @@ _ALLOWED_PATHS = {
     "learnenglish.britishcouncil.org": re.compile(
         r"^/free-resources/grammar/(?:english-grammar-reference|b1-b2)/[A-Za-z0-9-]+/?$"
     ),
+    "medlineplus.gov": re.compile(r"^/genetics/understanding/basics/(?:dna|gene)/?$"),
     "openstax.org": re.compile(r"^/books/[a-z0-9-]+/pages/[a-z0-9-]+/?$"),
 }
 
@@ -72,6 +76,12 @@ _RAG_SOURCE_POLICIES = {
         "license": "Python Software Foundation License Version 2",
         "license_url": "https://docs.python.org/3/license.html",
         "attribution": "Copyright © 2001 Python Software Foundation; All Rights Reserved. Python 3 Tutorial; PSF License Version 2.",
+    },
+    "medlineplus.gov": {
+        "path": re.compile(r"^/genetics/understanding/basics/(?:dna|gene)/?$"),
+        "license": "U.S. federal government work; public-domain MedlinePlus Genetics summary",
+        "license_url": "https://medlineplus.gov/about/using/usingcontent/",
+        "attribution": "Source: MedlinePlus, National Library of Medicine (NLM), National Institutes of Health (NIH). Public-domain Genetics summary.",
     },
 }
 

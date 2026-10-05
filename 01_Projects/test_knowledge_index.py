@@ -315,7 +315,7 @@ def test_index_refreshes_changed_and_removed_files_and_ignores_unapproved_roots(
     ("derivatives integrals calculus", "Mathematics"),
     ("pronunciation listening vocabulary", "English"),
     ("electromagnetic induction", "Physics"),
-    ("DNA genomics gene expression", "Biology"),
+    ("phylogenetics population genetics bioinformatics", "Biology"),
     ("ethology animal behavior", "Zoology"),
     ("programming concurrency async", "Programming"),
 ])
@@ -426,6 +426,29 @@ def test_programming_variables_lesson_rag_returns_python_docs_source(tmp_path: P
     assert {
         "title": "Python 3.14 Tutorial, “An Informal Introduction to Python” (official Python documentation; consulted 2026-10-06)",
         "url": "https://docs.python.org/3/tutorial/introduction.html",
+    } in lesson["official_references"]
+
+
+def test_bundled_biology_lesson_links_official_genetics_basics(tmp_path: Path) -> None:
+    project = Path(__file__).resolve().parent.parent
+    index = KnowledgeIndex(project, tmp_path / "knowledge.sqlite3")
+
+    results = index.refresh_and_search(
+        "DNA bases gene protein RNA genotype phenotype environmental conditions"
+    )
+
+    lesson = next(
+        source for source in results
+        if source["path"] == "02_Areas/Biology/lessons/dna_genes_and_traits.md"
+    )
+    assert lesson["source_checked_at"] == "2026-10-06"
+    assert {
+        "title": "What is DNA?",
+        "url": "https://medlineplus.gov/genetics/understanding/basics/dna/",
+    } in lesson["official_references"]
+    assert {
+        "title": "What is a gene?",
+        "url": "https://medlineplus.gov/genetics/understanding/basics/gene/",
     } in lesson["official_references"]
 
 
