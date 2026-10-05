@@ -628,6 +628,62 @@ def test_openrouter_http_error_does_not_echo_provider_body_or_key(monkeypatch, c
     assert "provider echoed" not in caplog.text
 
 
+def test_provider_http_errors_do_not_log_or_return_provider_bodies(monkeypatch, caplog):
+    secret = "provider echoed private learner text and api-secret"
+
+    def fail_with_provider_error(url, **kwargs):
+        request = httpx.Request("POST", str(url))
+        response = httpx.Response(401, request=request, text=secret)
+        raise httpx.HTTPStatusError("unauthorized", request=request, response=response)
+
+    http_client = MagicMock(spec=httpx.AsyncClient)
+    http_client.post = AsyncMock(side_effect=fail_with_provider_error)
+    engine = orchestrator.ConsiliumEngine(http_client)
+
+    async def ask_all_providers():
+        return await asyncio.gather(
+            engine._ask_kimi("private prompt", "system", "test"),
+            engine._ask_gemini("private prompt", "system", orchestrator.GEMINI_FLASH_URL, "test"),
+            engine._ask_ollama("private prompt", "system", "test"),
+        )
+
+    with caplog.at_level("ERROR"):
+        results = asyncio.run(ask_all_providers())
+
+    assert results == [
+        "[Ошибка HTTP 401: Kimi K3]",
+        "[Ошибка HTTP 401: Gemini]",
+        "[Ошибка Ollama: 401]",
+    ]
+    assert secret not in caplog.text
+    assert "private prompt" not in caplog.text
+
+
+def test_provider_unexpected_errors_are_redacted_from_logs_and_responses(caplog):
+    secret = "private provider exception with api-secret"
+    http_client = MagicMock(spec=httpx.AsyncClient)
+    http_client.post = AsyncMock(side_effect=RuntimeError(secret))
+    engine = orchestrator.ConsiliumEngine(http_client)
+
+    async def ask_all_providers():
+        return await asyncio.gather(
+            engine._ask_kimi("private prompt", "system", "test"),
+            engine._ask_gemini("private prompt", "system", orchestrator.GEMINI_FLASH_URL, "test"),
+            engine._ask_ollama("private prompt", "system", "test"),
+        )
+
+    with caplog.at_level("ERROR"):
+        results = asyncio.run(ask_all_providers())
+
+    assert results == [
+        "[Ошибка Kimi K3: некорректный ответ или сбой запроса]",
+        "[Ошибка Gemini: некорректный ответ или сбой запроса]",
+        "[Ошибка Ollama: некорректный ответ или сбой запроса]",
+    ]
+    assert secret not in caplog.text
+    assert "private prompt" not in caplog.text
+
+
 class TestObsidianEndpoints:
     """Проверка Obsidian-эндпоинтов (503 если недоступен)."""
 

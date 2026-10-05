@@ -1296,12 +1296,17 @@ class ConsiliumEngine:
             logger.warning(f"Kimi K3 timeout ({agent_tag})")
             return f"[Таймаут: Kimi K3 не ответил за {HTTP_TIMEOUT}s]"
         except httpx.HTTPStatusError as exc:
-            body = exc.response.text[:200]
-            logger.error(f"Kimi K3 HTTP error ({agent_tag})", extra={"status": exc.response.status_code, "body": body})
+            logger.error(
+                f"Kimi K3 HTTP error ({agent_tag})",
+                extra={"status": exc.response.status_code},
+            )
             return f"[Ошибка HTTP {exc.response.status_code}: Kimi K3]"
         except Exception as exc:
-            logger.error(f"Kimi K3 error ({agent_tag})", extra={"error": str(exc)[:150]})
-            return f"[Ошибка Kimi K3: {str(exc)[:100]}]"
+            logger.error(
+                f"Kimi K3 error ({agent_tag})",
+                extra={"error_type": type(exc).__name__},
+            )
+            return "[Ошибка Kimi K3: некорректный ответ или сбой запроса]"
 
     async def _ask_gemini(self, message: str, system_prompt: str,
                            url: str, agent_tag: str,
@@ -1351,12 +1356,17 @@ class ConsiliumEngine:
             logger.warning(f"Gemini timeout ({agent_tag})")
             return f"[Таймаут: Gemini не ответил за {HTTP_TIMEOUT}s]"
         except httpx.HTTPStatusError as exc:
-            body = exc.response.text[:200]
-            logger.error(f"Gemini HTTP error ({agent_tag})", extra={"status": exc.response.status_code, "body": body})
+            logger.error(
+                f"Gemini HTTP error ({agent_tag})",
+                extra={"status": exc.response.status_code},
+            )
             return f"[Ошибка HTTP {exc.response.status_code}: Gemini]"
         except Exception as exc:
-            logger.error(f"Gemini error ({agent_tag})", extra={"error": str(exc)[:150]})
-            return f"[Ошибка Gemini: {str(exc)[:100]}]"
+            logger.error(
+                f"Gemini error ({agent_tag})",
+                extra={"error_type": type(exc).__name__},
+            )
+            return "[Ошибка Gemini: некорректный ответ или сбой запроса]"
 
     async def _researcher_step(self, message: str, cloud_position: str) -> str:
         """Qwen 3 Coder Researcher: поиск в Obsidian + DuckDuckGo + синтез контекста."""
@@ -1456,12 +1466,17 @@ class ConsiliumEngine:
             logger.warning(f"Ollama timeout ({agent_tag})")
             return f"[Таймаут: {agent_tag} не ответил за 90s]"
         except httpx.HTTPStatusError as exc:
-            body = exc.response.text[:200]
-            logger.error(f"Ollama error ({agent_tag})", extra={"status": exc.response.status_code, "body": body})
+            logger.error(
+                f"Ollama HTTP error ({agent_tag})",
+                extra={"status": exc.response.status_code},
+            )
             return f"[Ошибка Ollama: {exc.response.status_code}]"
         except Exception as exc:
-            logger.error(f"Ollama error ({agent_tag})", extra={"error": str(exc)[:150]})
-            return f"[Ошибка: {str(exc)[:100]}]"
+            logger.error(
+                f"Ollama error ({agent_tag})",
+                extra={"error_type": type(exc).__name__},
+            )
+            return "[Ошибка Ollama: некорректный ответ или сбой запроса]"
 
     async def _fallback_local(self, message: str, system_prompt: str) -> str:
         """Фолбек к локальной модели при полном отказе консилиума."""

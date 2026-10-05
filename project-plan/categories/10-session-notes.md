@@ -244,3 +244,8 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 - Backend сверяет локальные `[K#]` маркеры с источниками, реально приложенными к текущему SSE-ответу. Несовпавшие маркеры заменяются локализованной пометкой и перечисляются в `done.citation_warnings`; inline и fenced code сохраняются без изменений.
 - SwiftUI показывает предупреждение на языке интерфейса и уточняет, что проверено лишь наличие source ID, а не доказательная поддержка утверждения.
 - GitHub Actions run [37267869815](https://github.com/invinby/coli-dev/actions/runs/37267869815) прошёл backend suite (199 passed), Xcode build, упаковку backend и smoke-check на Apple Silicon и Intel. Затем добавлены два regression-теста для неизвестных ссылок, `citation_warnings` в SSE и сохранения inline/fenced code: целевой orchestrator suite прошёл (115 passed), полный backend suite — 201 passed; осталось одно известное предупреждение Starlette/httpx. В ходе lint-проверки также удалены восемь прежних F401/F541 замечаний в тестовых утилитах; теперь repo-wide Ruff, compileall и `git diff --check` проходят. Live model replies и ручной запуск GUI на Mac не проверялись.
+
+### Редактирование ошибок внешних провайдеров — 2026-10-05
+
+- Kimi, Gemini и Ollama больше не записывают сырые тексты HTTP-ошибок или исключений в backend-логи и не возвращают их содержимое в fallback-строках. Для диагностики остаются HTTP-код, тип ошибки и provider label.
+- Два targeted regression-теста моделируют отражённый текст ученика и API secret в теле/исключении провайдера; оба не должны попадать в журнал или ответ. Целевые проверки и repo-wide Ruff/compileall прошли; полный suite и CI для этого среза ещё не завершены.
