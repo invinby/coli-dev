@@ -1442,12 +1442,12 @@ private struct Force3DVisualization: NSViewRepresentable {
         if let shaft = scene.rootNode.childNode(withName: "force-shaft", recursively: false) {
             shaft.isHidden = force == 0
             shaft.scale = SCNVector3(1, arrowLength, 1)
-            shaft.eulerAngles.z = -direction * .pi / 2
+            shaft.eulerAngles.z = -CGFloat(direction) * .pi / 2
             shaft.position = SCNVector3(arrowBaseX + direction * arrowLength / 2, arrowY, 0)
         }
         if let head = scene.rootNode.childNode(withName: "force-head", recursively: false) {
             head.isHidden = force == 0
-            head.eulerAngles.z = -direction * .pi / 2
+            head.eulerAngles.z = -CGFloat(direction) * .pi / 2
             head.position = SCNVector3(arrowBaseX + direction * (arrowLength + 0.14), arrowY, 0)
         }
         SCNTransaction.commit()
