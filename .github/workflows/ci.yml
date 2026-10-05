@@ -94,6 +94,7 @@ jobs:
             test -s "$resources/$subject/lessons/$lesson.md"
           done <<'LESSONS'
           Mathematics:functions_as_models
+          Mathematics:domain_and_range
           English:present_simple_and_continuous
           Physics:net_force_and_acceleration
           Biology:passive_transport_osmosis

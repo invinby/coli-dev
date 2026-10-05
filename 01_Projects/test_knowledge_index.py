@@ -317,6 +317,10 @@ def test_priority_curriculum_roadmaps_are_retrievable(
         "Mathematics/lessons/functions_as_models.md",
     ),
     (
+        "real valued square root radicand nonnegative x less than or equal eight domain interval range",
+        "Mathematics/lessons/domain_and_range.md",
+    ),
+    (
         "present simple present continuous habits temporary be ing stative verbs she studies",
         "English/lessons/present_simple_and_continuous.md",
     ),
@@ -337,7 +341,7 @@ def test_priority_curriculum_roadmaps_are_retrievable(
         "Programming/lessons/conditions_loops_functions.md",
     ),
 ])
-def test_bilingual_foundation_modules_are_retrievable(
+def test_bilingual_lesson_modules_are_retrievable(
     tmp_path: Path, query: str, expected_path: str
 ) -> None:
     project = Path(__file__).resolve().parent.parent

@@ -4,7 +4,7 @@ ColiDev is being built as a native macOS learning platform with a local Python b
 
 ## What exists now
 
-- A SwiftUI macOS 13+ client with Russian and English, a starter lesson in mathematics, English, physics, biology, zoology, and programming, six interactive exercises, local lesson progress, and a lesson-aware tutor screen.
+- A SwiftUI macOS 13+ client with Russian and English, starter lessons across mathematics, English, physics, biology, zoology, and programming, a second mathematics lesson on domain and range, interactive exercises, local lesson progress, and a lesson-aware tutor screen.
 - A FastAPI backend with automatic and Ollama-local chat routes. Its current online debate flow calls configured Gemini and Moonshot APIs alongside Ollama; provider availability and actual account limits have not yet been verified end to end.
 - An explicit, opt-in Google Search grounding path in Auto mode when a Gemini key is configured. By default it searches the web without local retrieval; a separate, off-by-default choice can include up to four matching course/Obsidian excerpts in that one request. It returns inline citations and Google's Search Suggestions, bypasses agent debate, and is not saved to Obsidian.
 - An offline SQLite index for Markdown in `02_Areas/` and Markdown/text cheat sheets in `03_Resources/Cheatsheets/`. It always supports lexical search and can add optional Ollama embeddings for semantic retrieval; vectors stay in the local SQLite database. Search results can cite file paths and line spans. Settings summarizes author-scheduled review reminders and materials without a declared review schedule; those counts do not verify that course facts are current or correct.

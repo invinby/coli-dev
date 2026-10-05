@@ -740,7 +740,9 @@ private struct PracticeLab: View {
 
     @ViewBuilder
     var body: some View {
-        if subject == .english, moduleResource == "present_simple_and_continuous" {
+        if subject == .mathematics, moduleResource == "domain_and_range" {
+            DomainRangeLab()
+        } else if subject == .english, moduleResource == "present_simple_and_continuous" {
             TenseContrastLab()
         } else if subject == .biology, moduleResource == "passive_transport_osmosis" {
             OsmosisLab()
@@ -759,6 +761,142 @@ private struct PracticeLab: View {
         case .programming:
             ConditionalLab()
             }
+        }
+    }
+}
+
+private struct DomainRangeLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var selectedScenario = 0
+    @State private var bound = 4.0
+
+    private var integerBound: Int { Int(bound) }
+    private var inputLowerBound: Double {
+        selectedScenario == 1 ? -bound : 0
+    }
+    private var inputUpperBound: Double {
+        selectedScenario == 2 ? bound * bound : bound
+    }
+    private var outputUpperBound: Double {
+        switch selectedScenario {
+        case 0: return 2 + 3 * bound
+        case 1: return bound * bound
+        default: return bound
+        }
+    }
+    private var equation: String {
+        switch selectedScenario {
+        case 0: return "C(k) = 2 + 3k"
+        case 1: return "f(x) = x²"
+        default: return "g(x) = √x"
+        }
+    }
+    private var inputInterval: String {
+        switch selectedScenario {
+        case 0: return "0 ≤ k ≤ \(integerBound)"
+        case 1: return "−\(integerBound) ≤ x ≤ \(integerBound)"
+        default: return "0 ≤ x ≤ \(integerBound * integerBound)"
+        }
+    }
+    private var outputInterval: String {
+        switch selectedScenario {
+        case 0: return "2 ≤ C(k) ≤ \(2 + 3 * integerBound)"
+        case 1: return "0 ≤ f(x) ≤ \(integerBound * integerBound)"
+        default: return "0 ≤ g(x) ≤ \(integerBound)"
+        }
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.domainHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            Picker("", selection: $selectedScenario) {
+                Text(L10n.text("lab.domainTaxi", store.language)).tag(0)
+                Text(L10n.text("lab.domainSquare", store.language)).tag(1)
+                Text(L10n.text("lab.domainRoot", store.language)).tag(2)
+            }
+            .pickerStyle(.segmented)
+            .accessibilityLabel(Text(L10n.text("session.lab", store.language)))
+
+            Text(equation)
+                .font(.system(.headline, design: .monospaced))
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("\(L10n.text("lab.domainInput", store.language)): \(inputInterval)")
+                Text("\(L10n.text("lab.domainOutput", store.language)): \(outputInterval)")
+            }
+            .font(.callout.monospacedDigit())
+            .foregroundStyle(.secondary)
+
+            Canvas { context, size in
+                guard size.width > 0, size.height > 0, inputUpperBound > inputLowerBound else { return }
+
+                var grid = Path()
+                for step in 0...4 {
+                    let fraction = CGFloat(step) / 4
+                    let x = size.width * fraction
+                    let y = size.height * fraction
+                    grid.move(to: CGPoint(x: x, y: 0))
+                    grid.addLine(to: CGPoint(x: x, y: size.height))
+                    grid.move(to: CGPoint(x: 0, y: y))
+                    grid.addLine(to: CGPoint(x: size.width, y: y))
+                }
+                context.stroke(grid, with: .color(.secondary.opacity(0.14)), lineWidth: 1)
+
+                var axes = Path()
+                axes.move(to: CGPoint(x: 0, y: size.height))
+                axes.addLine(to: CGPoint(x: size.width, y: size.height))
+                let zeroXFraction = (0 - inputLowerBound) / (inputUpperBound - inputLowerBound)
+                let zeroX = CGFloat(zeroXFraction) * size.width
+                axes.move(to: CGPoint(x: zeroX, y: 0))
+                axes.addLine(to: CGPoint(x: zeroX, y: size.height))
+                context.stroke(axes, with: .color(.secondary.opacity(0.55)), lineWidth: 1)
+
+                var curve = Path()
+                for sample in 0...80 {
+                    let fraction = Double(sample) / 80
+                    let input = inputLowerBound + fraction * (inputUpperBound - inputLowerBound)
+                    let output: Double
+                    switch selectedScenario {
+                    case 0: output = 2 + 3 * input
+                    case 1: output = input * input
+                    default: output = input.squareRoot()
+                    }
+                    let yFraction = min(max(output / outputUpperBound, 0), 1)
+                    let point = CGPoint(
+                        x: CGFloat(fraction) * size.width,
+                        y: size.height * (1 - CGFloat(yFraction))
+                    )
+                    if sample == 0 {
+                        curve.move(to: point)
+                    } else {
+                        curve.addLine(to: point)
+                    }
+                }
+                context.stroke(curve, with: .color(.indigo), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+            }
+            .frame(height: 150)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(String(
+                format: L10n.text("lab.domainGraphLabel", store.language),
+                inputInterval,
+                outputInterval
+            )))
+
+            HStack {
+                Text("\(L10n.text("lab.domainBound", store.language)): N = \(integerBound)")
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("1…8")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.tertiary)
+            }
+            Slider(value: $bound, in: 1...8, step: 1)
+                .accessibilityLabel(Text(L10n.text("lab.domainBound", store.language)))
         }
     }
 }
