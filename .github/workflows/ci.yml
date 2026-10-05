@@ -99,6 +99,7 @@ jobs:
           Physics:net_force_and_acceleration
           Physics:work_and_kinetic_energy
           Biology:passive_transport_osmosis
+          Biology:mendelian_inheritance
           Zoology:adaptation_and_behavior
           Programming:conditions_loops_functions
           LESSONS

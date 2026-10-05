@@ -337,6 +337,10 @@ def test_priority_curriculum_roadmaps_are_retrievable(
         "Biology/lessons/passive_transport_osmosis.md",
     ),
     (
+        "heterozygous genotype Aa recessive aa segregation gametes Punnett cross probability",
+        "Biology/lessons/mendelian_inheritance.md",
+    ),
+    (
         "thicker coat fox heritable trait population generations acclimation behavior",
         "Zoology/lessons/adaptation_and_behavior.md",
     ),

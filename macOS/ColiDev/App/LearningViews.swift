@@ -747,6 +747,8 @@ private struct PracticeLab: View {
             TenseContrastLab()
         } else if subject == .biology, moduleResource == "passive_transport_osmosis" {
             OsmosisLab()
+        } else if subject == .biology, moduleResource == "mendelian_inheritance" {
+            PunnettLab()
         } else if subject == .physics, moduleResource == "work_and_kinetic_energy" {
             KineticEnergyLab()
         } else {
@@ -1467,6 +1469,105 @@ private struct Energy3DVisualization: View {
         let travel = SCNAction.move(to: finish, duration: max(0.12, 2.3 / speed))
         let reset = SCNAction.run { node in node.position = start }
         cart.runAction(.repeatForever(.sequence([travel, reset])), forKey: "motion")
+    }
+}
+
+private struct PunnettLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var selectedCross = 0
+
+    private var parentGenotypes: (String, String) {
+        switch selectedCross {
+        case 1: return ("Aa", "aa")
+        case 2: return ("AA", "aa")
+        default: return ("Aa", "Aa")
+        }
+    }
+
+    private var firstParentGametes: [String] { parentGenotypes.0.map { String($0) } }
+    private var secondParentGametes: [String] { parentGenotypes.1.map { String($0) } }
+
+    private var genotypeCounts: [String: Int] {
+        var counts: [String: Int] = [:]
+        for secondGamete in secondParentGametes {
+            for firstGamete in firstParentGametes {
+                counts[offspringGenotype(firstGamete, secondGamete), default: 0] += 1
+            }
+        }
+        return counts
+    }
+
+    private var probabilitySummary: String {
+        genotypeCounts.keys.sorted().map { genotype in
+            "\(genotype): \(genotypeCounts[genotype, default: 0] * 25)%"
+        }.joined(separator: " · ")
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.geneticsHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            Picker(L10n.text("lab.geneticsCross", store.language), selection: $selectedCross) {
+                Text(L10n.text("lab.geneticsCross0", store.language)).tag(0)
+                Text(L10n.text("lab.geneticsCross1", store.language)).tag(1)
+                Text(L10n.text("lab.geneticsCross2", store.language)).tag(2)
+            }
+            .pickerStyle(.menu)
+
+            HStack(alignment: .top, spacing: 18) {
+                Text("\(L10n.text("lab.geneticsParent1", store.language)): \(parentGenotypes.0)")
+                Text("\(L10n.text("lab.geneticsParent2", store.language)): \(parentGenotypes.1)")
+            }
+            .font(.callout.monospacedDigit().weight(.medium))
+
+            VStack(spacing: 7) {
+                HStack(spacing: 7) {
+                    Color.clear.frame(width: 54, height: 34)
+                    ForEach(firstParentGametes.indices, id: \.self) { column in
+                        Text(firstParentGametes[column])
+                            .font(.headline.monospaced())
+                            .frame(maxWidth: .infinity, minHeight: 34)
+                            .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                    }
+                }
+                ForEach(secondParentGametes.indices, id: \.self) { row in
+                    HStack(spacing: 7) {
+                        Text(secondParentGametes[row])
+                            .font(.headline.monospaced())
+                            .frame(width: 54, height: 54)
+                            .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                        ForEach(firstParentGametes.indices, id: \.self) { column in
+                            let genotype = offspringGenotype(
+                                firstParentGametes[column],
+                                secondParentGametes[row]
+                            )
+                            Text(genotype)
+                                .font(.title3.monospaced().weight(.semibold))
+                                .frame(maxWidth: .infinity, minHeight: 54)
+                                .background(Color.indigo.opacity(0.11), in: RoundedRectangle(cornerRadius: 8))
+                                .accessibilityLabel(Text(
+                                    "\(L10n.text("lab.geneticsOffspring", store.language)): \(genotype)"
+                                ))
+                        }
+                    }
+                }
+            }
+
+            LabeledContent(L10n.text("lab.geneticsOutcomes", store.language)) {
+                Text(probabilitySummary)
+                    .font(.callout.monospacedDigit().weight(.medium))
+                    .multilineTextAlignment(.trailing)
+            }
+        }
+    }
+
+    private func offspringGenotype(_ firstAllele: String, _ secondAllele: String) -> String {
+        String((Array(firstAllele + secondAllele)).sorted { first, second in
+            if first.isUppercase != second.isUppercase { return first.isUppercase }
+            return first < second
+        })
     }
 }
 
