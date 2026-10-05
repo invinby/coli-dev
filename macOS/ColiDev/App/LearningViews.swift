@@ -801,6 +801,8 @@ private struct PracticeLab: View {
             OsmosisLab()
         } else if subject == .biology, moduleResource == "mendelian_inheritance" {
             PunnettLab()
+        } else if subject == .biology, moduleResource == "dna_genes_and_traits" {
+            GeneRegulationLab()
         } else if subject == .physics, moduleResource == "work_and_kinetic_energy" {
             KineticEnergyLab()
         } else if subject == .programming, moduleResource == "variables_and_types" {
@@ -1766,6 +1768,95 @@ private struct PunnettLab: View {
             if first.isUppercase != second.isUppercase { return first.isUppercase }
             return first < second
         })
+    }
+}
+
+private struct GeneRegulationLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var variant = 0
+    @State private var signalPresent = true
+    @State private var selectedAnswer: Int?
+
+    private var productMade: Bool { variant == 0 && signalPresent }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.dnaModelHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            Picker(L10n.text("lab.dnaVariant", store.language), selection: $variant) {
+                Text(L10n.text("lab.dnaVariant0", store.language)).tag(0)
+                Text(L10n.text("lab.dnaVariant1", store.language)).tag(1)
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: variant) { _ in selectedAnswer = nil }
+
+            Toggle(L10n.text("lab.dnaSignal", store.language), isOn: $signalPresent)
+                .onChange(of: signalPresent) { _ in selectedAnswer = nil }
+
+            HStack(spacing: 8) {
+                flowNode(title: L10n.text("lab.dnaSequence", store.language), value: "A · T · C · G")
+                Image(systemName: "arrow.right").foregroundStyle(.secondary)
+                flowNode(
+                    title: L10n.text("lab.dnaGeneActivity", store.language),
+                    value: L10n.text(productMade ? "lab.dnaGeneOn" : "lab.dnaGeneOff", store.language)
+                )
+                Image(systemName: "arrow.right").foregroundStyle(.secondary)
+                flowNode(
+                    title: L10n.text("lab.dnaProduct", store.language),
+                    value: L10n.text(productMade ? "lab.dnaProductMade" : "lab.dnaProductAbsent", store.language)
+                )
+            }
+            .accessibilityElement(children: .combine)
+
+            Text(L10n.text("lab.dnaPredict", store.language))
+                .font(.callout.weight(.medium))
+            HStack {
+                answerButton(0, key: "lab.dnaPredictOption0")
+                answerButton(1, key: "lab.dnaPredictOption1")
+            }
+
+            if let selectedAnswer {
+                Label(
+                    L10n.text(
+                        selectedAnswer == 1 ? "lab.dnaPredictCorrect" : "lab.dnaPredictIncorrect",
+                        store.language
+                    ),
+                    systemImage: selectedAnswer == 1 ? "checkmark.circle.fill" : "arrow.clockwise.circle"
+                )
+                .font(.callout)
+                .foregroundStyle(selectedAnswer == 1 ? Color.green : Color.secondary)
+            }
+        }
+    }
+
+    private func flowNode(title: String, value: String) -> some View {
+        VStack(spacing: 5) {
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Text(value)
+                .font(.callout.weight(.semibold))
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, minHeight: 42)
+        }
+        .padding(8)
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        .frame(maxWidth: .infinity)
+    }
+
+    private func answerButton(_ answer: Int, key: String) -> some View {
+        Button {
+            selectedAnswer = answer
+        } label: {
+            Text(L10n.text(key, store.language))
+                .frame(maxWidth: .infinity, minHeight: 34)
+        }
+        .buttonStyle(.bordered)
+        .tint(selectedAnswer == answer ? Color.accentColor : nil)
+        .accessibilityAddTraits(selectedAnswer == answer ? .isSelected : [])
     }
 }
 

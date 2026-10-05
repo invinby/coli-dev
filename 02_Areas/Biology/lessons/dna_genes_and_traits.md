@@ -25,7 +25,7 @@ source_review_interval_days: 180
 
 ### Исследуй и потренируйся
 
-Разложи карточки в цепочку: «последовательность ДНК» → «участок с функцией — ген» → «возможный продукт или регуляция» → «признак в конкретных условиях». Затем найди место, где нужны дополнительные сведения. Например, одинаковый генотип сам по себе не гарантирует одинаковый измеренный признак, если на результат влияет среда.
+В модели оставь вариант A, включи сигнал и предскажи, появится ли продукт. Затем выключи сигнал, сравни активность гена и объясни изменение. Переключи вариант B и повтори наблюдение: результат относится только к заданным правилам модели, а не к реальному гену.
 
 Попробуй объяснить своими словами: чем генотип отличается от фенотипа и почему сходство ДНК ещё не позволяет точно предсказать каждый признак? Сверь ответ с вопросом ниже.
 
@@ -67,7 +67,7 @@ Versions of a gene may differ in DNA sequence and are called alleles. A genotype
 
 ### Explore and practise
 
-Arrange the cards into a chain: “DNA sequence” → “functional region — gene” → “possible product or regulation” → “trait in a particular setting.” Then identify where more evidence is needed. For example, the same genotype alone does not guarantee the same measured trait when the environment affects the result.
+In the model, keep variant A, turn the signal on, and predict whether the product appears. Then turn the signal off, compare gene activity, and explain the change. Switch to variant B and repeat: the result follows only the model's stated rules, not a real gene.
 
 Explain in your own words how genotype differs from phenotype and why DNA similarity cannot predict every trait exactly. Compare your explanation with the question below.
 
