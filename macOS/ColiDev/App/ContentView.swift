@@ -540,11 +540,31 @@ private enum ManagementPane: String, CaseIterable, Identifiable {
     }
 }
 
+private enum SourceRegistryFilter: String, CaseIterable, Identifiable {
+    case all
+    case attention
+    case changed
+    case review
+
+    var id: String { rawValue }
+
+    var titleKey: String {
+        switch self {
+        case .all: return "management.sourceFilterAll"
+        case .attention: return "management.sourceFilterAttention"
+        case .changed: return "management.sourceFilterChanged"
+        case .review: return "management.sourceFilterReview"
+        }
+    }
+}
+
 private struct ManagementView: View {
     @EnvironmentObject private var store: LearningStore
     @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
     @State private var pane: ManagementPane = .overview
     @State private var sourceInventory: TrustedSourceInventory?
+    @State private var sourceSearchText = ""
+    @State private var sourceFilter = SourceRegistryFilter.all
     @State private var isLoading = false
     @State private var isRefreshingIndex = false
     @State private var isCheckingSources = false
@@ -760,6 +780,21 @@ private struct ManagementView: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 10) {
+                TextField(L10n.text("management.sourceSearch", store.language), text: $sourceSearchText)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(maxWidth: 320)
+
+                Picker(selection: $sourceFilter) {
+                    ForEach(SourceRegistryFilter.allCases) { filter in
+                        Text(L10n.text(filter.titleKey, store.language)).tag(filter)
+                    }
+                } label: {
+                    Label(L10n.text("management.sourceFilter", store.language), systemImage: "line.3.horizontal.decrease")
+                }
+                .pickerStyle(.menu)
+
+                Spacer(minLength: 8)
+
                 Button {
                     Task { await checkSources() }
                 } label: {
@@ -774,7 +809,7 @@ private struct ManagementView: View {
                 .disabled(isCheckingSources || isRefreshingIndex)
 
                 if let sourceInventory {
-                    Text("\(sourceInventory.listedCount) / \(sourceInventory.supportedCount)")
+                    Text("\(visibleSourceItems.count) / \(sourceInventory.listedCount)")
                         .font(.callout.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
@@ -806,8 +841,12 @@ private struct ManagementView: View {
                     Label(L10n.text("management.noSources", store.language), systemImage: "link")
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if visibleSourceItems.isEmpty {
+                    Label(L10n.text("management.sourceNoMatches", store.language), systemImage: "magnifyingglass")
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    List(sourceInventory.sources) { source in
+                    List(visibleSourceItems) { source in
                         SourceRegistryRow(source: source, language: store.language)
                     }
                     .listStyle(.inset)
@@ -828,6 +867,52 @@ private struct ManagementView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var visibleSourceItems: [TrustedSourceInventoryItem] {
+        let sources = sourceInventory?.sources ?? []
+        let query = sourceSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return sources.filter { source in
+            let lessonPaths = source.lessonPaths ?? [source.lessonPath]
+            let subjectNames: [(folder: String, ru: String, en: String)] = [
+                ("Mathematics", "Математика", "Mathematics"),
+                ("English", "Английский", "English"),
+                ("Physics", "Физика", "Physics"),
+                ("Biology", "Биология", "Biology"),
+                ("Zoology", "Зоология", "Zoology"),
+                ("Programming", "Программирование", "Programming"),
+            ]
+            let subjectSearchText = subjectNames
+                .filter { subject in
+                    lessonPaths.contains { $0.localizedCaseInsensitiveContains("/\(subject.folder)/") }
+                }
+                .map { "\($0.ru) \($0.en)" }
+                .joined(separator: " ")
+            let searchableText = [
+                source.title,
+                source.pageTitle ?? "",
+                source.pageDescription ?? "",
+                source.url,
+                subjectSearchText,
+                lessonPaths.joined(separator: " "),
+            ].joined(separator: " ")
+            guard query.isEmpty || searchableText.localizedCaseInsensitiveContains(query) else {
+                return false
+            }
+
+            let reviewStatuses = source.lessonReviews?.map(\.editorialReviewStatus)
+                ?? [source.editorialReviewStatus ?? "review_missing"]
+            switch sourceFilter {
+            case .all:
+                return true
+            case .attention:
+                return source.state != "unchanged" || reviewStatuses.contains { $0 != "review_scheduled" }
+            case .changed:
+                return source.state == "changed"
+            case .review:
+                return reviewStatuses.contains { $0 != "review_scheduled" }
+            }
+        }
     }
 
     private var integrationsPane: some View {
