@@ -590,6 +590,8 @@ private struct ManagementView: View {
     @State private var routeSubject: Subject = .mathematics
     @State private var routeProvider = "auto"
     @State private var routeModel = ""
+    @State private var finalSynthesisProvider = "auto"
+    @State private var finalSynthesisModel = ""
     @State private var isSavingRoute = false
     @State private var isPreparingBackup = false
     @State private var isRestoringBackup = false
@@ -660,6 +662,9 @@ private struct ManagementView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .navigationTitle(Text(L10n.text("management.title", store.language)))
         .onChange(of: routeSubject) { _ in syncSubjectModelRouteForm() }
+        .onChange(of: finalSynthesisProvider) { provider in
+            if provider == "auto" { finalSynthesisModel = "" }
+        }
         .onChange(of: routeProvider) { provider in
             if provider == "auto" { routeModel = "" }
         }
@@ -1151,6 +1156,67 @@ private struct ManagementView: View {
                     .padding(.top, 6)
                 }
 
+                GroupBox(label: Text(L10n.text("management.finalSynthesis", store.language))) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(L10n.text("management.finalSynthesisHelp", store.language))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Picker(L10n.text("management.routeProvider", store.language), selection: $finalSynthesisProvider) {
+                            ForEach(["auto", "gemini", "kimi", "openrouter", "ollama"], id: \.self) { provider in
+                                Text(L10n.text("management.routeProvider.\(provider)", store.language))
+                                    .tag(provider)
+                            }
+                        }
+                        .frame(maxWidth: 360, alignment: .leading)
+
+                        if finalSynthesisProvider != "auto" {
+                            TextField(L10n.text("management.routeModel", store.language), text: $finalSynthesisModel)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(maxWidth: 520)
+                        }
+
+                        if let route = store.finalSynthesisModelRoute {
+                            HStack(spacing: 8) {
+                                Image(systemName: route.providerReady == false
+                                      ? "exclamationmark.circle"
+                                      : (route.provider == "auto" ? "arrow.triangle.2.circlepath" : "checkmark.circle"))
+                                    .foregroundStyle(route.providerReady == false ? Color.orange : Color.secondary)
+                                Text(L10n.text("management.routeStatus.\(route.status)", store.language))
+                                Text(route.effectiveModel)
+                                    .font(.caption.monospaced())
+                                    .foregroundStyle(.secondary)
+                                    .textSelection(.enabled)
+                            }
+                            .font(.caption)
+                            .accessibilityElement(children: .combine)
+                        }
+
+                        HStack(spacing: 10) {
+                            Button {
+                                Task { await saveFinalSynthesisRoute() }
+                            } label: {
+                                if isSavingRoute {
+                                    ProgressView().controlSize(.small)
+                                } else {
+                                    Text(L10n.text("management.routeSave", store.language))
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(isSavingRoute)
+
+                            Button(L10n.text("management.routeReset", store.language)) {
+                                Task { await resetFinalSynthesisRoute() }
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(isSavingRoute)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 6)
+                }
+
                 GroupBox(label: Text(L10n.text("management.subjectRouting", store.language))) {
                     VStack(alignment: .leading, spacing: 12) {
                         Picker(L10n.text("management.routeSubject", store.language), selection: $routeSubject) {
@@ -1357,8 +1423,10 @@ private struct ManagementView: View {
         await store.refreshAIStatus()
         await store.refreshProviderSecretStatuses()
         await store.refreshSubjectModelRoutes()
+        await store.refreshFinalSynthesisModelRoute()
         await store.refreshProviderUsage()
         syncSubjectModelRouteForm()
+        syncFinalSynthesisRouteForm()
         do {
             sourceInventory = try await OrchestratorClient.trustedSourceInventory()
             statusMessage = nil
@@ -1425,6 +1493,13 @@ private struct ManagementView: View {
     }
 
     @MainActor
+    private func syncFinalSynthesisRouteForm() {
+        let route = store.finalSynthesisModelRoute
+        finalSynthesisProvider = route?.provider ?? "auto"
+        finalSynthesisModel = route?.model ?? ""
+    }
+
+    @MainActor
     private func saveSubjectModelRoute() async {
         isSavingRoute = true
         defer { isSavingRoute = false }
@@ -1450,6 +1525,38 @@ private struct ManagementView: View {
         do {
             try await store.resetSubjectModelRoute(subject: routeSubject)
             syncSubjectModelRouteForm()
+            statusMessage = L10n.text("management.routeResetDone", store.language)
+            statusIsError = false
+        } catch {
+            reportError("management.routeSaveFailed")
+        }
+    }
+
+    @MainActor
+    private func saveFinalSynthesisRoute() async {
+        isSavingRoute = true
+        defer { isSavingRoute = false }
+        do {
+            let model = finalSynthesisModel.trimmingCharacters(in: .whitespacesAndNewlines)
+            try await store.saveFinalSynthesisModelRoute(
+                provider: finalSynthesisProvider,
+                model: finalSynthesisProvider == "auto" || model.isEmpty ? nil : model
+            )
+            syncFinalSynthesisRouteForm()
+            statusMessage = L10n.text("management.routeSaved", store.language)
+            statusIsError = false
+        } catch {
+            reportError("management.routeSaveFailed")
+        }
+    }
+
+    @MainActor
+    private func resetFinalSynthesisRoute() async {
+        isSavingRoute = true
+        defer { isSavingRoute = false }
+        do {
+            try await store.resetFinalSynthesisModelRoute()
+            syncFinalSynthesisRouteForm()
             statusMessage = L10n.text("management.routeResetDone", store.language)
             statusIsError = false
         } catch {

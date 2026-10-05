@@ -162,6 +162,7 @@ final class LearningStore: ObservableObject {
     @Published private(set) var isCheckingAI = false
     @Published private(set) var providerSecretStatuses: [String: ProviderSecretStatus] = [:]
     @Published private(set) var subjectModelRoutes: [String: SubjectModelRoute] = [:]
+    @Published private(set) var finalSynthesisModelRoute: FinalSynthesisModelRoute?
     @Published private(set) var providerUsage: ProviderUsageSummary?
     @Published private(set) var isRefreshingProviderUsage = false
     @Published private(set) var providerUsageUnavailable = false
@@ -235,6 +236,25 @@ final class LearningStore: ObservableObject {
     func resetSubjectModelRoute(subject: Subject) async throws {
         let route = try await OrchestratorClient.resetSubjectModelRoute(subject: subject)
         subjectModelRoutes[route.subject] = route
+    }
+
+    func refreshFinalSynthesisModelRoute() async {
+        do {
+            finalSynthesisModelRoute = try await OrchestratorClient.finalSynthesisModelRoute()
+        } catch {
+            finalSynthesisModelRoute = nil
+        }
+    }
+
+    func saveFinalSynthesisModelRoute(provider: String, model: String?) async throws {
+        finalSynthesisModelRoute = try await OrchestratorClient.saveFinalSynthesisModelRoute(
+            provider: provider,
+            model: model
+        )
+    }
+
+    func resetFinalSynthesisModelRoute() async throws {
+        finalSynthesisModelRoute = try await OrchestratorClient.resetFinalSynthesisModelRoute()
     }
 
     func refreshProviderUsage() async {
@@ -898,7 +918,26 @@ struct SubjectModelRoutingSnapshot: Decodable {
     let subjects: [SubjectModelRoute]
 }
 
+struct FinalSynthesisModelRoute: Decodable, Hashable {
+    let provider: String
+    let model: String?
+    let effectiveModel: String
+    let providerReady: Bool?
+    let status: String
+
+    enum CodingKeys: String, CodingKey {
+        case provider, model, status
+        case effectiveModel = "effective_model"
+        case providerReady = "provider_ready"
+    }
+}
+
 private struct SubjectModelRouteUpdate: Encodable {
+    let provider: String
+    let model: String?
+}
+
+private struct FinalSynthesisModelRouteUpdate: Encodable {
     let provider: String
     let model: String?
 }
@@ -1282,6 +1321,54 @@ enum OrchestratorClient {
             throw ClientError.unavailable
         }
         return try JSONDecoder().decode(SubjectModelRoute.self, from: data)
+    }
+
+    static func finalSynthesisModelRoute() async throws -> FinalSynthesisModelRoute {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/settings/final-synthesis-route") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 8
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(FinalSynthesisModelRoute.self, from: data)
+    }
+
+    static func saveFinalSynthesisModelRoute(
+        provider: String,
+        model: String?
+    ) async throws -> FinalSynthesisModelRoute {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/settings/final-synthesis-route") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.timeoutInterval = 15
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(
+            FinalSynthesisModelRouteUpdate(provider: provider, model: model)
+        )
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(FinalSynthesisModelRoute.self, from: data)
+    }
+
+    static func resetFinalSynthesisModelRoute() async throws -> FinalSynthesisModelRoute {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/settings/final-synthesis-route") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.timeoutInterval = 15
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(FinalSynthesisModelRoute.self, from: data)
     }
 
     static func saveProviderSecret(_ apiKey: String, for provider: String) async throws -> ProviderSecretStatus {

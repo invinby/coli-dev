@@ -417,3 +417,10 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 - RU/EN Services получил системные Save/Open dialogs, подтверждение импорта и privacy-предупреждение о незашифрованных reflection notes. До backup operations SwiftUI отправляет pending offline queue; при неудаче отменяет действие. Входной файл читается потоковым ограничением 1 MiB; loopback/Origin и общий body-size limit остаются активны.
 - Targeted progress/API suites и полный `.venv\\Scripts\\python.exe -m pytest 01_Projects -q`: `340 passed`, одно прежнее предупреждение Starlette/httpx. Ruff, `compileall`, `git diff --check` прошли. GitHub Actions [37378896040](https://github.com/invinby/coli-dev/actions/runs/37378896040) для `49bafec` полностью прошёл backend, macOS arm64/Intel, bundle packaging и smoke checks.
 - Ограничения: ручной Mac-приём export/import и перенос между двумя устройствами ещё не проверены; backup не включает отдельные review events, чаты, API keys, настройки и RAG index; файл содержит заметки открытым текстом.
+
+### Настраиваемая финальная модель Auto — 2026-10-06
+
+- В Control Center добавлен выбор provider/model ID для финального синтеза Auto: Gemini, Kimi, OpenRouter или локальная Ollama; Automatic сохраняет Gemini Pro по умолчанию. Настройка сохраняется отдельно от секретов, доступны сброс и статус текущей модели. Весь Auto-консилиум при этом не становится офлайн: остальные черновые роли отдельно управляются, для локального запроса надо включить «Только локально».
+- При сбое выбранной финальной облачной модели применяется общий локальный Ollama fallback, без переключения на иной облачный провайдер. Итоговый SSE показывает фактический provider/model ID. RU/EN copy сообщает о платной квоте Pro и границах настройки.
+- Полный `.venv\Scripts\python.exe -m pytest 01_Projects -q`: 344 passed; Ruff, `compileall`, локализационный scan и `git diff --check` прошли. Остаётся одно существующее предупреждение Starlette/httpx о TestClient.
+- До свежего GitHub Actions run остаётся проверить компиляцию/упаковку на macOS arm64 и Intel; UI на живом Mac, реальные API ключи и доступность выбранных моделей здесь не проверялись.

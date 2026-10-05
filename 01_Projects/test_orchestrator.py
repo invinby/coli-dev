@@ -92,6 +92,11 @@ def _reset_session_tracker(monkeypatch, tmp_path):
         "subject_model_routes",
         orchestrator.SubjectModelRouteStore(tmp_path / "subject-model-routing.json"),
     )
+    monkeypatch.setattr(
+        orchestrator,
+        "final_synthesis_routes",
+        orchestrator.FinalSynthesisRouteStore(tmp_path / "final-synthesis-route.json"),
+    )
     monkeypatch.setattr(session_tracker, "_file", tmp_path / "sessions.json")
     monkeypatch.setattr(session_tracker, "max_per_day", 5)
     session_tracker.reset_mode()
@@ -611,6 +616,81 @@ class TestSubjectModelRouting:
         )
         assert engine.specialist_model_label == f"OpenRouter: {model_id}"
 
+
+class TestFinalSynthesisRouting:
+    def test_default_route_reports_actual_gemini_pro_choice(self, client):
+        response = client.get("/settings/final-synthesis-route")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "provider": "auto",
+            "model": None,
+            "effective_model": orchestrator.GEMINI_PRO_MODEL,
+            "provider_ready": True,
+            "status": "ready",
+        }
+
+    def test_save_ollama_route_persists_model_without_credentials(self, client):
+        response = client.put(
+            "/settings/final-synthesis-route",
+            json={"provider": "ollama", "model": "qwen3:8b"},
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "provider": "ollama",
+            "model": "qwen3:8b",
+            "effective_model": "qwen3:8b",
+            "provider_ready": True,
+            "status": "model_checked_on_use",
+        }
+        assert orchestrator.final_synthesis_routes.path.exists()
+        assert "API" not in orchestrator.final_synthesis_routes.path.read_text(encoding="utf-8")
+        reset = client.delete("/settings/final-synthesis-route")
+        assert reset.status_code == 200
+        assert reset.json()["provider"] == "auto"
+
+    def test_final_route_rejects_path_injection_and_cross_origin(self, client):
+        invalid = client.put(
+            "/settings/final-synthesis-route",
+            json={"provider": "gemini", "model": "models/gemini-pro"},
+        )
+        forbidden = client.put(
+            "/settings/final-synthesis-route",
+            json={"provider": "ollama", "model": "qwen3:8b"},
+            headers={"Origin": "https://attacker.example"},
+        )
+        assert invalid.status_code == 422
+        assert forbidden.status_code == 403
+
+    def test_selected_final_synthesis_route_uses_only_selected_provider(self):
+        model = "qwen/qwen3-30b-a3b:free"
+        orchestrator.final_synthesis_routes.set("openrouter", model)
+        engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient))
+        engine._ask_ollama = AsyncMock(side_effect=["Critic", "Verifier"])
+        engine._ask_selected_specialist = AsyncMock(return_value=("Final answer", "openrouter"))
+        emitted: list[str] = []
+
+        async def on_chunk(chunk: str) -> None:
+            emitted.append(chunk)
+
+        async def run_final():
+            return await engine._run_consilium(
+                "Question", "Instructions", "Candidate draft", on_final_chunk=on_chunk
+            )
+
+        answer = asyncio.run(run_final())
+        assert answer == "Final answer"
+        engine._ask_selected_specialist.assert_awaited_once()
+        args = engine._ask_selected_specialist.await_args.args
+        assert args[0] == "openrouter"
+        assert args[1] == model
+        assert "Question" in args[2] and "Candidate draft" in args[2]
+        assert args[4] == "final-synthesis"
+        assert emitted == ["Final answer"]
+        assert engine.completion_provider == "openrouter"
+        assert engine.completion_model == f"OpenRouter final: {model}"
+
     def test_unexpected_selected_route_error_uses_shared_fallback(self):
         orchestrator.subject_model_routes.set("physics", "gemini", "gemini-2.5-pro")
         engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient))
@@ -825,7 +905,7 @@ def test_auto_consilium_prompts_are_learning_focused_for_both_languages(language
     else:
         assert "черновики" in consensus_prompt.lower()
     assert engine._ask_gemini.await_args_list[1].args[2] == orchestrator.GEMINI_PRO_URL
-    assert engine._ask_gemini.await_args_list[1].args[3] == "gemini-pro"
+    assert engine._ask_gemini.await_args_list[1].args[3] == "final-synthesis"
     assert engine.completion_model == "Gemini Pro final: gemini-3.1-pro-preview"
 
 
@@ -2207,7 +2287,7 @@ class TestConsiliumEngine:
         assert isinstance(log, DebateLog)
         assert answer == FAKE_ANSWER
         agents = {entry["agent"] for entry in log._entries}
-        assert {"gemini-flash", "kimi", "ollama-gen", "freebuff", "qwen", "gemini-pro"} <= agents
+        assert {"gemini-flash", "kimi", "ollama-gen", "freebuff", "qwen", "final-synthesis"} <= agents
 
     def test_ollama_chat_stream_uses_ndjson_incrementally(self, monkeypatch):
         chunks = [

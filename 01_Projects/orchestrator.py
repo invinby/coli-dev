@@ -488,6 +488,11 @@ class SubjectModelRouteRequest(BaseModel):
     model: str | None = Field(default=None, max_length=128)
 
 
+class FinalSynthesisRouteRequest(BaseModel):
+    provider: Literal["auto", "gemini", "kimi", "openrouter", "ollama"]
+    model: str | None = Field(default=None, max_length=128)
+
+
 class StudyReviewRequest(BaseModel):
     event_id: uuid.UUID
     lesson_id: str = Field(
@@ -1166,31 +1171,66 @@ class ConsiliumEngine:
                 f"Вопрос ученика: {message}\n\nЧерновики:\n{draft_bundle}\n\n"
                 f"Критический разбор:\n{freebuff_review}\n\nНезависимая проверка:\n{qwen_verify}"
             )
-        if on_final_chunk is None:
-            final_answer = await self._ask_gemini(
-                consensus_prompt,
-                self.agent_system(system_prompt),
-                GEMINI_PRO_URL,
-                "gemini-pro",
+        synthesis_route = final_synthesis_routes.get()
+        synthesis_provider = synthesis_route["provider"] or "auto"
+        synthesis_model = _final_synthesis_model(synthesis_route)
+        effective_provider = "gemini" if synthesis_provider == "auto" else synthesis_provider
+        model_label = synthesis_model
+        if effective_provider == "gemini":
+            synthesis_url = (
+                f"https://generativelanguage.googleapis.com/v1beta/models/"
+                f"{synthesis_model}:generateContent"
             )
+            if on_final_chunk is None:
+                final_answer = await self._ask_gemini(
+                    consensus_prompt,
+                    self.agent_system(system_prompt),
+                    synthesis_url,
+                    "final-synthesis",
+                )
+            else:
+                final_answer = await self._ask_gemini_streaming(
+                    consensus_prompt,
+                    self.agent_system(system_prompt),
+                    synthesis_url,
+                    "final-synthesis",
+                    on_final_chunk,
+                )
         else:
-            final_answer = await self._ask_gemini_streaming(
-                consensus_prompt,
-                self.agent_system(system_prompt),
-                GEMINI_PRO_URL,
-                "gemini-pro",
-                on_final_chunk,
-            )
+            prior_specialist_label = self.specialist_model_label
+            self.specialist_model_label = None
+            try:
+                final_answer, _ = await self._ask_selected_specialist(
+                    effective_provider,
+                    synthesis_model,
+                    consensus_prompt,
+                    self.agent_system(system_prompt),
+                    "final-synthesis",
+                )
+                model_label = self.specialist_model_label or synthesis_model
+            finally:
+                self.specialist_model_label = prior_specialist_label
+            if on_final_chunk is not None and isinstance(final_answer, str) and final_answer.strip():
+                emitted = on_final_chunk(final_answer)
+                if asyncio.iscoroutine(emitted):
+                    await emitted
         if self._is_provider_error(final_answer):
-            raise ConsiliumCloudError("Gemini consensus did not return a usable response")
+            raise ConsiliumCloudError("Final synthesis route did not return a usable response")
         consensus_duration = int((datetime.now(timezone.utc) - t2).total_seconds() * 1000)
 
         self.log.add("consilium", "freebuff", freebuff_review[:400], fb_duration)
         self.log.add("consilium", "qwen", qwen_verify[:400], qw_duration)
-        self.log.add("consilium", "gemini-pro",
+        self.log.add("consilium", "final-synthesis",
                      f"Финальный ответ ({len(final_answer)} символов)", consensus_duration)
 
-        self.completion_model = f"Gemini Pro final: {GEMINI_PRO_MODEL}"
+        provider_labels = {
+            "gemini": "Gemini Pro" if synthesis_model == GEMINI_PRO_MODEL else "Gemini",
+            "kimi": "Kimi",
+            "openrouter": "OpenRouter",
+            "ollama": "Ollama",
+        }
+        self.completion_provider = effective_provider
+        self.completion_model = f"{provider_labels[effective_provider]} final: {model_label}"
         if self.specialist_model_label:
             self.completion_model += f" · {self.specialist_model_label}"
 
@@ -2175,6 +2215,82 @@ class SubjectModelRouteStore:
 subject_model_routes = SubjectModelRouteStore(app_data_dir() / "subject-model-routing.json")
 
 
+class FinalSynthesisRouteStore:
+    """Persist the provider/model for the final Auto answer, without credentials."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path.expanduser()
+        self._lock = threading.RLock()
+
+    @staticmethod
+    def _clean_route(value: Any) -> dict[str, str | None]:
+        if not isinstance(value, dict):
+            return {"provider": "auto", "model": None}
+        provider = value.get("provider")
+        model = value.get("model")
+        if not isinstance(provider, str) or provider not in _SUBJECT_MODEL_ROUTE_PROVIDERS:
+            return {"provider": "auto", "model": None}
+        if provider == "auto":
+            return {"provider": "auto", "model": None}
+        if not _valid_subject_model_id(provider, model):
+            model = None
+        return {"provider": provider, "model": model}
+
+    def get(self) -> dict[str, str | None]:
+        with self._lock:
+            try:
+                payload = json.loads(self.path.read_text(encoding="utf-8"))
+            except FileNotFoundError:
+                return {"provider": "auto", "model": None}
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                logger.warning(
+                    "Final synthesis route could not be read; defaults will be used",
+                    extra={"error_type": type(exc).__name__},
+                )
+                return {"provider": "auto", "model": None}
+            route = payload.get("route") if isinstance(payload, dict) else None
+            return self._clean_route(route)
+
+    def set(self, provider: str, model: str | None) -> dict[str, str | None]:
+        if provider not in _SUBJECT_MODEL_ROUTE_PROVIDERS:
+            raise ValueError("Unknown provider")
+        if model is not None:
+            model = model.strip()
+            if not model:
+                model = None
+            elif provider == "auto":
+                raise ValueError("Automatic routing cannot have a model identifier")
+            elif not _valid_subject_model_id(provider, model):
+                raise ValueError("Invalid model identifier")
+        route = {"provider": provider, "model": model}
+        with self._lock:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            temporary_path: Path | None = None
+            try:
+                with tempfile.NamedTemporaryFile(
+                    mode="w", encoding="utf-8", prefix=".final-synthesis-route-",
+                    suffix=".tmp", dir=self.path.parent, delete=False,
+                ) as temporary:
+                    temporary_path = Path(temporary.name)
+                    json.dump({"schema_version": 1, "route": route}, temporary, sort_keys=True)
+                    temporary.write("\n")
+                try:
+                    os.chmod(temporary_path, 0o600)
+                except OSError:
+                    pass
+                os.replace(temporary_path, self.path)
+            finally:
+                if temporary_path is not None and temporary_path.exists():
+                    temporary_path.unlink(missing_ok=True)
+        return route
+
+    def reset(self) -> dict[str, str | None]:
+        return self.set("auto", None)
+
+
+final_synthesis_routes = FinalSynthesisRouteStore(app_data_dir() / "final-synthesis-route.json")
+
+
 def _default_model_for_provider(provider: str) -> str | None:
     return {
         "gemini": GEMINI_FLASH_MODEL,
@@ -2182,6 +2298,15 @@ def _default_model_for_provider(provider: str) -> str | None:
         "openrouter": OPENROUTER_MODEL,
         "ollama": OLLAMA_MODEL_RESEARCHER,
     }.get(provider)
+
+
+def _final_synthesis_model(route: dict[str, str | None]) -> str:
+    provider = route["provider"] or "auto"
+    if route["model"]:
+        return route["model"]
+    if provider in {"auto", "gemini"}:
+        return GEMINI_PRO_MODEL
+    return _default_model_for_provider(provider) or ""
 
 
 def _subject_model_route_status(provider: str) -> tuple[bool | None, str]:
@@ -2213,6 +2338,19 @@ def _subject_model_route_payload() -> dict[str, list[dict[str, Any]]]:
             "status": status,
         })
     return {"subjects": result}
+
+
+def _final_synthesis_route_payload() -> dict[str, Any]:
+    route = final_synthesis_routes.get()
+    provider = route["provider"] or "auto"
+    readiness_provider = "gemini" if provider == "auto" else provider
+    ready, status = _subject_model_route_status(readiness_provider)
+    return {
+        **route,
+        "effective_model": _final_synthesis_model(route),
+        "provider_ready": ready,
+        "status": status,
+    }
 
 
 async def _record_provider_usage(
@@ -2993,6 +3131,31 @@ async def reset_subject_model_route(subject: str, request: Request):
         item for item in _subject_model_route_payload()["subjects"]
         if item["subject"] == subject
     )
+
+
+@app.get("/settings/final-synthesis-route")
+async def get_final_synthesis_route(request: Request):
+    _require_local_settings_request(request)
+    return _final_synthesis_route_payload()
+
+
+@app.put("/settings/final-synthesis-route")
+async def save_final_synthesis_route(
+    route: FinalSynthesisRouteRequest, request: Request
+):
+    _require_local_settings_request(request)
+    try:
+        final_synthesis_routes.set(route.provider, route.model)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    return _final_synthesis_route_payload()
+
+
+@app.delete("/settings/final-synthesis-route")
+async def reset_final_synthesis_route(request: Request):
+    _require_local_settings_request(request)
+    final_synthesis_routes.reset()
+    return _final_synthesis_route_payload()
 
 
 @app.get("/api/status")

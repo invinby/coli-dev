@@ -238,7 +238,7 @@ class TestFullStreamingPipeline:
         assert "gemini-flash" in agents
         assert "freebuff" in agents
         assert "qwen" in agents
-        assert "gemini-pro" in agents
+        assert "final-synthesis" in agents
 
     def test_full_pipeline_local_mode(self, client_offline):
         """Полный пайплайн: оффлайн → run_local → SSE-события."""
