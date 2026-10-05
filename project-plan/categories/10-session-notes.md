@@ -260,4 +260,4 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 
 - GET-проверка доступности Gemini больше не добавляет API key в URL query; ключ идёт через x-goog-api-key, как предписывает API reference Google.
 - Regression-тест требует точный безопасный запрос. Полный backend suite: 205 passed, одно известное предупреждение совместимости Starlette/httpx; repo-wide Ruff, compileall и git diff --check чистые.
-- GitHub Actions для этого backend-коммита ещё ожидает push. Живые credentials и внешний сетевой запрос не использовались.
+- GitHub Actions run [37271233047](https://github.com/invinby/coli-dev/actions/runs/37271233047) прошёл backend checks и обе macOS build/package/smoke-test задачи. Живые credentials и внешний сетевой запрос не использовались.
