@@ -1976,6 +1976,13 @@ private struct TutorChatView: View {
                 Text(L10n.text(chat.mode == .localOnly ? "tutor.localPrivacy" : "tutor.privacy", language))
                     .font(.caption).foregroundStyle(.secondary)
                 if chat.mode == .automatic {
+                    if let policy = store.autoCostPolicy, !policy.allowPaidRoutes {
+                        Label(L10n.text("tutor.webSearchCostBlocked", language), systemImage: "lock.fill")
+                            .font(.caption2).foregroundStyle(.secondary)
+                    } else if store.autoCostPolicy == nil {
+                        Label(L10n.text("tutor.webSearchCostChecking", language), systemImage: "lock.fill")
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
                     Toggle(isOn: Binding(
                         get: { useWebSearch },
                         set: { enabled in
@@ -1994,7 +2001,7 @@ private struct TutorChatView: View {
                         Label(L10n.text("tutor.webSearchToggle", language), systemImage: "globe")
                     }
                     .toggleStyle(.checkbox)
-                    .disabled(chat.isSending)
+                    .disabled(chat.isSending || store.autoCostPolicy?.allowPaidRoutes != true)
                     .alert(L10n.text("tutor.webSearchAgeTitle", language), isPresented: $showGoogleSearchAgeConfirmation) {
                         Button(L10n.text("tutor.webSearchCancel", language), role: .cancel) {}
                         Button(L10n.text("tutor.webSearchAgeConfirm", language)) {
@@ -2065,6 +2072,7 @@ private struct TutorChatView: View {
         .task {
             guard await backendSupervisor.ensureRunning() else { return }
             await store.refreshAIStatus()
+            await store.refreshAutoCostPolicy()
         }
     }
 
@@ -2222,7 +2230,11 @@ private struct TutorChatView: View {
 
     private var canSend: Bool {
         guard backendSupervisor.isReady, let health = store.aiHealth else { return false }
-        if useWebSearch { return chat.mode == .automatic && health.hasGroundedSearch }
+        if useWebSearch {
+            return chat.mode == .automatic
+                && store.autoCostPolicy?.allowPaidRoutes == true
+                && health.hasGroundedSearch
+        }
         return chat.mode == .automatic ? health.hasAutomaticRoute : health.hasLocalModel
     }
 
@@ -2259,6 +2271,7 @@ private struct TutorChatView: View {
         Task {
             guard await backendSupervisor.ensureRunning() else { return }
             await store.refreshAIStatus()
+            await store.refreshAutoCostPolicy()
             guard canSend, !chat.isSending else { return }
             draft = ""
             chat.send(

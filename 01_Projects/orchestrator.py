@@ -3567,6 +3567,14 @@ async def _handle_grounded_web_search(req: ChatRequest) -> StreamingResponse:
             req.language,
             message("Веб-поиск работает только в режиме «Авто».", "Web search is available only in Auto mode."),
         )
+    if not auto_cost_policy.get()["allow_paid_routes"]:
+        return _error_stream_response(
+            req.language,
+            message(
+                "Google Search заблокирован защитой от потенциально платных маршрутов. Вопрос не отправлен; явно разреши платные маршруты в Центре управления, если готов использовать квоту Gemini.",
+                "Google Search is blocked while potentially paid routes are disabled. Your question was not sent. Explicitly allow paid routes in Control Center if you are willing to use Gemini quota.",
+            ),
+        )
     if not req.grounding_age_confirmed:
         return _error_stream_response(
             req.language,

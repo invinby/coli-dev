@@ -1717,6 +1717,26 @@ class TestStreamingChat:
         local_search.assert_not_awaited()
         obsidian_search.assert_not_awaited()
 
+    def test_grounded_web_search_is_blocked_by_default_cost_policy(self, client, monkeypatch):
+        orchestrator.auto_cost_policy.set(False)
+        network_check = AsyncMock(return_value=True)
+        monkeypatch.setattr(orchestrator, "_check_network", network_check)
+        with patch("orchestrator.ConsiliumEngine") as engine_factory:
+            response = client.post("/chat/stream", json={
+                "message": "Find current information",
+                "language": "en",
+                "use_web_search": True,
+                "grounding_age_confirmed": True,
+            })
+
+        assert response.status_code == 200
+        events = _parse_sse(response.text)
+        error = next(event for event in events if event["type"] == "error")
+        assert "blocked" in error["error"]
+        assert "not sent" in error["error"]
+        network_check.assert_not_awaited()
+        engine_factory.assert_not_called()
+
     def test_grounded_web_search_forwards_provider_chunks_without_resplitting(self, client):
         source = {
             "id": "1",

@@ -101,6 +101,7 @@ struct ContentView: View {
         }
         .task {
             guard await backendSupervisor.ensureRunning() else { return }
+            await store.refreshAutoCostPolicy()
             await store.syncStudyProgress()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
