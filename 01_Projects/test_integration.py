@@ -301,7 +301,11 @@ class TestFullStreamingPipeline:
         log.add("consilium", "qwen", "Local response", 50)
 
         mock_engine = MagicMock()
-        mock_engine.run_local = AsyncMock(return_value=(answer, log))
+
+        async def stream_answer(message, system_prompt):
+            yield answer
+
+        mock_engine.stream_local = stream_answer
 
         with patch("orchestrator.ConsiliumEngine", return_value=mock_engine):
             resp = client_offline.post("/chat/stream", json={"message": TEST_MSG})
@@ -329,7 +333,11 @@ class TestSessionIntegration:
         log.add("consilium", "qwen", "Local", 10)
 
         mock_engine = MagicMock()
-        mock_engine.run_local = AsyncMock(return_value=(answer, log))
+
+        async def stream_answer(message, system_prompt):
+            yield answer
+
+        mock_engine.stream_local = stream_answer
 
         with patch("orchestrator.ConsiliumEngine", return_value=mock_engine):
             resp = client_online.post("/chat/stream", json={"message": TEST_MSG})

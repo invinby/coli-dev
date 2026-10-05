@@ -943,6 +943,58 @@ class TestStreamingChat:
 
         assert token_text == "Ссылка [источник K8 не найден] не найдена."
         assert done["citation_warnings"] == ["K8"]
+        assert done["answer"] == token_text
+
+    def test_local_stream_emits_provider_chunks_and_final_validated_answer(self, client, monkeypatch):
+        tick = chr(96)
+        fence = tick * 3
+        raw_chunks = [
+            "Answer [K",
+            f"8] and [K1]. {tick}inline [K8]{tick}\n",
+            f"{fence}python\nprint('[K8]')\n{fence}\n",
+        ]
+        expected_final = (
+            f"Answer [source K8 unavailable] and [K1]. {tick}inline [K8]{tick}\n"
+            f"{fence}python\nprint('[K8]')\n{fence}\n"
+        )
+
+        async def source_chunks(message, system_prompt):
+            for chunk in raw_chunks:
+                yield chunk
+
+        engine = MagicMock()
+        engine.stream_local = source_chunks
+        engine.log = orchestrator.DebateLog()
+        engine.log.add("consilium", "qwen", "Local stream complete", 4)
+        local_source = {
+            "id": "K1",
+            "title": "Functions",
+            "path": "02_Areas/Mathematics/lessons/functions_as_models.md",
+            "excerpt": "A function maps each input to one output.",
+        }
+
+        with (
+            patch("orchestrator.ConsiliumEngine", return_value=engine),
+            patch("orchestrator._retrieve_local_course_sources", AsyncMock(return_value=[local_source])),
+            patch("orchestrator._retrieve_obsidian_sources", AsyncMock(return_value=[])),
+        ):
+            response = client.post("/chat/stream", json={
+                "message": "Explain this function",
+                "language": "en",
+                "mode": "local",
+            })
+
+        events = _parse_sse(response.text)
+        tokens = [event["content"] for event in events if event["type"] == "token"]
+        debate_log = next(event for event in events if event["type"] == "debate_log")
+        done = next(event for event in events if event["type"] == "done")
+
+        assert response.status_code == 200
+        assert tokens == raw_chunks
+        assert done["answer"] == expected_final
+        assert done["citation_warnings"] == ["K8"]
+        assert [source["id"] for source in done["sources"]] == ["K1"]
+        assert "Local stream complete" in debate_log["html"]
 
     def test_retrieval_sources_are_interleaved_and_citations_renumbered(self):
         courses = [
@@ -1407,7 +1459,11 @@ class TestStreamingChat:
         mock_log.add("consilium", "qwen", "Local response", 100)
 
         mock_engine = MagicMock()
-        mock_engine.run_local = AsyncMock(return_value=(mock_answer, mock_log))
+
+        async def stream_answer(message, system_prompt):
+            yield mock_answer
+
+        mock_engine.stream_local = stream_answer
 
         with patch("orchestrator.ConsiliumEngine", return_value=mock_engine):
             resp = client_offline.post("/chat/stream", json={"message": TEST_MSG})
@@ -1627,6 +1683,65 @@ class TestConsiliumEngine:
         assert answer == FAKE_ANSWER
         agents = {entry["agent"] for entry in log._entries}
         assert {"gemini-flash", "kimi", "ollama-gen", "freebuff", "qwen", "gemini-pro"} <= agents
+
+    def test_ollama_chat_stream_uses_ndjson_incrementally(self, monkeypatch):
+        chunks = [
+            b'{"message":{"content":"first"}}\n{"message"',
+            b':{"content":" second"}}\n{"message":{"content":""},"done":true}\n',
+        ]
+
+        class ChunkedBody(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                for chunk in chunks:
+                    yield chunk
+
+            async def aclose(self):
+                return None
+
+        async def handle_request(request):
+            payload = json.loads(request.content)
+            assert request.url.host == "127.0.0.1"
+            assert request.url.path == "/api/chat"
+            assert payload["stream"] is True
+            assert payload["options"]["num_predict"] == 1024
+            return httpx.Response(200, stream=ChunkedBody())
+
+        async def collect_chunks():
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handle_request)) as http_client:
+                engine = orchestrator.ConsiliumEngine(http_client, ollama_client=http_client)
+                return [
+                    chunk
+                    async for chunk in engine._stream_ollama(
+                        "Learner question",
+                        "Tutor system",
+                        "test",
+                    )
+                ]
+
+        monkeypatch.setattr(orchestrator, "OLLAMA_BASE", "http://127.0.0.1:11434")
+        monkeypatch.setattr(orchestrator, "OLLAMA_CHAT_URL", "http://127.0.0.1:11434/api/chat")
+        assert asyncio.run(collect_chunks()) == ["first", " second"]
+
+    def test_ollama_chat_stream_rejects_truncated_stream(self, monkeypatch):
+        class TruncatedBody(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                yield b'{"message":{"content":"partial"},"done":false}\n'
+
+            async def aclose(self):
+                return None
+
+        async def handle_request(request):
+            return httpx.Response(200, stream=TruncatedBody())
+
+        async def collect_chunks():
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handle_request)) as http_client:
+                engine = orchestrator.ConsiliumEngine(http_client, ollama_client=http_client)
+                return [chunk async for chunk in engine._stream_ollama("Q", "S", "test")]
+
+        monkeypatch.setattr(orchestrator, "OLLAMA_BASE", "http://127.0.0.1:11434")
+        monkeypatch.setattr(orchestrator, "OLLAMA_CHAT_URL", "http://127.0.0.1:11434/api/chat")
+        with pytest.raises(RuntimeError, match="stream failed"):
+            asyncio.run(collect_chunks())
 
     def test_engine_run_local_returns_tuple(self):
         """run_local возвращает (answer, log) кортеж."""

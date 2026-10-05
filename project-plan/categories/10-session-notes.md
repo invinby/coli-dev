@@ -261,3 +261,10 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 - GET-проверка доступности Gemini больше не добавляет API key в URL query; ключ идёт через x-goog-api-key, как предписывает API reference Google.
 - Regression-тест требует точный безопасный запрос. Полный backend suite: 205 passed, одно известное предупреждение совместимости Starlette/httpx; repo-wide Ruff, compileall и git diff --check чистые.
 - GitHub Actions run [37271233047](https://github.com/invinby/coli-dev/actions/runs/37271233047) прошёл backend checks и обе macOS build/package/smoke-test задачи. Живые credentials и внешний сетевой запрос не использовались.
+
+### Локальный Ollama: настоящий SSE streaming — 2026-10-05
+
+- Local-only `/chat/stream` теперь читает NDJSON из `/api/chat` с `stream: true` и передаёт нативные чанки модели через SSE по мере получения. Endpoint разрешён только на loopback; некорректный JSON, ошибка провайдера и поток без финального `done: true` приводят к ошибке вместо выдачи неполного ответа как завершённого.
+- После чанков backend валидирует `[K#]` относительно извлечённых источников и отправляет исправленный `done.answer`; SwiftUI заменяет временный текст проверенным ответом. Сохранено SSE-событие лога для существующего web UI.
+- Regression-проверки покрывают разбиение citation marker между чанками, неизвестные ссылки, inline/fenced code, NDJSON и оборванный поток; старые integration mocks переведены на `stream_local`. Финальный локальный suite: 208 passed, одно известное предупреждение Starlette/httpx. Repo-wide Ruff, `compileall` и `git diff --check` проходят.
+- Живой Ollama endpoint, производительность установленной модели и SwiftUI сборка ещё не проверялись локально; свежие GitHub Actions macOS build/package/smoke checks запускаются после push.

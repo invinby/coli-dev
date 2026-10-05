@@ -1176,6 +1176,36 @@ class ConsiliumEngine:
             )
             return error, self.log
 
+
+    async def stream_local(self, message: str, system_prompt: str):
+        self.log = DebateLog()
+        self.completion_provider = "local"
+        self.completion_model = OLLAMA_MODEL_RESEARCHER
+        started = datetime.now(timezone.utc)
+        local_prompt = (
+            "You are the local learning assistant powered by Ollama. "
+            f"Answer in {self.output_language}; explain carefully with useful examples. "
+            "Be accurate and concise.\n\n"
+            f"Tutor guidance: {system_prompt}\n\n"
+            f"Learner question: {message}"
+        )
+        parts: list[str] = []
+        async for chunk in self._stream_ollama(local_prompt, self.language_system, "local"):
+            parts.append(chunk)
+            yield chunk
+
+        answer = "".join(parts)
+        if not answer.strip():
+            raise RuntimeError("Ollama returned an empty streamed answer")
+        duration = int((datetime.now(timezone.utc) - started).total_seconds() * 1000)
+        self.log.add(
+            "consilium",
+            "qwen",
+            f"[ЛОКАЛЬНЫЙ РЕЖИМ] Digital Twin ответил ({len(answer)} символов)",
+            duration,
+        )
+
+
     # ─── HTTP-запросы ↓ ─────────────────────────────────
 
     async def _ask_cloud_specialist(
@@ -1477,6 +1507,69 @@ class ConsiliumEngine:
                 extra={"error_type": type(exc).__name__},
             )
             return "[Ошибка Ollama: некорректный ответ или сбой запроса]"
+
+
+    async def _stream_ollama(self, message: str, system_prompt: str, agent_tag: str):
+        if not _is_loopback_http_url(OLLAMA_BASE):
+            raise RuntimeError("Ollama endpoint must use localhost or a loopback IP")
+
+        payload = {
+            "model": OLLAMA_MODEL_RESEARCHER,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": message},
+            ],
+            "stream": True,
+            "options": {"num_predict": 1024},
+        }
+        try:
+            async with self.ollama_http.stream(
+                "POST",
+                OLLAMA_CHAT_URL,
+                json=payload,
+                timeout=90,
+            ) as response:
+                response.raise_for_status()
+                completed = False
+                async for line in response.aiter_lines():
+                    if not line.strip():
+                        continue
+                    try:
+                        event = json.loads(line)
+                    except json.JSONDecodeError:
+                        raise RuntimeError("Malformed Ollama stream event") from None
+                    if not isinstance(event, dict):
+                        raise RuntimeError("Malformed Ollama stream event")
+                    if isinstance(event.get("error"), str) and event["error"]:
+                        raise RuntimeError("Ollama stream returned an error")
+                    message_event = event.get("message")
+                    if isinstance(message_event, dict):
+                        content = message_event.get("content")
+                        if content is not None and not isinstance(content, str):
+                            raise RuntimeError("Malformed Ollama message content")
+                        if content:
+                            yield content
+                    if event.get("done") is True:
+                        completed = True
+                        break
+                if not completed:
+                    raise RuntimeError("Ollama stream ended before completion")
+        except httpx.TimeoutException:
+            logger.warning("Ollama stream timeout", extra={"agent": agent_tag})
+            raise RuntimeError("Ollama request timed out") from None
+        except httpx.HTTPStatusError as exc:
+            logger.error(
+                "Ollama stream HTTP error",
+                extra={"agent": agent_tag, "status": exc.response.status_code},
+            )
+            raise RuntimeError("Ollama request failed") from None
+        except Exception as exc:
+            logger.error(
+                "Ollama stream failed",
+                extra={"agent": agent_tag, "error_type": type(exc).__name__},
+            )
+            raise RuntimeError("Ollama stream failed") from None
+
 
     async def _fallback_local(self, message: str, system_prompt: str) -> str:
         """Фолбек к локальной модели при полном отказе консилиума."""
@@ -1949,7 +2042,8 @@ async def _stream_answer_debate(
                                      'duration_ms': elapsed, 'tokens': tokens,
                                      'sources': sources or [],
                                      'citation_warnings': citation_warnings,
-                                     'google_search_suggestions': google_search_suggestions})}\n\n"
+                                     'google_search_suggestions': google_search_suggestions,
+                                     'answer': answer})}\n\n"
     except Exception as exc:
         logger.error("Stream error", extra={"error": str(exc)[:200]})
         yield f"data: {json.dumps({'type': 'error', 'error': str(exc)[:300], 'provider': provider})}\n\n"
@@ -2485,16 +2579,21 @@ async def _handle_local_stream(
     sources: list[dict[str, str]] | None = None,
     learner_message: str | None = None,
 ) -> StreamingResponse:
-    """Обработка через локальный Digital Twin (Qwen 3)."""
     engine = ConsiliumEngine(state.http_client, req.language, state.ollama_client)
 
     async def events():
         yield ": connected\n\n"
+        started = datetime.now(timezone.utc)
+        answer_parts: list[str] = []
         try:
-            answer, debate_log = await engine.run_local(
+            async for chunk in engine.stream_local(
                 learner_message if learner_message is not None else req.message,
                 system_prompt if system_prompt is not None else req.system_prompt,
-            )
+            ):
+                if not chunk:
+                    continue
+                answer_parts.append(chunk)
+                yield f"data: {json.dumps({'type': 'token', 'content': chunk}, ensure_ascii=False)}\n\n"
         except asyncio.CancelledError:
             logger.info("Local tutor request cancelled by client")
             raise
@@ -2502,21 +2601,19 @@ async def _handle_local_stream(
             logger.error(
                 "Local tutor stream failed",
                 extra={"error_type": type(exc).__name__},
-                exc_info=True,
             )
             yield _error_event(req.language)
             return
 
-        debate_html = debate_log.to_html()
-        async for event in _stream_answer_debate(
-            answer,
-            debate_html,
-            "local",
-            OLLAMA_MODEL_RESEARCHER,
-            sources,
-            language=req.language,
-        ):
-            yield event
+        raw_answer = "".join(answer_parts)
+        if not raw_answer.strip():
+            yield _error_event(req.language)
+            return
+        if isinstance(engine.log, DebateLog):
+            yield f"data: {json.dumps({'type': 'debate_log', 'html': engine.log.to_html()}, ensure_ascii=False)}\n\n"
+        answer, citation_warnings = _validate_local_citations(raw_answer, sources, req.language)
+        elapsed = int((datetime.now(timezone.utc) - started).total_seconds() * 1000)
+        yield f"data: {json.dumps({'type': 'done', 'provider': 'local', 'model': OLLAMA_MODEL_RESEARCHER, 'duration_ms': elapsed, 'tokens': len(raw_answer.split()), 'sources': sources or [], 'citation_warnings': citation_warnings, 'google_search_suggestions': None, 'answer': answer}, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(
         events(),
@@ -2527,7 +2624,6 @@ async def _handle_local_stream(
             "X-Accel-Buffering": "no",
         },
     )
-
 
 # ─── Obsidian API endpoints ──────────────────────────
 

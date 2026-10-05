@@ -641,6 +641,7 @@ struct TutorSource: Decodable, Identifiable {
 private struct TutorEvent: Decodable {
     let type: String
     let content: String?
+    let answer: String?
     let provider: String?
     let model: String?
     let durationMS: Int?
@@ -650,7 +651,7 @@ private struct TutorEvent: Decodable {
     let error: String?
 
     enum CodingKeys: String, CodingKey {
-        case type, content, provider, model, sources, error
+        case type, content, answer, provider, model, sources, error
         case durationMS = "duration_ms"
         case citationWarnings = "citation_warnings"
         case googleSearchSuggestions = "google_search_suggestions"
@@ -783,7 +784,8 @@ enum OrchestratorClient {
         useWebSearch: Bool = false,
         groundingAgeConfirmed: Bool = false,
         includeLocalSourcesInWebSearch: Bool = false,
-        onToken: @MainActor (String) -> Void
+        onToken: @MainActor (String) -> Void,
+        onFinalAnswer: @MainActor (String) -> Void
     ) async throws -> TutorCompletion {
         guard let url = URL(string: LearningStore.orchestratorBaseURL + "/chat/stream") else {
             throw ClientError.invalidResponse
@@ -822,6 +824,7 @@ enum OrchestratorClient {
             case "error":
                 throw ClientError.serverError(event.error ?? "The server could not answer this request.")
             case "done":
+                if let answer = event.answer { onFinalAnswer(answer) }
                 completion = TutorCompletion(
                     provider: event.provider ?? "AI",
                     model: event.model ?? "",
@@ -933,7 +936,8 @@ final class TutorChatModel: ObservableObject {
                     useWebSearch: useWebSearch,
                     groundingAgeConfirmed: groundingAgeConfirmed,
                     includeLocalSourcesInWebSearch: includeLocalSourcesInWebSearch,
-                    onToken: { [weak self] token in self?.append(token, to: reply.id) }
+                    onToken: { [weak self] token in self?.append(token, to: reply.id) },
+                    onFinalAnswer: { [weak self] answer in self?.replace(answer, in: reply.id) }
                 )
                 completionLabel = [result.provider, result.model].filter { !$0.isEmpty }.joined(separator: " · ")
                 if let index = messages.firstIndex(where: { $0.id == reply.id }) {
@@ -963,6 +967,11 @@ final class TutorChatModel: ObservableObject {
     private func append(_ token: String, to messageID: UUID) {
         guard let index = messages.firstIndex(where: { $0.id == messageID }) else { return }
         messages[index].text += token
+    }
+
+    private func replace(_ text: String, in messageID: UUID) {
+        guard let index = messages.firstIndex(where: { $0.id == messageID }) else { return }
+        messages[index].text = text
     }
 }
 
