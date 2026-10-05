@@ -1941,11 +1941,11 @@ private struct DNAHelixVisualization: NSViewRepresentable {
         }
 
         for index in 0..<(stepCount - 1) {
-            let firstRail = SCNCylinder(radius: 0.018, height: CGFloat(distance(firstStrand[index], firstStrand[index + 1])))
+            let firstRail = SCNCylinder(radius: 0.018, height: distance(firstStrand[index], firstStrand[index + 1]))
             firstRail.firstMaterial = backboneMaterial
             scene.rootNode.addChildNode(segmentNode(from: firstStrand[index], to: firstStrand[index + 1], geometry: firstRail))
 
-            let secondRail = SCNCylinder(radius: 0.018, height: CGFloat(distance(secondStrand[index], secondStrand[index + 1])))
+            let secondRail = SCNCylinder(radius: 0.018, height: distance(secondStrand[index], secondStrand[index + 1]))
             secondRail.firstMaterial = complementaryMaterial
             scene.rootNode.addChildNode(segmentNode(from: secondStrand[index], to: secondStrand[index + 1], geometry: secondRail))
         }
@@ -1994,11 +1994,12 @@ private struct DNAHelixVisualization: NSViewRepresentable {
         return node
     }
 
-    private static func distance(_ first: SCNVector3, _ second: SCNVector3) -> Float {
+    private static func distance(_ first: SCNVector3, _ second: SCNVector3) -> CGFloat {
         let x = second.x - first.x
         let y = second.y - first.y
         let z = second.z - first.z
-        return sqrt(x * x + y * y + z * z)
+        let squaredDistance = x * x + y * y + z * z
+        return sqrt(squaredDistance)
     }
 
     private static func variantColor(_ variant: Int) -> NSColor {
