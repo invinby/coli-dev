@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import SwiftUI
 import AppKit
 import SceneKit
@@ -1215,44 +1216,105 @@ private struct SentenceLab: View {
 
 private struct ForceLab: View {
     @EnvironmentObject private var store: LearningStore
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var force = 12.0
     @State private var mass = 3.0
+    @State private var elapsed = 0.0
+    @State private var elapsedAtStart = 0.0
+    @State private var startedAt: ContinuousClock.Instant?
+    private let timer = Timer.publish(every: 1.0 / 30, on: .main, in: .common).autoconnect()
 
-    private var acceleration: Double { force / mass }
+    private var motion: ForceMotion { ForceMotion(force: force, mass: mass, time: elapsed) }
+    private var isRunning: Bool { startedAt != nil }
 
     var body: some View {
         LabCard {
-            Force3DVisualization(force: force, mass: mass)
-                .frame(height: 190)
+            Force3DVisualization(force: force, mass: mass, displacement: motion.displacement)
+                .frame(height: 240)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .accessibilityLabel(Text(L10n.text("lab.force3DHint", store.language)))
             Text(L10n.text("lab.force3DHint", store.language))
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            HStack(alignment: .center, spacing: 20) {
-                Image(systemName: "shippingbox.fill")
-                    .font(.system(size: 42))
-                    .foregroundStyle(.blue)
-                    .frame(width: 80, height: 80)
-                    .background(.blue.opacity(0.10), in: RoundedRectangle(cornerRadius: 18))
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("F = ma")
-                        .font(.system(.title2, design: .monospaced, weight: .bold))
-                    Text("a = \(acceleration, specifier: "%.1f") m/s²")
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-            }
-            valueSlider(title: L10n.text("lab.force", store.language), value: $force, range: 1...30, suffix: " N")
+            Text("F = ma   ·   v = at   ·   x = ½at²")
+                .font(.system(.headline, design: .monospaced))
+            Text(L10n.text("lab.forceAssumptions", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            valueSlider(title: L10n.text("lab.force", store.language), value: $force, range: -30...30, suffix: " N")
             valueSlider(title: L10n.text("lab.mass", store.language), value: $mass, range: 1...10, suffix: " kg")
-            HStack(spacing: 4) {
-                Text(L10n.text("lab.acceleration", store.language))
-                Text(":")
-                Text(acceleration, format: .number.precision(.fractionLength(2)))
-                Text("m/s²")
+            HStack {
+                Button {
+                    if isRunning { pause() } else { start() }
+                } label: {
+                    Label(L10n.text(isRunning ? "lab.motionPause" : "lab.motionPlay", store.language),
+                          systemImage: isRunning ? "pause.fill" : "play.fill")
+                }
+                .disabled(reduceMotion || scenePhase != .active)
+                Button(L10n.text("lab.motionStep", store.language)) {
+                    elapsed = min(ForceMotion.duration, elapsed + 0.1)
+                }
+                .disabled(isRunning || motion.hasFinished)
+                Button(L10n.text("lab.motionReset", store.language), action: reset)
             }
-                .font(.callout.weight(.medium))
+            ProgressView(value: elapsed, total: ForceMotion.duration)
+                .accessibilityLabel(Text(L10n.text("lab.motionTime", store.language)))
+                .accessibilityValue(Text("\(elapsed, specifier: "%.1f") / 2 s"))
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 145), alignment: .leading)], alignment: .leading, spacing: 12) {
+                reading("lab.motionTime", value: elapsed, unit: "s")
+                reading("lab.acceleration", value: motion.acceleration, unit: "m/s²")
+                reading("lab.motionVelocity", value: motion.velocity, unit: "m/s")
+                reading("lab.motionDisplacement", value: motion.displacement, unit: "m")
+            }
+            if reduceMotion {
+                Text(L10n.text("lab.motionReduced", store.language)).font(.caption).foregroundStyle(.secondary)
+            }
+            if motion.hasFinished {
+                Text(L10n.text("lab.motionFinished", store.language)).font(.callout)
+            }
+            Text(L10n.text("lab.forceExperiment", store.language)).font(.callout)
         }
+        .onReceive(timer) { _ in advance() }
+        .onChange(of: force) { _ in reset() }
+        .onChange(of: mass) { _ in reset() }
+        .onChange(of: scenePhase) { phase in if phase != .active { pause() } }
+        .onChange(of: reduceMotion) { enabled in if enabled { pause() } }
+        .onDisappear(perform: pause)
+    }
+
+    private func reading(_ key: String, value: Double, unit: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(L10n.text(key, store.language)).font(.caption).foregroundStyle(.secondary)
+            Text("\(value, specifier: "%.2f") \(unit)").monospacedDigit()
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func start() {
+        guard !reduceMotion, scenePhase == .active else { return }
+        if motion.hasFinished { elapsed = 0 }
+        elapsedAtStart = elapsed
+        startedAt = ContinuousClock.now
+    }
+
+    private func advance() {
+        guard let startedAt else { return }
+        let duration = startedAt.duration(to: ContinuousClock.now).components
+        let seconds = Double(duration.seconds) + Double(duration.attoseconds) / 1e18
+        elapsed = min(ForceMotion.duration, elapsedAtStart + max(0, seconds))
+        if motion.hasFinished { self.startedAt = nil }
+    }
+
+    private func pause() {
+        advance()
+        startedAt = nil
+    }
+
+    private func reset() {
+        startedAt = nil
+        elapsedAtStart = 0
+        elapsed = 0
     }
 
     private func valueSlider(title: String, value: Binding<Double>, range: ClosedRange<Double>, suffix: String) -> some View {
@@ -1265,29 +1327,31 @@ private struct ForceLab: View {
                     .foregroundStyle(.secondary)
             }
             Slider(value: value, in: range, step: 1)
+                .accessibilityLabel(Text(title))
         }
     }
 }
 
-private struct Force3DVisualization: View {
+private struct Force3DVisualization: NSViewRepresentable {
     let force: Double
     let mass: Double
-    @State private var scene: SCNScene
+    let displacement: Double
 
-    init(force: Double, mass: Double) {
-        self.force = force
-        self.mass = mass
-        _scene = State(initialValue: Self.makeScene(force: force, mass: mass))
+    func makeNSView(context: Context) -> SCNView {
+        let view = SCNView()
+        view.scene = Self.makeScene()
+        view.allowsCameraControl = true
+        view.autoenablesDefaultLighting = true
+        view.backgroundColor = .windowBackgroundColor
+        return view
     }
 
-    var body: some View {
-        SceneView(scene: scene, options: [.allowsCameraControl])
-            .background(Color(nsColor: .windowBackgroundColor))
-            .onChange(of: force) { _ in updateScene() }
-            .onChange(of: mass) { _ in updateScene() }
+    func updateNSView(_ view: SCNView, context: Context) {
+        guard let scene = view.scene else { return }
+        Self.update(scene: scene, force: force, mass: mass, displacement: displacement)
     }
 
-    private static func makeScene(force: Double, mass: Double) -> SCNScene {
+    private static func makeScene() -> SCNScene {
         let scene = SCNScene()
         scene.background.contents = NSColor.windowBackgroundColor
 
@@ -1301,11 +1365,28 @@ private struct Force3DVisualization: View {
         boxNode.name = "mass-block"
         scene.rootNode.addChildNode(boxNode)
 
-        let ground = SCNBox(width: 4.5, height: 0.06, length: 2.6, chamferRadius: 0.02)
+        let ground = SCNBox(width: 16, height: 0.06, length: 2.6, chamferRadius: 0.02)
         ground.firstMaterial?.diffuse.contents = NSColor.tertiaryLabelColor
         let groundNode = SCNNode(geometry: ground)
         groundNode.position = SCNVector3(0, -0.04, 0)
         scene.rootNode.addChildNode(groundNode)
+
+        // Fixed spatial scale: one scene unit represents ten metres.
+        for metres in stride(from: -60, through: 60, by: 20) {
+            let marker = SCNNode(geometry: SCNBox(width: 0.02, height: 0.02, length: 2.5, chamferRadius: 0))
+            marker.geometry?.firstMaterial?.diffuse.contents = NSColor.secondaryLabelColor
+            marker.position = SCNVector3(Float(metres) / 10, 0.005, 0)
+            scene.rootNode.addChildNode(marker)
+            let label = SCNText(string: "\(metres) m", extrusionDepth: 0)
+            label.font = .monospacedSystemFont(ofSize: 1, weight: .regular)
+            label.firstMaterial?.diffuse.contents = NSColor.labelColor
+            let labelNode = SCNNode(geometry: label)
+            let (minimum, maximum) = labelNode.boundingBox
+            labelNode.pivot = SCNMatrix4MakeTranslation((minimum.x + maximum.x) / 2, 0, 0)
+            labelNode.scale = SCNVector3(0.3, 0.3, 0.3)
+            labelNode.position = SCNVector3(Float(metres) / 10, 0.05, 1.45)
+            scene.rootNode.addChildNode(labelNode)
+        }
 
         let arrowColor = NSColor.systemOrange
 
@@ -1323,10 +1404,13 @@ private struct Force3DVisualization: View {
 
         let camera = SCNCamera()
         camera.fieldOfView = 48
+        camera.usesOrthographicProjection = true
+        camera.projectionDirection = .horizontal
+        camera.orthographicScale = 10
         let cameraNode = SCNNode()
         cameraNode.camera = camera
-        cameraNode.position = SCNVector3(2.5, 2.0, 4.7)
-        cameraNode.look(at: SCNVector3(0.1, 0.45, 0))
+        cameraNode.position = SCNVector3(0, 6, 12)
+        cameraNode.look(at: SCNVector3(0, 0, 0))
         scene.rootNode.addChildNode(cameraNode)
 
         let keyLight = SCNLight()
@@ -1338,35 +1422,35 @@ private struct Force3DVisualization: View {
         scene.rootNode.addChildNode(keyLightNode)
 
         scene.lightingEnvironment.intensity = 0.7
-        update(scene: scene, force: force, mass: mass)
         return scene
     }
 
-    private func updateScene() {
-        Self.update(scene: scene, force: force, mass: mass)
-    }
-
-    private static func update(scene: SCNScene, force: Double, mass: Double) {
-        let massScale = CGFloat(0.75 + mass * 0.05)
-        let arrowLength = CGFloat(0.55 + force / 30)
-        let arrowBaseX = -0.65 + 0.58 * massScale
+    private static func update(scene: SCNScene, force: Double, mass: Double, displacement: Double) {
+        let massScale = Float(0.75 + mass * 0.05)
+        let arrowLength = Float(0.55 + abs(force) / 30)
+        let direction: Float = force < 0 ? -1 : 1
+        let position = Float(displacement / 10)
+        let arrowBaseX = position + direction * 0.58 * massScale
         let arrowY = 0.36 * massScale
 
+        SCNTransaction.begin()
+        SCNTransaction.disableActions = true
         if let box = scene.rootNode.childNode(withName: "mass-block", recursively: false) {
-            box.scale = SCNVector3(Float(massScale), Float(massScale), Float(massScale))
-            box.position = SCNVector3(-0.65, Float(arrowY), 0)
+            box.scale = SCNVector3(massScale, massScale, massScale)
+            box.position = SCNVector3(position, arrowY, 0)
         }
         if let shaft = scene.rootNode.childNode(withName: "force-shaft", recursively: false) {
-            let geometry = SCNCylinder(radius: 0.045, height: arrowLength)
-            geometry.firstMaterial?.diffuse.contents = NSColor.systemOrange
-            shaft.geometry = geometry
-            shaft.eulerAngles.z = -.pi / 2
-            shaft.position = SCNVector3(Float(arrowBaseX + arrowLength / 2), Float(arrowY), 0)
+            shaft.isHidden = force == 0
+            shaft.scale = SCNVector3(1, arrowLength, 1)
+            shaft.eulerAngles.z = -direction * .pi / 2
+            shaft.position = SCNVector3(arrowBaseX + direction * arrowLength / 2, arrowY, 0)
         }
         if let head = scene.rootNode.childNode(withName: "force-head", recursively: false) {
-            head.eulerAngles.z = -.pi / 2
-            head.position = SCNVector3(Float(arrowBaseX + arrowLength + 0.12), Float(arrowY), 0)
+            head.isHidden = force == 0
+            head.eulerAngles.z = -direction * .pi / 2
+            head.position = SCNVector3(arrowBaseX + direction * (arrowLength + 0.14), arrowY, 0)
         }
+        SCNTransaction.commit()
     }
 }
 
