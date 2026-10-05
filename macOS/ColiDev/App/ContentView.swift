@@ -449,6 +449,78 @@ private struct SettingsView: View {
                 Text(L10n.text("settings.keysPrivacy", store.language))
             }
             Section {
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        if let usage = store.providerUsage {
+                            Text(String(
+                                format: L10n.text("settings.usageSummary", store.language),
+                                usage.totals.successfulResponses,
+                                usage.totals.totalTokens
+                            ))
+                            .font(.callout.weight(.medium))
+                            if usage.providers.isEmpty {
+                                Text(L10n.text("settings.usageNoCalls", store.language))
+                                    .font(.caption).foregroundStyle(.secondary)
+                            } else {
+                                ForEach(usage.providers) { provider in
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text("\(providerTitle(provider.provider)) · \(provider.model)")
+                                            .font(.caption.weight(.medium))
+                                            .lineLimit(2)
+                                            .truncationMode(.middle)
+                                            .textSelection(.enabled)
+                                        Text(String(
+                                            format: L10n.text("settings.usageProviderCounts", store.language),
+                                            provider.successfulResponses,
+                                            provider.responsesWithReportedUsage,
+                                            provider.totalTokens,
+                                            provider.inputTokens,
+                                            provider.outputTokens
+                                        ))
+                                        .font(.caption2).foregroundStyle(.secondary)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                            }
+                        } else if store.providerUsageUnavailable {
+                            Label(
+                                L10n.text("settings.usageUnavailable", store.language),
+                                systemImage: "exclamationmark.triangle"
+                            )
+                            .font(.caption).foregroundStyle(.secondary)
+                        } else {
+                            Text(L10n.text("settings.usageLoading", store.language))
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        Text(L10n.text("settings.usageCaveat", store.language))
+                            .font(.caption2).foregroundStyle(.tertiary)
+                        if store.providerUsageUnavailable && store.providerUsage != nil {
+                            Label(
+                                L10n.text("settings.usageUnavailable", store.language),
+                                systemImage: "exclamationmark.triangle"
+                            )
+                            .font(.caption2).foregroundStyle(.orange)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                    Button {
+                        Task { await store.refreshProviderUsage() }
+                    } label: {
+                        if store.isRefreshingProviderUsage {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                    }
+                    .disabled(store.isRefreshingProviderUsage)
+                    .help(L10n.text("settings.usageRefresh", store.language))
+                    .accessibilityLabel(L10n.text("settings.usageRefresh", store.language))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } header: {
+                Text(L10n.text("settings.usageTitle", store.language))
+            }
+            Section {
                 Label { Text(L10n.text("settings.localBody", store.language)) } icon: { Image(systemName: "internaldrive") }
                     .foregroundStyle(.secondary)
             } header: {
@@ -462,6 +534,7 @@ private struct SettingsView: View {
             guard await backendSupervisor.ensureRunning() else { return }
             await store.refreshAIStatus()
             await store.refreshProviderSecretStatuses()
+            await store.refreshProviderUsage()
         }
         .formStyle(.grouped)
         .padding(24)
@@ -477,6 +550,16 @@ private struct SettingsView: View {
         if health.hasCloudSession { return L10n.text("settings.aiOnlineRoute", store.language) }
         if health.hasLocalModel { return L10n.text("settings.aiLocalRoute", store.language) }
         return L10n.text("settings.aiNoRoute", store.language)
+    }
+
+    private func providerTitle(_ identifier: String) -> String {
+        switch identifier {
+        case "gemini": return "Gemini"
+        case "kimi": return "Kimi"
+        case "openrouter": return "OpenRouter"
+        case "ollama": return "Ollama"
+        default: return identifier
+        }
     }
 
     @MainActor

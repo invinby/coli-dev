@@ -46,15 +46,22 @@ from urllib.parse import quote, urlsplit
 import httpx
 from dotenv import load_dotenv
 
-from app_paths import app_log_dir, session_file_path
+from app_paths import app_data_dir, app_log_dir, session_file_path
 from knowledge_index import KnowledgeIndex, OllamaEmbeddingProvider
 from learning_progress import StudyProgressStore, default_database_path
 from network_safety import is_loopback_http_url as _is_loopback_http_url
 from obsidian_worker import ObsidianWorker
+from provider_usage import (
+    ProviderUsageStore,
+    TokenUsage,
+    gemini_usage,
+    ollama_usage,
+    openai_compatible_usage,
+)
 from request_limits import RequestBodyLimitMiddleware
 from subject_rubrics import add_subject_rubric
 from trusted_sources import TrustedSourceMonitor
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from slowapi import Limiter
@@ -1323,6 +1330,12 @@ class ConsiliumEngine:
             )
             response.raise_for_status()
             data = response.json()
+            await _record_provider_usage(
+                "openrouter",
+                data.get("model") if isinstance(data, dict) else OPENROUTER_MODEL,
+                "openai-compatible",
+                openai_compatible_usage(data.get("usage") if isinstance(data, dict) else None),
+            )
             choices = data.get("choices") if isinstance(data, dict) else None
             content = (
                 choices[0].get("message", {}).get("content")
@@ -1376,6 +1389,12 @@ class ConsiliumEngine:
                                          timeout=HTTP_TIMEOUT)
             resp.raise_for_status()
             data = resp.json()
+            await _record_provider_usage(
+                "kimi",
+                KIMI_MODEL,
+                "openai-compatible",
+                openai_compatible_usage(data.get("usage") if isinstance(data, dict) else None),
+            )
             return data["choices"][0]["message"]["content"]
         except httpx.TimeoutException:
             logger.warning(f"Kimi K3 timeout ({agent_tag})")
@@ -1417,6 +1436,12 @@ class ConsiliumEngine:
                                          timeout=HTTP_TIMEOUT)
             resp.raise_for_status()
             data = resp.json()
+            await _record_provider_usage(
+                "gemini",
+                _gemini_model_from_url(url),
+                "gemini",
+                gemini_usage(data.get("usageMetadata") if isinstance(data, dict) else None),
+            )
             candidates = data.get("candidates", [])
             if candidates and candidates[0].get("content", {}).get("parts"):
                 candidate = candidates[0]
@@ -1487,9 +1512,10 @@ class ConsiliumEngine:
         grounding_chunks: list[Any] = []
         grounding_supports: list[Any] = []
         search_entry_point: dict[str, Any] | None = None
+        usage_metadata: dict[str, Any] | None = None
 
         async def consume_event(raw_event: str) -> None:
-            nonlocal answer_byte_length, finish_reason, search_entry_point
+            nonlocal answer_byte_length, finish_reason, search_entry_point, usage_metadata
             if raw_event.strip() == "[DONE]":
                 return
             try:
@@ -1500,6 +1526,9 @@ class ConsiliumEngine:
                 raise RuntimeError("Malformed Gemini stream event")
             if event.get("error"):
                 raise RuntimeError("Gemini stream event reported an error")
+            candidate_usage = event.get("usageMetadata")
+            if isinstance(candidate_usage, dict):
+                usage_metadata = candidate_usage
 
             candidates = event.get("candidates")
             if not isinstance(candidates, list) or not candidates:
@@ -1599,6 +1628,12 @@ class ConsiliumEngine:
                 if data_lines:
                     await consume_event("\n".join(data_lines))
 
+            await _record_provider_usage(
+                "gemini",
+                _gemini_model_from_url(url),
+                "gemini",
+                gemini_usage(usage_metadata),
+            )
             answer = "".join(answer_parts)
             if not answer.strip():
                 return "[Gemini: empty streamed response]"
@@ -1726,6 +1761,12 @@ class ConsiliumEngine:
             resp = await self.ollama_http.post(OLLAMA_CHAT_URL, json=payload, timeout=90)
             resp.raise_for_status()
             data = resp.json()
+            await _record_provider_usage(
+                "ollama",
+                data.get("model") if isinstance(data, dict) else OLLAMA_MODEL_RESEARCHER,
+                "ollama",
+                ollama_usage(data),
+            )
             return data["message"]["content"]
         except httpx.TimeoutException:
             logger.warning(f"Ollama timeout ({agent_tag})")
@@ -1786,6 +1827,12 @@ class ConsiliumEngine:
                             yield content
                     if event.get("done") is True:
                         completed = True
+                        await _record_provider_usage(
+                            "ollama",
+                            event.get("model") or OLLAMA_MODEL_RESEARCHER,
+                            "ollama",
+                            ollama_usage(event),
+                        )
                         break
                 if not completed:
                     raise RuntimeError("Ollama stream ended before completion")
@@ -1848,6 +1895,33 @@ knowledge_index = KnowledgeIndex(
 )
 study_progress_store = StudyProgressStore(default_database_path())
 trusted_source_monitor = TrustedSourceMonitor(PROJECT_ROOT, default_database_path())
+provider_usage_store = ProviderUsageStore(app_data_dir() / "provider-usage.sqlite3")
+
+
+async def _record_provider_usage(
+    provider: str,
+    model: str,
+    usage_format: str,
+    usage: TokenUsage,
+) -> None:
+    """Persist only upstream usage metadata; telemetry failures never fail tutoring."""
+    try:
+        await asyncio.to_thread(
+            provider_usage_store.record,
+            provider,
+            model,
+            usage_format,
+            usage,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Provider usage metadata could not be stored",
+            extra={"provider": provider, "error_type": type(exc).__name__},
+        )
+
+
+def _gemini_model_from_url(url: str) -> str:
+    return url.split("/models/", 1)[-1].split(":", 1)[0][:160]
 
 # ─── Lifespan ──────────────────────────────────────────
 
@@ -1855,6 +1929,13 @@ trusted_source_monitor = TrustedSourceMonitor(PROJECT_ROOT, default_database_pat
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await asyncio.to_thread(study_progress_store.initialize)
+    try:
+        await asyncio.to_thread(provider_usage_store.initialize)
+    except Exception as exc:
+        logger.warning(
+            "Provider usage metering is unavailable",
+            extra={"error_type": type(exc).__name__},
+        )
     await asyncio.to_thread(_load_provider_secrets)
     state.http_client = httpx.AsyncClient(
         timeout=httpx.Timeout(HTTP_TIMEOUT),
@@ -2526,6 +2607,30 @@ async def get_session_status(request: Request):
     """Получить статус сессий Freebuff."""
     _require_local_settings_request(request)
     return session_tracker.get_status()
+
+
+@app.get("/api/usage")
+async def get_provider_usage(
+    request: Request,
+    days: int = Query(default=30, ge=1, le=90),
+    language: Literal["ru", "en"] = "ru",
+):
+    """Return locally stored provider-reported counters without chat content or costs."""
+    _require_local_settings_request(request)
+    try:
+        summary = await asyncio.to_thread(provider_usage_store.summary, days)
+    except Exception as exc:
+        logger.warning(
+            "Provider usage summary is unavailable",
+            extra={"error_type": type(exc).__name__},
+        )
+        raise HTTPException(status_code=503, detail="Provider usage summary is unavailable") from None
+    summary["note"] = (
+        "Token counts are included only when returned by the provider. Missing values are not estimated; charges are not calculated."
+        if language == "en"
+        else "Токены показаны только когда их сообщает провайдер; отсутствующие значения не оцениваются. Стоимость не рассчитывается."
+    )
+    return summary
 
 
 @app.post("/api/session/reset")

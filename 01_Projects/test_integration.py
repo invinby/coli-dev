@@ -56,6 +56,11 @@ def _reset(monkeypatch, tmp_path):
     })
     monkeypatch.setattr(orchestrator.state, "obsidian", None)
     monkeypatch.setattr(orchestrator.state, "ollama_client", None)
+    monkeypatch.setattr(
+        orchestrator,
+        "provider_usage_store",
+        orchestrator.ProviderUsageStore(tmp_path / "provider-usage.sqlite3"),
+    )
     monkeypatch.setattr(session_tracker, "_file", tmp_path / "sessions.json")
     monkeypatch.setattr(session_tracker, "max_per_day", 5)
     session_tracker.reset_mode()
@@ -697,6 +702,53 @@ def test_manual_trusted_source_check_hides_internal_errors(client_online, monkey
 
     assert response.status_code == 503
     assert "private source monitor detail" not in response.text
+
+
+def test_provider_usage_endpoint_is_local_and_bounds_the_requested_window(client_online, monkeypatch):
+    expected = {
+        "generated_at": "2026-10-05T00:00:00Z",
+        "period_days": 7,
+        "period_start": "2026-09-29T00:00:00Z",
+        "totals": {"successful_responses": 3, "total_tokens": 42},
+        "providers": [],
+        "note": "ignored from storage",
+    }
+    summary = MagicMock(return_value=expected)
+    monkeypatch.setattr(orchestrator.provider_usage_store, "summary", summary)
+
+    rejected = client_online.get(
+        "/api/usage?days=7", headers={"Origin": "https://example.test"}
+    )
+    assert rejected.status_code == 403
+    summary.assert_not_called()
+
+    accepted = client_online.get("/api/usage?days=7")
+    assert accepted.status_code == 200
+    assert accepted.json()["totals"] == expected["totals"]
+    assert "только когда их сообщает провайдер" in accepted.json()["note"]
+    summary.assert_called_once_with(7)
+
+    accepted_en = client_online.get("/api/usage?days=7&language=en")
+    assert accepted_en.status_code == 200
+    assert "only when returned by the provider" in accepted_en.json()["note"]
+    assert summary.call_count == 2
+
+    out_of_range = client_online.get("/api/usage?days=91")
+    assert out_of_range.status_code == 422
+    assert summary.call_count == 2
+
+
+def test_provider_usage_endpoint_hides_storage_errors(client_online, monkeypatch):
+    monkeypatch.setattr(
+        orchestrator.provider_usage_store,
+        "summary",
+        MagicMock(side_effect=RuntimeError("private database detail")),
+    )
+
+    response = client_online.get("/api/usage")
+
+    assert response.status_code == 503
+    assert "private database detail" not in response.text
 
 
 def test_local_tutor_receives_validated_subject_rubric(client_online, monkeypatch):

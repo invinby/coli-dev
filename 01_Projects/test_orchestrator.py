@@ -81,6 +81,11 @@ def _reset_session_tracker(monkeypatch, tmp_path):
         "study_progress_store",
         StudyProgressStore(tmp_path / "learning-progress.sqlite3"),
     )
+    monkeypatch.setattr(
+        orchestrator,
+        "provider_usage_store",
+        orchestrator.ProviderUsageStore(tmp_path / "provider-usage.sqlite3"),
+    )
     monkeypatch.setattr(session_tracker, "_file", tmp_path / "sessions.json")
     monkeypatch.setattr(session_tracker, "max_per_day", 5)
     session_tracker.reset_mode()

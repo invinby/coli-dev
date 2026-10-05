@@ -152,6 +152,9 @@ final class LearningStore: ObservableObject {
     @Published private(set) var aiHealth: OrchestratorHealth?
     @Published private(set) var isCheckingAI = false
     @Published private(set) var providerSecretStatuses: [String: ProviderSecretStatus] = [:]
+    @Published private(set) var providerUsage: ProviderUsageSummary?
+    @Published private(set) var isRefreshingProviderUsage = false
+    @Published private(set) var providerUsageUnavailable = false
     @Published private(set) var studyProgress: [String: StudyProgressRecord] = [:]
     @Published private(set) var dueReviewCount = 0
     @Published private var pendingStudyReviews: [StudyReviewEvent] {
@@ -198,6 +201,17 @@ final class LearningStore: ObservableObject {
             providerSecretStatuses = Dictionary(uniqueKeysWithValues: statuses.map { ($0.provider, $0) })
         } catch {
             providerSecretStatuses = [:]
+        }
+    }
+
+    func refreshProviderUsage() async {
+        isRefreshingProviderUsage = true
+        defer { isRefreshingProviderUsage = false }
+        do {
+            providerUsage = try await OrchestratorClient.providerUsage(language: language)
+            providerUsageUnavailable = false
+        } catch {
+            providerUsageUnavailable = true
         }
     }
 
@@ -541,6 +555,75 @@ struct OrchestratorHealth: Decodable {
     }
 }
 
+struct ProviderUsageCounts: Decodable {
+    let successfulResponses: Int
+    let responsesWithReportedUsage: Int
+    let responsesWithoutReportedUsage: Int
+    let inputTokens: Int
+    let outputTokens: Int
+    let totalTokens: Int
+    let responsesWithInputCount: Int
+    let responsesWithOutputCount: Int
+    let responsesWithTotalCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case successfulResponses = "successful_responses"
+        case responsesWithReportedUsage = "responses_with_reported_usage"
+        case responsesWithoutReportedUsage = "responses_without_reported_usage"
+        case inputTokens = "input_tokens"
+        case outputTokens = "output_tokens"
+        case totalTokens = "total_tokens"
+        case responsesWithInputCount = "responses_with_input_count"
+        case responsesWithOutputCount = "responses_with_output_count"
+        case responsesWithTotalCount = "responses_with_total_count"
+    }
+}
+
+struct ProviderUsageBreakdown: Decodable, Identifiable {
+    let provider: String
+    let model: String
+    let successfulResponses: Int
+    let responsesWithReportedUsage: Int
+    let responsesWithoutReportedUsage: Int
+    let inputTokens: Int
+    let outputTokens: Int
+    let totalTokens: Int
+    let responsesWithInputCount: Int
+    let responsesWithOutputCount: Int
+    let responsesWithTotalCount: Int
+
+    var id: String { "\(provider):\(model)" }
+
+    enum CodingKeys: String, CodingKey {
+        case provider, model
+        case successfulResponses = "successful_responses"
+        case responsesWithReportedUsage = "responses_with_reported_usage"
+        case responsesWithoutReportedUsage = "responses_without_reported_usage"
+        case inputTokens = "input_tokens"
+        case outputTokens = "output_tokens"
+        case totalTokens = "total_tokens"
+        case responsesWithInputCount = "responses_with_input_count"
+        case responsesWithOutputCount = "responses_with_output_count"
+        case responsesWithTotalCount = "responses_with_total_count"
+    }
+}
+
+struct ProviderUsageSummary: Decodable {
+    let generatedAt: String
+    let periodDays: Int
+    let periodStart: String
+    let totals: ProviderUsageCounts
+    let providers: [ProviderUsageBreakdown]
+    let note: String
+
+    enum CodingKeys: String, CodingKey {
+        case generatedAt = "generated_at"
+        case periodDays = "period_days"
+        case periodStart = "period_start"
+        case totals, providers, note
+    }
+}
+
 struct KnowledgeIndexRefreshResult: Decodable {
     let status: String
     let documentCount: Int
@@ -726,6 +809,20 @@ enum OrchestratorClient {
             throw ClientError.unavailable
         }
         return try JSONDecoder().decode(OrchestratorHealth.self, from: data)
+    }
+
+    static func providerUsage(days: Int = 30, language: AppLanguage = .ru) async throws -> ProviderUsageSummary {
+        guard (1...90).contains(days),
+              let url = URL(string: LearningStore.orchestratorBaseURL + "/api/usage?days=\(days)&language=\(language.rawValue)") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 8
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(ProviderUsageSummary.self, from: data)
     }
 
     static func refreshKnowledgeIndex() async throws -> KnowledgeIndexRefreshResult {

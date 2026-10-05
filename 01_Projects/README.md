@@ -32,6 +32,10 @@ The offline index scans Markdown under `02_Areas/` and Markdown/text under `03_R
 
 Before tutor answers are streamed, the backend verifies that each `[K#]` marker refers to an ID in that response's retrieved local sources. Unknown markers are replaced with an explicit unavailable-source note and returned as `citation_warnings` in the SSE `done` event. This confirms only that a source ID was retrieved; it does not verify source quality, factual correctness, or whether the source supports the associated claim.
 
+## Provider usage records
+
+Successful Gemini, Kimi, OpenRouter, and Ollama responses are recorded in a separate per-user SQLite database (`provider-usage.sqlite3`). The loopback-only `GET /api/usage?days=30` reports model response counts and token counters only when the provider returns them; it does not estimate missing counters or calculate charges. Records are pruned after 90 days. Prompts, answers, and API keys are not stored. This is usage visibility, not a provider billing statement or an enforced token budget.
+
 ## Tests
 
 ```sh
