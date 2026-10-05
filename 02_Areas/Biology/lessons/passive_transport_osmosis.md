@@ -4,6 +4,7 @@ lesson_id: biology.passive_transport_osmosis
 level: foundations
 languages: ru, en
 source_checked: 2026-10-05
+source_review_interval_days: 180
 ---
 
 # Пассивный перенос и осмос / Passive Transport and Osmosis

@@ -4,6 +4,7 @@ lesson_id: physics.net_force_and_acceleration
 level: foundations
 languages: ru, en
 source_checked: 2026-10-05
+source_review_interval_days: 365
 ---
 
 # Равнодействующая сила и ускорение / Net Force and Acceleration

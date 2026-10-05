@@ -4,6 +4,7 @@ lesson_id: mathematics.domain_and_range
 level: foundations
 languages: ru, en
 source_checked: 2026-10-05
+source_review_interval_days: 365
 ---
 
 # Область определения и множество значений / Domain and Range

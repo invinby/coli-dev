@@ -4,6 +4,7 @@ lesson_id: physics.work_and_kinetic_energy
 level: foundations
 languages: ru, en
 source_checked: 2026-10-05
+source_review_interval_days: 365
 ---
 
 # Работа и кинетическая энергия / Work and Kinetic Energy

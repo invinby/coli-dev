@@ -681,6 +681,10 @@ struct TrustedSourceInventory: Decodable {
     let uncheckedCount: Int
     let changedCount: Int
     let needsAttentionCount: Int
+    let editorialReviewDueCount: Int?
+    let editorialReviewScheduledCount: Int?
+    let editorialReviewMissingCount: Int?
+    let editorialReviewUnscheduledCount: Int?
     let unsupportedCount: Int
     let omittedCount: Int
     let sources: [TrustedSourceInventoryItem]
@@ -692,6 +696,10 @@ struct TrustedSourceInventory: Decodable {
         case uncheckedCount = "unchecked_count"
         case changedCount = "changed_count"
         case needsAttentionCount = "needs_attention_count"
+        case editorialReviewDueCount = "editorial_review_due_count"
+        case editorialReviewScheduledCount = "editorial_review_scheduled_count"
+        case editorialReviewMissingCount = "editorial_review_missing_count"
+        case editorialReviewUnscheduledCount = "editorial_review_unscheduled_count"
         case unsupportedCount = "unsupported_count"
         case omittedCount = "omitted_count"
     }
@@ -701,7 +709,12 @@ struct TrustedSourceInventoryItem: Decodable, Identifiable {
     let url: String
     let title: String
     let lessonPath: String
+    let lessonPaths: [String]?
+    let lessonReviews: [TrustedSourceLessonReview]?
     let lessonReviewedOn: String?
+    let editorialReviewIntervalDays: Int?
+    let editorialReviewDueOn: String?
+    let editorialReviewStatus: String?
     let state: String
     let lastCheckedAt: String?
     let lastHTTPStatus: Int?
@@ -713,11 +726,34 @@ struct TrustedSourceInventoryItem: Decodable, Identifiable {
     enum CodingKeys: String, CodingKey {
         case url, title, state
         case lessonPath = "lesson_path"
+        case lessonPaths = "lesson_paths"
+        case lessonReviews = "lesson_reviews"
         case lessonReviewedOn = "lesson_reviewed_on"
+        case editorialReviewIntervalDays = "editorial_review_interval_days"
+        case editorialReviewDueOn = "editorial_review_due_on"
+        case editorialReviewStatus = "editorial_review_status"
         case lastCheckedAt = "last_checked_at"
         case lastHTTPStatus = "last_http_status"
         case lastModified = "last_modified"
         case hasETag = "has_etag"
+    }
+}
+
+struct TrustedSourceLessonReview: Decodable, Identifiable {
+    let lessonPath: String
+    let lessonReviewedOn: String?
+    let editorialReviewIntervalDays: Int?
+    let editorialReviewDueOn: String?
+    let editorialReviewStatus: String
+
+    var id: String { lessonPath }
+
+    enum CodingKeys: String, CodingKey {
+        case lessonPath = "lesson_path"
+        case lessonReviewedOn = "lesson_reviewed_on"
+        case editorialReviewIntervalDays = "editorial_review_interval_days"
+        case editorialReviewDueOn = "editorial_review_due_on"
+        case editorialReviewStatus = "editorial_review_status"
     }
 }
 

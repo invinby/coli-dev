@@ -4,6 +4,7 @@ lesson_id: english.present_perfect_simple_continuous
 level: intermediate
 languages: ru, en
 source_checked: 2026-10-05
+source_review_interval_days: 180
 ---
 
 # Результат или процесс: Present Perfect Simple и Continuous / Result or activity: Present Perfect Simple and Continuous

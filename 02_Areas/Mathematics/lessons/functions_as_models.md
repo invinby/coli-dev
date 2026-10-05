@@ -4,6 +4,7 @@ lesson_id: mathematics.functions_as_models
 level: foundations
 languages: ru, en
 source_checked: 2026-10-05
+source_review_interval_days: 365
 ---
 
 # Функции как модели / Functions as Models

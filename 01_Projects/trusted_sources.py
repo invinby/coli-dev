@@ -18,10 +18,14 @@ from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
 import httpx
+from lesson_metadata import (
+    _source_checked_date,
+    _source_review_interval_days,
+    _source_review_schedule,
+)
 
 _URL_RE = re.compile(r"https?://[^\s<>)\]\"`]+", re.IGNORECASE)
 _MARKDOWN_LINK_RE = re.compile(r"\[([^\]]{1,200})\]\(\s*(https://[^)\s]+)\s*\)", re.IGNORECASE)
-_SOURCE_CHECKED_RE = re.compile(r"^source_checked:\s*(\d{4}-\d{2}-\d{2})\s*$", re.MULTILINE)
 _TRAILING_PUNCTUATION = ".,;:!?"
 _MAX_LESSON_FILES = 200
 _MAX_LESSON_FILE_BYTES = 256 * 1024
@@ -48,11 +52,22 @@ _ALLOWED_PATHS = {
 
 
 @dataclass(frozen=True)
+class SourceLessonReview:
+    lesson_path: str
+    reviewed_on: str | None
+    interval_days: int | None
+
+
+@dataclass(frozen=True)
 class SourceReference:
     url: str
     title: str
-    lesson_path: str
-    lesson_reviewed_on: str | None
+    lesson_reviews: tuple[SourceLessonReview, ...]
+
+    @property
+    def lesson_path(self) -> str:
+        """Keep the original single-lesson field for the check-result API."""
+        return self.lesson_reviews[0].lesson_path
 
 
 class TrustedSourceMonitor:
@@ -144,23 +159,11 @@ class TrustedSourceMonitor:
     @staticmethod
     def _lesson_reviewed_on(content: str) -> str | None:
         """Read one valid source_checked date from the lesson's YAML front matter."""
-        lines = content.splitlines()
-        if not lines or lines[0].strip() != "---":
-            return None
-        try:
-            closing = lines.index("---", 1)
-        except ValueError:
-            return None
-        matches = _SOURCE_CHECKED_RE.findall("\n".join(lines[1:closing]))
-        if len(matches) != 1:
-            return None
-        try:
-            return date.fromisoformat(matches[0]).isoformat()
-        except ValueError:
-            return None
+        return _source_checked_date(content)
 
     def _references(self) -> tuple[list[SourceReference], int, int]:
-        refs: dict[str, SourceReference] = {}
+        titles: dict[str, str] = {}
+        lesson_reviews: dict[str, dict[str, SourceLessonReview]] = {}
         unsupported_urls: set[str] = set()
         for path in self._lesson_files():
             try:
@@ -171,18 +174,15 @@ class TrustedSourceMonitor:
                 continue
 
             relative_path = path.relative_to(self.project_root).as_posix()
-            lesson_reviewed_on = self._lesson_reviewed_on(content)
+            lesson_review = SourceLessonReview(
+                lesson_path=relative_path,
+                reviewed_on=self._lesson_reviewed_on(content),
+                interval_days=_source_review_interval_days(content),
+            )
             for source in self.approved_markdown_links(content, limit=None):
                 canonical = source["url"]
-                refs.setdefault(
-                    canonical,
-                    SourceReference(
-                        url=canonical,
-                        title=source["title"],
-                        lesson_path=relative_path,
-                        lesson_reviewed_on=lesson_reviewed_on,
-                    ),
-                )
+                titles.setdefault(canonical, source["title"])
+                lesson_reviews.setdefault(canonical, {})[relative_path] = lesson_review
             for line in content.splitlines():
                 for match in _URL_RE.finditer(line):
                     raw_url = match.group(0).rstrip(_TRAILING_PUNCTUATION)
@@ -191,7 +191,16 @@ class TrustedSourceMonitor:
                         if raw_url.casefold().startswith(("https://", "http://")):
                             unsupported_urls.add(raw_url[:2048])
                         continue
-        ordered_refs = [refs[url] for url in sorted(refs)]
+        ordered_refs = [
+            SourceReference(
+                url=url,
+                title=titles[url],
+                lesson_reviews=tuple(
+                    lesson_reviews[url][path] for path in sorted(lesson_reviews[url])
+                ),
+            )
+            for url in sorted(titles)
+        ]
         omitted_count = max(0, len(ordered_refs) - _MAX_SOURCES)
         return ordered_refs[:_MAX_SOURCES], len(unsupported_urls), omitted_count
 
@@ -212,7 +221,7 @@ class TrustedSourceMonitor:
         )
         return connection
 
-    def inventory(self) -> dict[str, object]:
+    def inventory(self, *, today: date | None = None) -> dict[str, object]:
         """Return the approved source registry and saved check metadata without network access."""
         references, unsupported_count, omitted_count = self._references()
         with self._db_lock, self._connect() as connection:
@@ -227,11 +236,53 @@ class TrustedSourceMonitor:
         items: list[dict[str, object]] = []
         for reference in references:
             previous = previous_checks.get(reference.url)
+            lesson_review_items: list[dict[str, object]] = []
+            for lesson_review in reference.lesson_reviews:
+                due_on, schedule_status = _source_review_schedule(
+                    lesson_review.reviewed_on,
+                    lesson_review.interval_days,
+                    today,
+                )
+                if lesson_review.reviewed_on is None:
+                    editorial_status = "review_missing"
+                elif schedule_status is None:
+                    editorial_status = "review_unscheduled"
+                else:
+                    editorial_status = f"review_{schedule_status}"
+                lesson_review_items.append({
+                    "lesson_path": lesson_review.lesson_path,
+                    "lesson_reviewed_on": lesson_review.reviewed_on,
+                    "editorial_review_interval_days": lesson_review.interval_days,
+                    "editorial_review_due_on": due_on,
+                    "editorial_review_status": editorial_status,
+                })
+            lesson_review_statuses = [
+                str(item["editorial_review_status"]) for item in lesson_review_items
+            ]
+            editorial_review_status = next(
+                (
+                    status for status in (
+                        "review_due", "review_missing", "review_unscheduled", "review_scheduled"
+                    ) if status in lesson_review_statuses
+                ),
+                "review_missing",
+            )
+            due_dates = [
+                str(item["editorial_review_due_on"])
+                for item in lesson_review_items
+                if item["editorial_review_due_on"] is not None
+            ]
+            first_review = reference.lesson_reviews[0]
             items.append({
                 "url": reference.url,
                 "title": reference.title[:_MAX_TITLE_LENGTH],
                 "lesson_path": reference.lesson_path,
-                "lesson_reviewed_on": reference.lesson_reviewed_on,
+                "lesson_paths": [item.lesson_path for item in reference.lesson_reviews],
+                "lesson_reviews": lesson_review_items,
+                "lesson_reviewed_on": first_review.reviewed_on,
+                "editorial_review_interval_days": first_review.interval_days,
+                "editorial_review_due_on": min(due_dates) if due_dates else None,
+                "editorial_review_status": editorial_review_status,
                 "state": str(previous["state"]) if previous is not None else "not_checked",
                 "last_checked_at": str(previous["last_checked_at"]) if previous is not None else None,
                 "last_http_status": int(previous["last_http_status"])
@@ -245,6 +296,7 @@ class TrustedSourceMonitor:
         attention_states = {
             "changed", "redirect_review", "unexpected_not_modified", "unavailable", "network_error"
         }
+        editorial_states = [str(item["editorial_review_status"]) for item in items]
         return {
             "status": "ok",
             "supported_count": len(references) + omitted_count,
@@ -252,6 +304,10 @@ class TrustedSourceMonitor:
             "unchecked_count": states.count("not_checked"),
             "changed_count": states.count("changed"),
             "needs_attention_count": sum(state in attention_states for state in states),
+            "editorial_review_due_count": editorial_states.count("review_due"),
+            "editorial_review_scheduled_count": editorial_states.count("review_scheduled"),
+            "editorial_review_missing_count": editorial_states.count("review_missing"),
+            "editorial_review_unscheduled_count": editorial_states.count("review_unscheduled"),
             "unsupported_count": unsupported_count,
             "omitted_count": omitted_count,
             "sources": items,

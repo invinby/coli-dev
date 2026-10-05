@@ -781,6 +781,27 @@ private struct ManagementView: View {
             }
 
             if let sourceInventory {
+                let due = sourceInventory.editorialReviewDueCount ?? 0
+                let missingDate = sourceInventory.editorialReviewMissingCount ?? 0
+                let missingSchedule = sourceInventory.editorialReviewUnscheduledCount ?? 0
+                if due + missingDate + missingSchedule > 0 {
+                    Label(
+                        String(
+                            format: L10n.text("management.editorialReviewSummary", store.language),
+                            due,
+                            missingDate,
+                            missingSchedule
+                        ),
+                        systemImage: due > 0 || missingDate > 0
+                            ? "exclamationmark.circle.fill"
+                            : "calendar.badge.clock"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(due > 0 || missingDate > 0 ? Color.orange : Color.secondary)
+                }
+            }
+
+            if let sourceInventory {
                 if sourceInventory.sources.isEmpty {
                     Label(L10n.text("management.noSources", store.language), systemImage: "link")
                         .foregroundStyle(.secondary)
@@ -1034,7 +1055,7 @@ private struct SourceRegistryRow: View {
                     Text(source.title)
                         .font(.headline)
                         .lineLimit(2)
-                    Text(source.lessonPath)
+                    Text(source.lessonPaths?.joined(separator: " · ") ?? source.lessonPath)
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -1062,8 +1083,63 @@ private struct SourceRegistryRow: View {
                 .truncationMode(.middle)
                 .textSelection(.enabled)
 
+            if let reviewStatus = source.editorialReviewStatus {
+                HStack(spacing: 12) {
+                    Label(
+                        L10n.text(editorialReviewKey(reviewStatus), language),
+                        systemImage: editorialReviewSymbol(reviewStatus)
+                    )
+                    .foregroundStyle(editorialReviewTint(reviewStatus))
+                    if let dueOn = source.editorialReviewDueOn {
+                        Text(L10n.text("management.editorialReviewDueOn", language) + ": " + dueOn)
+                    }
+                    if (source.lessonReviews?.count ?? 1) <= 1,
+                       let interval = source.editorialReviewIntervalDays {
+                        Text(L10n.text("management.editorialReviewInterval", language) + ": \(interval)")
+                    }
+                }
+                .font(.caption2)
+            }
+
+            if let lessonReviews = source.lessonReviews, lessonReviews.count > 1 {
+                ForEach(lessonReviews) { review in
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 8) {
+                            Text(review.lessonPath)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Spacer(minLength: 4)
+                            Label(
+                                L10n.text(editorialReviewKey(review.editorialReviewStatus), language),
+                                systemImage: editorialReviewSymbol(review.editorialReviewStatus)
+                            )
+                            .foregroundStyle(editorialReviewTint(review.editorialReviewStatus))
+                        }
+                        HStack(spacing: 10) {
+                            Text(
+                                L10n.text("management.lessonReviewed", language) + ": "
+                                    + (review.lessonReviewedOn ?? L10n.text("management.unknownDate", language))
+                            )
+                            if let dueOn = review.editorialReviewDueOn {
+                                Text(L10n.text("management.editorialReviewDueOn", language) + ": " + dueOn)
+                            }
+                            if let interval = review.editorialReviewIntervalDays {
+                                Text(L10n.text("management.editorialReviewInterval", language) + ": \(interval)")
+                            }
+                        }
+                        .foregroundStyle(.tertiary)
+                    }
+                    .font(.caption2)
+                }
+            }
+
             HStack(spacing: 12) {
-                Text("\(L10n.text("management.lessonReviewed", language)): \(source.lessonReviewedOn ?? L10n.text("management.unknownDate", language))")
+                if (source.lessonReviews?.count ?? 1) <= 1 {
+                    Text(
+                        L10n.text("management.lessonReviewed", language) + ": "
+                            + (source.lessonReviewedOn ?? L10n.text("management.unknownDate", language))
+                    )
+                }
                 if let lastCheckedAt = source.lastCheckedAt {
                     Text("\(L10n.text("management.sourceChecked", language)): \(formatISODate(lastCheckedAt))")
                 }
@@ -1112,6 +1188,32 @@ private struct SourceRegistryRow: View {
     private var statusTint: Color {
         switch source.state {
         case "changed", "redirect_review", "unexpected_not_modified", "unavailable", "network_error": return .orange
+        default: return .secondary
+        }
+    }
+
+    private func editorialReviewKey(_ status: String) -> String {
+        switch status {
+        case "review_due": return "management.editorialReviewDue"
+        case "review_scheduled": return "management.editorialReviewScheduled"
+        case "review_missing": return "management.editorialReviewMissing"
+        case "review_unscheduled": return "management.editorialReviewUnscheduled"
+        default: return "management.editorialReviewUnknown"
+        }
+    }
+
+    private func editorialReviewSymbol(_ status: String) -> String {
+        switch status {
+        case "review_due", "review_missing": return "exclamationmark.circle.fill"
+        case "review_scheduled": return "calendar"
+        case "review_unscheduled": return "calendar.badge.exclamationmark"
+        default: return "questionmark.circle"
+        }
+    }
+
+    private func editorialReviewTint(_ status: String) -> Color {
+        switch status {
+        case "review_due", "review_missing": return .orange
         default: return .secondary
         }
     }

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import date
 from pathlib import Path
 
 import httpx
@@ -98,17 +99,29 @@ def test_inventory_exposes_only_approved_reference_metadata_and_saved_state(tmp_
     )
     monitor = _monitor(tmp_path, tmp_path)
 
-    unchecked = monitor.inventory()
+    unchecked = monitor.inventory(today=date(2026, 10, 5))
 
     assert unchecked["listed_count"] == 1
     assert unchecked["unsupported_count"] == 1
     assert unchecked["unchecked_count"] == 1
     assert unchecked["needs_attention_count"] == 0
+    assert unchecked["editorial_review_unscheduled_count"] == 1
     assert unchecked["sources"] == [{
         "url": url,
         "title": "OpenStax inheritance",
         "lesson_path": "02_Areas/Physics/lessons/source_test.md",
+        "lesson_paths": ["02_Areas/Physics/lessons/source_test.md"],
+        "lesson_reviews": [{
+            "lesson_path": "02_Areas/Physics/lessons/source_test.md",
+            "lesson_reviewed_on": "2026-10-02",
+            "editorial_review_interval_days": None,
+            "editorial_review_due_on": None,
+            "editorial_review_status": "review_unscheduled",
+        }],
         "lesson_reviewed_on": "2026-10-02",
+        "editorial_review_interval_days": None,
+        "editorial_review_due_on": None,
+        "editorial_review_status": "review_unscheduled",
         "state": "not_checked",
         "last_checked_at": None,
         "last_http_status": None,
@@ -124,7 +137,7 @@ def test_inventory_exposes_only_approved_reference_metadata_and_saved_state(tmp_
         http_status=200,
         state="changed",
     )
-    checked = monitor.inventory()
+    checked = monitor.inventory(today=date(2026, 10, 5))
 
     assert checked["changed_count"] == 1
     assert checked["needs_attention_count"] == 1
@@ -134,6 +147,81 @@ def test_inventory_exposes_only_approved_reference_metadata_and_saved_state(tmp_
     assert item["last_modified"] == "Mon, 05 Oct 2026 00:00:00 GMT"
     assert item["has_etag"] is True
     assert "etag" not in item
+
+
+def test_inventory_separates_due_scheduled_and_missing_editorial_reviews(tmp_path: Path) -> None:
+    root = tmp_path / "project"
+    lessons = root / "02_Areas"
+    records = [
+        (
+            "Physics/due.md",
+            "source_checked: 2026-10-02\nsource_review_interval_days: 3",
+            "https://openstax.org/books/college-physics-2e/pages/7-1-work-the-scientific-definition",
+        ),
+        (
+            "English/scheduled.md",
+            "source_checked: 2026-10-04\nsource_review_interval_days: 10",
+            "https://openstax.org/books/college-physics-2e/pages/7-2-work-and-energy",
+        ),
+        (
+            "Biology/missing.md",
+            "source_review_interval_days: 30",
+            "https://openstax.org/books/biology-2e/pages/5-3-active-transport",
+        ),
+        (
+            "Mathematics/unscheduled.md",
+            "source_checked: 2026-10-01",
+            "https://openstax.org/books/algebra-and-trigonometry-2e/pages/3-1-functions-and-function-notation",
+        ),
+    ]
+    for relative_path, metadata, url in records:
+        lesson = lessons / relative_path.split("/")[0] / "lessons" / relative_path.split("/")[1]
+        lesson.parent.mkdir(parents=True, exist_ok=True)
+        lesson.write_text(f"---\n{metadata}\n---\n[Official source]({url})\n", encoding="utf-8")
+
+    inventory = _monitor(root, tmp_path / "state").inventory(today=date(2026, 10, 5))
+
+    assert inventory["editorial_review_due_count"] == 1
+    assert inventory["editorial_review_scheduled_count"] == 1
+    assert inventory["editorial_review_missing_count"] == 1
+    assert inventory["editorial_review_unscheduled_count"] == 1
+    by_url = {item["url"]: item for item in inventory["sources"]}
+    assert by_url[records[0][2]]["editorial_review_due_on"] == "2026-10-05"
+    assert by_url[records[0][2]]["editorial_review_status"] == "review_due"
+    assert by_url[records[1][2]]["editorial_review_due_on"] == "2026-10-14"
+    assert by_url[records[1][2]]["editorial_review_status"] == "review_scheduled"
+    assert by_url[records[2][2]]["editorial_review_status"] == "review_missing"
+    assert by_url[records[3][2]]["editorial_review_status"] == "review_unscheduled"
+
+
+def test_inventory_keeps_all_lesson_review_states_for_a_shared_source(tmp_path: Path) -> None:
+    root = tmp_path / "project"
+    url = "https://openstax.org/books/algebra-and-trigonometry-2e/pages/3-2-domain-and-range"
+    lesson_inputs = [
+        ("Mathematics/first.md", "source_checked: 2026-10-01\nsource_review_interval_days: 3"),
+        ("Mathematics/second.md", "source_checked: 2026-10-04\nsource_review_interval_days: 30"),
+    ]
+    for relative_path, metadata in lesson_inputs:
+        area, name = relative_path.split("/")
+        lesson = root / "02_Areas" / area / "lessons" / name
+        lesson.parent.mkdir(parents=True, exist_ok=True)
+        lesson.write_text(f"---\n{metadata}\n---\n[Domain and range]({url})\n", encoding="utf-8")
+
+    inventory = _monitor(root, tmp_path / "state").inventory(today=date(2026, 10, 5))
+
+    assert inventory["listed_count"] == 1
+    item = inventory["sources"][0]
+    assert item["lesson_paths"] == [
+        "02_Areas/Mathematics/lessons/first.md",
+        "02_Areas/Mathematics/lessons/second.md",
+    ]
+    assert [review["editorial_review_status"] for review in item["lesson_reviews"]] == [
+        "review_due",
+        "review_scheduled",
+    ]
+    assert item["editorial_review_status"] == "review_due"
+    assert item["editorial_review_due_on"] == "2026-10-04"
+    assert inventory["editorial_review_due_count"] == 1
 
 
 def test_lesson_review_date_must_be_a_single_valid_front_matter_date() -> None:

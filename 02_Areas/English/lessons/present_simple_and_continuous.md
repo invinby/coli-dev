@@ -4,6 +4,7 @@ lesson_id: english.present_simple_and_continuous
 level: foundations
 languages: ru, en
 source_checked: 2026-10-05
+source_review_interval_days: 180
 ---
 
 # Привычки и действия сейчас / Habits and Actions in Progress

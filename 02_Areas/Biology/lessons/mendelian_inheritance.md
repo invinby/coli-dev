@@ -4,6 +4,7 @@ lesson_id: biology.mendelian_inheritance
 level: foundations
 languages: ru, en
 source_checked: 2026-10-05
+source_review_interval_days: 180
 ---
 
 # Вероятности наследования одного гена / Predicting Single-Gene Inheritance
