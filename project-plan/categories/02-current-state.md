@@ -36,7 +36,11 @@ Commit `aac9cb9` запушен в `main`; GitHub Actions run [37251653614](http
 
 Backend использует per-user пути ОС для индекса, состояния сессий, прогресса и логов; `COLIDEV_DATA_DIR` и `COLIDEV_LOG_DIR` позволяют задать отдельные директории. Существующие SQLite прогресса и JSON-сессий в прежних путях остаются доступны, пока новая база/файл не появятся. Windows больше не пишет логи и сессии в macOS-папку `~/Library`.
 
-Полный локальный backend suite после изменения путей: 143 passed; `compileall` и `git diff --check` прошли. GitHub Actions для этого среза ещё ожидается.
+Commit `a8b7320`; run [37252284801](https://github.com/invinby/coli-dev/actions/runs/37252284801) прошёл backend checks и macOS build/bundle-check. Полный локальный backend suite: 143 passed.
+
+## Obsidian bridge hardening — 2026-10-05
+
+Obsidian worker сам отвергает удалённые target URL до отправки Bearer token; перед построением endpoint проверяются и URL-кодируются vault-relative пути. Абсолютные пути, traversal, закодированные `..`, контрольные символы и чрезмерно длинные пути блокируются; API возвращает 422 на неверный путь. Полный локальный backend suite прошёл: 160 тестов; CI для этого среза ещё ожидается.
 
 ## Не подтверждено запуском
 

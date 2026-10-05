@@ -420,6 +420,19 @@ class TestObsidianEndpoints:
         resp = client.post("/obsidian/search", json={"query": "test"})
         assert resp.status_code == 503
 
+    def test_invalid_vault_path_returns_422_without_calling_obsidian(self, client, monkeypatch):
+        worker = MagicMock()
+        worker.configured = True
+        worker.close = AsyncMock()
+        worker.list_files = AsyncMock(side_effect=ValueError("invalid path"))
+        monkeypatch.setattr(orchestrator.state, "obsidian", worker)
+
+        response = client.get("/obsidian/list", params={"path": "../outside.md"})
+
+        assert response.status_code == 422
+        assert response.json()["error"] == "Invalid Obsidian vault path"
+        worker.list_files.assert_awaited_once_with("../outside.md")
+
 
 # ─── Тесты SessionTracker ─────────────────────────────
 

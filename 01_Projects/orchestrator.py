@@ -49,6 +49,7 @@ from dotenv import load_dotenv
 from app_paths import app_log_dir, session_file_path
 from knowledge_index import KnowledgeIndex, OllamaEmbeddingProvider
 from learning_progress import StudyProgressStore, default_database_path
+from network_safety import is_loopback_http_url as _is_loopback_http_url
 from obsidian_worker import ObsidianWorker
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
@@ -62,37 +63,6 @@ _env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(_env_path)
 
 # ─── Config ────────────────────────────────────────────
-
-
-def _is_loopback_http_url(url: str) -> bool:
-    """Accept only HTTP(S) service URLs on a loopback interface."""
-    try:
-        parsed = urlsplit(url.strip())
-        hostname = parsed.hostname
-        parsed.port  # Validate a supplied port instead of letting httpx parse it later.
-    except ValueError:
-        return False
-    if (
-        parsed.scheme.lower() not in {"http", "https"}
-        or not hostname
-        or parsed.username is not None
-        or parsed.password is not None
-        or parsed.query
-        or parsed.fragment
-    ):
-        return False
-    normalized_host = hostname.lower()
-    if normalized_host.endswith("."):
-        normalized_host = normalized_host[:-1]
-    if normalized_host == "localhost":
-        return True
-    try:
-        address = ipaddress.ip_address(normalized_host)
-    except ValueError:
-        return False
-    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
-        return address.ipv4_mapped.is_loopback
-    return address.is_loopback
 
 
 def _safe_grounding_url(url: str) -> bool:
@@ -2076,6 +2046,8 @@ async def obsidian_list(request: Request, path: str = ""):
     try:
         files = await state.obsidian.list_files(path)
         return {"files": files, "count": len(files)}
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid Obsidian vault path") from None
     except ConnectionError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
@@ -2088,6 +2060,8 @@ async def obsidian_read(request: Request, path: str):
     try:
         data = await state.obsidian.read(path)
         return data
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid Obsidian vault path") from None
     except ConnectionError as exc:
         msg = str(exc)
         if "404" in msg or "не найден" in msg:
@@ -2104,6 +2078,8 @@ async def obsidian_write(request: Request, path: str, req: ObsidianWriteRequest)
         result = await state.obsidian.write(path, req.content)
         logger.info("Obsidian wrote", extra={"path": path, "chars": len(req.content), "ok": True})
         return {"ok": True, "path": path, "size": len(req.content), "result": result}
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid Obsidian vault path") from None
     except ConnectionError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
@@ -2117,6 +2093,8 @@ async def obsidian_delete(request: Request, path: str):
         result = await state.obsidian.delete(path)
         logger.info("Obsidian deleted", extra={"path": path, "ok": True})
         return {"ok": True, "path": path, "result": result}
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid Obsidian vault path") from None
     except ConnectionError as exc:
         msg = str(exc)
         if "404" in msg or "не найден" in msg:

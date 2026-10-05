@@ -166,4 +166,10 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 
 - Добавлен `app_paths.py` с OS-aware user data/log paths и `COLIDEV_DATA_DIR` / `COLIDEV_LOG_DIR` overrides; Windows и Linux больше не используют жёстко заданную macOS-папку для сессий и логов.
 - Путь индекса переведён на общий data-root. Новая база прогресса использует общий путь; если старая база существует отдельно на macOS/Linux, она остаётся активной до появления новой, чтобы сохранить локальные записи. Для JSON-сессий действует такой же fallback.
-- Path regression suite прошёл: 14 passed. Полный `pytest 01_Projects -q` прошёл: 143 passed, одно известное предупреждение совместимости Starlette/httpx; `compileall` и `git diff --check` прошли. CI для этого среза ещё ожидается.
+- Path regression suite прошёл: 14 passed. Полный `pytest 01_Projects -q` прошёл: 143 passed, одно известное предупреждение совместимости Starlette/httpx; `compileall` и `git diff --check` прошли. Commit `a8b7320`; GitHub Actions run [37252284801](https://github.com/invinby/coli-dev/actions/runs/37252284801) успешно прошёл backend checks и macOS build/bundle-check.
+
+### Obsidian bridge hardening — 2026-10-05
+
+- Вынесена единая проверка loopback URL и использована в оркестраторе и Obsidian worker; remote endpoint отбрасывается до запроса с Bearer token.
+- Валидируются vault-relative пути: абсолютные и traversal-пути, включая URL-encoded/double-encoded варианты, control characters и строки длиннее лимита отклоняются. Допустимые сегменты URL-encode-ятся, чтобы `?` и `#` не меняли endpoint.
+- `/obsidian/list`, `read`, `write`, `delete` возвращают 422 для неверного пути. `test_obsidian_worker.py`, тест API-обработчика и loopback URL suite прошли; полный backend suite: 160 passed, одно предупреждение Starlette/httpx. `compileall` и `git diff --check` чистые; CI ещё ожидается.

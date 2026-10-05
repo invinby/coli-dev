@@ -20,9 +20,12 @@ obsidian_worker.py — интеграция с Obsidian Local REST API.
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
+from urllib.parse import quote, unquote
 
 import httpx
+from network_safety import is_loopback_http_url
 
 logger = logging.getLogger("colidev.obsidian")
 
@@ -51,8 +54,11 @@ class ObsidianWorker:
         self._working_url: str | None = None
         self._last_error: str | None = None
 
-        # Если base_url передан явно — используем его
-        self._candidates = [base_url] if base_url else list(_DEFAULT_CANDIDATES)
+        # Reject remote endpoints before any request can carry the vault's bearer token.
+        candidates = [base_url] if base_url else list(_DEFAULT_CANDIDATES)
+        self._candidates = [url.rstrip("/") for url in candidates if is_loopback_http_url(url)]
+        if base_url and not self._candidates:
+            self._last_error = "Obsidian URL must use localhost or a loopback IP"
 
         # Self-signed cert — отключаем проверку для локального dev
         self._client = httpx.AsyncClient(
@@ -96,6 +102,9 @@ class ObsidianWorker:
         if not self._api_key_ok:
             self._last_error = "OBSIDIAN_API_KEY не настроен в .env"
             return False
+        if not self._candidates:
+            self._last_error = "Obsidian URL must use localhost or a loopback IP"
+            return False
 
         # Если уже знаем рабочий URL — просто проверяем
         if self._working_url:
@@ -126,6 +135,9 @@ class ObsidianWorker:
 
     async def _try_ping(self, url: str) -> bool:
         """Проверить конкретный URL."""
+        if not is_loopback_http_url(url):
+            self._last_error = "Obsidian URL must use localhost or a loopback IP"
+            return False
         auth_header = {"Authorization": f"Bearer {self.api_key}"}
         logger.debug("Trying Obsidian ping", extra={"url": url, "has_key": bool(self.api_key)})
         try:
@@ -172,6 +184,45 @@ class ObsidianWorker:
                 "Obsidian недоступен. Плагин Local REST API не отвечает. "
                 "Проверьте: 1) плагин установлен и включён 2) Obsidian запущен"
             )
+        if not is_loopback_http_url(self._working_url):
+            self._working_url = None
+            raise ConnectionError("Obsidian URL must use localhost or a loopback IP")
+
+    @staticmethod
+    def _vault_path(path: str, *, allow_root: bool = False) -> str:
+        """Validate a vault-relative path and safely encode each URL segment."""
+        if not isinstance(path, str) or len(path) > 1024:
+            raise ValueError("Invalid Obsidian vault path")
+
+        decoded = path
+        for _ in range(8):
+            unescaped = unquote(decoded)
+            if unescaped == decoded:
+                break
+            decoded = unescaped
+        else:
+            if unquote(decoded) != decoded:
+                raise ValueError("Invalid Obsidian vault path")
+
+        decoded = decoded.replace("\\", "/")
+        if (
+            decoded.startswith("/")
+            or re.match(r"^[A-Za-z]:", decoded)
+            or any(ord(character) < 32 or ord(character) == 127 for character in decoded)
+        ):
+            raise ValueError("Invalid Obsidian vault path")
+
+        segments = decoded.split("/")
+        if any(segment in {".", ".."} for segment in segments):
+            raise ValueError("Invalid Obsidian vault path")
+        segments = [segment for segment in segments if segment]
+        if not segments and not allow_root:
+            raise ValueError("Invalid Obsidian vault path")
+
+        return "/".join(
+            quote(segment, safe="!$&'()+,-.;=@_~")
+            for segment in segments
+        )
 
     # ─── CRUD: файлы с graceful fallback ───────────────
 
@@ -224,7 +275,9 @@ class ObsidianWorker:
 
     async def list_files(self, path: str = "") -> list[Any]:
         """Получить список файлов в vault (рекурсивно)."""
-        data = await self._request("GET", f"vault/{path.lstrip('/')}")
+        safe_path = self._vault_path(path, allow_root=True)
+        endpoint = "vault/" + safe_path if safe_path else "vault/"
+        data = await self._request("GET", endpoint)
         if isinstance(data, dict):
             # Obsidian API возвращает {"files": [...]}
             files_data = data.get("files", data)
@@ -234,7 +287,7 @@ class ObsidianWorker:
 
     async def read(self, path: str) -> dict[str, Any]:
         """Прочитать содержимое файла."""
-        return await self._request("GET", f"vault/{path.lstrip('/')}")
+        return await self._request("GET", f"vault/{self._vault_path(path)}")
 
     async def write(
         self,
@@ -243,16 +296,17 @@ class ObsidianWorker:
         content_type: str = "text/markdown",
     ) -> dict[str, Any]:
         """Создать или перезаписать файл."""
+        safe_path = self._vault_path(path)
         return await self._request(
             "PUT",
-            f"vault/{path.lstrip('/')}",
+            f"vault/{safe_path}",
             content=content,
             headers={"Content-Type": content_type},
         )
 
     async def delete(self, path: str) -> dict[str, Any]:
         """Удалить файл."""
-        return await self._request("DELETE", f"vault/{path.lstrip('/')}")
+        return await self._request("DELETE", f"vault/{self._vault_path(path)}")
 
     # ─── Поиск ────────────────────────────────────────
 
