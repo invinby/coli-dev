@@ -1113,6 +1113,8 @@ private struct PracticeLab: View {
             MomentumCollisionLab(initialMode: .elastic)
         } else if subject == .physics, moduleResource == "projectile_motion" {
             ProjectileMotionLab()
+        } else if subject == .physics, moduleResource == "vectors_and_kinematics" {
+            VectorKinematicsLab()
         } else if subject == .programming, moduleResource == "collections_and_loops" {
             CollectionsLoopsLab()
         } else if subject == .programming, moduleResource == "conditions_loops_functions" {
@@ -3537,6 +3539,157 @@ private struct ProjectileMotionLab: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(L10n.text(key, store.language)).font(.caption).foregroundStyle(.secondary)
             Text("\(value, specifier: "%.2f") \(unit)").monospacedDigit()
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct VectorKinematicsLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var magnitude = 10.0
+    @State private var angleDegrees = 30.0
+    @State private var showsComponents = false
+
+    private var vector: VectorKinematics {
+        VectorKinematics(magnitude: magnitude, angleDegrees: angleDegrees)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(L10n.text("lab.vector.title", store.language))
+                .font(.title3.weight(.semibold))
+            Text(L10n.text("lab.vector.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            HStack(alignment: .center, spacing: 24) {
+                vectorDiagram
+                    .frame(minWidth: 260, idealWidth: 340, maxWidth: 420, minHeight: 240)
+                VStack(alignment: .leading, spacing: 14) {
+                    vectorSlider(
+                        title: L10n.text("lab.vector.magnitude", store.language),
+                        value: $magnitude,
+                        range: 1...20,
+                        step: 1,
+                        suffix: " m"
+                    )
+                    vectorSlider(
+                        title: L10n.text("lab.vector.angle", store.language),
+                        value: $angleDegrees,
+                        range: 0...359,
+                        step: 1,
+                        suffix: "°"
+                    )
+                    Toggle(isOn: $showsComponents) {
+                        Text(L10n.text("lab.vector.showComponents", store.language))
+                    }
+                    .toggleStyle(.switch)
+                    .help(L10n.text("lab.vector.revealHelp", store.language))
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        if showsComponents {
+                            vectorReading("lab.vector.xComponent", value: vector.xComponent)
+                            vectorReading("lab.vector.yComponent", value: vector.yComponent)
+                            vectorReading("lab.vector.magnitudeResult", value: vector.reconstructedMagnitude)
+                        } else {
+                            Text(L10n.text("lab.vector.predictFirst", store.language))
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, minHeight: 78, alignment: .leading)
+                    .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 12))
+                }
+                .frame(maxWidth: 280)
+            }
+
+            Text(L10n.text("lab.vector.challenge", store.language))
+                .font(.callout)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            Text(L10n.text("lab.vector.limits", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 8)
+    }
+
+    private var vectorDiagram: some View {
+        Canvas { context, size in
+            let inset: CGFloat = 28
+            let origin = CGPoint(x: size.width / 2, y: size.height / 2)
+            let scale = min((size.width - inset * 2) / 40, (size.height - inset * 2) / 40)
+            let tip = CGPoint(
+                x: origin.x + vector.xComponent * scale,
+                y: origin.y - vector.yComponent * scale
+            )
+            var axes = Path()
+            axes.move(to: CGPoint(x: inset, y: origin.y))
+            axes.addLine(to: CGPoint(x: size.width - inset, y: origin.y))
+            axes.move(to: CGPoint(x: origin.x, y: size.height - inset))
+            axes.addLine(to: CGPoint(x: origin.x, y: inset))
+            context.stroke(axes, with: .color(.secondary.opacity(0.6)), lineWidth: 1)
+
+            if showsComponents {
+                var projections = Path()
+                projections.move(to: origin)
+                projections.addLine(to: CGPoint(x: tip.x, y: origin.y))
+                projections.addLine(to: tip)
+                context.stroke(projections, with: .color(.orange.opacity(0.8)), style: StrokeStyle(lineWidth: 2, dash: [5, 4]))
+            }
+
+            var arrow = Path()
+            arrow.move(to: origin)
+            arrow.addLine(to: tip)
+            context.stroke(arrow, with: .color(.accentColor), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+            let direction = CGVector(dx: tip.x - origin.x, dy: tip.y - origin.y)
+            let length = max(hypot(direction.dx, direction.dy), 1)
+            let unit = CGVector(dx: direction.dx / length, dy: direction.dy / length)
+            let perpendicular = CGVector(dx: -unit.dy, dy: unit.dx)
+            var head = Path()
+            head.move(to: tip)
+            head.addLine(to: CGPoint(x: tip.x - unit.dx * 12 + perpendicular.dx * 6, y: tip.y - unit.dy * 12 + perpendicular.dy * 6))
+            head.move(to: tip)
+            head.addLine(to: CGPoint(x: tip.x - unit.dx * 12 - perpendicular.dx * 6, y: tip.y - unit.dy * 12 - perpendicular.dy * 6))
+            context.stroke(head, with: .color(.accentColor), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+            context.fill(Path(ellipseIn: CGRect(x: origin.x - 3, y: origin.y - 3, width: 6, height: 6)), with: .color(.primary))
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(L10n.text("lab.vector.diagram", store.language)))
+        .accessibilityValue(Text(
+            "r \(vector.magnitude, specifier: "%.0f") m, θ \(vector.angleDegrees, specifier: "%.0f")°"
+                + (showsComponents
+                    ? ", Δx \(vector.xComponent, specifier: "%.2f") m, Δy \(vector.yComponent, specifier: "%.2f") m"
+                    : "")
+        ))
+    }
+
+    private func vectorSlider(
+        title: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double>,
+        step: Double,
+        suffix: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(title)
+                Spacer()
+                Text("\(value.wrappedValue, specifier: "%.0f")\(suffix)").monospacedDigit()
+            }
+            Slider(value: value, in: range, step: step)
+                .accessibilityLabel(Text(title))
+        }
+    }
+
+    private func vectorReading(_ key: String, value: Double) -> some View {
+        HStack {
+            Text(L10n.text(key, store.language)).foregroundStyle(.secondary)
+            Spacer()
+            Text("\(value, specifier: "%.2f") m").monospacedDigit()
         }
         .accessibilityElement(children: .combine)
     }
