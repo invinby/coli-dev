@@ -3554,6 +3554,14 @@ private struct VectorKinematicsLab: View {
         VectorKinematics(magnitude: magnitude, angleDegrees: angleDegrees)
     }
 
+    private var vectorAccessibilityValue: String {
+        var value = "r \(Int(vector.magnitude)) m, θ \(Int(vector.angleDegrees))°"
+        if showsComponents {
+            value += String(format: ", Δx %.2f m, Δy %.2f m", vector.xComponent, vector.yComponent)
+        }
+        return value
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(L10n.text("lab.vector.title", store.language))
@@ -3659,12 +3667,7 @@ private struct VectorKinematicsLab: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(L10n.text("lab.vector.diagram", store.language)))
-        .accessibilityValue(Text(
-            "r \(vector.magnitude, specifier: "%.0f") m, θ \(vector.angleDegrees, specifier: "%.0f")°"
-                + (showsComponents
-                    ? ", Δx \(vector.xComponent, specifier: "%.2f") m, Δy \(vector.yComponent, specifier: "%.2f") m"
-                    : "")
-        ))
+        .accessibilityValue(Text(verbatim: vectorAccessibilityValue))
     }
 
     private func vectorSlider(
