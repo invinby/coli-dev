@@ -2525,7 +2525,7 @@ private struct EukaryoticCellScene: NSViewRepresentable {
         ]
         for (position, angle) in mitochondrialPositions {
             let body = SCNNode(geometry: SCNCapsule(capRadius: 0.15, height: 0.54))
-            body.eulerAngles.z = angle
+            body.eulerAngles.z = CGFloat(angle)
             body.position = SCNVector3(position.0, position.1, position.2)
             body.geometry?.firstMaterial = material(.systemRed)
             mitochondria.addChildNode(body)
