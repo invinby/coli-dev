@@ -1049,7 +1049,9 @@ private struct PracticeLab: View {
 
     @ViewBuilder
     var body: some View {
-        if subject == .mathematics, moduleResource == "domain_and_range" {
+        if subject == .mathematics, moduleResource == "solving_linear_equations" {
+            LinearEquationLab()
+        } else if subject == .mathematics, moduleResource == "domain_and_range" {
             DomainRangeLab()
         } else if subject == .mathematics, moduleResource == "rates_of_change_and_derivative" {
             DerivativeRateLab()
@@ -1099,6 +1101,157 @@ private struct PracticeLab: View {
             ConditionalLab()
             }
         }
+    }
+}
+
+private struct LinearEquationLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var equation = LinearEquation.random()
+    @State private var completedSteps = 0
+    @State private var didCheckSolution = false
+
+    private var variableTerm: String {
+        equation.coefficient == 1 ? "x" : "\(equation.coefficient)x"
+    }
+
+    private var initialLeftSide: String {
+        let offsetTerm = equation.offset < 0
+            ? "− \(abs(equation.offset))"
+            : "+ \(equation.offset)"
+        return "\(variableTerm) \(offsetTerm)"
+    }
+
+    private var visibleLeftSide: String {
+        switch completedSteps {
+        case 0: initialLeftSide
+        case 1: variableTerm
+        default: "x"
+        }
+    }
+
+    private var visibleRightSide: String {
+        switch completedSteps {
+        case 0: "\(equation.rightSide)"
+        case 1: "\(equation.isolatedVariableRightSide)"
+        default: "\(equation.valueAfterDivision)"
+        }
+    }
+
+    private var actionTitle: String {
+        switch completedSteps {
+        case 0:
+            let key = equation.offset > 0 ? "lab.equation.subtract" : "lab.equation.add"
+            return localized(key, value: String(abs(equation.offset)))
+        case 1:
+            return localized("lab.equation.divide", value: String(equation.coefficient))
+        case 2 where !didCheckSolution:
+            return L10n.text("lab.equation.check", store.language)
+        default:
+            return L10n.text("lab.equation.newExample", store.language)
+        }
+    }
+
+    private var actionSymbol: String {
+        completedSteps < 2 ? "arrow.right" : (didCheckSolution ? "shuffle" : "checkmark.circle")
+    }
+
+    var body: some View {
+        LabCard {
+            VStack(alignment: .leading, spacing: 8) {
+                Label(L10n.text("lab.equation.title", store.language), systemImage: "scalemass")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.indigo)
+                Text(L10n.text("lab.equation.help", store.language))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            HStack(spacing: 10) {
+                equationSide(
+                    title: L10n.text("lab.equation.left", store.language),
+                    expression: visibleLeftSide
+                )
+                Text("=")
+                    .font(.title2.weight(.bold).monospacedDigit())
+                    .accessibilityLabel(L10n.text("lab.equation.equals", store.language))
+                equationSide(
+                    title: L10n.text("lab.equation.right", store.language),
+                    expression: visibleRightSide
+                )
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(visibleLeftSide) = \(visibleRightSide)")
+
+            Text(L10n.text("lab.equation.operationHint", store.language))
+                .font(.callout.weight(.medium))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(11)
+                .background(Color.indigo.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+
+            HStack {
+                Label(
+                    String(
+                        format: L10n.text("lab.equation.progress", store.language),
+                        min(completedSteps, 2),
+                        2
+                    ),
+                    systemImage: didCheckSolution ? "checkmark.seal.fill" : "equal.circle"
+                )
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(didCheckSolution ? .green : .secondary)
+                Spacer()
+                Button {
+                    if completedSteps < 2 {
+                        completedSteps += 1
+                    } else if !didCheckSolution {
+                        didCheckSolution = true
+                    } else {
+                        equation = .random()
+                        completedSteps = 0
+                        didCheckSolution = false
+                    }
+                } label: {
+                    Label(actionTitle, systemImage: actionSymbol)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.indigo)
+            }
+
+            if didCheckSolution {
+                Label(
+                    localized(
+                        "lab.equation.substitution",
+                        value: "\(equation.coefficient) × \(equation.solution) \(equation.offset < 0 ? "− \(abs(equation.offset))" : "+ \(equation.offset)") = \(equation.rightSide)"
+                    ),
+                    systemImage: equation.isSolution(equation.solution) ? "checkmark.circle.fill" : "xmark.circle.fill"
+                )
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(equation.isSolution(equation.solution) ? .green : .red)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityElement(children: .combine)
+            }
+        }
+    }
+
+    private func equationSide(title: String, expression: String) -> some View {
+        VStack(spacing: 6) {
+            Text(title)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+            Text(expression)
+                .font(.system(size: 23, weight: .semibold, design: .rounded).monospacedDigit())
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .frame(maxWidth: .infinity)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, minHeight: 68)
+        .background(Color.indigo.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func localized(_ key: String, value: String) -> String {
+        L10n.text(key, store.language).replacingOccurrences(of: "%@", with: value)
     }
 }
 

@@ -69,6 +69,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-physics-models"
           "$RUNNER_TEMP/verify-physics-models"
 
+      - name: Verify shared linear equation model
+        run: |
+          swiftc macOS/ColiDev/App/LinearEquation.swift macOS/ColiDev/scripts/verify_linear_equation_model.swift \
+            -o "$RUNNER_TEMP/verify-linear-equation-model"
+          "$RUNNER_TEMP/verify-linear-equation-model"
+
       - name: Build ColiDev for macOS
         run: >-
           xcodebuild
@@ -102,6 +108,7 @@ jobs:
           Mathematics:functions_as_models
           Mathematics:domain_and_range
           Mathematics:rates_of_change_and_derivative
+          Mathematics:solving_linear_equations
           English:present_simple_and_continuous
           English:present_perfect_simple_continuous
           English:reading_for_gist_and_detail
