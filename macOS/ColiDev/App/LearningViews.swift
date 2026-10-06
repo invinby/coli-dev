@@ -1073,6 +1073,8 @@ private struct PracticeLab: View {
             MomentumCollisionLab()
         } else if subject == .physics, moduleResource == "elastic_collisions" {
             MomentumCollisionLab(initialMode: .elastic)
+        } else if subject == .physics, moduleResource == "projectile_motion" {
+            ProjectileMotionLab()
         } else if subject == .programming, moduleResource == "collections_and_loops" {
             CollectionsLoopsLab()
         } else if subject == .programming, moduleResource == "variables_and_types" {
@@ -1947,6 +1949,154 @@ private struct ForceLab: View {
             Slider(value: value, in: range, step: 1)
                 .accessibilityLabel(Text(title))
         }
+    }
+}
+
+private struct ProjectileMotionLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var launchSpeed = 20.0
+    @State private var angleDegrees = 35.0
+    @State private var elapsed = 0.0
+    @State private var comparesComplement = true
+
+    private var motion: ProjectileMotion {
+        ProjectileMotion(launchSpeed: launchSpeed, angleDegrees: angleDegrees)
+    }
+    private var complement: ProjectileMotion {
+        ProjectileMotion(launchSpeed: launchSpeed, angleDegrees: 90 - angleDegrees)
+    }
+    private var displayedMaximumRange: Double {
+        max(max(motion.horizontalRange, comparesComplement ? complement.horizontalRange : 0), 1) * 1.12
+    }
+    private var displayedMaximumHeight: Double {
+        max(max(motion.maximumHeight, comparesComplement ? complement.maximumHeight : 0), 1) * 1.16
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.projectile.title", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.projectile.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Canvas { context, size in
+                guard size.width > 0, size.height > 0 else { return }
+                let inset: CGFloat = 12
+                func location(_ x: Double, _ y: Double) -> CGPoint {
+                    CGPoint(
+                        x: inset + CGFloat(x / displayedMaximumRange) * (size.width - 2 * inset),
+                        y: size.height - inset - CGFloat(y / displayedMaximumHeight) * (size.height - 2 * inset)
+                    )
+                }
+
+                var grid = Path()
+                for step in 0...4 {
+                    let fraction = CGFloat(step) / 4
+                    let x = inset + fraction * (size.width - 2 * inset)
+                    let y = inset + fraction * (size.height - 2 * inset)
+                    grid.move(to: CGPoint(x: x, y: inset))
+                    grid.addLine(to: CGPoint(x: x, y: size.height - inset))
+                    grid.move(to: CGPoint(x: inset, y: y))
+                    grid.addLine(to: CGPoint(x: size.width - inset, y: y))
+                }
+                context.stroke(grid, with: .color(.secondary.opacity(0.14)), lineWidth: 1)
+
+                func trajectoryPath(for model: ProjectileMotion) -> Path {
+                    var path = Path()
+                    let samples = 100
+                    for index in 0...samples {
+                        let t = model.flightTime * Double(index) / Double(samples)
+                        let point = model.position(at: t)
+                        let plotted = location(point.x, point.y)
+                        if index == 0 { path.move(to: plotted) } else { path.addLine(to: plotted) }
+                    }
+                    return path
+                }
+
+                if comparesComplement {
+                    context.stroke(
+                        trajectoryPath(for: complement),
+                        with: .color(.orange.opacity(0.85)),
+                        style: StrokeStyle(lineWidth: 2, dash: [6, 4])
+                    )
+                }
+                context.stroke(trajectoryPath(for: motion), with: .color(.accentColor), lineWidth: 3)
+                let current = motion.position(at: elapsed)
+                let point = location(current.x, current.y)
+                context.fill(Path(ellipseIn: CGRect(x: point.x - 6, y: point.y - 6, width: 12, height: 12)), with: .color(.accentColor))
+            }
+            .frame(height: 230)
+            .accessibilityLabel(Text(L10n.text("lab.projectile.chart", store.language)))
+
+            HStack(spacing: 16) {
+                Label(L10n.text("lab.projectile.current", store.language), systemImage: "circle.fill")
+                    .foregroundStyle(.tint)
+                if comparesComplement {
+                    Label("90° − θ", systemImage: "line.diagonal")
+                        .foregroundStyle(.orange)
+                }
+                Spacer()
+                Button(L10n.text(comparesComplement ? "lab.projectile.hideCompare" : "lab.projectile.compare", store.language)) {
+                    comparesComplement.toggle()
+                }
+                .buttonStyle(.bordered)
+            }
+            .font(.caption)
+
+            projectileSlider(title: L10n.text("lab.projectile.speed", store.language), value: $launchSpeed, range: 5...30, suffix: " m/s")
+            projectileSlider(title: L10n.text("lab.projectile.angle", store.language), value: $angleDegrees, range: 15...75, suffix: "°")
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(L10n.text("lab.projectile.time", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Slider(value: $elapsed, in: 0...max(motion.flightTime, 0.05), step: 0.05)
+                    .accessibilityLabel(Text(L10n.text("lab.projectile.time", store.language)))
+                Text("t = \(elapsed, specifier: "%.2f") s")
+                    .monospacedDigit()
+                    .font(.caption)
+            }
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), alignment: .leading)], alignment: .leading, spacing: 12) {
+                projectileReading("lab.projectile.range", value: motion.horizontalRange, unit: "m")
+                projectileReading("lab.projectile.height", value: motion.maximumHeight, unit: "m")
+                projectileReading("lab.projectile.flight", value: motion.flightTime, unit: "s")
+                projectileReading("lab.projectile.position", value: motion.position(at: elapsed).x, unit: "m")
+            }
+            Text(L10n.text("lab.projectile.compareTask", store.language))
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(L10n.text("lab.projectile.limits", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .onChange(of: angleDegrees) { _ in elapsed = min(elapsed, motion.flightTime) }
+        .onChange(of: launchSpeed) { _ in elapsed = min(elapsed, motion.flightTime) }
+    }
+
+    private func projectileSlider(title: String, value: Binding<Double>, range: ClosedRange<Double>, suffix: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(title)
+                Spacer()
+                Text("\(value.wrappedValue, specifier: "%.0f")\(suffix)")
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+            Slider(value: value, in: range, step: 1)
+                .accessibilityLabel(Text(title))
+        }
+    }
+
+    private func projectileReading(_ key: String, value: Double, unit: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(L10n.text(key, store.language)).font(.caption).foregroundStyle(.secondary)
+            Text("\(value, specifier: "%.2f") \(unit)").monospacedDigit()
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 

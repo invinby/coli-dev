@@ -106,6 +106,7 @@ jobs:
           English:present_perfect_simple_continuous
           Physics:net_force_and_acceleration
           Physics:motion_with_constant_acceleration
+          Physics:projectile_motion
           Physics:work_and_kinetic_energy
           Physics:impulse_and_momentum
           Physics:elastic_collisions

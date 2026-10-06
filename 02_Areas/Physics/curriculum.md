@@ -19,6 +19,7 @@
 |---|---|---|
 | Вращение и равновесие / Rotation and equilibrium | Применять момент силы и законы сохранения к вращательным системам. / Apply torque and conservation to rotating systems. | |
 | Движение с постоянным ускорением / Motion with constant acceleration | Выводить знаковую скорость и перемещение из равнодействующей силы, массы и времени. / Derive signed velocity and displacement from net force, mass, and time. | lesson:motion_with_constant_acceleration |
+| Движение тела, брошенного под углом / Projectile motion | Разделять горизонтальную и вертикальную компоненты и исследовать зависимость дальности и высоты от угла запуска. / Separate horizontal and vertical components and explore how launch angle affects range and height. | lesson:projectile_motion |
 | Упругие столкновения / Elastic collisions | Находить обе конечные скорости по сохранению импульса и кинетической энергии и сравнивать с прилипанием. / Find both final velocities from momentum and kinetic-energy conservation and compare with sticking. | lesson:elastic_collisions |
 | Термодинамика и статистические идеи / Thermodynamics and statistical ideas | Связывать макроскопические величины с передачей энергии и множеством микросостояний. / Connect macroscopic quantities with energy transfer and microstates. | |
 | Электрические цепи и электростатика / Circuits and electrostatics | Моделировать потенциал, поле, ток и простые цепи с проверкой граничных случаев. / Model potential, fields, current, and circuits. | |

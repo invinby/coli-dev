@@ -11,6 +11,17 @@ enum PhysicsModelVerification {
         expect(motion.displacement, equals: 8, tolerance: tolerance, "displacement from rest")
         precondition(motion.hasFinished, "two-second motion should finish at its duration")
 
+        let projectile = ProjectileMotion(launchSpeed: 20, angleDegrees: 30)
+        expect(projectile.horizontalVelocity, equals: 10 * sqrt(3), tolerance: tolerance, "projectile horizontal velocity")
+        expect(projectile.verticalVelocity, equals: 10, tolerance: tolerance, "projectile vertical velocity")
+        expect(projectile.flightTime, equals: 20 / 9.81, tolerance: tolerance, "projectile flight time")
+        expect(projectile.maximumHeight, equals: 100 / (2 * 9.81), tolerance: tolerance, "projectile maximum height")
+        expect(projectile.position(at: projectile.flightTime).x, equals: projectile.horizontalRange, tolerance: tolerance, "projectile landing range")
+        expect(projectile.position(at: projectile.flightTime).y, equals: 0, tolerance: tolerance, "projectile landing height")
+        let complementary = ProjectileMotion(launchSpeed: 20, angleDegrees: 60)
+        expect(complementary.horizontalRange, equals: projectile.horizontalRange, tolerance: tolerance, "complementary-angle equal range")
+        precondition(complementary.maximumHeight > projectile.maximumHeight, "higher complementary angle should reach a higher peak")
+
         let collision = MomentumCollision(
             firstMass: 2,
             firstVelocity: 4,

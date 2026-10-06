@@ -22,6 +22,40 @@ struct ForceMotion {
     var hasFinished: Bool { time >= Self.duration }
 }
 
+/// Ideal two-dimensional projectile launched from ground level with no air resistance.
+struct ProjectileMotion {
+    let launchSpeed: Double
+    let angleDegrees: Double
+    let gravity: Double
+
+    init(launchSpeed: Double, angleDegrees: Double, gravity: Double = 9.81) {
+        precondition(
+            launchSpeed.isFinite && launchSpeed >= 0
+                && angleDegrees.isFinite && angleDegrees >= 0 && angleDegrees <= 90
+                && gravity.isFinite && gravity > 0
+        )
+        self.launchSpeed = launchSpeed
+        self.angleDegrees = angleDegrees
+        self.gravity = gravity
+    }
+
+    private var angleRadians: Double { angleDegrees * .pi / 180 }
+    var horizontalVelocity: Double { launchSpeed * cos(angleRadians) }
+    var verticalVelocity: Double { launchSpeed * sin(angleRadians) }
+    var flightTime: Double { 2 * verticalVelocity / gravity }
+    var horizontalRange: Double { horizontalVelocity * flightTime }
+    var maximumHeight: Double { verticalVelocity * verticalVelocity / (2 * gravity) }
+
+    func position(at time: Double) -> (x: Double, y: Double) {
+        precondition(time.isFinite)
+        let t = min(max(time, 0), flightTime)
+        return (
+            horizontalVelocity * t,
+            max(0, verticalVelocity * t - 0.5 * gravity * t * t)
+        )
+    }
+}
+
 /// One-dimensional perfectly inelastic collision: the objects stick together.
 /// Velocities are signed; momentum is conserved when external impulse is negligible.
 struct MomentumCollision {
