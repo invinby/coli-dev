@@ -242,6 +242,20 @@ class TestAPIEndpoints:
         assert replay.json() == saved.json()
         assert client.get("/learning/progress").json()["records"][0]["review_count"] == 1
 
+        module_lesson_id = "mathematics.numbers_fractions_and_percentages"
+        module_review = client.post(
+            "/learning/reviews",
+            json={
+                "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d480",
+                "lesson_id": module_lesson_id,
+                "quality": 5,
+                "reflection": "I can convert a part between fraction and percent.",
+            },
+        )
+        assert module_review.status_code == 200
+        assert module_review.json()["lesson_id"] == module_lesson_id
+        assert module_review.json()["completed"] is True
+
     def test_learning_progress_backup_api_exports_and_merges_local_progress(self, client):
         event = {
             "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",

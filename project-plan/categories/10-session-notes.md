@@ -645,3 +645,9 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 - Нашёл отставшее RU/EN-пояснение: интерфейс перечислял Python Tutorial и две MedlinePlus-страницы, хотя backend уже поддерживает ещё точный NIST SI Appendix B.9 (с учётом copyright-ограничения) и один eLife CC BY 4.0 XML article.
 - Пояснение обновлено: перечислены только точные разрешённые семейства, обязательная атрибуция, 48-часовая свежесть cache и оговорка, что изменение страницы не проверяет факты и не публикует урок. Сведения о четырёх семействах также синхронизированы в AI/RAG и admin-плане.
 - GitHub Actions [37443597931](https://github.com/invinby/coli-dev/actions/runs/37443597931) завершился успешно: 412 backend-тестов, verifier, Xcode build, packaged-backend smoke-test и bundled curriculum check прошли на Apple Silicon и Intel. ZIP-артефакты: ARM 21,050,371 bytes и Intel 21,958,287 bytes; доступны 14 дней. Запуск GUI на Mac не заменяется CI.
+
+### Проверяем интервальное повторение для связанных модулей — 2026-10-06
+
+- Код generic module view уже записывает повтор с `lessonID`, требует правильный quiz-ответ и learner confirmation, а Today извлекает предмет/slug из ID и открывает тот же курсный урок.
+- README и архитектурный план ошибочно сужали эту функцию до шести вводных уроков/небольшого фиксированного списка; исправил описание по фактическому контракту.
+- Добавил backend regression check для нового `mathematics.numbers_fractions_and_percentages` ID, чтобы зафиксировать module path, а не только `intro.physics`. CI и Mac UI пока не проверены.
