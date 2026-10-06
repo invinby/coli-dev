@@ -128,3 +128,9 @@
 - Added a bilingual Intermediate lesson and bounded SwiftUI lab for linear versus binary search. It makes the sorted-input precondition visible and explains that insertion into a Python list remains linear.
 - Added exact-path Python documentation monitoring and an explicit PSF-license policy for future source caching; source freshness checks do not silently rewrite course lessons.
 - Local focused suite passed (51 tests). GitHub Actions run [37503456084](https://github.com/invinby/coli-dev/actions/runs/37503456084) passed backend, Swift verifier, Apple Silicon/Intel builds, embedded-backend smoke test, resource validation, and ZIP packaging. Next proof is hands-on Mac interaction and accessibility review.
+
+### 2026-10-06 — Mathematics: linear systems
+
+- Added a source-linked RU/EN lesson and an interactive three-case elimination trainer: unique intersection, parallel lines/no solution, and coincident lines/infinitely many solutions. The learner predicts before the result and is prompted to verify a point in both original equations.
+- OpenStax College Algebra 2e §7.1 is cited and monitored as metadata only due to its CC BY-NC-SA license. The lesson uses original wording and its source text is excluded from web RAG.
+- Local curriculum/source/structure checks passed (51 tests). GitHub Actions [37505547214](https://github.com/invinby/coli-dev/actions/runs/37505547214) passed the full backend suite, Swift model verifier, both macOS builds, embedded backend smoke tests, resource checks, and archive uploads. Manual Mac visual and accessibility checks remain open.
