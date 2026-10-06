@@ -1091,6 +1091,8 @@ private struct PracticeLab: View {
             FoodWebLab()
         } else if subject == .physics, moduleResource == "work_and_kinetic_energy" {
             KineticEnergyLab()
+        } else if subject == .physics, moduleResource == "static_and_kinetic_friction" {
+            FrictionLab()
         } else if subject == .physics, moduleResource == "impulse_and_momentum" {
             MomentumCollisionLab()
         } else if subject == .physics, moduleResource == "elastic_collisions" {
@@ -2966,6 +2968,130 @@ private struct ForceLab: View {
             Slider(value: value, in: range, step: 1)
                 .accessibilityLabel(Text(title))
         }
+    }
+}
+
+private struct FrictionLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var mass = 5.0
+    @State private var appliedForce = 15.0
+    @State private var staticCoefficient = 0.4
+    @State private var kineticCoefficient = 0.3
+    @State private var time = 2.0
+
+    private var motion: FrictionMotion {
+        FrictionMotion(
+            mass: mass,
+            appliedForce: appliedForce,
+            staticCoefficient: staticCoefficient,
+            kineticCoefficient: min(kineticCoefficient, staticCoefficient),
+            time: time
+        )
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.frictionHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            GeometryReader { geometry in
+                let width = max(geometry.size.width - 64, 0)
+                let travel = min(width, motion.displacement * 16)
+                ZStack(alignment: .leading) {
+                    VStack(spacing: 0) {
+                        Spacer()
+                        Rectangle()
+                            .fill(.secondary.opacity(0.45))
+                            .frame(height: 3)
+                    }
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.accentColor.gradient)
+                        .overlay {
+                            Image(systemName: "shippingbox.fill")
+                                .foregroundStyle(.white)
+                        }
+                        .frame(width: 54, height: 42)
+                        .offset(x: travel, y: 0)
+                        .accessibilityHidden(true)
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text(L10n.text("lab.frictionBlock", store.language)))
+                .accessibilityValue(Text(motion.isSliding
+                    ? L10n.text("lab.frictionSliding", store.language)
+                    : L10n.text("lab.frictionResting", store.language)))
+            }
+            .frame(height: 64)
+            .accessibilityElement(children: .contain)
+
+            HStack(spacing: 14) {
+                Label("F = \(appliedForce, specifier: "%.1f") N", systemImage: "arrow.right")
+                Label("f = \(motion.frictionForce, specifier: "%.1f") N", systemImage: "arrow.left")
+            }
+            .font(.callout.monospacedDigit())
+            .accessibilityElement(children: .combine)
+
+            Text(L10n.text(motion.isSliding ? "lab.frictionSliding" : "lab.frictionResting", store.language))
+                .font(.headline)
+                .foregroundStyle(motion.isSliding ? Color.orange : Color.primary)
+            Text("\(L10n.text("lab.frictionThreshold", store.language)): \(motion.maximumStaticFriction, specifier: "%.2f") N")
+                .font(.callout.monospacedDigit())
+
+            slider("lab.mass", value: $mass, range: 1...10, step: 0.5, unit: " kg")
+            slider("lab.frictionPush", value: $appliedForce, range: 0...60, step: 1, unit: " N")
+            slider("lab.frictionStaticCoefficient", value: $staticCoefficient, range: 0.1...0.8, step: 0.05, unit: "")
+            slider("lab.frictionKineticCoefficient", value: $kineticCoefficient, range: 0.05...staticCoefficient, step: 0.05, unit: "")
+            slider("lab.frictionTime", value: $time, range: 0...FrictionMotion.duration, step: 0.1, unit: " s")
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), alignment: .leading)], alignment: .leading, spacing: 12) {
+                reading("lab.frictionNormal", value: motion.normalForce, unit: "N")
+                reading("lab.frictionForce", value: motion.frictionForce, unit: "N")
+                reading("lab.frictionAcceleration", value: motion.acceleration, unit: "m/s²")
+                reading("lab.frictionVelocity", value: motion.velocity, unit: "m/s")
+                reading("lab.frictionDisplacement", value: motion.displacement, unit: "m")
+            }
+
+            Text(L10n.text("lab.frictionPrediction", store.language))
+                .font(.callout)
+            Text(L10n.text("lab.frictionLimits", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .onChange(of: staticCoefficient) { newValue in
+            kineticCoefficient = min(kineticCoefficient, newValue)
+        }
+    }
+
+    private func slider(
+        _ titleKey: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double>,
+        step: Double,
+        unit: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(L10n.text(titleKey, store.language))
+                Spacer(minLength: 8)
+                Text("\(value.wrappedValue, specifier: "%.2f")\(unit)")
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+            Slider(value: value, in: range, step: step)
+                .accessibilityLabel(Text(L10n.text(titleKey, store.language)))
+                .accessibilityValue(Text("\(value.wrappedValue, specifier: "%.2f")\(unit)"))
+        }
+    }
+
+    private func reading(_ key: String, value: Double, unit: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(L10n.text(key, store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text("\(value, specifier: "%.2f") \(unit)")
+                .monospacedDigit()
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 

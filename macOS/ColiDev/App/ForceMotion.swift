@@ -1,5 +1,52 @@
 import Foundation
 
+/// A block released from rest on a level surface under a constant rightward push.
+/// Static friction follows the applied force up to its limiting value; once sliding
+/// starts, the model uses a constant kinetic-friction coefficient.
+struct FrictionMotion {
+    static let gravity = 9.81
+    static let duration = 2.0
+
+    let mass: Double
+    let appliedForce: Double
+    let staticCoefficient: Double
+    let kineticCoefficient: Double
+    let time: Double
+
+    init(
+        mass: Double,
+        appliedForce: Double,
+        staticCoefficient: Double,
+        kineticCoefficient: Double,
+        time: Double
+    ) {
+        precondition(
+            mass.isFinite && mass > 0
+                && appliedForce.isFinite && appliedForce >= 0
+                && staticCoefficient.isFinite && staticCoefficient >= 0
+                && kineticCoefficient.isFinite && kineticCoefficient >= 0
+                && kineticCoefficient <= staticCoefficient
+                && time.isFinite
+        )
+        self.mass = mass
+        self.appliedForce = appliedForce
+        self.staticCoefficient = staticCoefficient
+        self.kineticCoefficient = kineticCoefficient
+        self.time = min(max(time, 0), Self.duration)
+    }
+
+    var normalForce: Double { mass * Self.gravity }
+    var maximumStaticFriction: Double { staticCoefficient * normalForce }
+    var isSliding: Bool { appliedForce > maximumStaticFriction }
+    var frictionForce: Double {
+        isSliding ? kineticCoefficient * normalForce : appliedForce
+    }
+    var netForce: Double { max(0, appliedForce - frictionForce) }
+    var acceleration: Double { netForce / mass }
+    var velocity: Double { acceleration * time }
+    var displacement: Double { 0.5 * acceleration * time * time }
+}
+
 /// One-dimensional motion from rest under a constant net force, without friction.
 /// The two-second experiment fits the fixed -60...60 metre scene for the UI limits.
 struct ForceMotion {
