@@ -639,3 +639,9 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 - Официальные ссылки OpenStax *Prealgebra 2e* §§4.1, 5.3 и 6.1 и таблица приставок NIST просмотрены 2026-10-06. Авторский текст написан заново; страницы OpenStax остаются metadata/preview-only по CC BY-NC-SA 4.0 до отдельной проверки условий выпуска.
 - CI verifier покрывает 0%, типовые сокращения (12%, 25%, 35%, 50%, 75%, 100%), вычисление доли от целого и переходы километров в метры. Первая попытка обнаружила пропущенный `@main` у verifier; точка входа исправлена в `e956bbf`.
 - GitHub Actions [37442941424](https://github.com/invinby/coli-dev/actions/runs/37442941424) прошёл: 412 backend-тестов, verifier, Xcode build, packaged-backend smoke-test и bundled curriculum check на Apple Silicon и Intel. ZIP-артефакты: `ColiDev-macos-arm64` 21,052,331 bytes и `ColiDev-macos-x86_64` 21,957,934 bytes; доступны 14 дней. Пользовательскую визуальную/VoiceOver-приёмку ещё нужно выполнить на Mac.
+
+### Сверено пояснение RAG-кэша в Control Center — 2026-10-06
+
+- Нашёл отставшее RU/EN-пояснение: интерфейс перечислял Python Tutorial и две MedlinePlus-страницы, хотя backend уже поддерживает ещё точный NIST SI Appendix B.9 (с учётом copyright-ограничения) и один eLife CC BY 4.0 XML article.
+- Пояснение обновлено: перечислены только точные разрешённые семейства, обязательная атрибуция, 48-часовая свежесть cache и оговорка, что изменение страницы не проверяет факты и не публикует урок. Сведения о четырёх семействах также синхронизированы в AI/RAG и admin-плане.
+- GitHub Actions [37443597931](https://github.com/invinby/coli-dev/actions/runs/37443597931) завершился успешно: 412 backend-тестов, verifier, Xcode build, packaged-backend smoke-test и bundled curriculum check прошли на Apple Silicon и Intel. ZIP-артефакты: ARM 21,050,371 bytes и Intel 21,958,287 bytes; доступны 14 дней. Запуск GUI на Mac не заменяется CI.
