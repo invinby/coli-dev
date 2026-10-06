@@ -95,6 +95,7 @@ jobs:
           done <<'LESSONS'
           Mathematics:functions_as_models
           Mathematics:domain_and_range
+          Mathematics:rates_of_change_and_derivative
           English:present_simple_and_continuous
           English:present_perfect_simple_continuous
           Physics:net_force_and_acceleration

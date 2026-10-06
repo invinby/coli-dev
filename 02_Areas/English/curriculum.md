@@ -14,14 +14,14 @@
 
 ## Углубление / Intermediate
 
-| Модуль / Module | Результат обучения / Learning outcome |
-|---|---|
+| Модуль / Module | Результат обучения / Learning outcome | Урок / Lesson |
+|---|---|---|
 | Present Perfect Simple и Continuous: результат и длительность / Present Perfect Simple and Continuous: result and duration | Выбирать фокус на результате или процессе, строить обе формы и объяснять, почему возможны разные варианты. / Choose a result or activity focus, form both tenses, and explain when both are possible. | lesson:present_perfect_simple_continuous |
-| Вид и время глагола, модальные глаголы, условные конструкции / Aspect, modal verbs, conditionals | Передавать длительность, завершённость, обязанность, вероятность и гипотезу. / Express duration, completion, obligation, likelihood, and hypotheses. |
-| Фразовые глаголы, устойчивые сочетания и регистр / Phrasal verbs, collocations, register | Выбирать естественную формулировку с учётом собеседника и ситуации. / Choose natural language for audience and context. |
-| Стратегии чтения и понимание связной речи / Reading strategies and connected speech | Следить за аргументом и распознавать редукцию звуков в обычном темпе. / Follow arguments and recognize reductions in natural speech. |
-| Абзац, эссе, пересказ и презентация / Paragraphs, essays, summaries, presentations | Строить связный текст с тезисом, опорными доводами и переходами. / Structure writing with claims, support, and transitions. |
-| Обсуждение и аргументация / Discussion and argumentation | Соглашаться, возражать, уточнять источник утверждения и поддерживать разговор. / Agree, disagree, ask for clarification, and sustain discussion. |
+| Вид и время глагола, модальные глаголы, условные конструкции / Aspect, modal verbs, conditionals | Передавать длительность, завершённость, обязанность, вероятность и гипотезу. / Express duration, completion, obligation, likelihood, and hypotheses. | |
+| Фразовые глаголы, устойчивые сочетания и регистр / Phrasal verbs, collocations, register | Выбирать естественную формулировку с учётом собеседника и ситуации. / Choose natural language for audience and context. | |
+| Стратегии чтения и понимание связной речи / Reading strategies and connected speech | Следить за аргументом и распознавать редукцию звуков в обычном темпе. / Follow arguments and recognize reductions in natural speech. | |
+| Абзац, эссе, пересказ и презентация / Paragraphs, essays, summaries, presentations | Строить связный текст с тезисом, опорными доводами и переходами. / Structure writing with claims, support, and transitions. | |
+| Обсуждение и аргументация / Discussion and argumentation | Соглашаться, возражать, уточнять источник утверждения и поддерживать разговор. / Agree, disagree, ask for clarification, and sustain discussion. | |
 
 ## Продвинутый уровень / Advanced
 

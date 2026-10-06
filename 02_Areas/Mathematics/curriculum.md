@@ -14,13 +14,13 @@
 
 ## Углубление / Intermediate
 
-| Модуль / Module | Результат обучения / Learning outcome |
-|---|---|
-| Полиномы, рациональные выражения и системы / Polynomials, rational expressions, systems | Выбирать преобразование по структуре задачи и объяснять ограничения области определения. / Choose transformations and track domain restrictions. |
-| Тригонометрия и периодические функции / Trigonometry and periodic functions | Использовать единичную окружность, тождества и графики для моделирования периодических процессов. / Use the unit circle, identities, and graphs to model periodic behavior. |
-| Векторы и линейная алгебра / Vectors and linear algebra | Работать с векторами, матрицами, линейными системами и геометрическим смыслом преобразований. / Relate vectors, matrices, linear systems, and transformations. |
-| Пределы, производные и интегралы / Limits, derivatives, integrals | Объяснять скорость изменения и накопление, связывая вычисление с графиком и единицами. / Explain rates of change and accumulation using graphs and units. |
-| Вероятность, статистика и данные / Probability, statistics, data | Различать случайность и закономерность, описывать неопределённость и выбирать подходящую модель. / Distinguish signal from chance and communicate uncertainty. |
+| Модуль / Module | Результат обучения / Learning outcome | Урок / Lesson |
+|---|---|---|
+| Полиномы, рациональные выражения и системы / Polynomials, rational expressions, systems | Выбирать преобразование по структуре задачи и объяснять ограничения области определения. / Choose transformations and track domain restrictions. | |
+| Тригонометрия и периодические функции / Trigonometry and periodic functions | Использовать единичную окружность, тождества и графики для моделирования периодических процессов. / Use the unit circle, identities, and graphs to model periodic behavior. | |
+| Векторы и линейная алгебра / Vectors and linear algebra | Работать с векторами, матрицами, линейными системами и геометрическим смыслом преобразований. / Relate vectors, matrices, linear systems, and transformations. | |
+| Пределы, производные и интегралы / Limits, derivatives, integrals | Объяснять скорость изменения и накопление, связывая вычисление с графиком и единицами. / Explain rates of change and accumulation using graphs and units. | lesson:rates_of_change_and_derivative |
+| Вероятность, статистика и данные / Probability, statistics, data | Различать случайность и закономерность, описывать неопределённость и выбирать подходящую модель. / Distinguish signal from chance and communicate uncertainty. | |
 
 ## Продвинутый уровень / Advanced
 

@@ -853,6 +853,8 @@ private struct PracticeLab: View {
     var body: some View {
         if subject == .mathematics, moduleResource == "domain_and_range" {
             DomainRangeLab()
+        } else if subject == .mathematics, moduleResource == "rates_of_change_and_derivative" {
+            DerivativeRateLab()
         } else if subject == .english, moduleResource == "present_simple_and_continuous" {
             TenseContrastLab()
         } else if subject == .english, moduleResource == "present_perfect_simple_continuous" {
@@ -890,6 +892,123 @@ private struct PracticeLab: View {
         case .programming:
             ConditionalLab()
             }
+        }
+    }
+}
+
+private struct DerivativeRateLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var point = 2.0
+    @State private var step = 1.0
+
+    private var secantSlope: Double { 2 * point + step }
+    private var tangentSlope: Double { 2 * point }
+
+    var body: some View {
+        LabCard {
+            Text("f(x) = x²")
+                .font(.system(.headline, design: .monospaced))
+
+            Text(L10n.text("lab.derivativeHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Canvas { context, size in
+                guard size.width > 0, size.height > 0 else { return }
+                func location(_ x: Double, _ y: Double) -> CGPoint {
+                    CGPoint(
+                        x: CGFloat((x + 3) / 6) * size.width,
+                        y: CGFloat((9 - y) / 12) * size.height
+                    )
+                }
+
+                var grid = Path()
+                for value in -3...3 {
+                    let x = CGFloat(value + 3) / 6 * size.width
+                    grid.move(to: CGPoint(x: x, y: 0))
+                    grid.addLine(to: CGPoint(x: x, y: size.height))
+                }
+                for value in stride(from: -3, through: 9, by: 2) {
+                    let y = CGFloat(9 - value) / 12 * size.height
+                    grid.move(to: CGPoint(x: 0, y: y))
+                    grid.addLine(to: CGPoint(x: size.width, y: y))
+                }
+                context.stroke(grid, with: .color(.secondary.opacity(0.16)), lineWidth: 1)
+
+                var axes = Path()
+                axes.move(to: location(-3, 0))
+                axes.addLine(to: location(3, 0))
+                axes.move(to: location(0, -3))
+                axes.addLine(to: location(0, 9))
+                context.stroke(axes, with: .color(.secondary.opacity(0.7)), lineWidth: 1.5)
+
+                var curve = Path()
+                for index in 0...120 {
+                    let x = -3.0 + Double(index) * 0.05
+                    let p = location(x, x * x)
+                    if index == 0 { curve.move(to: p) } else { curve.addLine(to: p) }
+                }
+                context.stroke(curve, with: .color(.indigo), lineWidth: 2.5)
+
+                var tangent = Path()
+                let tangentStart = point - 0.7
+                let tangentEnd = point + 0.7
+                tangent.move(to: location(tangentStart, tangentSlope * tangentStart - point * point))
+                tangent.addLine(to: location(tangentEnd, tangentSlope * tangentEnd - point * point))
+                context.stroke(tangent, with: .color(.green), lineWidth: 2.5)
+
+                var secant = Path()
+                secant.move(to: location(point, point * point))
+                secant.addLine(to: location(point + step, (point + step) * (point + step)))
+                context.stroke(secant, with: .color(.orange), lineWidth: 2.5)
+
+                for x in [point, point + step] {
+                    let p = location(x, x * x)
+                    context.fill(
+                        Path(ellipseIn: CGRect(x: p.x - 4.5, y: p.y - 4.5, width: 9, height: 9)),
+                        with: .color(.orange)
+                    )
+                }
+            }
+            .frame(height: 230)
+            .accessibilityLabel(L10n.text("lab.derivativeGraph", store.language))
+
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text(L10n.text("lab.derivativePoint", store.language))
+                    Spacer()
+                    Text(String(format: "x = %.1f", point)).monospacedDigit()
+                }
+                Slider(value: $point, in: -2.5...0.8, step: 0.1)
+                    .accessibilityLabel(Text(L10n.text("lab.derivativePoint", store.language)))
+
+                HStack {
+                    Text(L10n.text("lab.derivativeStep", store.language))
+                    Spacer()
+                    Text(String(format: "h = %.1f", step)).monospacedDigit()
+                }
+                Slider(value: $step, in: 0.2...2.0, step: 0.1)
+                    .accessibilityLabel(Text(L10n.text("lab.derivativeStep", store.language)))
+            }
+
+            HStack(spacing: 14) {
+                Label(L10n.text("lab.derivativeFunction", store.language), systemImage: "waveform.path")
+                    .foregroundStyle(.indigo)
+                Label(L10n.text("lab.derivativeSecant", store.language), systemImage: "line.diagonal")
+                    .foregroundStyle(.orange)
+                Label(L10n.text("lab.derivativeTangent", store.language), systemImage: "line.diagonal")
+                    .foregroundStyle(.green)
+            }
+            .font(.caption)
+            .labelStyle(.titleAndIcon)
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(String(format: L10n.text("lab.derivativeSecantValue", store.language), secantSlope))
+                Text(String(format: L10n.text("lab.derivativeTangentValue", store.language), tangentSlope))
+                    .fontWeight(.semibold)
+            }
+            .font(.callout.monospacedDigit())
         }
     }
 }

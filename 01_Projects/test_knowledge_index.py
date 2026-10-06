@@ -344,6 +344,10 @@ def test_priority_curriculum_roadmaps_are_retrievable(
         "Mathematics/lessons/domain_and_range.md",
     ),
     (
+        "derivative instantaneous rate secant tangent difference quotient limit h to zero slope x squared",
+        "Mathematics/lessons/rates_of_change_and_derivative.md",
+    ),
+    (
         "present simple present continuous habits temporary be ing stative verbs she studies",
         "English/lessons/present_simple_and_continuous.md",
     ),
@@ -528,11 +532,21 @@ def test_curriculum_lesson_links_resolve_to_bilingual_module_files() -> None:
         subject = curriculum.parent.name
         content = curriculum.read_text(encoding="utf-8")
         resources = []
+        table_width: int | None = None
         for line in content.splitlines():
             if not line.strip().startswith("|"):
+                table_width = None
                 continue
             columns = [column.strip() for column in line.strip().strip("|").split("|")]
-            if len(columns) >= 3 and columns[2].startswith("lesson:"):
+            if columns and ("Module" in columns[0] or "Модуль" in columns[0]):
+                table_width = len(columns)
+                continue
+            if not columns or all(set(column) <= {"-", ":"} for column in columns):
+                continue
+            linked_cells = [index for index, column in enumerate(columns) if column.startswith("lesson:")]
+            if linked_cells:
+                assert len(columns) == table_width, f"Inconsistent curriculum table columns in {curriculum}"
+                assert len(columns) >= 3 and linked_cells == [2], f"Lesson links must use the third column in {curriculum}"
                 resources.append(columns[2].removeprefix("lesson:"))
         assert resources, f"{curriculum.relative_to(project)} has no linked lesson"
 
