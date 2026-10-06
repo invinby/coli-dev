@@ -536,3 +536,8 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 
 - Финальный Auto-маршрут OpenRouter использует общий OpenAI-compatible SSE parser (`stream: true`), но выбирает OpenRouter URL, ключ, model ID, budget bucket и usage category. Сообщаются только текстовые чанки финальной роли; API key и промежуточные агентские ответы UI не получает.
 - Добавлены проверки финального выбора OpenRouter и реального chunked SSE parsing с model ID, заголовками, cloud budget и usage. Focused tests прошли: 4 passed; полный backend suite: 181 passed, одно прежнее Starlette/httpx предупреждение; Ruff, compileall и git diff --check прошли. Свежий GitHub CI ожидается после push; live OpenRouter вызов и ручной UX на Mac не выполнены.
+
+### Навык чтения в курсе английского — 2026-10-06
+
+- Добавлен RU/EN Foundations-урок `english.reading_for_gist_and_detail` с авторским коротким текстом, выбором gist, поиском точных деталей, контекстным разбором слова `book` и контрольным вопросом. Источники проверены на официальном British Council LearnEnglish: A1 reading и советы по чтению; тексты урока не скопированы.
+- Урок связан с пустовавшей строкой Foundation-дорожной карты и добавлен в обязательный curriculum-resource check CI. Общее число встроенных уроков стало 23; curriculum-link check, двуязычная структура каждого урока и bounded source inventory прошли. Полный локальный backend suite: 401 passed, одно прежнее Starlette/httpx warning; Ruff, compileall и git diff --check прошли. Новый macOS bundle check ожидается от CI после push; UI-открытие на Mac ещё предстоит.
