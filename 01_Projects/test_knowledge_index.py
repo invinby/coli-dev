@@ -336,7 +336,7 @@ def test_priority_curriculum_roadmaps_are_retrievable(
 
 @pytest.mark.parametrize(("query", "expected_path"), [
     (
-        "taxi starting charge kilometres slope domain range exactly one output",
+        "linear function model taxi starting charge slope kilometres fare traffic waiting",
         "Mathematics/lessons/functions_as_models.md",
     ),
     (
@@ -376,6 +376,10 @@ def test_priority_curriculum_roadmaps_are_retrievable(
         "Zoology/lessons/adaptation_and_behavior.md",
     ),
     (
+        "single circuit fish gills amphibian pulmocutaneous gas exchange closed open circulation four chamber crocodilians",
+        "Zoology/lessons/comparative_gas_exchange_and_circulation.md",
+    ),
+    (
         "count_even number modulo two return count list empty list",
         "Programming/lessons/conditions_loops_functions.md",
     ),
@@ -390,7 +394,9 @@ def test_bilingual_lesson_modules_are_retrievable(
 
     assert results
     assert results[0]["path"] == f"02_Areas/{expected_path}"
-    assert results[0]["source_checked_at"] == "2026-10-05"
+    lesson = project / "02_Areas" / expected_path
+    expected_source_checked = _source_checked_date(lesson.read_text(encoding="utf-8"))
+    assert results[0]["source_checked_at"] == expected_source_checked
     assert "source_checked" not in results[0]["excerpt"]
 
 

@@ -18,9 +18,16 @@
 |---|---|
 | Беспозвоночные: разнообразие и функциональная морфология / Invertebrates: diversity and functional morphology | Сравнивать крупные группы беспозвоночных по строению, жизненному циклу и экологии. / Compare invertebrate groups by anatomy and ecology. |
 | Позвоночные и сравнительная анатомия / Vertebrates and comparative anatomy | Сопоставлять основные системы позвоночных, отмечая общие признаки и специализации. / Compare vertebrate systems and specializations. |
+| Газообмен и кровообращение животных / Gas exchange and animal circulation | Сопоставлять диффузию, открытые и закрытые системы и контуры кровообращения позвоночных, не превращая общие схемы в универсальное правило. / Compare diffusion, open and closed systems, and vertebrate circuits without treating broad patterns as universal. |
 | Этология и когнитивное поведение / Ethology and cognition | Формулировать несколько объяснений поведения и проверять их через наблюдение и эксперимент. / Generate and test behavioral hypotheses. |
 | Популяции, сообщества и биогеография / Populations, communities, biogeography | Связывать ареалы, численность, взаимодействия видов и факторы среды. / Relate range, abundance, interactions, and environment. |
 | Жизненные циклы, паразиты и симбиоз / Life cycles, parasites, symbiosis | Строить схемы жизненного цикла и анализировать отношения хозяина и организма-партнёра. / Diagram life cycles and host interactions. |
+
+### Подробные уроки / Detailed lessons
+
+| Тема / Topic | Урок / Lesson |
+|---|---|
+| Газообмен и кровообращение животных / Gas exchange and animal circulation | lesson:comparative_gas_exchange_and_circulation |
 
 ## Продвинутый уровень / Advanced
 
