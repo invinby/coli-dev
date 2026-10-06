@@ -803,6 +803,8 @@ private struct PracticeLab: View {
             PunnettLab()
         } else if subject == .biology, moduleResource == "dna_genes_and_traits" {
             GeneRegulationLab()
+        } else if subject == .biology, moduleResource == "photosynthesis_energy_and_carbon" {
+            PhotosynthesisLab()
         } else if subject == .physics, moduleResource == "work_and_kinetic_energy" {
             KineticEnergyLab()
         } else if subject == .programming, moduleResource == "collections_and_loops" {
@@ -1165,6 +1167,98 @@ private struct OsmosisLab: View {
                     .foregroundStyle(.secondary)
             }
             Slider(value: value, in: 0...10, step: 1)
+        }
+    }
+}
+
+private struct PhotosynthesisLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var light = 70.0
+    @State private var carbonDioxide = 45.0
+
+    private var rate: Double { min(light, carbonDioxide) }
+    private var limitingFactorKey: String {
+        if light == carbonDioxide { return "lab.photosynthesisBalanced" }
+        return light < carbonDioxide ? "lab.photosynthesisLightLimits" : "lab.photosynthesisCO2Limits"
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.photosynthesisHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            HStack(alignment: .center, spacing: 10) {
+                stageCard(
+                    symbol: "sun.max.fill",
+                    color: .orange,
+                    title: L10n.text("lab.photosynthesisLightStage", store.language),
+                    detail: L10n.text("lab.photosynthesisEnergyProducts", store.language)
+                )
+                Image(systemName: "arrow.right")
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+                stageCard(
+                    symbol: "leaf.fill",
+                    color: .green,
+                    title: L10n.text("lab.photosynthesisCarbonStage", store.language),
+                    detail: L10n.text("lab.photosynthesisCarbonProduct", store.language)
+                )
+            }
+
+            factorSlider(title: L10n.text("lab.photosynthesisLight", store.language), value: $light)
+            factorSlider(title: L10n.text("lab.photosynthesisCO2", store.language), value: $carbonDioxide)
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(L10n.text("lab.photosynthesisRelativeRate", store.language))
+                    Spacer()
+                    Text("\(Int(rate))%")
+                        .monospacedDigit()
+                        .fontWeight(.semibold)
+                }
+                ProgressView(value: rate, total: 100)
+                    .tint(.green)
+                Label(L10n.text(limitingFactorKey, store.language), systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(.orange)
+            }
+            .padding(12)
+            .background(Color.green.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+        }
+    }
+
+    private func stageCard(symbol: String, color: Color, title: String, detail: String) -> some View {
+        VStack(spacing: 7) {
+            Image(systemName: symbol)
+                .font(.title2)
+                .foregroundStyle(color)
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .multilineTextAlignment(.center)
+            Text(detail)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, minHeight: 94)
+        .padding(9)
+        .background(color.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .combine)
+    }
+
+    private func factorSlider(title: String, value: Binding<Double>) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(title)
+                Spacer()
+                Text("\(Int(value.wrappedValue))%")
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+            Slider(value: value, in: 0...100, step: 5)
+                .accessibilityLabel(Text(title))
         }
     }
 }

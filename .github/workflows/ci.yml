@@ -101,6 +101,7 @@ jobs:
           Physics:motion_with_constant_acceleration
           Physics:work_and_kinetic_energy
           Biology:passive_transport_osmosis
+          Biology:photosynthesis_energy_and_carbon
           Biology:mendelian_inheritance
           Biology:dna_genes_and_traits
           Zoology:adaptation_and_behavior

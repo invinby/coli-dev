@@ -478,6 +478,23 @@ def test_bundled_biology_lesson_links_official_genetics_basics(tmp_path: Path) -
     } in lesson["official_references"]
 
 
+def test_bundled_photosynthesis_lesson_links_openstax_primary_material(tmp_path: Path) -> None:
+    project = Path(__file__).resolve().parent.parent
+    index = KnowledgeIndex(project, tmp_path / "knowledge.sqlite3")
+
+    results = index.refresh_and_search("photosynthesis light reactions ATP NADPH Calvin cycle carbon dioxide G3P")
+
+    lesson = next(
+        source for source in results
+        if source["path"] == "02_Areas/Biology/lessons/photosynthesis_energy_and_carbon.md"
+    )
+    assert lesson["source_checked_at"] == "2026-10-06"
+    reference_urls = {reference["url"] for reference in lesson["official_references"]}
+    assert "https://openstax.org/books/biology-2e/pages/8-1-overview-of-photosynthesis" in reference_urls
+    assert "https://openstax.org/books/biology-2e/pages/8-2-the-light-dependent-reactions-of-photosynthesis" in reference_urls
+    assert "https://openstax.org/books/biology-2e/pages/8-3-using-light-energy-to-make-organic-molecules" in reference_urls
+
+
 def test_curriculum_lesson_links_resolve_to_bilingual_module_files() -> None:
     project = Path(__file__).resolve().parent.parent
     areas = project / "02_Areas"
