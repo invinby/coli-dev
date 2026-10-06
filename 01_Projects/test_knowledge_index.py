@@ -505,6 +505,25 @@ def test_bundled_photosynthesis_lesson_links_openstax_primary_material(tmp_path:
     assert "https://openstax.org/books/biology-2e/pages/8-3-using-light-energy-to-make-organic-molecules" in reference_urls
 
 
+def test_bundled_cell_lesson_links_primary_eukaryotic_and_membrane_references(tmp_path: Path) -> None:
+    project = Path(__file__).resolve().parent.parent
+    index = KnowledgeIndex(project, tmp_path / "knowledge.sqlite3")
+
+    results = index.refresh_and_search(
+        "eukaryotic cell nucleus rough ER Golgi vesicle organelle plasma membrane"
+    )
+
+    lesson = next(
+        source for source in results
+        if source["path"] == "02_Areas/Biology/lessons/eukaryotic_cell_organelles.md"
+    )
+    assert lesson["source_checked_at"] == "2026-10-06"
+    reference_urls = {reference["url"] for reference in lesson["official_references"]}
+    assert "https://openstax.org/books/biology-2e/pages/4-3-eukaryotic-cells" in reference_urls
+    assert "https://openstax.org/books/biology-2e/pages/4-4-the-endomembrane-system-and-proteins" in reference_urls
+    assert "https://openstax.org/books/biology-2e/pages/5-1-components-and-structure" in reference_urls
+
+
 def test_bundled_zoology_lesson_links_official_animal_symmetry_material(tmp_path: Path) -> None:
     project = Path(__file__).resolve().parent.parent
     index = KnowledgeIndex(project, tmp_path / "knowledge.sqlite3")

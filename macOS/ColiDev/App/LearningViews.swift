@@ -867,6 +867,8 @@ private struct PracticeLab: View {
             GeneRegulationLab()
         } else if subject == .biology, moduleResource == "photosynthesis_energy_and_carbon" {
             PhotosynthesisLab()
+        } else if subject == .biology, moduleResource == "eukaryotic_cell_organelles" {
+            EukaryoticCellLab()
         } else if subject == .physics, moduleResource == "work_and_kinetic_energy" {
             KineticEnergyLab()
         } else if subject == .programming, moduleResource == "collections_and_loops" {
@@ -2401,6 +2403,214 @@ private struct CellLab: View {
                 Spacer(minLength: 0)
             }
         }
+    }
+}
+
+private struct EukaryoticCellLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var selectedPart = "nucleus"
+
+    private let parts = ["membrane", "nucleus", "rough_er", "golgi", "mitochondria", "ribosomes", "lysosome"]
+
+    var body: some View {
+        LabCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Label(
+                        L10n.text("lab.cell3d.title", store.language),
+                        systemImage: "cube.transparent"
+                    )
+                    .font(.headline)
+                    Spacer()
+                    Text(L10n.text("lab.cell3d.rotateHint", store.language))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                EukaryoticCellScene(selectedPart: selectedPart)
+                    .frame(height: 260)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .accessibilityLabel(Text(L10n.text("lab.cell3d.accessibility", store.language)))
+
+                Picker(L10n.text("lab.cellPart", store.language), selection: $selectedPart) {
+                    ForEach(parts, id: \.self) { part in
+                        Text(L10n.text("biology.cell3d.\(part)", store.language)).tag(part)
+                    }
+                }
+                .pickerStyle(.menu)
+
+                Text(L10n.text("biology.cell3d.\(selectedPart).function", store.language))
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 10))
+
+                Text(L10n.text("lab.cell3d.scaleNote", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+private struct EukaryoticCellScene: NSViewRepresentable {
+    let selectedPart: String
+
+    func makeNSView(context: Context) -> SCNView {
+        let view = SCNView()
+        view.scene = Self.makeScene()
+        view.allowsCameraControl = true
+        view.autoenablesDefaultLighting = true
+        view.backgroundColor = .controlBackgroundColor
+        view.antialiasingMode = .multisampling4X
+        Self.highlight(selectedPart, in: view.scene)
+        return view
+    }
+
+    func updateNSView(_ view: SCNView, context: Context) {
+        Self.highlight(selectedPart, in: view.scene)
+    }
+
+    private static func makeScene() -> SCNScene {
+        let scene = SCNScene()
+        scene.background.contents = NSColor.controlBackgroundColor
+
+        let membrane = SCNNode(geometry: SCNSphere(radius: 1.42))
+        membrane.name = "organelle-membrane"
+        membrane.geometry?.firstMaterial = material(.systemTeal, roughness: 0.35, transparency: 0.14)
+        membrane.geometry?.firstMaterial?.isDoubleSided = true
+        membrane.geometry?.firstMaterial?.fillMode = .lines
+        scene.rootNode.addChildNode(membrane)
+
+        let nucleus = SCNNode(geometry: SCNSphere(radius: 0.52))
+        nucleus.name = "organelle-nucleus"
+        nucleus.position = SCNVector3(-0.25, 0.08, 0.05)
+        nucleus.geometry?.firstMaterial = material(.systemPurple)
+        scene.rootNode.addChildNode(nucleus)
+
+        let nucleolus = SCNNode(geometry: SCNSphere(radius: 0.15))
+        nucleolus.position = SCNVector3(0.14, 0.02, 0.38)
+        nucleolus.geometry?.firstMaterial = material(.systemPink)
+        nucleus.addChildNode(nucleolus)
+
+        let roughER = SCNNode()
+        roughER.name = "organelle-rough_er"
+        let roughERFolds: [(Float, Float, Float)] = [
+            (-0.50, 0.48, -0.06), (-0.56, 0.19, 0.01), (-0.52, -0.13, -0.08), (-0.37, -0.40, -0.02),
+        ]
+        for (index, offset) in roughERFolds.enumerated() {
+            let fold = SCNNode(geometry: SCNTorus(ringRadius: 0.39 - CGFloat(index) * 0.025, pipeRadius: 0.035))
+            fold.position = SCNVector3(offset.0, offset.1, offset.2)
+            fold.geometry?.firstMaterial = material(.systemOrange)
+            roughER.addChildNode(fold)
+        }
+        scene.rootNode.addChildNode(roughER)
+
+        let golgi = SCNNode()
+        golgi.name = "organelle-golgi"
+        for index in 0..<4 {
+            let cisterna = SCNNode(geometry: SCNCapsule(capRadius: 0.07, height: 0.72))
+            cisterna.eulerAngles.z = .pi / 2
+            cisterna.position = SCNVector3(0.56 + Float(index) * 0.045, -0.52 + Float(index) * 0.13, -0.18)
+            cisterna.geometry?.firstMaterial = material(.systemPink)
+            golgi.addChildNode(cisterna)
+        }
+        scene.rootNode.addChildNode(golgi)
+
+        let mitochondria = SCNNode()
+        mitochondria.name = "organelle-mitochondria"
+        let mitochondrialPositions: [((Float, Float, Float), Float)] = [
+            ((0.56, 0.47, 0.0), -0.55), ((-0.82, -0.50, 0.18), 0.65),
+        ]
+        for (position, angle) in mitochondrialPositions {
+            let body = SCNNode(geometry: SCNCapsule(capRadius: 0.15, height: 0.54))
+            body.eulerAngles.z = angle
+            body.position = SCNVector3(position.0, position.1, position.2)
+            body.geometry?.firstMaterial = material(.systemRed)
+            mitochondria.addChildNode(body)
+            for foldIndex in 0..<3 {
+                let crista = SCNNode(geometry: SCNCylinder(radius: 0.018, height: 0.19))
+                crista.eulerAngles.z = .pi / 2
+                crista.position = SCNVector3(position.0, position.1 + Float(foldIndex - 1) * 0.07, position.2 + 0.12)
+                crista.geometry?.firstMaterial = material(.systemYellow)
+                mitochondria.addChildNode(crista)
+            }
+        }
+        scene.rootNode.addChildNode(mitochondria)
+
+        let ribosomes = SCNNode()
+        ribosomes.name = "organelle-ribosomes"
+        let ribosomePositions: [(Float, Float, Float)] = [
+            (-0.90, 0.35, 0.24), (-0.76, 0.72, -0.12), (-0.42, 0.86, 0.1),
+            (-0.05, 0.90, -0.18), (0.28, 0.82, 0.26), (0.78, 0.65, -0.08),
+            (0.93, 0.22, 0.12), (0.90, -0.20, -0.15), (0.62, -0.84, 0.09),
+            (0.22, -0.91, -0.22), (-0.21, -0.89, 0.20), (-0.67, -0.74, -0.11),
+            (-0.97, -0.17, -0.12), (0.38, 0.21, 0.66), (-0.64, 0.05, 0.68),
+            (0.08, -0.57, 0.69),
+        ]
+        for position in ribosomePositions {
+            let dot = SCNNode(geometry: SCNSphere(radius: 0.045))
+            dot.position = SCNVector3(position.0, position.1, position.2)
+            dot.geometry?.firstMaterial = material(.systemBlue)
+            ribosomes.addChildNode(dot)
+        }
+        scene.rootNode.addChildNode(ribosomes)
+
+        let lysosome = SCNNode()
+        lysosome.name = "organelle-lysosome"
+        let lysosomePositions: [(Float, Float, Float)] = [
+            (-0.82, 0.08, -0.42), (0.78, -0.08, 0.44), (0.18, -0.74, -0.48),
+        ]
+        for position in lysosomePositions {
+            let vesicle = SCNNode(geometry: SCNSphere(radius: 0.13))
+            vesicle.position = SCNVector3(position.0, position.1, position.2)
+            vesicle.geometry?.firstMaterial = material(.systemGreen)
+            lysosome.addChildNode(vesicle)
+        }
+        scene.rootNode.addChildNode(lysosome)
+
+        let camera = SCNCamera()
+        camera.usesOrthographicProjection = true
+        camera.orthographicScale = 3.8
+        let cameraNode = SCNNode()
+        cameraNode.camera = camera
+        cameraNode.position = SCNVector3(0, 0, 5.2)
+        cameraNode.look(at: SCNVector3(0, 0, 0))
+        scene.rootNode.addChildNode(cameraNode)
+
+        let light = SCNLight()
+        light.type = .omni
+        light.intensity = 850
+        let lightNode = SCNNode()
+        lightNode.light = light
+        lightNode.position = SCNVector3(-2.5, 3.5, 5)
+        scene.rootNode.addChildNode(lightNode)
+        return scene
+    }
+
+    private static func highlight(_ selectedPart: String, in scene: SCNScene?) {
+        guard let scene else { return }
+        for part in ["membrane", "nucleus", "rough_er", "golgi", "mitochondria", "ribosomes", "lysosome"] {
+            guard let node = scene.rootNode.childNode(withName: "organelle-\(part)", recursively: false) else { continue }
+            node.enumerateChildNodes { child, _ in setEmission(on: child, selected: false) }
+            setEmission(on: node, selected: part == selectedPart)
+        }
+    }
+
+    private static func setEmission(on node: SCNNode, selected: Bool) {
+        guard let materials = node.geometry?.materials else { return }
+        for material in materials {
+            material.emission.contents = selected ? NSColor.systemYellow : NSColor.black
+        }
+    }
+
+    private static func material(_ color: NSColor, roughness: CGFloat = 0.62, transparency: CGFloat = 1) -> SCNMaterial {
+        let result = SCNMaterial()
+        result.diffuse.contents = color
+        result.roughness.contents = roughness
+        result.transparency = transparency
+        return result
     }
 }
 
