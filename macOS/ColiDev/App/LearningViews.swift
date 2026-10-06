@@ -1051,6 +1051,8 @@ private struct PracticeLab: View {
     var body: some View {
         if subject == .mathematics, moduleResource == "solving_linear_equations" {
             LinearEquationLab()
+        } else if subject == .mathematics, moduleResource == "rational_expressions_and_restrictions" {
+            RationalExpressionLab()
         } else if subject == .mathematics, moduleResource == "geometry_area_perimeter" {
             GeometryMeasureLab()
         } else if subject == .mathematics, moduleResource == "numbers_fractions_and_percentages" {
@@ -2016,6 +2018,82 @@ private struct LinearEquationLab: View {
 
     private func localized(_ key: String, value: String) -> String {
         L10n.text(key, store.language).replacingOccurrences(of: "%@", with: value)
+    }
+}
+
+private struct RationalExpressionLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var input = 0.0
+
+    private var originalValue: Double? {
+        RationalExpressionPractice.originalValue(at: input)
+    }
+
+    private var simplifiedValue: Double {
+        RationalExpressionPractice.simplifiedValue(at: input)
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.rationalHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text("f(x) = (x² − 9) / (x − 3)")
+                .font(.title3.monospaced().weight(.semibold))
+                .accessibilityLabel(L10n.text("lab.rationalFormula", store.language))
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("−5")
+                    Spacer()
+                    Text(String(format: L10n.text("lab.rationalSelectedInput", store.language), input))
+                        .font(.caption.monospacedDigit().weight(.semibold))
+                    Spacer()
+                    Text("5")
+                }
+                Slider(value: $input, in: -5...5, step: 0.25)
+                    .accessibilityLabel(L10n.text("lab.rationalInput", store.language))
+                    .accessibilityValue(String(format: "%.2f", input))
+            }
+
+            HStack(alignment: .top, spacing: 12) {
+                valueCard(
+                    title: L10n.text("lab.rationalOriginal", store.language),
+                    value: originalValue.map { String(format: "%.2f", $0) }
+                        ?? L10n.text("lab.rationalUndefined", store.language),
+                    emphasized: originalValue == nil
+                )
+                valueCard(
+                    title: L10n.text("lab.rationalReduced", store.language),
+                    value: String(format: "%.2f", simplifiedValue),
+                    emphasized: false
+                )
+            }
+
+            Label(
+                L10n.text(originalValue == nil ? "lab.rationalExcluded" : "lab.rationalDefined", store.language),
+                systemImage: originalValue == nil ? "xmark.circle.fill" : "equal.circle.fill"
+            )
+            .foregroundStyle(originalValue == nil ? Color.orange : Color.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func valueCard(title: String, value: String, emphasized: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.title2.monospacedDigit().weight(.semibold))
+                .foregroundStyle(emphasized ? Color.orange : Color.primary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .combine)
     }
 }
 

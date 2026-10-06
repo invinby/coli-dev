@@ -123,6 +123,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-english-learning-models"
           "$RUNNER_TEMP/verify-english-learning-models"
 
+      - name: Verify rational expression domain model
+        run: |
+          swiftc macOS/ColiDev/App/RationalExpression.swift macOS/ColiDev/scripts/verify_rational_expression.swift \
+            -o "$RUNNER_TEMP/verify-rational-expression"
+          "$RUNNER_TEMP/verify-rational-expression"
+
       - name: Verify safe official citation links
         run: |
           swiftc macOS/ColiDev/App/SafeWebReferenceURL.swift macOS/ColiDev/scripts/verify_safe_web_reference_url.swift \

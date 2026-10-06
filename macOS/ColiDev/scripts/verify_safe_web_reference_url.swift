@@ -8,6 +8,8 @@ enum SafeWebReferenceURLVerification {
         for source in [
             "https://medlineplus.gov/genetics/understanding/basics/dna/",
             "https://openstax.org/books/prealgebra-2e/pages/9-4-use-properties-of-rectangles-triangles-and-trapezoids",
+            "https://openstax.org/books/college-algebra-2e/pages/1-6-rational-expressions",
+            "https://openstax.org/books/college-algebra-2e/pages/5-6-rational-functions",
             "https://www.genome.gov/genetics-glossary/genotype",
             "https://csrc.nist.gov/glossary/term/algorithm",
             "https://www.nist.gov/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b9",
