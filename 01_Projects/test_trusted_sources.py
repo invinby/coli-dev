@@ -321,6 +321,18 @@ def test_british_council_daily_routine_is_monitored_metadata_only(tmp_path: Path
     assert all(item["rag_content_state"] == "metadata_only" for item in monitor.inventory()["sources"])
 
 
+def test_british_council_reading_pages_are_monitored_metadata_only(tmp_path: Path) -> None:
+    urls = [
+        "https://learnenglish.britishcouncil.org/free-resources/reading/a1",
+        "https://learnenglish.britishcouncil.org/level/improve-your-english-level/how-start-reading-english",
+    ]
+    _write_lesson(tmp_path, "\n".join(f"[Reading source]({url})" for url in urls))
+    monitor = _monitor(tmp_path, tmp_path)
+
+    assert {item["url"] for item in monitor.inventory()["sources"]} == set(urls)
+    assert all(item["rag_content_state"] == "metadata_only" for item in monitor.inventory()["sources"])
+
+
 def test_nist_si_appendix_b9_is_cached_with_public_information_attribution(tmp_path: Path) -> None:
     url = (
         "https://www.nist.gov/pml/special-publication-811/"

@@ -25,6 +25,23 @@ enum EnglishLearningModelsVerification {
             !EnglishConditionalPractice.isCorrect(.zero, for: "missing-scenario"),
             "unknown scenario IDs should fail closed"
         )
-        print("English conditional model checks passed.")
+
+        let readingQuestions = EnglishReadingPractice.questions
+        precondition(readingQuestions.count == 3, "reading practice should cover its three reading strategies")
+        precondition(Set(readingQuestions.map(\.id)).count == readingQuestions.count, "reading question IDs should be unique")
+        for question in readingQuestions {
+            precondition(
+                EnglishReadingPractice.isCorrect(question.correctOption, for: question.id),
+                "the reference option should pass for \(question.id)"
+            )
+            for alternative in 0..<3 where alternative != question.correctOption {
+                precondition(
+                    !EnglishReadingPractice.isCorrect(alternative, for: question.id),
+                    "an alternative answer should not pass for \(question.id)"
+                )
+            }
+        }
+        precondition(!EnglishReadingPractice.isCorrect(0, for: "missing-question"), "unknown question IDs should fail closed")
+        print("English conditional and reading practice model checks passed.")
     }
 }

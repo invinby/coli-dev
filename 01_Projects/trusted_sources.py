@@ -67,8 +67,9 @@ _ALLOWED_PATHS = {
     "csrc.nist.gov": re.compile(r"^/glossary/term/algorithm$"),
     "docs.python.org": re.compile(r"^(?:/3/tutorial/[A-Za-z0-9_.-]+\.html|/3/reference/simple_stmts\.html)$"),
     "learnenglish.britishcouncil.org": re.compile(
-        r"^/free-resources/(?:grammar/(?:english-grammar-reference|b1-b2)/[A-Za-z0-9-]+|"
-        r"vocabulary/a1-a2(?:/daily-routine-vocabulary-a1-beginner-english-vocabulary-lesson)?)/?$"
+        r"^/(?:free-resources/(?:grammar/(?:english-grammar-reference|b1-b2)/[A-Za-z0-9-]+|"
+        r"vocabulary/a1-a2(?:/daily-routine-vocabulary-a1-beginner-english-vocabulary-lesson)?|reading/a1)|"
+        r"level/improve-your-english-level/how-start-reading-english)/?$"
     ),
     "medlineplus.gov": re.compile(r"^/genetics/understanding/basics/(?:dna|gene)/?$"),
     "www.nist.gov": re.compile(
