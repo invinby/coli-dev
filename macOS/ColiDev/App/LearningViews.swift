@@ -1077,6 +1077,8 @@ private struct PracticeLab: View {
             BiologyInvestigationLab()
         } else if subject == .biology, moduleResource == "eukaryotic_cell_organelles" {
             EukaryoticCellLab()
+        } else if subject == .biology, moduleResource == "biomolecules_and_building_blocks" {
+            BiomoleculeLab()
         } else if subject == .physics, moduleResource == "work_and_kinetic_energy" {
             KineticEnergyLab()
         } else if subject == .physics, moduleResource == "impulse_and_momentum" {
@@ -3823,6 +3825,138 @@ private struct CellLab: View {
                         .font(.callout)
                 }
                 Spacer(minLength: 0)
+            }
+        }
+    }
+}
+
+private struct BiomoleculeLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var selectedExample = "enzyme"
+    @State private var selectedGroup = "protein"
+    @State private var checked = false
+    @State private var reactionJoins = true
+
+    private let examples = ["enzyme", "starch", "dna", "triglyceride"]
+    private let groups = ["carbohydrate", "lipid", "protein", "nucleic_acid"]
+
+    private var correctGroup: String {
+        switch selectedExample {
+        case "enzyme": "protein"
+        case "starch": "carbohydrate"
+        case "dna": "nucleic_acid"
+        default: "lipid"
+        }
+    }
+
+    private var exampleInfoKey: String {
+        switch selectedExample {
+        case "enzyme": "biology.moleculeLab.info.enzyme"
+        case "starch": "biology.moleculeLab.info.starch"
+        case "dna": "biology.moleculeLab.info.dna"
+        default: "biology.moleculeLab.info.triglyceride"
+        }
+    }
+
+    var body: some View {
+        LabCard {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 12) {
+                    Image(systemName: "circle.hexagongrid.fill")
+                        .font(.system(size: 28, weight: .medium))
+                        .foregroundStyle(.teal)
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(L10n.text("biology.moleculeLab.title", store.language))
+                            .font(.headline)
+                        Text(L10n.text("biology.moleculeLab.subtitle", store.language))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Picker(L10n.text("biology.moleculeLab.example", store.language), selection: $selectedExample) {
+                    ForEach(examples, id: \.self) { example in
+                        Text(L10n.text("biology.moleculeLab.\(example)", store.language)).tag(example)
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: selectedExample) { example in
+                    switch example {
+                    case "enzyme": selectedGroup = "protein"
+                    case "starch": selectedGroup = "carbohydrate"
+                    case "dna": selectedGroup = "nucleic_acid"
+                    default: selectedGroup = "lipid"
+                    }
+                    checked = false
+                }
+
+                Picker(L10n.text("biology.moleculeLab.chooseGroup", store.language), selection: $selectedGroup) {
+                    ForEach(groups, id: \.self) { group in
+                        Text(L10n.text("biology.moleculeLab.group.\(group)", store.language)).tag(group)
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: selectedGroup) { _ in checked = false }
+
+                Button {
+                    checked = true
+                } label: {
+                    Label(L10n.text("biology.moleculeLab.check", store.language), systemImage: "checkmark.circle")
+                }
+                .buttonStyle(.borderedProminent)
+
+                if checked {
+                    Label(
+                        L10n.text(selectedGroup == correctGroup ? "biology.moleculeLab.correct" : "biology.moleculeLab.tryAgain", store.language),
+                        systemImage: selectedGroup == correctGroup ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
+                    )
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(selectedGroup == correctGroup ? .green : .orange)
+                }
+
+                Text(L10n.text(exampleInfoKey, store.language))
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 9))
+
+                Divider()
+
+                HStack {
+                    Text(L10n.text("biology.moleculeLab.reaction", store.language))
+                        .font(.subheadline.weight(.semibold))
+                    Spacer()
+                    Picker("", selection: $reactionJoins) {
+                        Text(L10n.text("biology.moleculeLab.join", store.language)).tag(true)
+                        Text(L10n.text("biology.moleculeLab.split", store.language)).tag(false)
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 220)
+                }
+
+                HStack(spacing: 10) {
+                    Text(L10n.text(reactionJoins ? "biology.moleculeLab.components" : "biology.moleculeLab.polymer", store.language))
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(.background, in: RoundedRectangle(cornerRadius: 9))
+                    Image(systemName: "arrow.right")
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                    Text(L10n.text(reactionJoins ? "biology.moleculeLab.polymer" : "biology.moleculeLab.components", store.language))
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(.background, in: RoundedRectangle(cornerRadius: 9))
+                    Text(L10n.text(reactionJoins ? "biology.moleculeLab.waterOut" : "biology.moleculeLab.waterIn", store.language))
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.teal)
+                }
+                .font(.caption)
+
+                Text(L10n.text("biology.moleculeLab.caveat", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }

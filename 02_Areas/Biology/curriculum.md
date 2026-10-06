@@ -7,7 +7,7 @@
 | Модуль / Module | Результат обучения / Learning outcome | Урок / Lesson |
 |---|---|---|
 | Научный метод, наблюдение и эксперимент / Scientific method and experiments | Формулировать проверяемый вопрос, различать наблюдение, гипотезу и вывод. / Frame testable questions and distinguish evidence from inference. | lesson:scientific_method_and_experiments |
-| Химия жизни и биомолекулы / Chemistry of life and biomolecules | Объяснять роль воды, углеводов, липидов, белков и нуклеиновых кислот на базовом уровне. / Describe major biomolecules and their roles. |
+| Химия жизни и биомолекулы / Chemistry of life and biomolecules | Сравнивать основные группы биомолекул и связывать компоненты с функциями и ограничениями обобщений. / Compare major biomolecule groups and connect components to roles and the limits of broad categories. | lesson:biomolecules_and_building_blocks |
 | Клетка, мембраны и обмен веществ / Cells, membranes, metabolism | Сравнивать клеточные структуры и описывать перенос веществ и преобразование энергии. / Compare cell structures, transport, and energy conversion. | lesson:eukaryotic_cell_organelles |
 | Осмос и избирательная проницаемость / Osmosis and selective permeability | Предсказывать направление движения воды по градиенту концентрации и указывать границы упрощённой модели. / Predict water movement along a concentration gradient and state the limits of a simplified model. | lesson:passive_transport_osmosis |
 | Фотосинтез и преобразование энергии / Photosynthesis and energy conversion | Связывать светозависимые реакции, цикл Кальвина и факторы, ограничивающие скорость. / Connect light-dependent reactions, the Calvin cycle, and limiting factors. | lesson:photosynthesis_energy_and_carbon |
