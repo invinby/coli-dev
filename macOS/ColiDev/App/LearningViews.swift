@@ -822,7 +822,11 @@ private struct PracticeLab: View {
         case .biology:
             CellLab()
         case .zoology:
-            AdaptationLab()
+            if moduleResource == "symmetry_and_body_plans" {
+                SymmetryLab()
+            } else {
+                AdaptationLab()
+            }
         case .programming:
             ConditionalLab()
             }
@@ -1259,6 +1263,88 @@ private struct PhotosynthesisLab: View {
             }
             Slider(value: value, in: 0...100, step: 5)
                 .accessibilityLabel(Text(title))
+        }
+    }
+}
+
+private struct SymmetryLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var bodyPlan = 1
+    @State private var cutAngle = 0.0
+
+    private var interpretationKey: String {
+        if bodyPlan == 0 { return "lab.symmetryAsymmetrical" }
+        if bodyPlan == 2 { return "lab.symmetryRadial" }
+        return cutAngle < 5 ? "lab.symmetryBilateralMatch" : "lab.symmetryBilateralNoMatch"
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.symmetryHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            Picker(L10n.text("lab.symmetryPlan", store.language), selection: $bodyPlan) {
+                Text(L10n.text("lab.symmetryOptionAsym", store.language)).tag(0)
+                Text(L10n.text("lab.symmetryOptionBilateral", store.language)).tag(1)
+                Text(L10n.text("lab.symmetryOptionRadial", store.language)).tag(2)
+            }
+            .pickerStyle(.segmented)
+
+            Canvas { context, size in
+                let center = CGPoint(x: size.width / 2, y: size.height / 2)
+                let radius = min(size.width * 0.22, size.height * 0.36)
+                var body = Path()
+                if bodyPlan == 0 {
+                    body.move(to: CGPoint(x: center.x - radius * 0.8, y: center.y - radius * 0.45))
+                    body.addCurve(to: CGPoint(x: center.x + radius * 0.75, y: center.y - radius * 0.3),
+                                  control1: CGPoint(x: center.x - radius * 0.15, y: center.y - radius * 1.05),
+                                  control2: CGPoint(x: center.x + radius * 1.15, y: center.y - radius * 0.85))
+                    body.addCurve(to: CGPoint(x: center.x + radius * 0.35, y: center.y + radius * 0.75),
+                                  control1: CGPoint(x: center.x + radius * 1.0, y: center.y + radius * 0.15),
+                                  control2: CGPoint(x: center.x + radius * 0.75, y: center.y + radius * 0.95))
+                    body.addCurve(to: CGPoint(x: center.x - radius * 0.8, y: center.y - radius * 0.45),
+                                  control1: CGPoint(x: center.x - radius * 0.25, y: center.y + radius * 0.95),
+                                  control2: CGPoint(x: center.x - radius * 1.2, y: center.y + radius * 0.25))
+                    body.closeSubpath()
+                } else {
+                    body.addEllipse(in: CGRect(x: center.x - radius * 0.62,
+                                               y: center.y - radius,
+                                               width: radius * 1.24,
+                                               height: radius * 2))
+                }
+                context.fill(body, with: .color(bodyPlan == 0 ? .teal.opacity(0.5) : .green.opacity(0.28)))
+                context.stroke(body, with: .color(bodyPlan == 0 ? .teal : .green), lineWidth: 2)
+
+                var planes = Path()
+                let angles = bodyPlan == 2
+                    ? stride(from: 0.0, to: 180.0, by: 45.0).map { $0 + cutAngle }
+                    : [cutAngle]
+                for angle in angles {
+                    let radians = angle * .pi / 180
+                    let dx = cos(radians) * radius * 1.25
+                    let dy = sin(radians) * radius * 1.25
+                    planes.move(to: CGPoint(x: center.x - dx, y: center.y - dy))
+                    planes.addLine(to: CGPoint(x: center.x + dx, y: center.y + dy))
+                }
+                context.stroke(planes, with: .color(.orange), style: StrokeStyle(lineWidth: 2, dash: [5, 4]))
+            }
+            .frame(height: 180)
+            .accessibilityLabel(Text(L10n.text(interpretationKey, store.language)))
+
+            if bodyPlan == 1 {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(L10n.text("lab.symmetryRotatePlane", store.language))
+                    Slider(value: $cutAngle, in: 0...90, step: 5)
+                        .accessibilityLabel(Text(L10n.text("lab.symmetryRotatePlane", store.language)))
+                }
+            }
+
+            Label(L10n.text(interpretationKey, store.language), systemImage: "view.2d")
+                .font(.callout.weight(.medium))
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
         }
     }
 }

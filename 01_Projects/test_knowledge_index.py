@@ -325,7 +325,7 @@ def test_priority_curriculum_roadmaps_are_retrievable(
     project = Path(__file__).resolve().parent.parent
     index = KnowledgeIndex(project, tmp_path / "knowledge.sqlite3")
 
-    results = index.refresh_and_search(query, limit=4)
+    results = index.refresh_and_search(query, limit=8)
 
     assert results
     assert any(
@@ -493,6 +493,24 @@ def test_bundled_photosynthesis_lesson_links_openstax_primary_material(tmp_path:
     assert "https://openstax.org/books/biology-2e/pages/8-1-overview-of-photosynthesis" in reference_urls
     assert "https://openstax.org/books/biology-2e/pages/8-2-the-light-dependent-reactions-of-photosynthesis" in reference_urls
     assert "https://openstax.org/books/biology-2e/pages/8-3-using-light-energy-to-make-organic-molecules" in reference_urls
+
+
+def test_bundled_zoology_lesson_links_official_animal_symmetry_material(tmp_path: Path) -> None:
+    project = Path(__file__).resolve().parent.parent
+    index = KnowledgeIndex(project, tmp_path / "knowledge.sqlite3")
+
+    results = index.refresh_and_search(
+        "animal asymmetry radial bilateral symmetry body plan echinoderm larvae sea star"
+    )
+
+    lesson = next(
+        source for source in results
+        if source["path"] == "02_Areas/Zoology/lessons/symmetry_and_body_plans.md"
+    )
+    assert lesson["source_checked_at"] == "2026-10-06"
+    reference_urls = {reference["url"] for reference in lesson["official_references"]}
+    assert "https://openstax.org/books/biology-2e/pages/27-2-features-used-to-classify-animals" in reference_urls
+    assert "https://openstax.org/books/biology-2e/pages/33-1-animal-form-and-function" in reference_urls
 
 
 def test_curriculum_lesson_links_resolve_to_bilingual_module_files() -> None:

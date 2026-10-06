@@ -105,6 +105,7 @@ jobs:
           Biology:mendelian_inheritance
           Biology:dna_genes_and_traits
           Zoology:adaptation_and_behavior
+          Zoology:symmetry_and_body_plans
           Programming:conditions_loops_functions
           Programming:collections_and_loops
           Programming:variables_and_types
