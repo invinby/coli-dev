@@ -1079,6 +1079,8 @@ private struct PracticeLab: View {
             EukaryoticCellLab()
         } else if subject == .biology, moduleResource == "biomolecules_and_building_blocks" {
             BiomoleculeLab()
+        } else if subject == .biology, moduleResource == "natural_selection_and_population_change" {
+            NaturalSelectionLab()
         } else if subject == .physics, moduleResource == "work_and_kinetic_energy" {
             KineticEnergyLab()
         } else if subject == .physics, moduleResource == "impulse_and_momentum" {
@@ -3959,6 +3961,113 @@ private struct BiomoleculeLab: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+}
+
+private struct NaturalSelectionLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var environmentOptimum = 75.0
+    @State private var selectionStrength = 0.45
+    @State private var heritability = 0.8
+    @State private var traitMean = 35.0
+    @State private var traitSpread = 20.0
+    @State private var generation = 0
+
+    var body: some View {
+        LabCard {
+            VStack(alignment: .leading, spacing: 12) {
+                Label(L10n.text("biology.selectionLab.title", store.language), systemImage: "chart.xyaxis.line")
+                    .font(.headline)
+
+                Canvas { context, size in
+                    var curve = Path()
+                    for step in 0...100 {
+                        let trait = Double(step)
+                        let distance = (trait - traitMean) / max(traitSpread, 1)
+                        let height = exp(-0.5 * distance * distance)
+                        let point = CGPoint(
+                            x: CGFloat(step) / 100 * size.width,
+                            y: size.height - 8 - CGFloat(height) * max(0, size.height - 18)
+                        )
+                        if step == 0 { curve.move(to: point) } else { curve.addLine(to: point) }
+                    }
+                    context.stroke(curve, with: .color(.teal), lineWidth: 2.5)
+
+                    for (value, color) in [(traitMean, Color.teal), (environmentOptimum, Color.orange)] {
+                        let x = CGFloat(value / 100) * size.width
+                        var marker = Path()
+                        marker.move(to: CGPoint(x: x, y: 0))
+                        marker.addLine(to: CGPoint(x: x, y: size.height))
+                        context.stroke(marker, with: .color(color.opacity(0.75)), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                    }
+                }
+                .frame(height: 116)
+                .padding(.horizontal, 4)
+                .accessibilityLabel(Text(L10n.text("biology.selectionLab.chart", store.language)))
+
+                HStack {
+                    Label(L10n.text("biology.selectionLab.mean", store.language), systemImage: "line.diagonal")
+                        .foregroundStyle(.teal)
+                    Spacer()
+                    Label(L10n.text("biology.selectionLab.environment", store.language), systemImage: "line.diagonal")
+                        .foregroundStyle(.orange)
+                }
+                .font(.caption)
+
+                Text(L10n.text("biology.selectionLab.generation", store.language) + " \(generation) · " + L10n.text("biology.selectionLab.meanValue", store.language) + " \(traitMean, specifier: "%.1f")")
+                    .font(.subheadline.monospacedDigit())
+
+                parameterSlider("biology.selectionLab.environment", value: $environmentOptimum, range: 0...100)
+                parameterSlider("biology.selectionLab.strength", value: $selectionStrength)
+                parameterSlider("biology.selectionLab.heritable", value: $heritability)
+
+                HStack {
+                    Button {
+                        let response = (environmentOptimum - traitMean) * selectionStrength * heritability
+                        traitMean = min(100, max(0, traitMean + response))
+                        traitSpread = max(6, traitSpread * (1 - selectionStrength * 0.12))
+                        generation += 1
+                    } label: {
+                        Label(L10n.text("biology.selectionLab.next", store.language), systemImage: "forward.end.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button(L10n.text("biology.selectionLab.reset", store.language), systemImage: "arrow.counterclockwise") {
+                        environmentOptimum = 75
+                        selectionStrength = 0.45
+                        heritability = 0.8
+                        traitMean = 35
+                        traitSpread = 20
+                        generation = 0
+                    }
+                    .buttonStyle(.bordered)
+                }
+
+                Text(L10n.text("biology.selectionLab.limit", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func parameterSlider(
+        _ labelKey: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double> = 0...1
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack {
+                Text(L10n.text(labelKey, store.language))
+                Spacer()
+                Text("\(value.wrappedValue, specifier: "%.2f")")
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+            Slider(value: value, in: range)
+                .accessibilityLabel(Text(L10n.text(labelKey, store.language)))
+        }
+        .font(.caption)
     }
 }
 

@@ -13,7 +13,8 @@
 | Фотосинтез и преобразование энергии / Photosynthesis and energy conversion | Связывать светозависимые реакции, цикл Кальвина и факторы, ограничивающие скорость. / Connect light-dependent reactions, the Calvin cycle, and limiting factors. | lesson:photosynthesis_energy_and_carbon |
 | ДНК и работа клетки / DNA and cell function | Связывать последовательность ДНК с геном, его возможными продуктами и регуляцией. / Relate a DNA sequence to a gene, its possible products, and regulation. | lesson:dna_genes_and_traits |
 | ДНК, наследование и вариация / DNA, inheritance, variation | Прослеживать базовую передачу признаков и отличать генотип от наблюдаемого признака. / Trace inheritance and distinguish genotype from phenotype. | lesson:mendelian_inheritance |
-| Эволюция, разнообразие и экосистемы / Evolution, diversity, ecosystems | Объяснять естественный отбор на популяционном уровне и связи организмов со средой. / Explain selection in populations and ecological relationships. |
+| Эволюция и естественный отбор / Evolution and natural selection | Объяснять, как наследуемая вариация и разный репродуктивный успех могут изменить популяцию; отличать это от намеренного изменения отдельной особи. / Explain how heritable variation and differential reproductive success can change a population; distinguish this from an individual intentionally changing. | lesson:natural_selection_and_population_change |
+| Экосистемы и взаимодействия / Ecosystems and interactions | Анализировать потоки энергии, круговорот веществ и пищевые связи с учётом границ модели. / Analyze energy flow, matter cycling, and food relationships with model limits in mind. |
 
 ## Углубление / Intermediate
 
