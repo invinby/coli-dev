@@ -104,6 +104,29 @@ def test_reference_scan_deduplicates_allowed_urls_and_ignores_untrusted_domains(
     assert omitted_count == 0
 
 
+def test_gene_expression_sources_are_exact_path_monitored_metadata_only(tmp_path: Path) -> None:
+    urls = {
+        "https://medlineplus.gov/genetics/understanding/howgeneswork/makingprotein/",
+        "https://www.genome.gov/genetics-glossary/Gene-Expression",
+        "https://www.genome.gov/genetics-glossary/Gene-Regulation",
+        "https://www.genome.gov/genetics-glossary/Promoter",
+    }
+    rejected = "https://www.genome.gov/genetics-glossary/Other-Term"
+    _write_lesson(
+        tmp_path,
+        "\n".join(f"[Official source]({url})" for url in sorted(urls | {rejected})),
+    )
+    monitor = _monitor(tmp_path, tmp_path)
+
+    references, unsupported_count, omitted_count = monitor._references()
+
+    assert {reference.url for reference in references} == urls
+    assert unsupported_count == 1
+    assert omitted_count == 0
+    assert all(monitor._rag_policy(url) is None for url in urls)
+    assert all(not monitor._has_rag_snapshot(url) for url in urls)
+
+
 def test_approved_markdown_links_preserve_titles_and_reject_unapproved_urls() -> None:
     content = (
         "- OpenStax, [Active transport](https://openstax.org/books/biology-2e/pages/5-3-active-transport#pump)\n"

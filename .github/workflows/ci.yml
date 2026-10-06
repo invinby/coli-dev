@@ -117,6 +117,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-biology-investigation"
           "$RUNNER_TEMP/verify-biology-investigation"
 
+      - name: Verify gene expression model
+        run: |
+          swiftc macOS/ColiDev/App/GeneExpression.swift macOS/ColiDev/scripts/verify_gene_expression.swift \
+            -o "$RUNNER_TEMP/verify-gene-expression"
+          "$RUNNER_TEMP/verify-gene-expression"
+
       - name: Verify English conditional practice model
         run: |
           swiftc macOS/ColiDev/App/EnglishLearningModels.swift macOS/ColiDev/scripts/verify_english_learning_models.swift \

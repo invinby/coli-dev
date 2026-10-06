@@ -1083,6 +1083,8 @@ private struct PracticeLab: View {
             PunnettLab()
         } else if subject == .biology, moduleResource == "dna_genes_and_traits" {
             GeneRegulationLab()
+        } else if subject == .biology, moduleResource == "gene_expression_and_regulation" {
+            GeneExpressionLab()
         } else if subject == .biology, moduleResource == "photosynthesis_energy_and_carbon" {
             PhotosynthesisLab()
         } else if subject == .biology, moduleResource == "scientific_method_and_experiments" {
@@ -4307,6 +4309,114 @@ private struct GeneRegulationLab: View {
         .buttonStyle(.bordered)
         .tint(selectedAnswer == answer ? Color.accentColor : nil)
         .accessibilityAddTraits(selectedAnswer == answer ? .isSelected : [])
+    }
+}
+
+private struct GeneExpressionLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var transcriptionEnabled = true
+    @State private var selectedStage = 0
+    @State private var selectedAnswer = -1
+    @State private var didCheckAnswer = false
+
+    private var snapshot: GeneExpressionSnapshot {
+        GeneExpressionPractice.snapshot(promoterIsActive: transcriptionEnabled)
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.geneExpressionHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Toggle(L10n.text("lab.geneExpressionRegulator", store.language), isOn: $transcriptionEnabled)
+                .onChange(of: transcriptionEnabled) { _ in
+                    selectedAnswer = -1
+                    didCheckAnswer = false
+                }
+
+            Picker(L10n.text("lab.geneExpressionStage", store.language), selection: $selectedStage) {
+                Text(L10n.text("lab.geneExpressionDNA", store.language)).tag(0)
+                Text(L10n.text("lab.geneExpressionRNA", store.language)).tag(1)
+                Text(L10n.text("lab.geneExpressionProtein", store.language)).tag(2)
+            }
+            .pickerStyle(.segmented)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(L10n.text(stageTitleKey, store.language))
+                    .font(.headline)
+                Text(stageValue)
+                    .font(.title3.monospaced())
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(L10n.text(stageExplanationKey, store.language))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            .accessibilityElement(children: .combine)
+
+            Text(L10n.text("lab.geneExpressionQuiz", store.language))
+                .font(.callout.weight(.medium))
+            Picker(L10n.text("lab.geneExpressionQuiz", store.language), selection: $selectedAnswer) {
+                Text(L10n.text("lab.geneExpressionOptionA", store.language)).tag(0)
+                Text(L10n.text("lab.geneExpressionOptionB", store.language)).tag(1)
+                Text(L10n.text("lab.geneExpressionOptionC", store.language)).tag(2)
+            }
+            .pickerStyle(.radioGroup)
+            .onChange(of: selectedAnswer) { _ in didCheckAnswer = false }
+
+            Button(L10n.text("lab.geneExpressionCheck", store.language)) {
+                didCheckAnswer = true
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(selectedAnswer < 0)
+
+            if didCheckAnswer {
+                let isCorrect = selectedAnswer == 1
+                Label(
+                    L10n.text(isCorrect ? "lab.geneExpressionCorrect" : "lab.geneExpressionReview", store.language),
+                    systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
+                )
+                .font(.callout.weight(.medium))
+                .foregroundStyle(isCorrect ? .green : .orange)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Text(L10n.text("lab.geneExpressionLimit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var stageTitleKey: String {
+        ["lab.geneExpressionDNA", "lab.geneExpressionRNA", "lab.geneExpressionProtein"][selectedStage]
+    }
+
+    private var stageExplanationKey: String {
+        ["lab.geneExpressionDNAExplain", "lab.geneExpressionRNAExplain", "lab.geneExpressionProteinExplain"][selectedStage]
+    }
+
+    private var stageValue: String {
+        switch selectedStage {
+        case 0:
+            return "3′ \(GeneExpressionPractice.templateStrand) 5′"
+        case 1:
+            guard let messengerRNA = snapshot.messengerRNA else {
+                return L10n.text("lab.geneExpressionNoTranscript", store.language)
+            }
+            return "5′ \(messengerRNA) 3′"
+        default:
+            guard let peptide = snapshot.peptide else {
+                return L10n.text("lab.geneExpressionNoProtein", store.language)
+            }
+            return peptide.joined(separator: " – ")
+        }
     }
 }
 

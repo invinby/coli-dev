@@ -58,6 +58,7 @@ _TRUSTED_HOSTS = frozenset(
         "medlineplus.gov",
         "raw.githubusercontent.com",
         "www.nist.gov",
+        "www.genome.gov",
         "www.sqlite.org",
         "openstax.org",
     }
@@ -73,7 +74,12 @@ _ALLOWED_PATHS = {
         r"vocabulary/a1-a2(?:/daily-routine-vocabulary-a1-beginner-english-vocabulary-lesson)?|reading/a1)|"
         r"level/improve-your-english-level/how-start-reading-english)/?$"
     ),
-    "medlineplus.gov": re.compile(r"^/genetics/understanding/basics/(?:dna|gene)/?$"),
+    "medlineplus.gov": re.compile(
+        r"^/genetics/understanding/(?:basics/(?:dna|gene)|howgeneswork/makingprotein)/?$"
+    ),
+    "www.genome.gov": re.compile(
+        r"^/genetics-glossary/(?:Gene-Expression|Gene-Regulation|Promoter)$"
+    ),
     "www.nist.gov": re.compile(
         r"^/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b9$"
     ),
