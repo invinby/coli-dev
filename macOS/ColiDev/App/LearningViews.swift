@@ -1061,6 +1061,8 @@ private struct PracticeLab: View {
             PresentPerfectAspectLab()
         } else if subject == .english, moduleResource == "daily_routines_and_collocations" {
             DailyRoutineVocabularyLab()
+        } else if subject == .zoology, moduleResource == "animals_as_a_group" {
+            AnimalGroupLab()
         } else if subject == .biology, moduleResource == "passive_transport_osmosis" {
             OsmosisLab()
         } else if subject == .biology, moduleResource == "mendelian_inheritance" {
@@ -1098,7 +1100,9 @@ private struct PracticeLab: View {
         case .biology:
             CellLab()
         case .zoology:
-            if moduleResource == "symmetry_and_body_plans" {
+            if moduleResource == "animals_as_a_group" {
+                AnimalGroupLab()
+            } else if moduleResource == "symmetry_and_body_plans" {
                 SymmetryLab()
             } else {
                 AdaptationLab()
@@ -1245,6 +1249,96 @@ private struct DailyRoutineVocabularyLab: View {
         selectedOption = nil
         lastWasCorrect = nil
         isComplete = false
+    }
+}
+
+private struct AnimalGroupQuestion {
+    let promptKey: String
+    let options: [String]
+    let answerIndex: Int
+}
+
+private struct AnimalGroupLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var index = 0
+    @State private var selection: Int?
+    @State private var wasCorrect: Bool?
+    @State private var complete = false
+
+    private let questions = [
+        AnimalGroupQuestion(promptKey: "lab.animalGroupQ1", options: ["lab.animalGroupQ1A", "lab.animalGroupQ1B", "lab.animalGroupQ1C"], answerIndex: 0),
+        AnimalGroupQuestion(promptKey: "lab.animalGroupQ2", options: ["lab.animalGroupQ2A", "lab.animalGroupQ2B", "lab.animalGroupQ2C"], answerIndex: 1),
+        AnimalGroupQuestion(promptKey: "lab.animalGroupQ3", options: ["lab.animalGroupQ3A", "lab.animalGroupQ3B", "lab.animalGroupQ3C"], answerIndex: 2),
+        AnimalGroupQuestion(promptKey: "lab.animalGroupQ4", options: ["lab.animalGroupQ4A", "lab.animalGroupQ4B", "lab.animalGroupQ4C"], answerIndex: 1)
+    ]
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.animalGroupHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if complete {
+                Label(L10n.text("lab.animalGroupComplete", store.language), systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                Button(L10n.text("lab.animalGroupRestart", store.language), systemImage: "arrow.counterclockwise") {
+                    index = 0
+                    selection = nil
+                    wasCorrect = nil
+                    complete = false
+                }
+                .buttonStyle(.bordered)
+            } else {
+                Text(String(format: L10n.text("lab.animalGroupProgress", store.language), index + 1, questions.count))
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                ProgressView(value: Double(index + 1), total: Double(questions.count))
+                Text(L10n.text(questions[index].promptKey, store.language))
+                    .font(.title3.weight(.medium))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ForEach(Array(questions[index].options.enumerated()), id: \.offset) { optionIndex, key in
+                    Button {
+                        selection = optionIndex
+                        wasCorrect = nil
+                    } label: {
+                        Label(L10n.text(key, store.language), systemImage: selection == optionIndex ? "checkmark.circle.fill" : "circle")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(selection == optionIndex ? .accentColor : .secondary)
+                    .accessibilityAddTraits(selection == optionIndex ? .isSelected : [])
+                }
+
+                if let wasCorrect {
+                    Label(
+                        L10n.text(wasCorrect ? "lab.animalGroupCorrect" : "lab.animalGroupTryAgain", store.language),
+                        systemImage: wasCorrect ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath"
+                    )
+                    .foregroundStyle(wasCorrect ? Color.green : Color.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Button {
+                    if wasCorrect == true {
+                        if index == questions.count - 1 {
+                            complete = true
+                        } else {
+                            index += 1
+                            selection = nil
+                            wasCorrect = nil
+                        }
+                    } else if let selection {
+                        wasCorrect = selection == questions[index].answerIndex
+                    }
+                } label: {
+                    Text(L10n.text(wasCorrect == true ? (index == questions.count - 1 ? "lab.animalGroupFinish" : "lab.animalGroupNext") : "lab.animalGroupCheck", store.language))
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(selection == nil && wasCorrect != true)
+            }
+        }
     }
 }
 

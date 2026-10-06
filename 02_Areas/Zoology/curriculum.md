@@ -6,7 +6,7 @@
 
 | Модуль / Module | Результат обучения / Learning outcome | Урок / Lesson |
 |---|---|---|
-| Животные как группа организмов / Animals as a group of organisms | Различать признаки животных и границы обобщений о разнообразии группы. / Describe animal traits while respecting biological variation. |
+| Животные как группа организмов / Animals as a group of organisms | Различать признаки животных и границы обобщений о разнообразии группы. / Describe animal traits while respecting biological variation. | lesson:animals_as_a_group |
 | План строения, симметрия и ткани / Body plans, symmetry, tissues | Сопоставлять асимметрию, лучевую и двустороннюю симметрию, отмечая исключения и изменение в ходе развития. / Compare asymmetry, radial and bilateral symmetry while noting exceptions and developmental changes. | lesson:symmetry_and_body_plans |
 | Основные ветви животного мира / Major animal lineages | Пользоваться базовой классификацией и понимать, что классификация уточняется по данным. / Use introductory classification and understand its revisability. |
 | Питание, дыхание, движение, размножение / Feeding, respiration, movement, reproduction | Связывать структуры органов с задачей и средой обитания конкретного вида. / Relate anatomy to function and habitat. |
@@ -19,7 +19,7 @@
 | Беспозвоночные: разнообразие и функциональная морфология / Invertebrates: diversity and functional morphology | Сравнивать крупные группы беспозвоночных по строению, жизненному циклу и экологии. / Compare invertebrate groups by anatomy and ecology. | |
 | Позвоночные и сравнительная анатомия / Vertebrates and comparative anatomy | Сопоставлять основные системы позвоночных, отмечая общие признаки и специализации. / Compare vertebrate systems and specializations. | |
 | Газообмен и кровообращение животных / Gas exchange and animal circulation | Сопоставлять диффузию, открытые и закрытые системы и контуры кровообращения позвоночных, не превращая общие схемы в универсальное правило. / Compare diffusion, open and closed systems, and vertebrate circuits without treating broad patterns as universal. | lesson:comparative_gas_exchange_and_circulation |
-| Этология и когнитивное поведение / Ethology and cognition | Формулировать несколько объяснений поведения и проверять их через наблюдение и эксперимент. / Generate and test behavioral hypotheses. | |
+| Этология и когнитивное поведение / Ethology, animal behavior, and cognition | Формулировать несколько объяснений поведения и проверять их через наблюдение и эксперимент. / Generate and test animal behavior hypotheses. | |
 | Популяции, сообщества и биогеография / Populations, communities, biogeography | Связывать ареалы, численность, взаимодействия видов и факторы среды. / Relate range, abundance, interactions, and environment. | |
 | Жизненные циклы, паразиты и симбиоз / Life cycles, parasites, symbiosis | Строить схемы жизненного цикла и анализировать отношения хозяина и организма-партнёра. / Diagram life cycles and host interactions. | |
 
