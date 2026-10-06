@@ -195,6 +195,64 @@ def test_public_domain_medlineplus_genetics_basics_are_cached_for_rag(tmp_path: 
     assert "genes are made of dna" in found[0]["excerpt"].casefold()
 
 
+def test_exact_elife_xml_article_is_cached_with_cc_by_attribution(tmp_path: Path) -> None:
+    url = (
+        "https://raw.githubusercontent.com/elifesciences/elife-article-xml/master/"
+        "articles/elife-81613-v1.xml"
+    )
+    _write_lesson(tmp_path, f"[eLife bilaterian evolution article]({url})")
+    monitor = _monitor(tmp_path, tmp_path)
+    xml = """<?xml version="1.0" encoding="UTF-8"?>
+    <article><front><article-meta><title-group><article-title>Peripheral and central employment of acid-sensing ion channels during early bilaterian evolution</article-title></title-group></article-meta></front>
+    <body><sec><title>Results</title><p>Protostomes include Spiralia and Ecdysozoa. Ecdysozoa includes nematodes and arthropods.</p></sec></body></article>"""
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/plain; charset=utf-8", "etag": '"v1"'},
+            text=xml,
+        )
+
+    async def check() -> dict[str, object]:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await monitor.check_sources(client)
+
+    result = asyncio.run(check())
+    found = monitor.search_rag_sources("protostomes Spiralia Ecdysozoa nematodes arthropods")
+
+    assert result["checks"][0]["state"] == "available_untracked"
+    assert len(found) == 1
+    assert found[0]["license"] == "Creative Commons Attribution 4.0 International (CC BY 4.0), eLife article"
+    assert found[0]["license_url"] == "https://elifesciences.org/terms"
+    assert "DOI 10.7554/eLife.81613" in found[0]["attribution"]
+    assert "protostomes include spiralia and ecdysozoa" in found[0]["excerpt"].casefold()
+
+    async def preview() -> dict[str, object]:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await monitor.preview_source(url, client)
+
+    preview_result = asyncio.run(preview())
+    assert preview_result["page_title"] == (
+        "Peripheral and central employment of acid-sensing ion channels during early bilaterian evolution"
+    )
+    assert "protostomes include spiralia" in str(preview_result["excerpt"]).casefold()
+
+
+def test_elife_rag_allowlist_is_restricted_to_one_article_xml() -> None:
+    approved = (
+        "https://raw.githubusercontent.com/elifesciences/elife-article-xml/master/"
+        "articles/elife-81613-v1.xml"
+    )
+
+    assert TrustedSourceMonitor._rag_policy(approved) is not None
+    assert TrustedSourceMonitor._rag_policy(
+        approved.replace("elife-81613-v1.xml", "elife-99999-v1.xml")
+    ) is None
+    assert TrustedSourceMonitor._rag_policy(
+        approved.replace("raw.githubusercontent.com", "github.com")
+    ) is None
+
+
 def test_medlineplus_genetics_ingestion_is_restricted_to_public_domain_basics() -> None:
     assert TrustedSourceMonitor._rag_policy(
         "https://medlineplus.gov/genetics/understanding/basics/dna/"

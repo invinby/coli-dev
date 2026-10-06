@@ -546,6 +546,25 @@ def test_bundled_zoology_lesson_links_official_animal_symmetry_material(tmp_path
     assert "https://openstax.org/books/biology-2e/pages/33-1-animal-form-and-function" in reference_urls
 
 
+def test_bundled_zoology_lineages_lesson_links_licensed_elife_xml(tmp_path: Path) -> None:
+    project = Path(__file__).resolve().parent.parent
+    index = KnowledgeIndex(project, tmp_path / "knowledge.sqlite3")
+
+    results = index.refresh_and_search(
+        "phylogenetic tree clade common ancestor Ecdysozoa Lophotrochozoa arthropods nematodes"
+    )
+
+    lesson = next(
+        source for source in results
+        if source["path"] == "02_Areas/Zoology/lessons/major_animal_lineages.md"
+    )
+    assert lesson["source_checked_at"] == "2026-10-06"
+    assert {
+        "title": "eLife Research Article: Peripheral and central employment of acid-sensing ion channels during early bilaterian evolution",
+        "url": "https://raw.githubusercontent.com/elifesciences/elife-article-xml/master/articles/elife-81613-v1.xml",
+    } in lesson["official_references"]
+
+
 def test_curriculum_lesson_links_resolve_to_bilingual_module_files() -> None:
     project = Path(__file__).resolve().parent.parent
     areas = project / "02_Areas"

@@ -1063,6 +1063,8 @@ private struct PracticeLab: View {
             DailyRoutineVocabularyLab()
         } else if subject == .zoology, moduleResource == "animals_as_a_group" {
             AnimalGroupLab()
+        } else if subject == .zoology, moduleResource == "major_animal_lineages" {
+            AnimalLineageLab()
         } else if subject == .biology, moduleResource == "passive_transport_osmosis" {
             OsmosisLab()
         } else if subject == .biology, moduleResource == "mendelian_inheritance" {
@@ -1339,6 +1341,124 @@ private struct AnimalGroupLab: View {
                 .disabled(selection == nil && wasCorrect != true)
             }
         }
+    }
+}
+
+private struct AnimalLineageLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var index = 0
+    @State private var selection: Int?
+    @State private var wasCorrect: Bool?
+    @State private var complete = false
+
+    private let questions = [
+        AnimalGroupQuestion(promptKey: "lab.lineageQ1", options: ["lab.lineageQ1A", "lab.lineageQ1B", "lab.lineageQ1C"], answerIndex: 1),
+        AnimalGroupQuestion(promptKey: "lab.lineageQ2", options: ["lab.lineageQ2A", "lab.lineageQ2B", "lab.lineageQ2C"], answerIndex: 0),
+        AnimalGroupQuestion(promptKey: "lab.lineageQ3", options: ["lab.lineageQ3A", "lab.lineageQ3B", "lab.lineageQ3C"], answerIndex: 2),
+        AnimalGroupQuestion(promptKey: "lab.lineageQ4", options: ["lab.lineageQ4A", "lab.lineageQ4B", "lab.lineageQ4C"], answerIndex: 1)
+    ]
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.lineageHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(spacing: 12) {
+                Label(L10n.text("lab.lineageBilateria", store.language), systemImage: "point.3.connected.trianglepath.dotted")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(10)
+                    .background(Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
+                Text(L10n.text("lab.lineageProtostomes", store.language))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                HStack(alignment: .top, spacing: 12) {
+                    lineageBranch(title: "lab.lineageEcdysozoa", members: "lab.lineageArthropodsNematodes")
+                    lineageBranch(title: "lab.lineageLophotrochozoa", members: "lab.lineageAnnelidsMolluscs")
+                }
+            }
+            .padding(.vertical, 4)
+            .accessibilityElement(children: .combine)
+
+            if complete {
+                Label(L10n.text("lab.lineageComplete", store.language), systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                Button(L10n.text("lab.lineageRestart", store.language), systemImage: "arrow.counterclockwise") {
+                    index = 0
+                    selection = nil
+                    wasCorrect = nil
+                    complete = false
+                }
+                .buttonStyle(.bordered)
+            } else {
+                Text(String(format: L10n.text("lab.lineageProgress", store.language), index + 1, questions.count))
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                ProgressView(value: Double(index + 1), total: Double(questions.count))
+                Text(L10n.text(questions[index].promptKey, store.language))
+                    .font(.title3.weight(.medium))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ForEach(Array(questions[index].options.enumerated()), id: \.offset) { optionIndex, key in
+                    Button {
+                        selection = optionIndex
+                        wasCorrect = nil
+                    } label: {
+                        Label(L10n.text(key, store.language), systemImage: selection == optionIndex ? "checkmark.circle.fill" : "circle")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(selection == optionIndex ? .accentColor : .secondary)
+                    .accessibilityAddTraits(selection == optionIndex ? .isSelected : [])
+                }
+
+                if let wasCorrect {
+                    Label(
+                        L10n.text(wasCorrect ? "lab.lineageCorrect" : "lab.lineageTryAgain", store.language),
+                        systemImage: wasCorrect ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath"
+                    )
+                    .foregroundStyle(wasCorrect ? Color.green : Color.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Button {
+                    if wasCorrect == true {
+                        if index == questions.count - 1 {
+                            complete = true
+                        } else {
+                            index += 1
+                            selection = nil
+                            wasCorrect = nil
+                        }
+                    } else if let selection {
+                        wasCorrect = selection == questions[index].answerIndex
+                    }
+                } label: {
+                    Text(L10n.text(wasCorrect == true ? (index == questions.count - 1 ? "lab.lineageFinish" : "lab.lineageNext") : "lab.lineageCheck", store.language))
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(selection == nil && wasCorrect != true)
+            }
+        }
+    }
+
+    private func lineageBranch(title: String, members: String) -> some View {
+        VStack(spacing: 8) {
+            Text(L10n.text(title, store.language))
+                .font(.callout.weight(.semibold))
+                .multilineTextAlignment(.center)
+            Text(L10n.text(members, store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, minHeight: 76)
+        .padding(10)
+        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        .accessibilityElement(children: .combine)
     }
 }
 

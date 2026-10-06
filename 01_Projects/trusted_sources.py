@@ -56,6 +56,7 @@ _TRUSTED_HOSTS = frozenset(
         "docs.python.org",
         "learnenglish.britishcouncil.org",
         "medlineplus.gov",
+        "raw.githubusercontent.com",
         "www.nist.gov",
         "openstax.org",
     }
@@ -73,6 +74,9 @@ _ALLOWED_PATHS = {
         r"^/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b9$"
     ),
     "openstax.org": re.compile(r"^/books/[a-z0-9-]+/pages/[a-z0-9-]+/?$"),
+    "raw.githubusercontent.com": re.compile(
+        r"^/elifesciences/elife-article-xml/master/articles/elife-81613-v1\.xml$"
+    ),
 }
 
 # Only pages with a documented reuse license enter the automatic RAG cache.
@@ -97,6 +101,14 @@ _RAG_SOURCE_POLICIES = {
         "license": "NIST public information; may be distributed or copied unless marked copyrighted",
         "license_url": "https://www.nist.gov/copyrights-disclaimers",
         "attribution": "Source: National Institute of Standards and Technology (NIST), Guide to the SI, Appendix B.9. NIST requests appropriate source credit; no endorsement implied.",
+    },
+    "raw.githubusercontent.com": {
+        "path": re.compile(
+            r"^/elifesciences/elife-article-xml/master/articles/elife-81613-v1\.xml$"
+        ),
+        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0), eLife article",
+        "license_url": "https://elifesciences.org/terms",
+        "attribution": "Source: eLife Research Article, DOI 10.7554/eLife.81613. Full article XML from the continuously updated elifesciences/elife-article-xml archive. Licensed CC BY 4.0; credit the article authors and eLife.",
     },
 }
 
@@ -136,8 +148,9 @@ class _SourcePageParser(HTMLParser):
         "param", "source", "track", "wbr",
     })
 
-    def __init__(self) -> None:
+    def __init__(self, *, xml_article: bool = False) -> None:
         super().__init__(convert_charrefs=True)
+        self.xml_article = xml_article
         self.title_parts: list[str] = []
         self.description: str | None = None
         self.fallback_parts: list[str] = []
@@ -158,7 +171,7 @@ class _SourcePageParser(HTMLParser):
             if tag not in self._VOID_TAGS:
                 self.skip_depth += 1
             return
-        if tag == "title":
+        if tag == ("article-title" if self.xml_article else "title"):
             self.in_title = True
         elif tag == "body":
             self.in_body = True
@@ -181,7 +194,7 @@ class _SourcePageParser(HTMLParser):
         if self.skip_depth:
             self.skip_depth -= 1
             return
-        if tag == "title":
+        if tag == ("article-title" if self.xml_article else "title"):
             self.in_title = False
         elif tag == "body":
             self.in_body = False
@@ -251,6 +264,17 @@ class TrustedSourceMonitor:
         ):
             return None
         return urlunsplit(("https", host, parsed.path, "", ""))
+
+    @classmethod
+    def _is_approved_xml_source(cls, url: str) -> bool:
+        """Allow XML/plain-text parsing only for the exact licensed eLife article archive file."""
+        canonical = cls._canonical_url(url)
+        if canonical is None:
+            return False
+        parsed = urlsplit(canonical)
+        return parsed.hostname == "raw.githubusercontent.com" and parsed.path == (
+            "/elifesciences/elife-article-xml/master/articles/elife-81613-v1.xml"
+        )
 
     @classmethod
     def approved_markdown_links(
@@ -818,25 +842,27 @@ class TrustedSourceMonitor:
         return bytes(body), False
 
     @staticmethod
-    def _parse_source_page(body: bytes, encoding: str | None) -> tuple[str | None, str | None, str | None]:
+    def _parse_source_page(
+        body: bytes, encoding: str | None, *, xml_article: bool = False
+    ) -> tuple[str | None, str | None, str | None]:
         try:
             decoded = body.decode(encoding or "utf-8", errors="replace")
         except LookupError:
             decoded = body.decode("utf-8", errors="replace")
-        parser = _SourcePageParser()
+        parser = _SourcePageParser(xml_article=xml_article)
         parser.feed(decoded)
         parser.close()
         return parser.result()
 
     @staticmethod
     def _parse_source_page_preview(
-        body: bytes, encoding: str | None
+        body: bytes, encoding: str | None, *, xml_article: bool = False
     ) -> tuple[str | None, str | None, str | None, str]:
         try:
             decoded = body.decode(encoding or "utf-8", errors="replace")
         except LookupError:
             decoded = body.decode("utf-8", errors="replace")
-        parser = _SourcePageParser()
+        parser = _SourcePageParser(xml_article=xml_article)
         parser.feed(decoded)
         parser.close()
         title, description, digest = parser.result()
@@ -864,8 +890,11 @@ class TrustedSourceMonitor:
         semaphore: asyncio.Semaphore,
     ) -> dict[str, object]:
         previous = self._previous_check(reference.url)
+        accept = "text/html,application/xhtml+xml;q=0.9"
+        if self._is_approved_xml_source(reference.url):
+            accept = "application/xml,text/xml,text/plain;q=0.9"
         headers = {
-            "Accept": "text/html,application/xhtml+xml;q=0.9",
+            "Accept": accept,
             "Accept-Encoding": "identity",
             "User-Agent": "ColiDev-Reference-Check/1.0",
         }
@@ -918,7 +947,10 @@ class TrustedSourceMonitor:
                         )
                         if http_status != 200:
                             state = "content_unavailable"
-                        elif content_type not in {"text/html", "application/xhtml+xml"}:
+                        elif content_type not in {"text/html", "application/xhtml+xml"} and not (
+                            self._is_approved_xml_source(reference.url)
+                            and content_type in {"text/plain", "text/xml", "application/xml"}
+                        ):
                             state = "unsupported_content_type"
                         else:
                             body, too_large = await self._read_bounded_html(response)
@@ -932,15 +964,20 @@ class TrustedSourceMonitor:
                                     parsed_description,
                                     parsed_digest,
                                     parsed_text,
-                                ) = self._parse_source_page_preview(body, response.encoding)
+                                ) = self._parse_source_page_preview(
+                                    body,
+                                    response.encoding,
+                                    xml_article=self._is_approved_xml_source(reference.url),
+                                )
                                 if parsed_digest is None:
                                     state = "content_unavailable"
                                 else:
+                                    effective_title = parsed_title or reference.title
                                     metadata_changed = previous is not None and (
-                                        parsed_title != previous["page_title"]
+                                        effective_title != previous["page_title"]
                                         or parsed_description != previous["page_description"]
                                     )
-                                    page_title = parsed_title
+                                    page_title = effective_title
                                     page_description = parsed_description
                                     content_digest = parsed_digest
                                     content_checked_at = checked_at
@@ -1099,15 +1136,20 @@ class TrustedSourceMonitor:
                     .strip()
                     .casefold()
                 )
-                if content_type not in {"text/html", "application/xhtml+xml"}:
-                    raise RuntimeError("Approved source did not return HTML")
+                if content_type not in {"text/html", "application/xhtml+xml"} and not (
+                    self._is_approved_xml_source(reference.url)
+                    and content_type in {"text/plain", "text/xml", "application/xml"}
+                ):
+                    raise RuntimeError("Approved source returned an unsupported content type")
                 body, too_large = await self._read_bounded_html(response)
                 if too_large or not body:
                     raise RuntimeError("Approved source preview is unavailable")
                 encoding = response.encoding
 
             title, description, digest, visible_text = self._parse_source_page_preview(
-                body, encoding
+                body,
+                encoding,
+                xml_article=self._is_approved_xml_source(reference.url),
             )
             if digest is None:
                 raise RuntimeError("Approved source has no readable text")
@@ -1115,7 +1157,7 @@ class TrustedSourceMonitor:
                 "url": reference.url,
                 "title": reference.title,
                 "lesson_paths": [review.lesson_path for review in reference.lesson_reviews],
-                "page_title": title,
+                "page_title": title or reference.title,
                 "page_description": description,
                 "etag": self._bounded_header(response.headers.get("etag")),
                 "last_modified": self._bounded_header(response.headers.get("last-modified")),
