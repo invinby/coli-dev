@@ -1095,6 +1095,8 @@ private struct PracticeLab: View {
             BiomoleculeLab()
         } else if subject == .biology, moduleResource == "natural_selection_and_population_change" {
             NaturalSelectionLab()
+        } else if subject == .biology, moduleResource == "cell_cycle_and_differentiation" {
+            CellCycleLab()
         } else if subject == .biology, moduleResource == "ecosystem_energy_flow" {
             EcosystemEnergyLab()
         } else if subject == .biology, moduleResource == "food_webs_and_matter_cycles" {
@@ -4417,6 +4419,113 @@ private struct GeneExpressionLab: View {
             }
             return peptide.joined(separator: " – ")
         }
+    }
+}
+
+private struct CellCycleLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var selectedStage: CellCycleStage = .g1
+    @State private var selectedAnswer = -1
+    @State private var didCheckAnswer = false
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.cellCycle.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Picker(L10n.text("lab.cellCycle.chooseStage", store.language), selection: $selectedStage) {
+                ForEach(CellCycleStage.allCases) { stage in
+                    Text(L10n.text(stage.localizationKey, store.language)).tag(stage)
+                }
+            }
+            .pickerStyle(.menu)
+            .onChange(of: selectedStage) { _ in
+                selectedAnswer = -1
+                didCheckAnswer = false
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(L10n.text(selectedStage.localizationKey, store.language))
+                    .font(.headline)
+                Text(L10n.text("lab.cellCycle.explain.\(selectedStage.rawValue)", store.language))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(L10n.text(statusKey, store.language))
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.tint)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            .accessibilityElement(children: .combine)
+
+            HStack {
+                Button(L10n.text("lab.cellCycle.previous", store.language)) {
+                    move(by: -1)
+                }
+                .disabled(selectedStage == CellCycleStage.allCases.first)
+                Spacer()
+                Text("\((CellCycleStage.allCases.firstIndex(of: selectedStage) ?? 0) + 1) / \(CellCycleStage.allCases.count)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel(L10n.text("lab.cellCycle.position", store.language))
+                Spacer()
+                Button(L10n.text("lab.cellCycle.next", store.language)) {
+                    move(by: 1)
+                }
+                .disabled(selectedStage == CellCycleStage.allCases.last)
+            }
+
+            Text(L10n.text("lab.cellCycle.quiz", store.language))
+                .font(.callout.weight(.medium))
+            Picker(L10n.text("lab.cellCycle.quiz", store.language), selection: $selectedAnswer) {
+                Text(L10n.text("lab.cellCycle.optionS", store.language)).tag(0)
+                Text(L10n.text("lab.cellCycle.optionAnaphase", store.language)).tag(1)
+                Text(L10n.text("lab.cellCycle.optionCytokinesis", store.language)).tag(2)
+            }
+            .pickerStyle(.radioGroup)
+            .onChange(of: selectedAnswer) { _ in didCheckAnswer = false }
+
+            Button(L10n.text("lab.cellCycle.check", store.language)) {
+                didCheckAnswer = true
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(selectedAnswer < 0)
+
+            if didCheckAnswer {
+                let correct = selectedAnswer == 0
+                Label(
+                    L10n.text(correct ? "lab.cellCycle.correct" : "lab.cellCycle.review", store.language),
+                    systemImage: correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
+                )
+                .font(.callout.weight(.medium))
+                .foregroundStyle(correct ? .green : .orange)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Text(L10n.text("lab.cellCycle.limit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var statusKey: String {
+        if CellCyclePractice.isDNAReplicationStage(selectedStage) { return "lab.cellCycle.statusDNA" }
+        if CellCyclePractice.isNuclearDivision(selectedStage) { return "lab.cellCycle.statusNucleus" }
+        if CellCyclePractice.isCytoplasmDivision(selectedStage) { return "lab.cellCycle.statusCytoplasm" }
+        if selectedStage == .differentiation { return "lab.cellCycle.statusSpecialize" }
+        return "lab.cellCycle.statusPrepare"
+    }
+
+    private func move(by offset: Int) {
+        guard let index = CellCycleStage.allCases.firstIndex(of: selectedStage) else { return }
+        let nextIndex = index + offset
+        guard CellCycleStage.allCases.indices.contains(nextIndex) else { return }
+        selectedStage = CellCycleStage.allCases[nextIndex]
     }
 }
 

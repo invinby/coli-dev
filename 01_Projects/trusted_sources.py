@@ -78,7 +78,7 @@ _ALLOWED_PATHS = {
         r"^/genetics/understanding/(?:basics/(?:dna|gene)|howgeneswork/makingprotein)/?$"
     ),
     "www.genome.gov": re.compile(
-        r"^/genetics-glossary/(?:Gene-Expression|Gene-Regulation|Promoter)$"
+        r"^/genetics-glossary/(?:Gene-Expression|Gene-Regulation|Promoter|Chromatid)$"
     ),
     "www.nist.gov": re.compile(
         r"^/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b9$"

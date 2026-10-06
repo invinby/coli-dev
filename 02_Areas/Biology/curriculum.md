@@ -22,7 +22,7 @@
 | Модуль / Module | Результат обучения / Learning outcome | Урок / Lesson |
 |---|---|---|
 | Экспрессия генов и регуляция / Gene expression and regulation | Связывать ДНК, РНК, белок и регуляцию, учитывая тип клетки и условия. / Relate DNA, RNA, proteins, and regulation in context. | lesson:gene_expression_and_regulation |
-| Деление клетки, развитие и ткани / Cell division, development, tissues | Описывать деление и специализацию клеток, не смешивая этапы и их функции. / Describe division and differentiation accurately. | |
+| Деление клетки, развитие и ткани / Cell division, development, tissues | Описывать деление и специализацию клеток, не смешивая этапы и их функции. / Describe division and differentiation accurately. | lesson:cell_cycle_and_differentiation |
 | Микробиология и взаимодействие организмов / Microbiology and organism interactions | Сравнивать микробные группы и их роль в организмах и окружающей среде. / Compare microbial groups and their ecological roles. | |
 | Физиология растений и животных / Plant and animal physiology | Связывать строение систем органов с обменом, регуляцией и средой. / Relate organ systems to metabolism, regulation, and environment. | |
 | Популяционная генетика и экология / Population genetics and ecology | Использовать простые модели для описания изменения частот признаков и популяций. / Use simple models for trait and population change. | |

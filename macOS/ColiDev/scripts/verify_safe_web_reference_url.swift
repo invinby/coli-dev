@@ -16,6 +16,8 @@ enum SafeWebReferenceURLVerification {
             "https://www.genome.gov/genetics-glossary/Gene-Expression",
             "https://www.genome.gov/genetics-glossary/Gene-Regulation",
             "https://www.genome.gov/genetics-glossary/Promoter",
+            "https://www.genome.gov/genetics-glossary/Chromatid",
+            "https://openstax.org/books/biology-2e/pages/10-2-the-cell-cycle",
             "https://csrc.nist.gov/glossary/term/algorithm",
             "https://www.nist.gov/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b9",
             "https://www.sqlite.org/lang_transaction.html",

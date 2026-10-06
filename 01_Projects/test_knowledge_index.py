@@ -642,6 +642,20 @@ def test_biology_gene_expression_intermediate_lesson_is_linked() -> None:
     assert "### Limits and safe execution" in content
 
 
+def test_biology_cell_cycle_intermediate_lesson_is_linked() -> None:
+    project = Path(__file__).resolve().parent.parent
+    curriculum = (project / "02_Areas/Biology/curriculum.md").read_text(encoding="utf-8")
+    lesson = project / "02_Areas/Biology/lessons/cell_cycle_and_differentiation.md"
+
+    assert "lesson:cell_cycle_and_differentiation" in curriculum
+    assert lesson.is_file()
+    content = lesson.read_text(encoding="utf-8")
+    assert "lesson_id: biology.cell_cycle_and_differentiation" in content
+    assert "languages: ru, en" in content
+    assert "### Границы модели" in content
+    assert "### Limits and safe execution" in content
+
+
 def test_bundled_lessons_have_a_complete_bilingual_learning_structure() -> None:
     project = Path(__file__).resolve().parent.parent
     areas = project / "02_Areas"
