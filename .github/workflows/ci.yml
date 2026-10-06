@@ -63,6 +63,12 @@ jobs:
           python -m pip install -r requirements-macos-runtime.txt
           python -c 'from keyring.backends.macOS import Keyring; assert Keyring'
 
+      - name: Verify shared physics calculation models
+        run: |
+          swiftc macOS/ColiDev/App/ForceMotion.swift macOS/ColiDev/scripts/verify_physics_models.swift \
+            -o "$RUNNER_TEMP/verify-physics-models"
+          "$RUNNER_TEMP/verify-physics-models"
+
       - name: Build ColiDev for macOS
         run: >-
           xcodebuild
