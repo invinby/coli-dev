@@ -234,6 +234,7 @@ jobs:
           Zoology:major_animal_lineages
           Zoology:symmetry_and_body_plans
           Zoology:comparative_gas_exchange_and_circulation
+          Zoology:thermoregulation_and_heat_exchange
           Programming:computational_thinking
           Programming:conditions_loops_functions
           Programming:strings_files_and_exceptions

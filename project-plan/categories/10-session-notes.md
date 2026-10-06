@@ -770,3 +770,9 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 - Added a regression with 85 approved OpenStax test URLs. It verifies first-batch cap, tail selection in the second pass, progress through older records on the third pass, and that the scheduler reports an immediate check while the tail is unchecked.
 - Verification: trusted-source module 53 passed; full backend suite 426 passed with one existing Starlette/httpx deprecation warning; Ruff and `git diff --check` passed. GitHub CI for this change has not yet run.
 - The repository’s automatic freshness scope remains narrow and allowlist-based. Checks refresh approved metadata/snapshots only while the backend is running; they do not rewrite lessons or guarantee current coverage of every subject.
+### Зоология Intermediate: терморегуляция и теплообмен — 2026-10-07
+
+- Добавлены двуязычный урок и строка курса о теплообмене, различии эндо-/эктотермии и гомо-/пойкилотермии, контекстных поведенческих/физиологических ответах.
+- Добавлен SwiftUI-тренажёр с RU/EN переключателями стратегии и среды, прогнозом, обратной связью и явными качественными ограничениями. Модель не рассчитывает температуры или скорости теплообмена.
+- Источник OpenStax Biology 2e §33.3 проверен 2026-10-07. Точный URL проверяется Source Monitor, остаётся metadata-only и не попадает в RAG.
+- Добавлены модельный Swift verifier, точные проверки урока/источника, локализаций и наличия урока в собранном bundle. Полный локальный backend suite прошёл: 429 passed; Ruff для изменённого Python-теста и `git diff --check` прошли. Swift/Xcode недоступны в Windows-среде, поэтому сборка и Swift verifiers ожидают macOS CI. Только после зелёного CI можно выдавать свежий тестовый архив. Физический Mac UI acceptance остаётся ручной задачей.
