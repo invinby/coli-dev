@@ -1,7 +1,8 @@
 import Foundation
 
+@main
 enum PercentRepresentationVerification {
-    static func run() {
+    static func main() {
         let cases: [(Int, String, Double)] = [
             (0, "0/1", 0),
             (12, "3/25", 0.12),
@@ -23,5 +24,3 @@ enum PercentRepresentationVerification {
         print("Percent representation model checks passed")
     }
 }
-
-PercentRepresentationVerification.run()
