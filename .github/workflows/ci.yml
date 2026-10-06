@@ -75,7 +75,7 @@ jobs:
             -o "$RUNNER_TEMP/verify-linear-equation-model"
           "$RUNNER_TEMP/verify-linear-equation-model"
 
-      - name: Verify biology experiment design model
+      - name: Verify biology experiment and food-web models
         run: |
           swiftc macOS/ColiDev/App/BiologyInvestigation.swift macOS/ColiDev/scripts/verify_biology_investigation.swift \
             -o "$RUNNER_TEMP/verify-biology-investigation"
@@ -134,6 +134,7 @@ jobs:
           Biology:biomolecules_and_building_blocks
           Biology:natural_selection_and_population_change
           Biology:ecosystem_energy_flow
+          Biology:food_webs_and_matter_cycles
           Zoology:adaptation_and_behavior
           Zoology:animals_as_a_group
           Zoology:major_animal_lineages

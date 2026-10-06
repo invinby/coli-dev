@@ -28,6 +28,39 @@ enum BiologyInvestigationVerification {
         design.plantsPerGroup = 12
         precondition(design.isReadyToCollectData, "twelve plants per group should pass the replication threshold")
 
-        print("Biology experiment design checks passed.")
+        let nodeIDs = Set(PondFoodWebModel.nodes.map(\.id))
+        precondition(nodeIDs.count == PondFoodWebModel.nodes.count, "food-web node IDs should be unique")
+        let linkIDs = Set(PondFoodWebModel.links.map(\.id))
+        precondition(linkIDs.count == PondFoodWebModel.links.count, "food-web links should be unique")
+        precondition(
+            PondFoodWebModel.nodes.allSatisfy({ (0...1).contains($0.x) && (0...1).contains($0.y) }),
+            "food-web node positions should remain inside the diagram bounds"
+        )
+        precondition(
+            PondFoodWebModel.links.allSatisfy({ nodeIDs.contains($0.from) && nodeIDs.contains($0.to) }),
+            "every food-web link should point to existing nodes"
+        )
+        precondition(
+            PondFoodWebModel.links.contains(where: { $0.from == "algae" && $0.to == "zooplankton" && $0.kind == .feeding }),
+            "feeding links should point from food to consumer"
+        )
+        precondition(
+            PondFoodWebModel.links.contains(where: { $0.from == "decomposers" && $0.to == "nutrients" && $0.kind == .matterCycle })
+                && PondFoodWebModel.links.contains(where: { $0.from == "nutrients" && $0.to == "algae" && $0.kind == .matterCycle }),
+            "the matter-cycle path should return from decomposers through nutrients to producers"
+        )
+        precondition(
+            PondFoodWebModel.directConsumers(of: "snails") == ["smallFish"],
+            "snails should have the fish as their only depicted direct consumer"
+        )
+        let withoutSnails = PondFoodWebModel.visibleLinks(excluding: "snails")
+        precondition(!withoutSnails.contains(where: { $0.from == "snails" || $0.to == "snails" }), "removing snails should hide their direct links")
+        precondition(
+            PondFoodWebModel.incomingLinks(to: "smallFish", excluding: "snails").map(\.from) == ["zooplankton"],
+            "the remaining fish food source should still be available after removing snails"
+        )
+        precondition(PondFoodWebModel.visibleLinks(excluding: "none") == PondFoodWebModel.links, "the default scenario should show every link")
+
+        print("Biology experiment and food-web model checks passed.")
     }
 }

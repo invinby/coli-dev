@@ -1083,6 +1083,8 @@ private struct PracticeLab: View {
             NaturalSelectionLab()
         } else if subject == .biology, moduleResource == "ecosystem_energy_flow" {
             EcosystemEnergyLab()
+        } else if subject == .biology, moduleResource == "food_webs_and_matter_cycles" {
+            FoodWebLab()
         } else if subject == .physics, moduleResource == "work_and_kinetic_energy" {
             KineticEnergyLab()
         } else if subject == .physics, moduleResource == "impulse_and_momentum" {
@@ -4194,6 +4196,177 @@ private struct EcosystemEnergyLab: View {
         case 1: .teal
         case 2: .orange
         default: .purple
+        }
+    }
+}
+
+private struct FoodWebLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var selectedNode = "algae"
+    @State private var removedNode = "none"
+
+    private let species = ["algae", "zooplankton", "snails", "smallFish", "heron"]
+
+    private var visibleLinks: [PondFoodWebLink] {
+        PondFoodWebModel.visibleLinks(excluding: removedNode)
+    }
+
+    private var directConsumers: [String] {
+        PondFoodWebModel.directConsumers(of: removedNode)
+    }
+
+    var body: some View {
+        LabCard {
+            VStack(alignment: .leading, spacing: 12) {
+                Label(L10n.text("biology.foodWebLab.title", store.language), systemImage: "point.3.connected.trianglepath.dotted")
+                    .font(.headline)
+
+                Text(L10n.text("biology.foodWebLab.arrow", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                diagram
+                    .frame(height: 280)
+                    .padding(.vertical, 4)
+                    .accessibilityElement(children: .contain)
+
+                selectedNodeDetails
+
+                Picker(L10n.text("biology.foodWebLab.scenario", store.language), selection: $removedNode) {
+                    Text(L10n.text("biology.foodWebLab.none", store.language)).tag("none")
+                    ForEach(species, id: \.self) { id in
+                        Text(nodeName(id)).tag(id)
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: removedNode) { newValue in
+                    if selectedNode == newValue { selectedNode = "none" }
+                }
+
+                if removedNode != "none" {
+                    removalSummary
+                }
+
+                Text(L10n.text("biology.foodWebLab.limit", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var diagram: some View {
+        GeometryReader { geometry in
+            ZStack {
+                Canvas { context, size in
+                    for link in visibleLinks {
+                        guard let from = PondFoodWebModel.nodes.first(where: { $0.id == link.from }),
+                              let to = PondFoodWebModel.nodes.first(where: { $0.id == link.to }) else { continue }
+                        let start = CGPoint(x: from.x * size.width, y: from.y * size.height)
+                        let end = CGPoint(x: to.x * size.width, y: to.y * size.height)
+                        let dx = end.x - start.x
+                        let dy = end.y - start.y
+                        let distance = max(hypot(dx, dy), 1)
+                        let ux = dx / distance
+                        let uy = dy / distance
+                        let lineStart = CGPoint(x: start.x + ux * 50, y: start.y + uy * 22)
+                        let tip = CGPoint(x: end.x - ux * 51, y: end.y - uy * 22)
+                        let base = CGPoint(x: tip.x - ux * 9, y: tip.y - uy * 9)
+                        let opacity = selectedNode == "none" || link.from == selectedNode || link.to == selectedNode ? 0.78 : 0.16
+                        var shaft = Path()
+                        shaft.move(to: lineStart)
+                        shaft.addLine(to: tip)
+                        let isMatterCycle = link.kind == .matterCycle
+                        let linkColor = isMatterCycle ? Color.teal : Color.secondary
+                        context.stroke(
+                            shaft,
+                            with: .color(linkColor.opacity(opacity)),
+                            style: StrokeStyle(lineWidth: 1.7, lineCap: .round, dash: isMatterCycle ? [4, 3] : [])
+                        )
+
+                        let wing = CGPoint(x: -uy * 4, y: ux * 4)
+                        var arrow = Path()
+                        arrow.move(to: tip)
+                        arrow.addLine(to: CGPoint(x: base.x + wing.x, y: base.y + wing.y))
+                        arrow.addLine(to: CGPoint(x: base.x - wing.x, y: base.y - wing.y))
+                        arrow.closeSubpath()
+                        context.fill(arrow, with: .color(linkColor.opacity(opacity)))
+                    }
+                }
+
+                ForEach(PondFoodWebModel.nodes) { node in
+                    if node.id != removedNode {
+                        Button {
+                            selectedNode = node.id
+                        } label: {
+                            Text(nodeName(node.id))
+                                .font(.caption.weight(.medium))
+                                .multilineTextAlignment(.center)
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.8)
+                                .frame(width: 104, height: 42)
+                                .background(node.id == selectedNode ? Color.accentColor.opacity(0.18) : Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 9))
+                                .overlay(RoundedRectangle(cornerRadius: 9).stroke(nodeColor(node.kind).opacity(0.7), lineWidth: node.id == selectedNode ? 2 : 1))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(nodeName(node.id))
+                        .accessibilityHint(Text(L10n.text("biology.foodWebLab.select", store.language)))
+                        .position(x: node.x * geometry.size.width, y: node.y * geometry.size.height)
+                    }
+                }
+            }
+        }
+        .accessibilityLabel(L10n.text("biology.foodWebLab.title", store.language))
+    }
+
+    private var selectedNodeDetails: some View {
+        let incoming = PondFoodWebModel.incomingLinks(to: selectedNode, excluding: removedNode).map(\.from)
+        let outgoing = PondFoodWebModel.outgoingLinks(from: selectedNode, excluding: removedNode).map(\.to)
+        return VStack(alignment: .leading, spacing: 4) {
+            Text(nodeName(selectedNode))
+                .font(.subheadline.weight(.semibold))
+            if !incoming.isEmpty {
+                Text("\(L10n.text("biology.foodWebLab.incoming", store.language)): \(incoming.map(nodeName).joined(separator: ", "))")
+            }
+            if !outgoing.isEmpty {
+                Text("\(L10n.text("biology.foodWebLab.outgoing", store.language)): \(outgoing.map(nodeName).joined(separator: ", "))")
+            }
+            if incoming.isEmpty && outgoing.isEmpty {
+                Text(L10n.text("biology.foodWebLab.noDirectLinks", store.language))
+            }
+        }
+        .font(.caption)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var removalSummary: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(L10n.text("biology.foodWebLab.removal", store.language))
+                .font(.caption.weight(.semibold))
+            if directConsumers.isEmpty {
+                Text(L10n.text("biology.foodWebLab.noConsumers", store.language))
+                    .font(.caption)
+            } else {
+                Text(directConsumers.map(nodeName).joined(separator: ", "))
+                    .font(.caption)
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func nodeName(_ id: String) -> String {
+        if id == "none" { return L10n.text("biology.foodWebLab.network", store.language) }
+        return L10n.text("biology.foodweb.node.\(id)", store.language)
+    }
+
+    private func nodeColor(_ kind: PondFoodWebNodeKind) -> Color {
+        switch kind {
+        case .producer: .green
+        case .consumer: .orange
+        case .decomposer: .purple
+        case .matter: .teal
         }
     }
 }

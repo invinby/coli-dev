@@ -393,13 +393,13 @@ def test_reference_policy_accepts_official_british_council_b1_b2_lesson() -> Non
 def test_reference_scan_reports_links_omitted_by_the_request_cap(tmp_path: Path) -> None:
     urls = [
         f"https://openstax.org/books/biology-2e/pages/chapter-{index}"
-        for index in range(55)
+        for index in range(65)
     ]
     _write_lesson(tmp_path, "\n".join(f"[Source]({url})" for url in urls))
 
     references, unsupported_count, omitted_count = _monitor(tmp_path, tmp_path)._references()
 
-    assert len(references) == 50
+    assert len(references) == 60
     assert omitted_count == 5
     assert unsupported_count == 0
 

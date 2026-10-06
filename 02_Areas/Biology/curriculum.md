@@ -15,6 +15,7 @@
 | ДНК, наследование и вариация / DNA, inheritance, variation | Прослеживать базовую передачу признаков и отличать генотип от наблюдаемого признака. / Trace inheritance and distinguish genotype from phenotype. | lesson:mendelian_inheritance |
 | Эволюция и естественный отбор / Evolution and natural selection | Объяснять, как наследуемая вариация и разный репродуктивный успех могут изменить популяцию; отличать это от намеренного изменения отдельной особи. / Explain how heritable variation and differential reproductive success can change a population; distinguish this from an individual intentionally changing. | lesson:natural_selection_and_population_change |
 | Поток энергии и трофические уровни / Energy flow and trophic levels | Читать простую пищевую цепь и энергетическую пирамиду, отличая поток энергии от круговорота вещества. / Read a simple food chain and energy pyramid, distinguishing energy flow from matter cycling. | lesson:ecosystem_energy_flow |
+| Пищевые сети и круговорот вещества / Food webs and matter cycling | Читать связанные пищевые пути и объяснять роль детритного пути и разлагателей. / Read connected feeding paths and explain detrital pathways and decomposers. | lesson:food_webs_and_matter_cycles |
 
 ## Углубление / Intermediate
 
