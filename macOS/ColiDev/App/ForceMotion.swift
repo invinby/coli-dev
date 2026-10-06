@@ -53,3 +53,48 @@ struct MomentumCollision {
     var kineticEnergyAfter: Double { 0.5 * totalMass * finalVelocity * finalVelocity }
     var kineticEnergyConverted: Double { max(0, kineticEnergyBefore - kineticEnergyAfter) }
 }
+
+enum CollisionOutcomeMode: String, CaseIterable, Identifiable {
+    case perfectlyInelastic
+    case elastic
+
+    var id: String { rawValue }
+}
+
+/// One-dimensional ideal elastic collision. Signed velocities are measured on one shared axis.
+struct ElasticCollision {
+    let firstMass: Double
+    let firstVelocity: Double
+    let secondMass: Double
+    let secondVelocity: Double
+
+    init(firstMass: Double, firstVelocity: Double, secondMass: Double, secondVelocity: Double) {
+        precondition(
+            firstMass.isFinite && firstMass > 0
+                && secondMass.isFinite && secondMass > 0
+                && firstVelocity.isFinite && secondVelocity.isFinite
+        )
+        self.firstMass = firstMass
+        self.firstVelocity = firstVelocity
+        self.secondMass = secondMass
+        self.secondVelocity = secondVelocity
+    }
+
+    private var totalMass: Double { firstMass + secondMass }
+    var firstFinalVelocity: Double {
+        ((firstMass - secondMass) * firstVelocity + 2 * secondMass * secondVelocity) / totalMass
+    }
+    var secondFinalVelocity: Double {
+        (2 * firstMass * firstVelocity + (secondMass - firstMass) * secondVelocity) / totalMass
+    }
+    var momentumBefore: Double { firstMass * firstVelocity + secondMass * secondVelocity }
+    var momentumAfter: Double { firstMass * firstFinalVelocity + secondMass * secondFinalVelocity }
+    var kineticEnergyBefore: Double {
+        0.5 * firstMass * firstVelocity * firstVelocity
+            + 0.5 * secondMass * secondVelocity * secondVelocity
+    }
+    var kineticEnergyAfter: Double {
+        0.5 * firstMass * firstFinalVelocity * firstFinalVelocity
+            + 0.5 * secondMass * secondFinalVelocity * secondFinalVelocity
+    }
+}

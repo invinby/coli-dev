@@ -1071,6 +1071,8 @@ private struct PracticeLab: View {
             KineticEnergyLab()
         } else if subject == .physics, moduleResource == "impulse_and_momentum" {
             MomentumCollisionLab()
+        } else if subject == .physics, moduleResource == "elastic_collisions" {
+            MomentumCollisionLab(initialMode: .elastic)
         } else if subject == .programming, moduleResource == "collections_and_loops" {
             CollectionsLoopsLab()
         } else if subject == .programming, moduleResource == "variables_and_types" {
@@ -2153,6 +2155,11 @@ private struct MomentumCollisionLab: View {
     @State private var secondVelocity = -2.0
     @State private var showingAfter = false
     @State private var prediction: Int?
+    @State private var selectedMode: CollisionOutcomeMode
+
+    init(initialMode: CollisionOutcomeMode = .perfectlyInelastic) {
+        _selectedMode = State(initialValue: initialMode)
+    }
 
     private var collision: MomentumCollision {
         MomentumCollision(
@@ -2164,8 +2171,45 @@ private struct MomentumCollisionLab: View {
     }
 
     private var correctPrediction: Int {
-        if abs(collision.finalVelocity) < 0.05 { return 1 }
-        return collision.finalVelocity < 0 ? 0 : 2
+        if abs(firstFinalVelocity) < 0.05 { return 1 }
+        return firstFinalVelocity < 0 ? 0 : 2
+    }
+
+    private var elasticCollision: ElasticCollision {
+        ElasticCollision(
+            firstMass: firstMass,
+            firstVelocity: firstVelocity,
+            secondMass: secondMass,
+            secondVelocity: secondVelocity
+        )
+    }
+
+    private var firstFinalVelocity: Double {
+        selectedMode == .elastic ? elasticCollision.firstFinalVelocity : collision.finalVelocity
+    }
+
+    private var secondFinalVelocity: Double {
+        selectedMode == .elastic ? elasticCollision.secondFinalVelocity : collision.finalVelocity
+    }
+
+    private var momentumBefore: Double {
+        selectedMode == .elastic ? elasticCollision.momentumBefore : collision.momentumBefore
+    }
+
+    private var momentumAfter: Double {
+        selectedMode == .elastic ? elasticCollision.momentumAfter : collision.momentumAfter
+    }
+
+    private var kineticEnergyBefore: Double {
+        selectedMode == .elastic ? elasticCollision.kineticEnergyBefore : collision.kineticEnergyBefore
+    }
+
+    private var kineticEnergyAfter: Double {
+        selectedMode == .elastic ? elasticCollision.kineticEnergyAfter : collision.kineticEnergyAfter
+    }
+
+    private var kineticEnergyConverted: Double {
+        max(0, kineticEnergyBefore - kineticEnergyAfter)
     }
 
     var body: some View {
@@ -2183,22 +2227,47 @@ private struct MomentumCollisionLab: View {
                 context.stroke(track, with: .color(.secondary.opacity(0.45)), lineWidth: 2)
 
                 if showingAfter {
-                    drawBlock(
-                        in: &context,
-                        centerX: size.width * 0.5,
-                        baseline: baseline,
-                        width: CGFloat(min(128, 42 + collision.totalMass * 5)),
-                        height: 43,
-                        label: String(format: L10n.text("lab.momentumJoinedMass", store.language), collision.totalMass),
-                        color: .purple
-                    )
-                    drawVelocityArrow(
-                        in: &context,
-                        centerX: size.width * 0.5,
-                        baseline: baseline,
-                        velocity: collision.finalVelocity,
-                        label: String(format: L10n.text("lab.momentumVelocity", store.language), collision.finalVelocity)
-                    )
+                    if selectedMode == .elastic {
+                        let firstX = size.width * 0.31
+                        let secondX = size.width * 0.69
+                        drawBlock(
+                            in: &context,
+                            centerX: firstX,
+                            baseline: baseline,
+                            width: CGFloat(min(92, 34 + firstMass * 6)),
+                            height: 38,
+                            label: String(format: L10n.text("lab.momentumCart", store.language), 1, firstMass),
+                            color: .blue
+                        )
+                        drawBlock(
+                            in: &context,
+                            centerX: secondX,
+                            baseline: baseline,
+                            width: CGFloat(min(92, 34 + secondMass * 6)),
+                            height: 38,
+                            label: String(format: L10n.text("lab.momentumCart", store.language), 2, secondMass),
+                            color: .orange
+                        )
+                        drawVelocityArrow(in: &context, centerX: firstX, baseline: baseline, velocity: firstFinalVelocity, label: nil)
+                        drawVelocityArrow(in: &context, centerX: secondX, baseline: baseline, velocity: secondFinalVelocity, label: nil)
+                    } else {
+                        drawBlock(
+                            in: &context,
+                            centerX: size.width * 0.5,
+                            baseline: baseline,
+                            width: CGFloat(min(128, 42 + collision.totalMass * 5)),
+                            height: 43,
+                            label: String(format: L10n.text("lab.momentumJoinedMass", store.language), collision.totalMass),
+                            color: .purple
+                        )
+                        drawVelocityArrow(
+                            in: &context,
+                            centerX: size.width * 0.5,
+                            baseline: baseline,
+                            velocity: collision.finalVelocity,
+                            label: String(format: L10n.text("lab.momentumVelocity", store.language), collision.finalVelocity)
+                        )
+                    }
                 } else {
                     let firstX = size.width * 0.28
                     let secondX = size.width * 0.72
@@ -2233,6 +2302,20 @@ private struct MomentumCollisionLab: View {
             }
             .pickerStyle(.segmented)
 
+            Picker(L10n.text("lab.collisionType", store.language), selection: $selectedMode) {
+                Text(L10n.text("lab.collisionInelastic", store.language)).tag(CollisionOutcomeMode.perfectlyInelastic)
+                Text(L10n.text("lab.collisionElastic", store.language)).tag(CollisionOutcomeMode.elastic)
+            }
+            .pickerStyle(.segmented)
+
+            Text(L10n.text(
+                selectedMode == .elastic ? "lab.collisionElasticHint" : "lab.collisionInelasticHint",
+                store.language
+            ))
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+
             Text("p = mv   ·   J = Δp = Fₙₑₜ Δt")
                 .font(.system(.headline, design: .monospaced))
             valueSlider(title: L10n.text("lab.momentumMassOne", store.language), value: $firstMass, range: 1...8, step: 1, suffix: " kg")
@@ -2241,16 +2324,19 @@ private struct MomentumCollisionLab: View {
             valueSlider(title: L10n.text("lab.momentumVelocityTwo", store.language), value: $secondVelocity, range: -8...8, step: 1, suffix: " m/s")
 
             HStack(alignment: .firstTextBaseline, spacing: 18) {
-                readout(title: L10n.text("lab.momentumBeforeValue", store.language), value: collision.momentumBefore, unit: "kg·m/s")
-                readout(title: L10n.text("lab.momentumAfterValue", store.language), value: collision.momentumAfter, unit: "kg·m/s")
+                readout(title: L10n.text("lab.momentumBeforeValue", store.language), value: momentumBefore, unit: "kg·m/s")
+                readout(title: L10n.text("lab.momentumAfterValue", store.language), value: momentumAfter, unit: "kg·m/s")
             }
             HStack(alignment: .firstTextBaseline, spacing: 18) {
-                readout(title: L10n.text("lab.momentumEnergyBefore", store.language), value: collision.kineticEnergyBefore, unit: "J")
-                readout(title: L10n.text("lab.momentumEnergyAfter", store.language), value: collision.kineticEnergyAfter, unit: "J")
-                readout(title: L10n.text("lab.momentumEnergyConverted", store.language), value: collision.kineticEnergyConverted, unit: "J")
+                readout(title: L10n.text("lab.momentumEnergyBefore", store.language), value: kineticEnergyBefore, unit: "J")
+                readout(title: L10n.text("lab.momentumEnergyAfter", store.language), value: kineticEnergyAfter, unit: "J")
+                readout(title: L10n.text("lab.momentumEnergyConverted", store.language), value: kineticEnergyConverted, unit: "J")
             }
 
-            Text(L10n.text("lab.momentumPredict", store.language))
+            Text(L10n.text(
+                selectedMode == .elastic ? "lab.collisionPredictFirst" : "lab.momentumPredict",
+                store.language
+            ))
                 .font(.headline)
             HStack {
                 predictionButton(title: L10n.text("lab.momentumLeft", store.language), tag: 0)
@@ -2265,7 +2351,10 @@ private struct MomentumCollisionLab: View {
                 .font(.callout)
                 .foregroundStyle(prediction == correctPrediction ? Color.green : Color.orange)
             }
-            Text(L10n.text("lab.momentumLimit", store.language))
+            Text(L10n.text(
+                selectedMode == .elastic ? "lab.collisionElasticLimit" : "lab.momentumLimit",
+                store.language
+            ))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -2274,6 +2363,7 @@ private struct MomentumCollisionLab: View {
         .onChange(of: firstVelocity) { _ in prediction = nil }
         .onChange(of: secondMass) { _ in prediction = nil }
         .onChange(of: secondVelocity) { _ in prediction = nil }
+        .onChange(of: selectedMode) { _ in prediction = nil }
     }
 
     private func drawBlock(

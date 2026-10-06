@@ -19,6 +19,7 @@
 |---|---|---|
 | Вращение и равновесие / Rotation and equilibrium | Применять момент силы и законы сохранения к вращательным системам. / Apply torque and conservation to rotating systems. | |
 | Движение с постоянным ускорением / Motion with constant acceleration | Выводить знаковую скорость и перемещение из равнодействующей силы, массы и времени. / Derive signed velocity and displacement from net force, mass, and time. | lesson:motion_with_constant_acceleration |
+| Упругие столкновения / Elastic collisions | Находить обе конечные скорости по сохранению импульса и кинетической энергии и сравнивать с прилипанием. / Find both final velocities from momentum and kinetic-energy conservation and compare with sticking. | lesson:elastic_collisions |
 | Термодинамика и статистические идеи / Thermodynamics and statistical ideas | Связывать макроскопические величины с передачей энергии и множеством микросостояний. / Connect macroscopic quantities with energy transfer and microstates. | |
 | Электрические цепи и электростатика / Circuits and electrostatics | Моделировать потенциал, поле, ток и простые цепи с проверкой граничных случаев. / Model potential, fields, current, and circuits. | |
 | Магнетизм и электромагнитная индукция / Magnetism and electromagnetic induction | Объяснять силы на заряды и проводники и направление индуцированного эффекта. / Explain magnetic forces and induced effects. | |

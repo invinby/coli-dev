@@ -41,6 +41,28 @@ enum PhysicsModelVerification {
         expect(lessonPractice.momentumBefore, equals: 2, tolerance: tolerance, "lesson practice momentum")
         expect(lessonPractice.finalVelocity, equals: 0.5, tolerance: tolerance, "lesson practice final velocity")
 
+        let equalMassElastic = ElasticCollision(
+            firstMass: 2,
+            firstVelocity: 4,
+            secondMass: 2,
+            secondVelocity: -2
+        )
+        expect(equalMassElastic.firstFinalVelocity, equals: -2, tolerance: tolerance, "equal-mass velocity exchange, first cart")
+        expect(equalMassElastic.secondFinalVelocity, equals: 4, tolerance: tolerance, "equal-mass velocity exchange, second cart")
+        expect(equalMassElastic.momentumAfter, equals: equalMassElastic.momentumBefore, tolerance: tolerance, "elastic momentum conservation")
+        expect(equalMassElastic.kineticEnergyAfter, equals: equalMassElastic.kineticEnergyBefore, tolerance: tolerance, "elastic kinetic-energy conservation")
+
+        let unequalElastic = ElasticCollision(
+            firstMass: 1,
+            firstVelocity: 4,
+            secondMass: 3,
+            secondVelocity: 0
+        )
+        expect(unequalElastic.firstFinalVelocity, equals: -2, tolerance: tolerance, "unequal-mass rebound")
+        expect(unequalElastic.secondFinalVelocity, equals: 2, tolerance: tolerance, "unequal-mass forward velocity")
+        expect(unequalElastic.momentumAfter, equals: 4, tolerance: tolerance, "unequal-mass momentum")
+        expect(unequalElastic.kineticEnergyAfter, equals: 8, tolerance: tolerance, "unequal-mass kinetic energy")
+
         print("Physics model checks passed.")
     }
 

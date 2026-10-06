@@ -108,6 +108,7 @@ jobs:
           Physics:motion_with_constant_acceleration
           Physics:work_and_kinetic_energy
           Physics:impulse_and_momentum
+          Physics:elastic_collisions
           Biology:passive_transport_osmosis
           Biology:photosynthesis_energy_and_carbon
           Biology:mendelian_inheritance
