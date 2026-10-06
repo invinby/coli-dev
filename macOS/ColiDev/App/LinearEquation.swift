@@ -1,5 +1,25 @@
 import Foundation
 
+enum LinearEquationOperation: Equatable {
+    case add(Int)
+    case subtract(Int)
+    case divide(Int)
+    case multiply(Int)
+
+    func isCorrect(for equation: LinearEquation, at step: Int) -> Bool {
+        switch (step, self) {
+        case (0, .add(let value)):
+            return equation.offset < 0 && value == abs(equation.offset)
+        case (0, .subtract(let value)):
+            return equation.offset > 0 && value == equation.offset
+        case (1, .divide(let value)):
+            return value == equation.coefficient
+        default:
+            return false
+        }
+    }
+}
+
 struct LinearEquation: Equatable {
     let coefficient: Int
     let solution: Int

@@ -1109,6 +1109,8 @@ private struct LinearEquationLab: View {
     @State private var equation = LinearEquation.random()
     @State private var completedSteps = 0
     @State private var didCheckSolution = false
+    @State private var feedbackKey: String?
+    @State private var feedbackIsCorrect = false
 
     private var variableTerm: String {
         equation.coefficient == 1 ? "x" : "\(equation.coefficient)x"
@@ -1137,22 +1139,50 @@ private struct LinearEquationLab: View {
         }
     }
 
-    private var actionTitle: String {
-        switch completedSteps {
-        case 0:
-            let key = equation.offset > 0 ? "lab.equation.subtract" : "lab.equation.add"
-            return localized(key, value: String(abs(equation.offset)))
-        case 1:
-            return localized("lab.equation.divide", value: String(equation.coefficient))
-        case 2 where !didCheckSolution:
-            return L10n.text("lab.equation.check", store.language)
-        default:
-            return L10n.text("lab.equation.newExample", store.language)
+    private var operationChoices: [LinearEquationOperation] {
+        if completedSteps == 0 {
+            return [
+                .subtract(abs(equation.offset)),
+                .add(abs(equation.offset)),
+                .divide(equation.coefficient),
+            ]
+        }
+        return [
+            .divide(equation.coefficient),
+            .multiply(equation.coefficient),
+            .add(equation.coefficient),
+        ]
+    }
+
+    private var progressActionTitle: String {
+        didCheckSolution
+            ? L10n.text("lab.equation.newExample", store.language)
+            : L10n.text("lab.equation.check", store.language)
+    }
+
+    private func operationTitle(_ operation: LinearEquationOperation) -> String {
+        switch operation {
+        case .add(let value):
+            return localized("lab.equation.add", value: String(value))
+        case .subtract(let value):
+            return localized("lab.equation.subtract", value: String(value))
+        case .divide(let value):
+            return localized("lab.equation.divide", value: String(value))
+        case .multiply(let value):
+            return localized("lab.equation.multiply", value: String(value))
         }
     }
 
-    private var actionSymbol: String {
-        completedSteps < 2 ? "arrow.right" : (didCheckSolution ? "shuffle" : "checkmark.circle")
+    private func choose(_ operation: LinearEquationOperation) {
+        guard operation.isCorrect(for: equation, at: completedSteps) else {
+            feedbackKey = "lab.equation.tryAgain"
+            feedbackIsCorrect = false
+            return
+        }
+
+        completedSteps += 1
+        feedbackKey = completedSteps == 1 ? "lab.equation.firstCorrect" : "lab.equation.secondCorrect"
+        feedbackIsCorrect = true
     }
 
     var body: some View {
@@ -1189,6 +1219,33 @@ private struct LinearEquationLab: View {
                 .padding(11)
                 .background(Color.indigo.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
 
+            if completedSteps < 2 {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(L10n.text("lab.equation.chooseOperation", store.language))
+                        .font(.callout.weight(.semibold))
+                    ForEach(Array(operationChoices.enumerated()), id: \.offset) { _, operation in
+                        Button {
+                            choose(operation)
+                        } label: {
+                            Text(operationTitle(operation))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+            }
+
+            if let feedbackKey {
+                Label(
+                    L10n.text(feedbackKey, store.language),
+                    systemImage: feedbackIsCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
+                )
+                .font(.callout.weight(.medium))
+                .foregroundStyle(feedbackIsCorrect ? Color.green : Color.orange)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityElement(children: .combine)
+            }
+
             HStack {
                 Label(
                     String(
@@ -1201,21 +1258,26 @@ private struct LinearEquationLab: View {
                 .font(.callout.weight(.semibold))
                 .foregroundStyle(didCheckSolution ? .green : .secondary)
                 Spacer()
-                Button {
-                    if completedSteps < 2 {
-                        completedSteps += 1
-                    } else if !didCheckSolution {
-                        didCheckSolution = true
-                    } else {
-                        equation = .random()
-                        completedSteps = 0
-                        didCheckSolution = false
+                if completedSteps == 2 {
+                    Button {
+                        if !didCheckSolution {
+                            didCheckSolution = true
+                        } else {
+                            equation = .random()
+                            completedSteps = 0
+                            didCheckSolution = false
+                            feedbackKey = nil
+                            feedbackIsCorrect = false
+                        }
+                    } label: {
+                        Label(
+                            progressActionTitle,
+                            systemImage: didCheckSolution ? "shuffle" : "checkmark.circle"
+                        )
                     }
-                } label: {
-                    Label(actionTitle, systemImage: actionSymbol)
+                    .buttonStyle(.borderedProminent)
+                    .tint(.indigo)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.indigo)
             }
 
             if didCheckSolution {
