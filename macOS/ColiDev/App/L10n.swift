@@ -551,6 +551,7 @@ enum L10n {
         "tutor.localPrivacy": ("Локальный маршрут использует курсы и Obsidian на этом Mac и отправляет контекст только Ollama на loopback-адресе. Он не выполняет веб-поиск; удалённые Ollama и Obsidian endpoints блокируются.", "Local-only uses courses and Obsidian on this Mac and sends context only to Ollama on a loopback address. It does not search the web; remote Ollama and Obsidian endpoints are blocked."),
         "tutor.sources": ("Источники", "Sources"),
         "tutor.missingCitation": ("Не найдены источники для ссылок %@; маркеры убраны.", "No retrieved source matched %@; citation markers were removed."),
+        "tutor.noValidCitations": ("В ответе нет ссылок на найденные материалы. Проверь источники ниже и учитывай, что ответ может быть не подтверждён ими.", "The answer does not cite the retrieved materials. Check the sources below; the response may not be supported by them."),
         "tutor.citationValidationLimit": ("Это сверяет только наличие источника, а не подтверждает, что он поддерживает утверждение.", "This only checks that a source exists; it does not confirm that the source supports the claim."),
         "tutor.webSearchToggle": ("Найти актуальные источники в Google Search", "Search Google for current sources"),
         "tutor.webSearchCostBlocked": ("Google Search закрыт защитой от потенциально платных вызовов. Разрешение можно отдельно включить в Центре управления.", "Google Search is blocked by protection against potentially paid calls. You can explicitly allow it in Control Center."),

@@ -5540,13 +5540,19 @@ private struct TutorChatView: View {
                 }
                 if message.role == .tutor, !message.citationWarnings.isEmpty {
                     VStack(alignment: .leading, spacing: 3) {
-                        Label(
-                            String(
-                                format: L10n.text("tutor.missingCitation", language),
-                                message.citationWarnings.joined(separator: ", ")
-                            ),
-                            systemImage: "exclamationmark.triangle"
-                        )
+                        if message.citationWarnings.contains("NO_VALID_CITATIONS") {
+                            Label(L10n.text("tutor.noValidCitations", language), systemImage: "quote.bubble")
+                        }
+                        let missingIDs = message.citationWarnings.filter { $0 != "NO_VALID_CITATIONS" }
+                        if !missingIDs.isEmpty {
+                            Label(
+                                String(
+                                    format: L10n.text("tutor.missingCitation", language),
+                                    missingIDs.joined(separator: ", ")
+                                ),
+                                systemImage: "exclamationmark.triangle"
+                            )
+                        }
                         Text(L10n.text("tutor.citationValidationLimit", language))
                     }
                     .font(.caption2)

@@ -3556,6 +3556,7 @@ def _validate_local_citations(
     }
     missing_ids: list[str] = []
     missing_set: set[str] = set()
+    found_valid_citation = False
     output: list[str] = []
     fence_character: str | None = None
     fence_length = 0
@@ -3603,6 +3604,7 @@ def _validate_local_citations(
             if citation:
                 marker = f"K{citation.group('number')}"
                 if marker in valid_ids:
+                    found_valid_citation = True
                     output.append(citation.group(0))
                 else:
                     if marker not in missing_set:
@@ -3615,6 +3617,8 @@ def _validate_local_citations(
             output.append(line[index])
             index += 1
 
+    if valid_ids and not found_valid_citation:
+        missing_ids.append("NO_VALID_CITATIONS")
     return "".join(output), missing_ids
 
 

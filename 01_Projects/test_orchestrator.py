@@ -2029,6 +2029,31 @@ class TestStreamingChat:
         )
         assert warnings == ["K2"]
 
+    def test_local_answer_without_retrieved_citations_is_flagged(self):
+        answer = "An uncited explanation. `literal [K1]`\n```text\n[K1]\n```"
+
+        unchanged, warnings = orchestrator._validate_local_citations(
+            answer,
+            [{"id": "K1"}],
+            "en",
+        )
+
+        assert unchanged == answer
+        assert warnings == ["NO_VALID_CITATIONS"]
+
+    def test_any_valid_local_citation_prevents_no_citation_warning(self):
+        answer = "A supported point [K1], plus an invalid [K2]."
+
+        sanitized, warnings = orchestrator._validate_local_citations(
+            answer,
+            [{"id": "K1"}],
+            "en",
+        )
+
+        assert "[K1]" in sanitized
+        assert "[source K2 unavailable]" in sanitized
+        assert warnings == ["K2"]
+
     def test_stream_done_reports_missing_local_citation_ids(self):
         async def collect():
             return [
