@@ -825,6 +825,16 @@ private struct ManagementView: View {
                                 ?? L10n.text("settings.aiSemanticKeyword", store.language),
                             symbol: "point.3.connected.trianglepath.dotted"
                         )
+                        statusRow(
+                            title: L10n.text("management.dailyOnlineLimit", store.language),
+                            value: dailyOnlineLimitSummary,
+                            symbol: "chart.bar"
+                        )
+                        Text(L10n.text("management.dailyOnlineLimitCaveat", store.language))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .padding(.top, 6)
                 }
@@ -1142,6 +1152,14 @@ private struct ManagementView: View {
                 return reviewStatuses.contains { $0 != "review_scheduled" }
             }
         }
+    }
+
+    private var dailyOnlineLimitSummary: String {
+        guard let current = store.aiHealth?.sessionCurrent,
+              let maximum = store.aiHealth?.sessionMax else {
+            return "—"
+        }
+        return String(format: L10n.text("management.dailyOnlineLimitValue", store.language), current, maximum)
     }
 
     private var integrationsPane: some View {
