@@ -681,6 +681,40 @@ def test_zoology_function_trainer_has_all_bilingual_labels() -> None:
             assert key in localization, f"Missing RU/EN localization for {key}"
 
 
+def test_physics_measurement_uncertainty_foundations_lesson_is_linked() -> None:
+    project = Path(__file__).resolve().parent.parent
+    curriculum = (project / "02_Areas/Physics/curriculum.md").read_text(encoding="utf-8")
+    lesson = project / "02_Areas/Physics/lessons/measurement_accuracy_precision_uncertainty.md"
+
+    assert "lesson:measurement_accuracy_precision_uncertainty" in curriculum
+    assert lesson.is_file()
+    content = lesson.read_text(encoding="utf-8")
+    assert "lesson_id: physics.measurement_accuracy_precision_uncertainty" in content
+    assert "level: foundation" in content
+    assert "languages: ru, en" in content
+    assert "### Границы модели" in content
+    assert "### Limits and safe execution" in content
+    assert "https://openstax.org/books/college-physics-2e/pages/1-3-accuracy-precision-and-significant-figures" in content
+
+
+def test_physics_measurement_trainer_has_bilingual_controls() -> None:
+    project = Path(__file__).resolve().parent.parent
+    localization = (project / "macOS/ColiDev/App/L10n.swift").read_text(encoding="utf-8")
+
+    for key in (
+        "lab.physics.measurement.series.a",
+        "lab.physics.measurement.series.b",
+        "lab.physics.measurement.criterion.accuracy",
+        "lab.physics.measurement.criterion.precision",
+        "lab.physics.measurement.check",
+        "lab.physics.measurement.correct",
+        "lab.physics.measurement.review",
+        "lab.physics.measurement.halfDivision",
+        "lab.physics.measurement.limit",
+    ):
+        assert f'"{key}"' in localization, f"Missing RU/EN localization for {key}"
+
+
 def test_bundled_lessons_have_a_complete_bilingual_learning_structure() -> None:
     project = Path(__file__).resolve().parent.parent
     areas = project / "02_Areas"
