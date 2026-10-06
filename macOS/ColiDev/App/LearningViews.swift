@@ -523,6 +523,33 @@ struct CurriculumModuleView: View {
             reflection = store.studyProgress[lessonID]?.reflection ?? ""
         }
     }
+
+    private func saveLessonToObsidian() {
+        guard let document, !isSavingObsidianNote else { return }
+        let timestampFormatter = DateFormatter()
+        timestampFormatter.locale = Locale(identifier: "en_US_POSIX")
+        timestampFormatter.timeZone = TimeZone.current
+        timestampFormatter.dateFormat = "yyyyMMdd-HHmmssSSS"
+        let timestamp = timestampFormatter.string(from: Date())
+        let uniqueSuffix = String(UUID().uuidString.prefix(8)).lowercased()
+        let path = "ColiDev/Lessons/\(subject.rawValue)/\(resource)-\(timestamp)-\(uniqueSuffix).md"
+        let source = document.notebookSource(subject: subject, language: store.language)
+        isSavingObsidianNote = true
+        obsidianSaveStatus = nil
+
+        Task { @MainActor in
+            defer { isSavingObsidianNote = false }
+            do {
+                try await OrchestratorClient.saveObsidianNote(path: path, content: source)
+                obsidianSaveStatus = String(
+                    format: L10n.text("module.obsidianSaved", store.language),
+                    path
+                )
+            } catch {
+                obsidianSaveStatus = L10n.text("module.obsidianSaveFailed", store.language)
+            }
+        }
+    }
 }
 
 private struct NotebookLMSourceFile: FileDocument {
@@ -787,32 +814,6 @@ private struct StudyReflectionFields: View {
         }
     }
 
-    private func saveLessonToObsidian() {
-        guard let document, !isSavingObsidianNote else { return }
-        let timestampFormatter = DateFormatter()
-        timestampFormatter.locale = Locale(identifier: "en_US_POSIX")
-        timestampFormatter.timeZone = TimeZone.current
-        timestampFormatter.dateFormat = "yyyyMMdd-HHmmssSSS"
-        let timestamp = timestampFormatter.string(from: Date())
-        let uniqueSuffix = String(UUID().uuidString.prefix(8)).lowercased()
-        let path = "ColiDev/Lessons/\(subject.rawValue)/\(resource)-\(timestamp)-\(uniqueSuffix).md"
-        let source = document.notebookSource(subject: subject, language: store.language)
-        isSavingObsidianNote = true
-        obsidianSaveStatus = nil
-
-        Task { @MainActor in
-            defer { isSavingObsidianNote = false }
-            do {
-                try await OrchestratorClient.saveObsidianNote(path: path, content: source)
-                obsidianSaveStatus = String(
-                    format: L10n.text("module.obsidianSaved", store.language),
-                    path
-                )
-            } catch {
-                obsidianSaveStatus = L10n.text("module.obsidianSaveFailed", store.language)
-            }
-        }
-    }
 }
 
 private struct LessonConceptCard: View {
