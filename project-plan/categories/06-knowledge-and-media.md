@@ -8,7 +8,13 @@
 
 ## NotebookLM — интеграция по пожеланию пользователя
 
-Для каждого открытого урока добавлен RU/EN экспорт источника в Markdown через стандартный macOS Save dialog, плюс отдельное действие открыть NotebookLM. Файл хранится локально; передача Google происходит только после ручного импорта пользователем. Официальная справка Gemini Notebook перечисляет Markdown среди поддерживаемых источников: https://support.google.com/gemininotebook/answer/16215270?co=GENIE.Platform%3DDesktop&hl=en. Это поддерживаемый экспортный мост, не API-интеграция и не автосинхронизация; прямой официальный developer API необходимо отдельно подтвердить перед дальнейшей автоматизацией.
+Для каждого открытого урока добавлен RU/EN экспорт источника в Markdown через стандартный macOS Save dialog, плюс отдельное действие открыть NotebookLM. Файл хранится локально; передача Google происходит только после ручного импорта пользователем. Официальная справка Gemini Notebook перечисляет Markdown среди поддерживаемых источников: https://support.google.com/gemininotebook/answer/16215270?co=GENIE.Platform%3DDesktop&hl=en. Это поддерживаемый экспортный мост, не API-интеграция и не автосинхронизация.
+
+### Проверка официальных способов интеграции — 2026-10-07
+
+- Нашёлся поддерживаемый API только для **Gemini Notebook Enterprise**: notebook/source endpoints на Discovery Engine `v1alpha`, помеченные Google как Preview/Pre-GA. Для него нужны Google Cloud project/location, IAM-роли и Enterprise-лицензии. Он не предназначен для обычных личных NotebookLM-аккаунтов. Документы: [Notebook API](https://docs.cloud.google.com/gemini/enterprise/notebooklm-enterprise/docs/api-notebooks), [Sources API](https://docs.cloud.google.com/gemini/enterprise/notebooklm-enterprise/docs/api-notebooks-sources), [лицензирование](https://docs.cloud.google.com/gemini/enterprise/notebooklm-enterprise/docs/set-up-licensing).
+- В официальных consumer-материалах, проверенных 2026-10-07, публичного REST API для личных NotebookLM notebooks/sources не найдено. Для личного аккаунта оставляем официальный user-mediated сценарий: подготовить Markdown/документ/URL, открыть NotebookLM и попросить пользователя импортировать источник через UI. Google Drive API помогает подготовить и выгрузить документ, но само по себе не добавляет его в notebook. Это вывод по изученным документам, не доказательство, что никаких закрытых или будущих API не существует.
+- Решение: не строить consumer-интеграцию на reverse-engineered endpoints или автоматизации браузерного интерфейса. Enterprise connector рассматривать позже как отдельную необязательную функцию с явным setup/licensing gate и статусом Preview; массовый пользовательский сценарий — ручной импорт/экспорт.
 
 ## Визуальные объяснения
 

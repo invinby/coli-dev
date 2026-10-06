@@ -735,15 +735,23 @@ class TestSubjectModelRouting:
 
 
 class TestAutoAgentModelRouting:
-    def test_defaults_expose_local_models_for_every_agent_role(self, client):
+    def test_defaults_expose_auto_routes_for_every_agent_role(self, client):
         response = client.get("/settings/agent-models")
 
         assert response.status_code == 200
         roles = {item["role"]: item for item in response.json()["roles"]}
         assert set(roles) == set(orchestrator.AUTO_AGENT_MODEL_ROLES)
         assert all(item["model"] is None for item in roles.values())
-        assert all(item["effective_model"] == orchestrator.OLLAMA_MODEL_RESEARCHER for item in roles.values())
-        assert all(item["status"] == "model_checked_on_use" for item in roles.values())
+        assert roles["gemini_draft"]["provider"] == "auto"
+        assert all(
+            roles[role]["provider"] == "ollama"
+            for role in ("local_draft", "critic", "verifier")
+        )
+        assert roles["gemini_draft"]["effective_provider"] == "gemini"
+        assert all(
+            roles[role]["effective_provider"] == "ollama"
+            for role in ("local_draft", "critic", "verifier")
+        )
 
     def test_role_models_persist_validate_and_reset_without_credentials(self, client):
         saved = client.put("/settings/agent-models/critic", json={"model": "qwen3:8b"})
@@ -763,6 +771,105 @@ class TestAutoAgentModelRouting:
         reset = client.delete("/settings/agent-models/critic")
         assert reset.status_code == 200
         assert reset.json()["model"] is None
+
+    def test_agent_route_accepts_cloud_provider_but_blocks_it_from_free_only_execution(self, client):
+        orchestrator.auto_cost_policy.set(False)
+
+        saved = client.put(
+            "/settings/agent-models/critic",
+            json={"provider": "gemini", "model": "gemini-3.8-flash"},
+        )
+
+        assert saved.status_code == 200
+        route = saved.json()
+        assert route["provider"] == "gemini"
+        assert route["model"] == "gemini-3.8-flash"
+        assert route["effective_provider"] == "ollama"
+        assert route["effective_model"] == orchestrator.OLLAMA_MODEL_RESEARCHER
+        assert route["paid_route_blocked"] is True
+        assert route["status"] == "blocked_by_free_only"
+
+    def test_agent_route_store_migrates_saved_local_models(self, tmp_path):
+        path = tmp_path / "auto-agent-models.json"
+        path.write_text(
+            json.dumps({"schema_version": 1, "models": {"critic": "qwen3:8b"}}),
+            encoding="utf-8",
+        )
+
+        store = orchestrator.AutoAgentModelStore(path)
+
+        assert store.get_route("critic") == {"provider": "ollama", "model": "qwen3:8b"}
+        assert store.get_route("verifier") == {"provider": "ollama", "model": None}
+        assert store.get_route("gemini_draft") == {"provider": "auto", "model": None}
+
+    def test_openrouter_free_route_is_allowed_by_default_cost_policy(self, client, monkeypatch):
+        orchestrator.auto_cost_policy.set(False)
+        monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "test-openrouter-key")
+
+        saved = client.put(
+            "/settings/agent-models/critic",
+            json={"provider": "openrouter", "model": "openrouter/free"},
+        )
+
+        assert saved.status_code == 200
+        route = saved.json()
+        assert route["effective_provider"] == "openrouter"
+        assert route["effective_model"] == "openrouter/free"
+        assert route["paid_route_blocked"] is False
+
+    def test_free_only_critic_uses_its_configured_openrouter_free_route(self, monkeypatch):
+        orchestrator.auto_cost_policy.set(False)
+        monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "test-openrouter-key")
+        orchestrator.auto_agent_models.set_route("critic", "openrouter", "openrouter/free")
+        orchestrator.auto_agent_models.set_route("verifier", "ollama", "llama3.2:3b")
+        orchestrator.final_synthesis_routes.set("ollama", "qwen3:8b")
+        engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient))
+        engine._ask_openrouter = AsyncMock(return_value="Critical review")
+        engine._ask_ollama = AsyncMock(side_effect=["Independent verification", "Final answer"])
+
+        answer = asyncio.run(engine._run_consilium("Question", "Instructions", "Candidate draft"))
+
+        assert answer == "Final answer"
+        engine._ask_openrouter.assert_awaited_once()
+        assert engine._ask_openrouter.await_args.kwargs["model"] == "openrouter/free"
+        assert engine._ask_ollama.await_args_list[0].kwargs["model"] == "llama3.2:3b"
+
+    def test_paid_agent_route_never_calls_cloud_when_free_only(self, monkeypatch):
+        orchestrator.auto_cost_policy.set(False)
+        monkeypatch.setattr(orchestrator, "GEMINI_KEY", "test-gemini-key")
+        orchestrator.auto_agent_models.set_route("critic", "gemini", "gemini-3.8-flash")
+        engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient))
+        engine._ask_gemini = AsyncMock(return_value="SHOULD NOT RUN")
+        engine._ask_ollama = AsyncMock(return_value="Local critique")
+
+        result = asyncio.run(
+            engine._ask_auto_agent_role("critic", "Question", "System", "critic")
+        )
+
+        assert result == "Local critique"
+        engine._ask_gemini.assert_not_awaited()
+        engine._ask_ollama.assert_awaited_once_with(
+            "Question", "System", "critic-free-only-local-fallback",
+            model=orchestrator.OLLAMA_MODEL_RESEARCHER,
+        )
+
+    def test_auto_agent_route_uses_openrouter_free_before_local_when_configured(self, monkeypatch):
+        orchestrator.auto_cost_policy.set(False)
+        monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "test-openrouter-key")
+        orchestrator.auto_agent_models.set_route("critic", "auto", None)
+        engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient))
+        engine._ask_openrouter = AsyncMock(return_value="Free route result")
+        engine._ask_ollama = AsyncMock(return_value="Should not run")
+
+        result = asyncio.run(
+            engine._ask_auto_agent_role("critic", "Question", "System", "critic")
+        )
+
+        assert result == "Free route result"
+        engine._ask_openrouter.assert_awaited_once_with(
+            "Question", "System", "critic", model="openrouter/free", track_specialist=False,
+        )
+        engine._ask_ollama.assert_not_awaited()
 
     def test_route_settings_are_loopback_only(self):
         with TestClient(app, client=("203.0.113.41", 50000)) as remote_client:
@@ -1148,10 +1255,10 @@ class TestAutoCostPolicy:
         assert answer == "Free router final"
         engine._ask_gemini.assert_not_awaited()
         engine._ask_kimi.assert_not_awaited()
-        engine._ask_openrouter.assert_awaited_once_with(
-            "Question", engine.agent_system("Tutor instructions"), "cloud-specialist",
-            model=orchestrator.OPENROUTER_FREE_MODEL,
-        )
+        assert engine._ask_openrouter.await_count == 2
+        assert {call.kwargs["model"] for call in engine._ask_openrouter.await_args_list} == {
+            orchestrator.OPENROUTER_FREE_MODEL,
+        }
         engine._ask_selected_specialist.assert_awaited_once()
         assert engine._ask_selected_specialist.await_args.args[:2] == (
             "openrouter", orchestrator.OPENROUTER_FREE_MODEL,

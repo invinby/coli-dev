@@ -600,6 +600,7 @@ private struct ManagementView: View {
     @State private var routeProvider = "auto"
     @State private var routeModel = ""
     @State private var autoAgentRole = "local_draft"
+    @State private var autoAgentProvider = "auto"
     @State private var autoAgentModel = ""
     @State private var finalSynthesisProvider = "auto"
     @State private var finalSynthesisModel = ""
@@ -688,6 +689,9 @@ private struct ManagementView: View {
         .navigationTitle(Text(L10n.text("management.title", store.language)))
         .onChange(of: routeSubject) { _ in syncSubjectModelRouteForm() }
         .onChange(of: autoAgentRole) { _ in syncAutoAgentModelForm() }
+        .onChange(of: autoAgentProvider) { provider in
+            if provider == "auto" { autoAgentModel = "" }
+        }
         .onChange(of: finalSynthesisProvider) { provider in
             if provider == "auto" { finalSynthesisModel = "" }
         }
@@ -1837,56 +1841,79 @@ private struct ManagementView: View {
                             .fixedSize(horizontal: false, vertical: true)
 
                         Picker(L10n.text("management.autoAgentRole", store.language), selection: $autoAgentRole) {
-                            ForEach(["local_draft", "critic", "verifier"], id: \.self) { role in
+                            ForEach(["local_draft", "gemini_draft", "critic", "verifier"], id: \.self) { role in
                                 Text(L10n.text("management.autoAgentRole.\(role)", store.language)).tag(role)
                             }
                         }
                         .frame(maxWidth: 360, alignment: .leading)
 
-                        TextField(L10n.text("management.autoAgentModel", store.language), text: $autoAgentModel)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(maxWidth: 520)
-                        HStack(spacing: 10) {
-                            Button {
-                                Task { await store.refreshLocalOllamaModelCatalog() }
-                            } label: {
-                                if store.isRefreshingLocalOllamaModelCatalog {
-                                    ProgressView().controlSize(.small)
-                                } else {
+                        Picker(L10n.text("management.routeProvider", store.language), selection: $autoAgentProvider) {
+                            ForEach(["auto", "ollama", "openrouter", "gemini", "kimi", "compatible"], id: \.self) { provider in
+                                Text(L10n.text("management.routeProvider.\(provider)", store.language))
+                                    .tag(provider)
+                            }
+                        }
+                        .frame(maxWidth: 360, alignment: .leading)
+
+                        if autoAgentProvider != "auto" {
+                            TextField(L10n.text("management.routeModel", store.language), text: $autoAgentModel)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(maxWidth: 520)
+                        }
+                        if autoAgentProvider == "ollama" {
+                            HStack(spacing: 10) {
+                                Button {
+                                    Task { await store.refreshLocalOllamaModelCatalog() }
+                                } label: {
+                                    if store.isRefreshingLocalOllamaModelCatalog {
+                                        ProgressView().controlSize(.small)
+                                    } else {
+                                        Label(
+                                            L10n.text("management.ollamaModelsRefresh", store.language),
+                                            systemImage: "arrow.clockwise"
+                                        )
+                                    }
+                                }
+                                .buttonStyle(.bordered)
+                                .disabled(store.isRefreshingLocalOllamaModelCatalog)
+
+                                Menu {
+                                    ForEach(store.localOllamaModelCatalog.models, id: \.self) { model in
+                                        Button(model) { autoAgentModel = model }
+                                    }
+                                } label: {
                                     Label(
-                                        L10n.text("management.ollamaModelsRefresh", store.language),
-                                        systemImage: "arrow.clockwise"
+                                        L10n.text("management.ollamaModelsChoose", store.language),
+                                        systemImage: "list.bullet"
                                     )
                                 }
+                                .disabled(store.localOllamaModelCatalog.models.isEmpty)
                             }
-                            .buttonStyle(.bordered)
-                            .disabled(store.isRefreshingLocalOllamaModelCatalog)
-
-                            Menu {
-                                ForEach(store.localOllamaModelCatalog.models, id: \.self) { model in
-                                    Button(model) { autoAgentModel = model }
-                                }
-                            } label: {
-                                Label(
-                                    L10n.text("management.ollamaModelsChoose", store.language),
-                                    systemImage: "list.bullet"
-                                )
+                            if store.localOllamaModelCatalog.available {
+                                Text(store.localOllamaModelCatalog.models.isEmpty
+                                    ? L10n.text("management.ollamaModelsEmpty", store.language)
+                                    : L10n.text("management.ollamaModelsReady", store.language))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else if store.localOllamaModelCatalog.status != "not_checked" {
+                                Text(L10n.text(
+                                    "management.ollamaModelsStatus.\(store.localOllamaModelCatalog.status)",
+                                    store.language
+                                ))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
-                            .disabled(store.localOllamaModelCatalog.models.isEmpty)
                         }
-                        if store.localOllamaModelCatalog.available {
-                            Text(store.localOllamaModelCatalog.models.isEmpty
-                                ? L10n.text("management.ollamaModelsEmpty", store.language)
-                                : L10n.text("management.ollamaModelsReady", store.language))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        } else if store.localOllamaModelCatalog.status != "not_checked" {
-                            Text(L10n.text(
-                                "management.ollamaModelsStatus.\(store.localOllamaModelCatalog.status)",
-                                store.language
-                            ))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                        if autoAgentProvider != "ollama"
+                            && (autoAgentProvider != "auto"
+                                || store.autoAgentModelRoutes[autoAgentRole]?.effectiveProvider != "ollama") {
+                            Label(
+                                L10n.text("management.autoAgentCloudNotice", store.language),
+                                systemImage: "exclamationmark.triangle"
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
                         }
                         Text(L10n.text("management.autoAgentModelHelp", store.language))
                             .font(.caption)
@@ -1894,10 +1921,10 @@ private struct ManagementView: View {
 
                         if let route = store.autoAgentModelRoutes[autoAgentRole] {
                             HStack(spacing: 8) {
-                                Image(systemName: route.providerReady ? "checkmark.circle" : "exclamationmark.circle")
-                                    .foregroundStyle(route.providerReady ? Color.secondary : Color.orange)
+                                Image(systemName: route.effectiveProviderReady == false ? "exclamationmark.circle" : "checkmark.circle")
+                                    .foregroundStyle(route.effectiveProviderReady == false ? Color.orange : Color.secondary)
                                 Text(L10n.text("management.routeStatus.\(route.status)", store.language))
-                                Text(route.effectiveModel)
+                                Text("\(route.effectiveProvider) · \(route.effectiveModel)")
                                     .font(.caption.monospaced())
                                     .foregroundStyle(.secondary)
                                     .textSelection(.enabled)
@@ -2179,7 +2206,9 @@ private struct ManagementView: View {
 
     @MainActor
     private func syncAutoAgentModelForm() {
-        autoAgentModel = store.autoAgentModelRoutes[autoAgentRole]?.model ?? ""
+        let route = store.autoAgentModelRoutes[autoAgentRole]
+        autoAgentProvider = route?.provider ?? "auto"
+        autoAgentModel = route?.model ?? ""
     }
 
     @MainActor
@@ -2228,7 +2257,8 @@ private struct ManagementView: View {
             let model = autoAgentModel.trimmingCharacters(in: .whitespacesAndNewlines)
             try await store.saveAutoAgentModelRoute(
                 role: autoAgentRole,
-                model: model.isEmpty ? nil : model
+                provider: autoAgentProvider,
+                model: autoAgentProvider == "auto" || model.isEmpty ? nil : model
             )
             syncAutoAgentModelForm()
             statusMessage = L10n.text("management.routeSaved", store.language)

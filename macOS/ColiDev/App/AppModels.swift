@@ -280,8 +280,10 @@ final class LearningStore: ObservableObject {
         }
     }
 
-    func saveAutoAgentModelRoute(role: String, model: String?) async throws {
-        let route = try await OrchestratorClient.saveAutoAgentModelRoute(role: role, model: model)
+    func saveAutoAgentModelRoute(role: String, provider: String, model: String?) async throws {
+        let route = try await OrchestratorClient.saveAutoAgentModelRoute(
+            role: role, provider: provider, model: model
+        )
         autoAgentModelRoutes[route.role] = route
     }
 
@@ -1031,17 +1033,24 @@ struct SubjectModelRoutingSnapshot: Decodable {
 
 struct AutoAgentModelRoute: Decodable, Identifiable, Hashable {
     let role: String
+    let provider: String
     let model: String?
+    let effectiveProvider: String
     let effectiveModel: String
-    let providerReady: Bool
+    let providerReady: Bool?
+    let effectiveProviderReady: Bool?
     let status: String
+    let paidRouteBlocked: Bool
 
     var id: String { role }
 
     enum CodingKeys: String, CodingKey {
-        case role, model, status
+        case role, provider, model, status
+        case effectiveProvider = "effective_provider"
         case effectiveModel = "effective_model"
         case providerReady = "provider_ready"
+        case effectiveProviderReady = "effective_provider_ready"
+        case paidRouteBlocked = "paid_route_blocked"
     }
 }
 
@@ -1096,6 +1105,7 @@ private struct OpenAICompatibleSettingsUpdate: Encodable {
 }
 
 private struct AutoAgentModelUpdate: Encodable {
+    let provider: String
     let model: String?
 }
 
@@ -1609,7 +1619,9 @@ enum OrchestratorClient {
         return try JSONDecoder().decode(LocalOllamaModelCatalog.self, from: data)
     }
 
-    static func saveAutoAgentModelRoute(role: String, model: String?) async throws -> AutoAgentModelRoute {
+    static func saveAutoAgentModelRoute(
+        role: String, provider: String, model: String?
+    ) async throws -> AutoAgentModelRoute {
         guard let url = URL(string: LearningStore.orchestratorBaseURL + "/settings/agent-models/\(role)") else {
             throw ClientError.invalidResponse
         }
@@ -1617,7 +1629,9 @@ enum OrchestratorClient {
         request.httpMethod = "PUT"
         request.timeoutInterval = 15
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(AutoAgentModelUpdate(model: model))
+        request.httpBody = try JSONEncoder().encode(
+            AutoAgentModelUpdate(provider: provider, model: model)
+        )
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             throw ClientError.unavailable
