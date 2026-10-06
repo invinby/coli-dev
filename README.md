@@ -2,6 +2,10 @@
 
 ColiDev is being built as a native macOS learning platform with a local Python backend. The current repository brings the ColiDev course idea and the earlier tutor/orchestrator code into one project. **The product is still under development; it is not a finished or bug-free release.** See the [macOS app notes](macOS/ColiDev/README.md) and [project plan](project-plan/README.md) for verified scope and remaining work.
 
+## Download a test build
+
+Successful pushes to `main` publish separate 14-day GitHub Actions artifacts for Apple Silicon (`arm64`) and Intel (`x86_64`). Open the latest successful run under **Actions**, then download the artifact matching the Mac. Extract the ZIP and move `ColiDev.app` to Applications or the Desktop. This is an unsigned development build for team testing, not the future signed/notarized installer; it can trigger macOS security prompts and should only be run by the project team.
+
 ## What exists now
 
 - A SwiftUI macOS 13+ client with Russian and English, starter lessons across mathematics, English, physics, biology, zoology, and programming, linked modules including mathematics domain/range and programming variables/types and collections/loops, interactive exercises, local lesson progress, and a lesson-aware tutor screen.

@@ -122,3 +122,23 @@ jobs:
           Programming:collections_and_loops
           Programming:variables_and_types
           LESSONS
+
+      - name: Package macOS app archive
+        id: package
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          app="$RUNNER_TEMP/ColiDevDerivedData/Build/Products/Debug/ColiDev.app"
+          arch="$(uname -m)"
+          archive="$RUNNER_TEMP/ColiDev-${arch}.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$app" "$archive"
+          echo "arch=$arch" >> "$GITHUB_OUTPUT"
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+
+      - name: Upload macOS app archive
+        if: steps.package.outcome == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ColiDev-macos-${{ steps.package.outputs.arch }}
+          path: ${{ steps.package.outputs.archive }}
+          if-no-files-found: error
+          retention-days: 14

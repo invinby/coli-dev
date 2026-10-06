@@ -526,4 +526,8 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 
 - Подключён настоящий provider-level streaming в финальном синтезе Auto для OpenAI-compatible API (`stream: true`, SSE `delta.content`) и выбранного model ID Ollama (NDJSON). Черновые и критические роли остаются скрытыми; клиент видит только чанки финального синтеза.
 - Custom API всё ещё проходит через cloud-call budget для удалённого HTTPS, а loopback остаётся локальным. Upstream usage сохраняется только если пришёл; при stream-обрыве после показанного текста результат честно помечается неполным, без добавления отдельного fallback и без вывода тела ошибки.
-- Выборочные stream/final-route тесты: 39 passed; Ruff и compileall прошли. Полный backend suite и Mac CI будут зафиксированы после push. Live API, Ollama и скорость на Mac пока не проверялись.
+- Выборочные stream/final-route тесты: 39 passed; полный backend suite: 399 passed, одно прежнее Starlette/httpx предупреждение. Ruff, compileall и локальный `git diff --check` прошли. GitHub Actions [run 37413925678](https://github.com/invinby/coli-dev/actions/runs/37413925678) прошёл backend checks, Xcode build, runtime packaging, backend smoke test и проверку curriculum на Apple Silicon и Intel. Live API, Ollama и скорость на Mac пока не проверялись.
+
+### Архивы тестовых macOS-сборок — 2026-10-06
+
+- Для успешных push в `main` CI дополнен упаковкой `.app` в ZIP с сохранением структуры macOS bundle и выгрузкой двух отдельных архитектурных артефактов (`arm64`, `x86_64`) на 14 дней. README указывает загрузку из GitHub Actions. Это неподписанная тестовая сборка, не финальный установщик; новая упаковочная ветка ожидает проверки следующим GitHub Actions run.
