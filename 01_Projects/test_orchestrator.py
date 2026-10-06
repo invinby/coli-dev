@@ -947,6 +947,98 @@ class TestFinalSynthesisRouting:
         assert engine.completion_provider == "openrouter"
         assert engine.completion_model == f"OpenRouter final: {model}"
 
+    def test_selected_final_custom_provider_streams_chunks_as_they_arrive(self):
+        model = "vendor/stream-model"
+        orchestrator.final_synthesis_routes.set("compatible", model)
+        orchestrator.openai_compatible_settings.set("https://api.example.com/v1", model)
+        engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient), "en")
+        engine._ask_ollama = AsyncMock(side_effect=["Critical review", "Independent verification"])
+        engine._ask_selected_specialist = AsyncMock(return_value=("Buffered answer", "compatible"))
+        emitted: list[str] = []
+
+        async def stream_final(message, system_prompt, agent_tag, model):
+            assert "Question" in message and "Candidate draft" in message
+            assert "final-synthesis" == agent_tag
+            assert model == "vendor/stream-model"
+            for chunk in ("Streaming ", "answer"):
+                yield chunk
+
+        engine._stream_openai_compatible = stream_final
+
+        async def on_chunk(chunk: str) -> None:
+            emitted.append(chunk)
+
+        answer = asyncio.run(
+            engine._run_consilium(
+                "Question", "Instructions", "Candidate draft", on_final_chunk=on_chunk
+            )
+        )
+
+        assert answer == "Streaming answer"
+        assert emitted == ["Streaming ", "answer"]
+        engine._ask_selected_specialist.assert_not_awaited()
+        assert engine.completion_provider == "compatible"
+        assert engine.completion_model == f"Custom API final: {model}"
+
+    def test_failed_final_stream_after_first_chunk_marks_answer_incomplete(self):
+        orchestrator.final_synthesis_routes.set("compatible", "vendor/stream-model")
+        orchestrator.openai_compatible_settings.set(
+            "https://api.example.com/v1", "vendor/stream-model"
+        )
+        engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient), "en")
+        engine._ask_ollama = AsyncMock(side_effect=["Critical review", "Independent verification"])
+        emitted: list[str] = []
+
+        async def broken_stream(*_args, **_kwargs):
+            yield "Partial "
+            raise RuntimeError("provider error body must not reach the learner")
+
+        engine._stream_openai_compatible = broken_stream
+
+        async def on_chunk(chunk: str) -> None:
+            emitted.append(chunk)
+
+        answer = asyncio.run(
+            engine._run_consilium(
+                "Question", "Instructions", "Candidate draft", on_final_chunk=on_chunk
+            )
+        )
+
+        assert emitted == ["Partial "]
+        assert answer.startswith("Partial")
+        assert "may be incomplete" in answer
+        assert "provider error body" not in answer
+
+    def test_selected_final_ollama_model_is_streamed_with_its_configured_id(self):
+        model = "qwen3:8b"
+        orchestrator.final_synthesis_routes.set("ollama", model)
+        engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient), "en")
+        engine._ask_ollama = AsyncMock(side_effect=["Critical review", "Independent verification"])
+        streamed_models: list[str] = []
+        emitted: list[str] = []
+
+        async def stream_final(_message, _system_prompt, _agent_tag, model=None):
+            streamed_models.append(model)
+            yield "Offline "
+            yield "final"
+
+        engine._stream_ollama = stream_final
+
+        async def on_chunk(chunk: str) -> None:
+            emitted.append(chunk)
+
+        answer = asyncio.run(
+            engine._run_consilium(
+                "Question", "Instructions", "Candidate draft", on_final_chunk=on_chunk
+            )
+        )
+
+        assert answer == "Offline final"
+        assert streamed_models == [model]
+        assert emitted == ["Offline ", "final"]
+        assert engine.completion_provider == "ollama"
+        assert engine.completion_model == f"Ollama final: {model}"
+
     def test_unexpected_selected_route_error_uses_shared_fallback(self):
         orchestrator.subject_model_routes.set("physics", "gemini", "gemini-2.5-pro")
         engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient))
@@ -1354,6 +1446,67 @@ def test_custom_compatible_request_uses_configured_model_and_bearer_key(monkeypa
     assert kwargs["headers"]["Authorization"] == "Bearer compatible-test-secret"
     assert kwargs["json"]["model"] == "vendor/model:latest"
     assert engine.specialist_model_label == "vendor/model:latest"
+
+
+def test_custom_compatible_stream_emits_sse_deltas_and_records_usage(monkeypatch):
+    monkeypatch.setattr(orchestrator, "OPENAI_COMPATIBLE_KEY", "compatible-stream-secret")
+    orchestrator.openai_compatible_settings.set(
+        "https://api.example.com/v1", "vendor/stream-model"
+    )
+    monkeypatch.setattr(orchestrator, "_reserve_cloud_model_call", AsyncMock())
+    record_usage = AsyncMock()
+    monkeypatch.setattr(orchestrator, "_record_provider_usage", record_usage)
+    events = [
+        {"model": "vendor/resolved-model", "choices": [{"delta": {"content": "First "}, "finish_reason": None}]},
+        {"choices": [{"delta": {"content": "answer."}, "finish_reason": "stop"}]},
+        {"choices": [], "usage": {"prompt_tokens": 9, "completion_tokens": 4, "total_tokens": 13}},
+    ]
+    body = "".join(f"data: {json.dumps(event)}\n\n" for event in events) + "data: [DONE]\n\n"
+
+    class ChunkedBody(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            encoded = body.encode("utf-8")
+            for offset in range(0, len(encoded), 23):
+                yield encoded[offset:offset + 23]
+
+        async def aclose(self):
+            return None
+
+    async def handle_request(request):
+        payload = json.loads(request.content)
+        assert request.method == "POST"
+        assert request.url == "https://api.example.com/v1/chat/completions"
+        assert request.headers["Authorization"] == "Bearer compatible-stream-secret"
+        assert request.headers["Accept"] == "text/event-stream"
+        assert payload["model"] == "vendor/stream-model"
+        assert payload["stream"] is True
+        return httpx.Response(200, stream=ChunkedBody())
+
+    async def collect():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handle_request)) as http_client:
+            engine = orchestrator.ConsiliumEngine(http_client, "en")
+            chunks = [
+                chunk
+                async for chunk in engine._stream_openai_compatible(
+                    "Question", "System", "final-synthesis", "vendor/stream-model"
+                )
+            ]
+            return engine, chunks
+
+    engine, chunks = asyncio.run(collect())
+    assert chunks == ["First ", "answer."]
+    assert engine.specialist_model_label == "vendor/resolved-model"
+    orchestrator._reserve_cloud_model_call.assert_awaited_once_with(
+        "compatible", "vendor/stream-model"
+    )
+    record_usage.assert_awaited_once_with(
+        "compatible",
+        "vendor/resolved-model",
+        "openai-compatible",
+        orchestrator.openai_compatible_usage(
+            {"prompt_tokens": 9, "completion_tokens": 4, "total_tokens": 13}
+        ),
+    )
 
 
 def test_selected_custom_provider_returns_custom_provider_label_and_answer(monkeypatch):
@@ -2721,6 +2874,7 @@ class TestConsiliumEngine:
             assert request.url.host == "127.0.0.1"
             assert request.url.path == "/api/chat"
             assert payload["stream"] is True
+            assert payload["model"] == "qwen3:8b"
             assert payload["options"]["num_predict"] == 1024
             return httpx.Response(200, stream=ChunkedBody())
 
@@ -2733,6 +2887,7 @@ class TestConsiliumEngine:
                         "Learner question",
                         "Tutor system",
                         "test",
+                        model="qwen3:8b",
                     )
                 ]
 

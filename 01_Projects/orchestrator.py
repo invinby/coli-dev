@@ -1309,6 +1309,52 @@ class ConsiliumEngine:
                     "final-synthesis",
                     on_final_chunk,
                 )
+        elif on_final_chunk is not None and effective_provider in {"compatible", "ollama"}:
+            prior_specialist_label = self.specialist_model_label
+            self.specialist_model_label = None
+            streamed_parts: list[str] = []
+            try:
+                if effective_provider == "compatible":
+                    chunks = self._stream_openai_compatible(
+                        consensus_prompt,
+                        self.agent_system(system_prompt),
+                        "final-synthesis",
+                        model=synthesis_model,
+                    )
+                else:
+                    chunks = self._stream_ollama(
+                        consensus_prompt,
+                        self.agent_system(system_prompt),
+                        "final-synthesis",
+                        model=synthesis_model,
+                    )
+                async for chunk in chunks:
+                    streamed_parts.append(chunk)
+                    emitted = on_final_chunk(chunk)
+                    if asyncio.iscoroutine(emitted):
+                        await emitted
+                final_answer = "".join(streamed_parts).strip()
+                model_label = self.specialist_model_label or synthesis_model
+            except Exception as exc:
+                if not streamed_parts:
+                    raise
+                partial_answer = "".join(streamed_parts).strip()
+                interruption_note = (
+                    "The response stream stopped early; this answer may be incomplete."
+                    if self.language == "en"
+                    else "Поток ответа прервался; ответ может быть неполным."
+                )
+                final_answer = f"{partial_answer}\n\n⚠️ {interruption_note}"
+                route_note = " · stream interrupted"
+                model_label = self.specialist_model_label or synthesis_model
+                logger.warning(
+                    "Final synthesis stream stopped after partial output",
+                    extra={"provider": effective_provider, "error_type": type(exc).__name__},
+                )
+            finally:
+                self.specialist_model_label = prior_specialist_label
+            if not final_answer:
+                raise ConsiliumCloudError("Final synthesis stream returned no learner-facing text")
         else:
             prior_specialist_label = self.specialist_model_label
             self.specialist_model_label = None
@@ -2208,12 +2254,19 @@ class ConsiliumEngine:
             return "[Ошибка Ollama: некорректный ответ или сбой запроса]"
 
 
-    async def _stream_ollama(self, message: str, system_prompt: str, agent_tag: str):
+    async def _stream_ollama(
+        self,
+        message: str,
+        system_prompt: str,
+        agent_tag: str,
+        model: str | None = None,
+    ):
         if not _is_loopback_http_url(OLLAMA_BASE):
             raise RuntimeError("Ollama endpoint must use localhost or a loopback IP")
 
+        selected_model = model or OLLAMA_MODEL_RESEARCHER
         payload = {
-            "model": OLLAMA_MODEL_RESEARCHER,
+            "model": selected_model,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": message},
@@ -2252,7 +2305,7 @@ class ConsiliumEngine:
                         completed = True
                         await _record_provider_usage(
                             "ollama",
-                            event.get("model") or OLLAMA_MODEL_RESEARCHER,
+                            event.get("model") or selected_model,
                             "ollama",
                             ollama_usage(event),
                         )
@@ -2274,6 +2327,143 @@ class ConsiliumEngine:
                 extra={"agent": agent_tag, "error_type": type(exc).__name__},
             )
             raise RuntimeError("Ollama stream failed") from None
+
+    async def _stream_openai_compatible(
+        self,
+        message: str,
+        system_prompt: str,
+        agent_tag: str,
+        model: str,
+    ):
+        """Stream learner-facing deltas from the configured OpenAI-compatible API."""
+        config = openai_compatible_settings.get()
+        if not OPENAI_COMPATIBLE_KEY or not config["base_url"]:
+            raise RuntimeError("Custom API endpoint or key is not configured")
+        selected_model = model.strip()
+        if not _valid_subject_model_id("compatible", selected_model):
+            raise RuntimeError("Custom API model identifier is invalid")
+
+        url = config["base_url"] + "/chat/completions"
+        payload = {
+            "model": selected_model,
+            "max_tokens": 2048,
+            "stream": True,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": message},
+            ],
+        }
+        answer_parts: list[str] = []
+        data_lines: list[str] = []
+        usage_data: Any = None
+        reported_model: str | None = None
+        finish_reason: str | None = None
+        saw_done = False
+
+        async def consume_event(raw_event: str):
+            nonlocal usage_data, reported_model, finish_reason, saw_done
+            if raw_event.strip() == "[DONE]":
+                saw_done = True
+                return
+            try:
+                event = json.loads(raw_event)
+            except json.JSONDecodeError:
+                raise RuntimeError("Malformed OpenAI-compatible stream event") from None
+            if not isinstance(event, dict):
+                raise RuntimeError("Malformed OpenAI-compatible stream event")
+            if event.get("error"):
+                raise RuntimeError("OpenAI-compatible provider reported a stream error")
+            model_value = event.get("model")
+            if isinstance(model_value, str) and model_value.strip():
+                reported_model = model_value.strip()
+            if isinstance(event.get("usage"), dict):
+                usage_data = event["usage"]
+
+            choices = event.get("choices")
+            if not isinstance(choices, list) or not choices:
+                return
+            choice = choices[0]
+            if not isinstance(choice, dict):
+                raise RuntimeError("Malformed OpenAI-compatible stream choice")
+            reason = choice.get("finish_reason")
+            if isinstance(reason, str) and reason:
+                finish_reason = reason
+            delta = choice.get("delta")
+            content = delta.get("content") if isinstance(delta, dict) else None
+            if isinstance(content, list):
+                content = "".join(
+                    part.get("text", "")
+                    for part in content
+                    if isinstance(part, dict) and isinstance(part.get("text", ""), str)
+                )
+            if content is not None and not isinstance(content, str):
+                raise RuntimeError("Malformed OpenAI-compatible stream content")
+            if content:
+                answer_parts.append(content)
+                yield content
+
+        try:
+            if not _is_loopback_http_url(config["base_url"]):
+                await _reserve_cloud_model_call("compatible", selected_model)
+            async with self.http.stream(
+                "POST",
+                url,
+                json=payload,
+                headers={
+                    "Authorization": f"Bearer {OPENAI_COMPATIBLE_KEY}",
+                    "Content-Type": "application/json",
+                    "Accept": "text/event-stream",
+                },
+                timeout=HTTP_TIMEOUT,
+            ) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data:"):
+                        data_lines.append(line[5:].lstrip())
+                    elif not line and data_lines:
+                        raw_event = "\n".join(data_lines)
+                        data_lines.clear()
+                        async for chunk in consume_event(raw_event):
+                            yield chunk
+                if data_lines:
+                    raw_event = "\n".join(data_lines)
+                    async for chunk in consume_event(raw_event):
+                        yield chunk
+
+            if not answer_parts or not "".join(answer_parts).strip():
+                raise RuntimeError("OpenAI-compatible stream returned no learner-facing text")
+            if not saw_done and finish_reason is None:
+                raise RuntimeError("OpenAI-compatible stream ended before completion")
+            final_model = reported_model or selected_model
+            self.specialist_model_label = " ".join(final_model.split())[:160]
+            await _record_provider_usage(
+                "compatible",
+                final_model,
+                "openai-compatible",
+                openai_compatible_usage(usage_data),
+            )
+        except CloudCallLimitExceeded:
+            raise
+        except CloudCallBudgetUnavailable:
+            raise
+        except httpx.TimeoutException:
+            logger.warning(
+                "Custom OpenAI-compatible stream timeout",
+                extra={"agent": agent_tag, "model": selected_model},
+            )
+            raise RuntimeError("Custom API request timed out") from None
+        except httpx.HTTPStatusError as exc:
+            logger.warning(
+                "Custom OpenAI-compatible stream HTTP error",
+                extra={"agent": agent_tag, "status": exc.response.status_code, "model": selected_model},
+            )
+            raise RuntimeError(f"Custom API HTTP error {exc.response.status_code}") from None
+        except Exception as exc:
+            logger.warning(
+                "Custom OpenAI-compatible stream failed",
+                extra={"agent": agent_tag, "error_type": type(exc).__name__, "model": selected_model},
+            )
+            raise RuntimeError("Custom API stream failed") from None
 
 
     async def _fallback_local(self, message: str, system_prompt: str) -> str:
