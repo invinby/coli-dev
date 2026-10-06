@@ -595,6 +595,9 @@ private struct ManagementView: View {
     @State private var autoAgentModel = ""
     @State private var finalSynthesisProvider = "auto"
     @State private var finalSynthesisModel = ""
+    @State private var compatibleBaseURL = ""
+    @State private var compatibleModel = ""
+    @State private var isSavingCompatibleSettings = false
     @State private var allowsPaidAutoRoutes = false
     @State private var isSavingRoute = false
     @State private var isSavingCostPolicy = false
@@ -1077,6 +1080,15 @@ private struct ManagementView: View {
                             ready: store.providerSecretStatuses["openrouter"]?.configured == true
                         )
                         integrationRow(
+                            title: L10n.text("management.compatibleTitle", store.language),
+                            symbol: "point.3.connected.trianglepath.dotted",
+                            detail: store.openAICompatibleSettings?.baseURL.isEmpty == false
+                                ? (store.openAICompatibleSettings?.model ?? "")
+                                : L10n.text("management.notConfigured", store.language),
+                            ready: store.providerSecretStatuses["compatible"]?.configured == true
+                                && store.openAICompatibleSettings?.providerReady == true
+                        )
+                        integrationRow(
                             title: "Ollama",
                             symbol: "desktopcomputer",
                             detail: store.aiHealth?.ollamaModel ?? L10n.text("management.serviceUnavailable", store.language),
@@ -1106,6 +1118,47 @@ private struct ManagementView: View {
                         ProviderKeyEntryView(provider: "gemini", title: "Gemini")
                         ProviderKeyEntryView(provider: "kimi", title: "Kimi")
                         ProviderKeyEntryView(provider: "openrouter", title: "OpenRouter")
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(L10n.text("management.compatibleTitle", store.language))
+                                .font(.headline)
+                            Text(L10n.text("management.compatibleHelp", store.language))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            TextField(
+                                L10n.text("management.compatibleBaseURL", store.language),
+                                text: $compatibleBaseURL
+                            )
+                            .textFieldStyle(.roundedBorder)
+                            TextField(
+                                L10n.text("management.compatibleModel", store.language),
+                                text: $compatibleModel
+                            )
+                            .textFieldStyle(.roundedBorder)
+                            HStack {
+                                Button {
+                                    Task { await saveCompatibleSettings() }
+                                } label: {
+                                    if isSavingCompatibleSettings {
+                                        ProgressView().controlSize(.small)
+                                    } else {
+                                        Text(L10n.text("management.compatibleSave", store.language))
+                                    }
+                                }
+                                .buttonStyle(.bordered)
+                                .disabled(isSavingCompatibleSettings)
+                                if let config = store.openAICompatibleSettings, config.providerReady {
+                                    Label(L10n.text("management.compatibleReady", store.language), systemImage: "checkmark.circle")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            ProviderKeyEntryView(
+                                provider: "compatible",
+                                title: L10n.text("management.compatibleKeyTitle", store.language)
+                            )
+                        }
+                        .padding(.vertical, 4)
                         ProviderKeyEntryView(provider: "obsidian", title: "Obsidian Local REST API")
                         Text(L10n.text("settings.keysPrivacy", store.language))
                             .font(.caption)
@@ -1198,7 +1251,7 @@ private struct ManagementView: View {
                             .fixedSize(horizontal: false, vertical: true)
 
                         Picker(L10n.text("management.routeProvider", store.language), selection: $finalSynthesisProvider) {
-                            ForEach(["auto", "gemini", "kimi", "openrouter", "ollama"], id: \.self) { provider in
+                            ForEach(["auto", "gemini", "kimi", "openrouter", "compatible", "ollama"], id: \.self) { provider in
                                 Text(L10n.text("management.routeProvider.\(provider)", store.language))
                                     .tag(provider)
                             }
@@ -1261,7 +1314,7 @@ private struct ManagementView: View {
                         .frame(maxWidth: 360, alignment: .leading)
 
                         Picker(L10n.text("management.routeProvider", store.language), selection: $routeProvider) {
-                            ForEach(["auto", "gemini", "kimi", "openrouter", "ollama"], id: \.self) { provider in
+                            ForEach(["auto", "gemini", "kimi", "openrouter", "compatible", "ollama"], id: \.self) { provider in
                                 Text(L10n.text("management.routeProvider.\(provider)", store.language))
                                     .tag(provider)
                             }
@@ -1557,6 +1610,7 @@ private struct ManagementView: View {
         }
         await store.refreshAIStatus()
         await store.refreshProviderSecretStatuses()
+        await store.refreshOpenAICompatibleSettings()
         await store.refreshSubjectModelRoutes()
         await store.refreshAutoAgentModelRoutes()
         await store.refreshLocalOllamaModelCatalog()
@@ -1567,6 +1621,8 @@ private struct ManagementView: View {
         syncAutoAgentModelForm()
         syncFinalSynthesisRouteForm()
         syncAutoCostPolicyForm()
+        compatibleBaseURL = store.openAICompatibleSettings?.baseURL ?? ""
+        compatibleModel = store.openAICompatibleSettings?.model ?? ""
         do {
             sourceInventory = try await OrchestratorClient.trustedSourceInventory()
             statusMessage = nil
@@ -1757,6 +1813,29 @@ private struct ManagementView: View {
             statusIsError = false
         } catch {
             reportError("management.costPolicySaveFailed")
+        }
+    }
+
+    @MainActor
+    private func saveCompatibleSettings() async {
+        isSavingCompatibleSettings = true
+        defer { isSavingCompatibleSettings = false }
+        guard await backendSupervisor.ensureRunning() else {
+            reportError("management.compatibleSaveFailed")
+            return
+        }
+        do {
+            try await store.saveOpenAICompatibleSettings(
+                baseURL: compatibleBaseURL,
+                model: compatibleModel
+            )
+            compatibleBaseURL = store.openAICompatibleSettings?.baseURL ?? ""
+            compatibleModel = store.openAICompatibleSettings?.model ?? ""
+            await store.refreshProviderSecretStatuses()
+            statusMessage = L10n.text("management.compatibleSaved", store.language)
+            statusIsError = false
+        } catch {
+            reportError("management.compatibleSaveFailed")
         }
     }
 }

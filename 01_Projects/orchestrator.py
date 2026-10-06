@@ -225,6 +225,12 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openrouter/free").strip() or "openrouter/free"
 OPENROUTER_FREE_MODEL = "openrouter/free"
 
+# User-configured OpenAI-compatible endpoint (for example a hosted API or a
+# loopback service). Endpoint/model preferences are local; the key uses Keychain.
+OPENAI_COMPATIBLE_KEY = os.getenv("OPENAI_COMPATIBLE_API_KEY", "")
+OPENAI_COMPATIBLE_BASE_URL = os.getenv("OPENAI_COMPATIBLE_BASE_URL", "").strip().rstrip("/")
+OPENAI_COMPATIBLE_MODEL = os.getenv("OPENAI_COMPATIBLE_MODEL", "").strip()
+
 # Google → Gemini (напрямую)
 GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_FLASH_MODEL = "gemini-3-flash-preview"
@@ -252,12 +258,14 @@ PROVIDER_ENV_NAMES = {
     "gemini": "GEMINI_API_KEY",
     "kimi": "KIMI_API_KEY",
     "openrouter": "OPENROUTER_API_KEY",
+    "compatible": "OPENAI_COMPATIBLE_API_KEY",
     "obsidian": "OBSIDIAN_API_KEY",
 }
 _ENV_PROVIDER_VALUES = {
     "GEMINI_API_KEY": GEMINI_KEY,
     "KIMI_API_KEY": KIMI_KEY,
     "OPENROUTER_API_KEY": OPENROUTER_KEY,
+    "OPENAI_COMPATIBLE_API_KEY": OPENAI_COMPATIBLE_KEY,
     "OBSIDIAN_API_KEY": OBSIDIAN_API_KEY,
 }
 _PROVIDER_SOURCES = {
@@ -314,6 +322,8 @@ def _load_provider_secrets() -> None:
             globals()["KIMI_KEY"] = secret
         elif provider == "openrouter":
             globals()["OPENROUTER_KEY"] = secret
+        elif provider == "compatible":
+            globals()["OPENAI_COMPATIBLE_KEY"] = secret
         elif provider == "obsidian":
             globals()["OBSIDIAN_API_KEY"] = secret
         _PROVIDER_SOURCES[provider] = source
@@ -343,6 +353,8 @@ def _provider_secret_value(provider: str) -> str:
         return KIMI_KEY
     if provider == "openrouter":
         return OPENROUTER_KEY
+    if provider == "compatible":
+        return OPENAI_COMPATIBLE_KEY
     return OBSIDIAN_API_KEY
 
 
@@ -353,6 +365,8 @@ def _set_provider_secret_value(provider: str, value: str) -> None:
         globals()["KIMI_KEY"] = value
     elif provider == "openrouter":
         globals()["OPENROUTER_KEY"] = value
+    elif provider == "compatible":
+        globals()["OPENAI_COMPATIBLE_KEY"] = value
     elif provider == "obsidian":
         globals()["OBSIDIAN_API_KEY"] = value
 
@@ -485,13 +499,18 @@ class ChatRequest(BaseModel):
 
 
 class SubjectModelRouteRequest(BaseModel):
-    provider: Literal["auto", "gemini", "kimi", "openrouter", "ollama"]
+    provider: Literal["auto", "gemini", "kimi", "openrouter", "compatible", "ollama"]
     model: str | None = Field(default=None, max_length=128)
 
 
 class FinalSynthesisRouteRequest(BaseModel):
-    provider: Literal["auto", "gemini", "kimi", "openrouter", "ollama"]
+    provider: Literal["auto", "gemini", "kimi", "openrouter", "compatible", "ollama"]
     model: str | None = Field(default=None, max_length=128)
+
+
+class OpenAICompatibleSettingsRequest(BaseModel):
+    base_url: str = Field(min_length=1, max_length=512)
+    model: str = Field(min_length=1, max_length=128)
 
 
 class AgentModelRouteRequest(BaseModel):
@@ -1005,6 +1024,7 @@ class ConsiliumEngine:
             "[Ошибка", "[Таймаут", "[Gemini:", "[KIMI_API_KEY not set",
             "[GEMINI_API_KEY not set", "[OPENROUTER_API_KEY not set",
             "[OpenRouter:", "[Google Search:", "[Auto policy:",
+            "[Custom API", "[Timeout: custom API",
         ))
 
     # ─── УРОВЕНЬ 1: Независимые черновики ────────────────
@@ -1305,6 +1325,7 @@ class ConsiliumEngine:
             "gemini": "Gemini Pro" if synthesis_model == GEMINI_PRO_MODEL else "Gemini",
             "kimi": "Kimi",
             "openrouter": "OpenRouter",
+            "compatible": "Custom API",
             "ollama": "Ollama",
         }
         self.completion_provider = effective_provider
@@ -1465,6 +1486,7 @@ class ConsiliumEngine:
                         "gemini": "Gemini",
                         "kimi": "Kimi",
                         "openrouter": "OpenRouter",
+                        "compatible": "Custom API",
                         "ollama": "Ollama",
                     }.get(selected_provider, selected_provider)
                     self.specialist_model_label = f"{provider_label}: {actual_model}"
@@ -1514,6 +1536,15 @@ class ConsiliumEngine:
             response = await self._ask_openrouter(message, system_prompt, agent_tag, model=model_id)
             self.specialist_model_label = self.specialist_model_label or model_id
             return response, "openrouter"
+        if provider == "compatible":
+            model_id = model or _default_model_for_provider("compatible")
+            if not model_id:
+                return "[Custom API model is not configured]", "compatible"
+            response = await self._ask_openai_compatible(
+                message, system_prompt, agent_tag, model=model_id
+            )
+            self.specialist_model_label = self.specialist_model_label or model_id
+            return response, "compatible"
         if provider == "ollama":
             model_id = model or OLLAMA_MODEL_RESEARCHER
             response = await self._ask_ollama(message, system_prompt, agent_tag, model=model_id)
@@ -1556,6 +1587,84 @@ class ConsiliumEngine:
         if excluded_provider == "kimi":
             return "[KIMI_API_KEY not set or the configured Kimi route failed]", "kimi"
         return await self._ask_kimi(message, system_prompt, agent_tag), "kimi"
+
+    async def _ask_openai_compatible(
+        self,
+        message: str,
+        system_prompt: str,
+        agent_tag: str,
+        model: str,
+    ) -> str:
+        """Call the user-configured OpenAI-compatible chat-completions endpoint."""
+        config = openai_compatible_settings.get()
+        if not OPENAI_COMPATIBLE_KEY or not config["base_url"]:
+            return "[Custom API endpoint or key is not configured]"
+        selected_model = model.strip()
+        if not _valid_subject_model_id("compatible", selected_model):
+            return "[Custom API model identifier is invalid]"
+        url = config["base_url"] + "/chat/completions"
+        payload = {
+            "model": selected_model,
+            "max_tokens": 2048,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": message},
+            ],
+        }
+        try:
+            response = await self.http.post(
+                url,
+                json=payload,
+                headers={
+                    "Authorization": f"Bearer {OPENAI_COMPATIBLE_KEY}",
+                    "Content-Type": "application/json",
+                },
+                timeout=HTTP_TIMEOUT,
+            )
+            response.raise_for_status()
+            data = response.json()
+            usage_model = data.get("model") if isinstance(data, dict) else None
+            if not isinstance(usage_model, str) or not usage_model.strip():
+                usage_model = selected_model
+            await _record_provider_usage(
+                "compatible",
+                usage_model,
+                "openai-compatible",
+                openai_compatible_usage(data.get("usage") if isinstance(data, dict) else None),
+            )
+            choices = data.get("choices") if isinstance(data, dict) else None
+            content = (
+                choices[0].get("message", {}).get("content")
+                if isinstance(choices, list) and choices and isinstance(choices[0], dict)
+                else None
+            )
+            if not isinstance(content, str) or not content.strip():
+                return "[Custom API: empty response]"
+            reported_model = data.get("model") if isinstance(data, dict) else None
+            self.specialist_model_label = (
+                " ".join(reported_model.split())[:160]
+                if isinstance(reported_model, str) and reported_model.strip()
+                else selected_model
+            )
+            return content.strip()
+        except httpx.TimeoutException:
+            logger.warning(
+                "Custom OpenAI-compatible API timeout",
+                extra={"agent": agent_tag, "model": selected_model},
+            )
+            return f"[Таймаут: Custom API не ответил за {HTTP_TIMEOUT}s]"
+        except httpx.HTTPStatusError as exc:
+            logger.warning(
+                "Custom OpenAI-compatible API HTTP error",
+                extra={"status": exc.response.status_code, "model": selected_model},
+            )
+            return f"[Custom API HTTP error {exc.response.status_code}]"
+        except Exception as exc:
+            logger.warning(
+                "Custom OpenAI-compatible API request failed",
+                extra={"agent": agent_tag, "error_type": type(exc).__name__},
+            )
+            return "[Custom API: malformed response or request failure]"
 
     async def _ask_openrouter(
         self,
@@ -2174,7 +2283,7 @@ SUBJECT_MODEL_ROUTE_SUBJECTS = (
     "mathematics", "english", "physics", "biology", "zoology", "programming",
 )
 AUTO_AGENT_MODEL_ROLES = ("local_draft", "critic", "verifier")
-_SUBJECT_MODEL_ROUTE_PROVIDERS = frozenset({"auto", "gemini", "kimi", "openrouter", "ollama"})
+_SUBJECT_MODEL_ROUTE_PROVIDERS = frozenset({"auto", "gemini", "kimi", "openrouter", "compatible", "ollama"})
 _MODEL_ID_PATTERNS = {
     # These IDs are inserted into provider-specific URL paths or JSON payloads.
     # Keep Gemini and Kimi names path-safe; OpenRouter/Ollama use slash and tag
@@ -2182,6 +2291,7 @@ _MODEL_ID_PATTERNS = {
     "gemini": re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"),
     "kimi": re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"),
     "openrouter": re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$"),
+    "compatible": re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/+-]{0,127}$"),
     "ollama": re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$"),
 }
 
@@ -2189,6 +2299,28 @@ _MODEL_ID_PATTERNS = {
 def _valid_subject_model_id(provider: str, model: Any) -> bool:
     pattern = _MODEL_ID_PATTERNS.get(provider)
     return isinstance(model, str) and pattern is not None and bool(pattern.fullmatch(model))
+
+
+def _valid_openai_compatible_base_url(value: Any) -> bool:
+    if not isinstance(value, str) or not value or len(value) > 512:
+        return False
+    try:
+        parsed = urlsplit(value)
+        parsed.port
+    except ValueError:
+        return False
+    if (
+        parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+        or not parsed.hostname
+        or any(ord(character) < 32 for character in value)
+    ):
+        return False
+    if parsed.scheme.lower() == "https":
+        return True
+    return parsed.scheme.lower() == "http" and _is_loopback_http_url(value)
 
 
 class SubjectModelRouteStore:
@@ -2292,6 +2424,68 @@ class SubjectModelRouteStore:
 
 
 subject_model_routes = SubjectModelRouteStore(app_data_dir() / "subject-model-routing.json")
+
+
+class OpenAICompatibleSettingsStore:
+    """Persist a non-secret custom endpoint and default model for one compatible API."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path.expanduser()
+        self._lock = threading.RLock()
+
+    def get(self) -> dict[str, str]:
+        with self._lock:
+            try:
+                data = json.loads(self.path.read_text(encoding="utf-8"))
+            except FileNotFoundError:
+                data = {}
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                logger.warning(
+                    "OpenAI-compatible settings could not be read",
+                    extra={"error_type": type(exc).__name__},
+                )
+                data = {}
+        base_url = data.get("base_url") if isinstance(data, dict) else None
+        model = data.get("model") if isinstance(data, dict) else None
+        if not _valid_openai_compatible_base_url(base_url):
+            base_url = OPENAI_COMPATIBLE_BASE_URL
+        if not _valid_subject_model_id("compatible", model):
+            model = OPENAI_COMPATIBLE_MODEL
+        return {"base_url": base_url or "", "model": model or ""}
+
+    def set(self, base_url: str, model: str) -> dict[str, str]:
+        base_url = base_url.strip().rstrip("/")
+        model = model.strip()
+        if not _valid_openai_compatible_base_url(base_url):
+            raise ValueError("Use an HTTPS endpoint, or HTTP on this Mac only; omit credentials, query, and fragment")
+        if not _valid_subject_model_id("compatible", model):
+            raise ValueError("Invalid model identifier")
+        result = {"base_url": base_url, "model": model}
+        with self._lock:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            temporary_path: Path | None = None
+            try:
+                with tempfile.NamedTemporaryFile(
+                    mode="w", encoding="utf-8", prefix=".openai-compatible-",
+                    suffix=".tmp", dir=self.path.parent, delete=False,
+                ) as temporary:
+                    temporary_path = Path(temporary.name)
+                    json.dump({"schema_version": 1, **result}, temporary, sort_keys=True)
+                    temporary.write("\n")
+                try:
+                    os.chmod(temporary_path, 0o600)
+                except OSError:
+                    pass
+                os.replace(temporary_path, self.path)
+            finally:
+                if temporary_path is not None and temporary_path.exists():
+                    temporary_path.unlink(missing_ok=True)
+        return result
+
+
+openai_compatible_settings = OpenAICompatibleSettingsStore(
+    app_data_dir() / "openai-compatible-settings.json"
+)
 
 
 class FinalSynthesisRouteStore:
@@ -2506,6 +2700,7 @@ def _default_model_for_provider(provider: str) -> str | None:
         "gemini": GEMINI_FLASH_MODEL,
         "kimi": KIMI_MODEL,
         "openrouter": OPENROUTER_MODEL,
+        "compatible": openai_compatible_settings.get()["model"] or None,
         "ollama": OLLAMA_MODEL_RESEARCHER,
     }.get(provider)
 
@@ -2528,6 +2723,10 @@ def _subject_model_route_status(provider: str) -> tuple[bool | None, str]:
         return bool(KIMI_KEY), "credential_missing" if not KIMI_KEY else "ready"
     if provider == "openrouter":
         return bool(OPENROUTER_KEY), "credential_missing" if not OPENROUTER_KEY else "ready"
+    if provider == "compatible":
+        config = openai_compatible_settings.get()
+        ready = bool(OPENAI_COMPATIBLE_KEY and config["base_url"] and config["model"])
+        return ready, "ready" if ready else "configuration_incomplete"
     if provider == "ollama":
         local_endpoint = _is_loopback_http_url(OLLAMA_BASE)
         return local_endpoint, "model_checked_on_use" if local_endpoint else "loopback_required"
@@ -3341,6 +3540,27 @@ async def delete_provider_secret(provider: str, request: Request):
     if provider == "obsidian":
         await _replace_obsidian_worker()
     return _provider_secret_status(provider)
+
+
+@app.get("/settings/openai-compatible")
+async def get_openai_compatible_settings(request: Request):
+    _require_local_settings_request(request)
+    config = openai_compatible_settings.get()
+    ready, status = _subject_model_route_status("compatible")
+    return {**config, "provider_ready": ready is True, "status": status}
+
+
+@app.put("/settings/openai-compatible")
+async def save_openai_compatible_settings(
+    settings: OpenAICompatibleSettingsRequest, request: Request
+):
+    _require_local_settings_request(request)
+    try:
+        config = openai_compatible_settings.set(settings.base_url, settings.model)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    ready, status = _subject_model_route_status("compatible")
+    return {**config, "provider_ready": ready is True, "status": status}
 
 
 @app.get("/settings/model-routing")

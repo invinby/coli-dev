@@ -65,6 +65,9 @@ def _reset_session_tracker(monkeypatch, tmp_path):
     monkeypatch.setattr(orchestrator, "GEMINI_KEY", "test-gemini-key")
     monkeypatch.setattr(orchestrator, "KIMI_KEY", "test-kimi-key")
     monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "")
+    monkeypatch.setattr(orchestrator, "OPENAI_COMPATIBLE_KEY", "")
+    monkeypatch.setattr(orchestrator, "OPENAI_COMPATIBLE_BASE_URL", "")
+    monkeypatch.setattr(orchestrator, "OPENAI_COMPATIBLE_MODEL", "")
     monkeypatch.setattr(orchestrator, "OBSIDIAN_API_KEY", "")
     monkeypatch.setattr(orchestrator, "OBSIDIAN_URL", "http://127.0.0.1:27123")
     monkeypatch.setattr(orchestrator, "OLLAMA_BASE", "http://127.0.0.1:11434")
@@ -73,7 +76,15 @@ def _reset_session_tracker(monkeypatch, tmp_path):
         "GEMINI_API_KEY": "test-gemini-key",
         "KIMI_API_KEY": "test-kimi-key",
         "OPENROUTER_API_KEY": "",
+        "OPENAI_COMPATIBLE_API_KEY": "",
         "OBSIDIAN_API_KEY": "",
+    })
+    monkeypatch.setattr(orchestrator, "_PROVIDER_SOURCES", {
+        "gemini": "environment",
+        "kimi": "environment",
+        "openrouter": "missing",
+        "compatible": "missing",
+        "obsidian": "missing",
     })
     monkeypatch.setattr(orchestrator.state, "obsidian", None)
     monkeypatch.setattr(orchestrator.state, "ollama_client", None)
@@ -91,6 +102,11 @@ def _reset_session_tracker(monkeypatch, tmp_path):
         orchestrator,
         "subject_model_routes",
         orchestrator.SubjectModelRouteStore(tmp_path / "subject-model-routing.json"),
+    )
+    monkeypatch.setattr(
+        orchestrator,
+        "openai_compatible_settings",
+        orchestrator.OpenAICompatibleSettingsStore(tmp_path / "openai-compatible-settings.json"),
     )
     monkeypatch.setattr(
         orchestrator,
@@ -402,8 +418,79 @@ class TestAPIEndpoints:
             "provider": "gemini", "configured": True, "source": "environment",
         }
         assert providers["openrouter"]["configured"] is False
+        assert providers["compatible"]["configured"] is False
         assert providers["obsidian"]["configured"] is False
         assert "test-gemini-key" not in response.text
+
+    @pytest.mark.parametrize("url", [
+        "https://api.example.com/v1",
+        "http://127.0.0.1:1234/v1",
+        "http://localhost:1234/v1",
+    ])
+    def test_openai_compatible_endpoint_accepts_https_and_loopback_http(self, url, tmp_path):
+        store = orchestrator.OpenAICompatibleSettingsStore(tmp_path / "compatible.json")
+        assert store.set(url, "vendor/model:latest") == {
+            "base_url": url,
+            "model": "vendor/model:latest",
+        }
+
+    @pytest.mark.parametrize("url", [
+        "http://api.example.com/v1",
+        "https://user:password@api.example.com/v1",
+        "https://api.example.com/v1?key=secret",
+        "https://api.example.com/v1#fragment",
+    ])
+    def test_openai_compatible_endpoint_rejects_insecure_or_credentialed_urls(self, url, tmp_path):
+        store = orchestrator.OpenAICompatibleSettingsStore(tmp_path / "compatible.json")
+        with pytest.raises(ValueError):
+            store.set(url, "model-id")
+
+    def test_openai_compatible_settings_and_key_are_local_and_never_echo_secret(self, client, monkeypatch):
+        _, passwords = _mock_keyring(monkeypatch)
+        config = client.put(
+            "/settings/openai-compatible",
+            json={"base_url": "https://api.example.com/v1", "model": "vendor/model"},
+        )
+        assert config.status_code == 200
+        assert config.json()["provider_ready"] is False
+
+        secret = "custom-compatible-api-secret"
+        key_response = client.put("/settings/api-keys/compatible", json={"api_key": secret})
+        settings_response = client.get("/settings/openai-compatible")
+
+        assert key_response.status_code == 200
+        assert settings_response.status_code == 200
+        assert settings_response.json() == {
+            "base_url": "https://api.example.com/v1",
+            "model": "vendor/model",
+            "provider_ready": True,
+            "status": "ready",
+        }
+        assert passwords[("ColiDev", "OPENAI_COMPATIBLE_API_KEY")] == secret
+        assert secret not in key_response.text + settings_response.text
+
+    def test_openai_compatible_settings_reject_foreign_origin(self, client):
+        response = client.put(
+            "/settings/openai-compatible",
+            json={"base_url": "https://api.example.com/v1", "model": "vendor/model"},
+            headers={"Origin": "https://attacker.example"},
+        )
+        assert response.status_code == 403
+
+    def test_custom_api_final_route_is_blocked_by_free_only_policy(self, monkeypatch):
+        orchestrator.auto_cost_policy.set(False)
+        orchestrator.final_synthesis_routes.set("compatible", "vendor/model")
+        monkeypatch.setattr(orchestrator, "OPENAI_COMPATIBLE_KEY", "configured-secret")
+        orchestrator.openai_compatible_settings.set(
+            "https://api.example.com/v1", "vendor/default-model"
+        )
+
+        route = orchestrator._final_synthesis_route_payload()
+
+        assert route["provider"] == "compatible"
+        assert route["paid_route_blocked"] is True
+        assert route["effective_provider"] == "ollama"
+        assert route["status"].startswith("blocked_by_free_only")
 
     def test_keychain_value_takes_precedence_over_environment(self, monkeypatch):
         _, passwords = _mock_keyring(monkeypatch)
@@ -1233,6 +1320,79 @@ def test_openrouter_http_error_does_not_echo_provider_body_or_key(monkeypatch, c
     assert result == "[Ошибка HTTP 401: OpenRouter]"
     assert "openrouter-test-secret" not in caplog.text
     assert "provider echoed" not in caplog.text
+
+
+def test_custom_compatible_request_uses_configured_model_and_bearer_key(monkeypatch):
+    monkeypatch.setattr(orchestrator, "OPENAI_COMPATIBLE_KEY", "compatible-test-secret")
+    orchestrator.openai_compatible_settings.set(
+        "https://api.example.com/v1", "vendor/model:latest"
+    )
+    request = httpx.Request("POST", "https://api.example.com/v1/chat/completions")
+    response = httpx.Response(
+        200,
+        request=request,
+        json={
+            "model": "vendor/model:latest",
+            "choices": [{"message": {"content": "Custom provider answer"}}],
+            "usage": {"prompt_tokens": 7, "completion_tokens": 3, "total_tokens": 10},
+        },
+    )
+    http_client = MagicMock(spec=httpx.AsyncClient)
+    http_client.post = AsyncMock(return_value=response)
+    engine = orchestrator.ConsiliumEngine(http_client)
+
+    answer = asyncio.run(
+        engine._ask_openai_compatible("Question", "System", "test", "vendor/model:latest")
+    )
+
+    assert answer == "Custom provider answer"
+    kwargs = http_client.post.await_args.kwargs
+    assert http_client.post.await_args.args[0] == "https://api.example.com/v1/chat/completions"
+    assert kwargs["headers"]["Authorization"] == "Bearer compatible-test-secret"
+    assert kwargs["json"]["model"] == "vendor/model:latest"
+    assert engine.specialist_model_label == "vendor/model:latest"
+
+
+def test_selected_custom_provider_returns_custom_provider_label_and_answer(monkeypatch):
+    monkeypatch.setattr(orchestrator, "OPENAI_COMPATIBLE_KEY", "configured-secret")
+    orchestrator.openai_compatible_settings.set(
+        "https://api.example.com/v1", "vendor/default-model"
+    )
+    engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient))
+    engine._ask_openai_compatible = AsyncMock(return_value="Selected custom answer")
+
+    answer, provider = asyncio.run(engine._ask_selected_specialist(
+        "compatible", None, "Question", "System", "test"
+    ))
+
+    assert (answer, provider) == ("Selected custom answer", "compatible")
+    assert engine.specialist_model_label == "vendor/default-model"
+    engine._ask_openai_compatible.assert_awaited_once_with(
+        "Question", "System", "test", model="vendor/default-model"
+    )
+
+
+def test_custom_compatible_http_error_does_not_echo_response_body_or_key(monkeypatch, caplog):
+    monkeypatch.setattr(orchestrator, "OPENAI_COMPATIBLE_KEY", "compatible-private-secret")
+    orchestrator.openai_compatible_settings.set(
+        "https://api.example.com/v1", "vendor/model"
+    )
+    request = httpx.Request("POST", "https://api.example.com/v1/chat/completions")
+    response = httpx.Response(401, request=request, text="echo compatible-private-secret")
+    http_client = MagicMock(spec=httpx.AsyncClient)
+    http_client.post = AsyncMock(
+        side_effect=httpx.HTTPStatusError("unauthorized", request=request, response=response)
+    )
+    engine = orchestrator.ConsiliumEngine(http_client)
+
+    result = asyncio.run(
+        engine._ask_openai_compatible("Question", "System", "test", "vendor/model")
+    )
+
+    assert result == "[Custom API HTTP error 401]"
+    assert engine._is_provider_error(result)
+    assert "compatible-private-secret" not in caplog.text
+    assert "echo compatible-private-secret" not in caplog.text
 
 
 def test_provider_http_errors_do_not_log_or_return_provider_bodies(monkeypatch, caplog):

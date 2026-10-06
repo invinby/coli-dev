@@ -161,6 +161,7 @@ final class LearningStore: ObservableObject {
     @Published private(set) var aiHealth: OrchestratorHealth?
     @Published private(set) var isCheckingAI = false
     @Published private(set) var providerSecretStatuses: [String: ProviderSecretStatus] = [:]
+    @Published private(set) var openAICompatibleSettings: OpenAICompatibleSettings?
     @Published private(set) var subjectModelRoutes: [String: SubjectModelRoute] = [:]
     @Published private(set) var autoAgentModelRoutes: [String: AutoAgentModelRoute] = [:]
     @Published private(set) var localOllamaModelCatalog = LocalOllamaModelCatalog.notChecked
@@ -217,6 +218,23 @@ final class LearningStore: ObservableObject {
         } catch {
             providerSecretStatuses = [:]
         }
+    }
+
+    func refreshOpenAICompatibleSettings() async {
+        do {
+            openAICompatibleSettings = try await OrchestratorClient.openAICompatibleSettings()
+        } catch {
+            openAICompatibleSettings = nil
+        }
+    }
+
+    func saveOpenAICompatibleSettings(baseURL: String, model: String) async throws {
+        openAICompatibleSettings = try await OrchestratorClient.saveOpenAICompatibleSettings(
+            baseURL: baseURL,
+            model: model
+        )
+        await refreshSubjectModelRoutes()
+        await refreshFinalSynthesisModelRoute()
     }
 
     func refreshSubjectModelRoutes() async {
@@ -320,12 +338,22 @@ final class LearningStore: ObservableObject {
         let status = try await OrchestratorClient.saveProviderSecret(apiKey, for: provider)
         providerSecretStatuses[provider] = status
         await refreshAIStatus()
+        if provider == "compatible" {
+            await refreshOpenAICompatibleSettings()
+            await refreshSubjectModelRoutes()
+            await refreshFinalSynthesisModelRoute()
+        }
     }
 
     func deleteProviderSecret(for provider: String) async throws {
         let status = try await OrchestratorClient.deleteProviderSecret(for: provider)
         providerSecretStatuses[provider] = status
         await refreshAIStatus()
+        if provider == "compatible" {
+            await refreshOpenAICompatibleSettings()
+            await refreshSubjectModelRoutes()
+            await refreshFinalSynthesisModelRoute()
+        }
     }
 
     func isComplete(_ subject: Subject) -> Bool {
@@ -947,6 +975,19 @@ struct ProviderSecretStatus: Decodable, Identifiable {
     var id: String { provider }
 }
 
+struct OpenAICompatibleSettings: Decodable, Hashable {
+    let baseURL: String
+    let model: String
+    let providerReady: Bool
+    let status: String
+
+    enum CodingKeys: String, CodingKey {
+        case model, status
+        case baseURL = "base_url"
+        case providerReady = "provider_ready"
+    }
+}
+
 struct SubjectModelRoute: Decodable, Identifiable, Hashable {
     let subject: String
     let provider: String
@@ -1022,6 +1063,16 @@ struct AutoCostPolicy: Decodable, Hashable {
 private struct SubjectModelRouteUpdate: Encodable {
     let provider: String
     let model: String?
+}
+
+private struct OpenAICompatibleSettingsUpdate: Encodable {
+    let baseURL: String
+    let model: String
+
+    enum CodingKeys: String, CodingKey {
+        case model
+        case baseURL = "base_url"
+    }
 }
 
 private struct AutoAgentModelUpdate: Encodable {
@@ -1402,6 +1453,40 @@ enum OrchestratorClient {
             throw ClientError.unavailable
         }
         return try JSONDecoder().decode(ProviderSecretStatusResponse.self, from: data).providers
+    }
+
+    static func openAICompatibleSettings() async throws -> OpenAICompatibleSettings {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/settings/openai-compatible") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 8
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(OpenAICompatibleSettings.self, from: data)
+    }
+
+    static func saveOpenAICompatibleSettings(
+        baseURL: String,
+        model: String
+    ) async throws -> OpenAICompatibleSettings {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/settings/openai-compatible") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.timeoutInterval = 8
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(
+            OpenAICompatibleSettingsUpdate(baseURL: baseURL, model: model)
+        )
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(OpenAICompatibleSettings.self, from: data)
     }
 
     static func subjectModelRoutes() async throws -> [SubjectModelRoute] {

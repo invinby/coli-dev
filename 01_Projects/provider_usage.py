@@ -15,7 +15,7 @@ _MAX_COUNTER = 2**63 - 1
 _MAX_PROVIDER_LENGTH = 32
 _MAX_MODEL_LENGTH = 160
 _MAX_FORMAT_LENGTH = 32
-_ALLOWED_PROVIDERS = {"gemini", "kimi", "openrouter", "ollama"}
+_ALLOWED_PROVIDERS = {"gemini", "kimi", "openrouter", "compatible", "ollama"}
 _ALLOWED_FORMATS = {"gemini", "openai-compatible", "ollama"}
 _RETENTION_DAYS = 90
 

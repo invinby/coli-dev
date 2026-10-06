@@ -156,6 +156,16 @@ def test_store_persists_only_usage_metadata_without_content_columns(tmp_path):
     }
 
 
+def test_store_records_custom_openai_compatible_provider_usage(tmp_path):
+    store = ProviderUsageStore(tmp_path / "usage.sqlite3")
+    store.record("compatible", "custom/model", "openai-compatible", TokenUsage(9, 4, 13))
+
+    result = store.summary(days=1)
+
+    assert result["totals"]["total_tokens"] == 13
+    assert result["providers"][0]["provider"] == "compatible"
+
+
 def test_concurrent_records_are_not_lost(tmp_path):
     store = ProviderUsageStore(tmp_path / "usage.sqlite3")
     store.initialize()

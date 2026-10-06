@@ -24,7 +24,7 @@ python -m pip install -r requirements-orchestrator.txt
 python -m uvicorn orchestrator:app --app-dir 01_Projects --host 127.0.0.1 --port 8000
 ```
 
-Use a Python virtual environment for development. Optional provider keys can be configured through the repository `.env` file; on macOS, keys entered in the app Settings are stored in Keychain. Keep the service bound to `127.0.0.1` for local use. OpenRouter is a fallback cloud specialist when direct Kimi is missing or unavailable; the default `openrouter/free` route can select different free models over time, and paid model IDs may incur charges.
+Use a Python virtual environment for development. Optional provider keys can be configured through the repository `.env` file; on macOS, keys entered in the app Settings are stored in Keychain. Keep the service bound to `127.0.0.1` for local use. OpenRouter is a fallback cloud specialist when direct Kimi is missing or unavailable; the default `openrouter/free` route can select different free models over time, and paid model IDs may incur charges. Control Center also supports one user-configured OpenAI-compatible endpoint and model for specialist/final routes. Its key is stored under `OPENAI_COMPATIBLE_API_KEY` in Keychain; its HTTPS base URL and model ID are stored locally. Remote endpoints must use HTTPS; HTTP is accepted only for loopback. This custom route is treated as potentially billable and is disabled by the default free-only Auto policy.
 
 ## Local knowledge index
 
@@ -34,7 +34,7 @@ Before tutor answers are streamed, the backend verifies that each `[K#]` marker 
 
 ## Provider usage records
 
-Successful Gemini, Kimi, OpenRouter, and Ollama responses are recorded in a separate per-user SQLite database (`provider-usage.sqlite3`). The loopback-only `GET /api/usage?days=30` reports model response counts and token counters only when the provider returns them; it does not estimate missing counters or calculate charges. Records are pruned after 90 days. Prompts, answers, and API keys are not stored. This is usage visibility, not a provider billing statement or an enforced token budget.
+Successful Gemini, Kimi, OpenRouter, custom OpenAI-compatible, and Ollama responses are recorded in a separate per-user SQLite database (`provider-usage.sqlite3`). The loopback-only `GET /api/usage?days=30` reports model response counts and token counters only when the provider returns them; it does not estimate missing counters or calculate charges. Records are pruned after 90 days. Prompts, answers, and API keys are not stored. This is usage visibility, not a provider billing statement or an enforced token budget.
 
 ## Tests
 
