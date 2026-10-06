@@ -232,6 +232,21 @@ def test_nist_algorithm_glossary_is_monitored_but_not_cached_for_rag(tmp_path: P
     assert monitor.inventory()["sources"][0]["rag_content_state"] == "metadata_only"
 
 
+def test_british_council_daily_routine_is_monitored_metadata_only(tmp_path: Path) -> None:
+    url = (
+        "https://learnenglish.britishcouncil.org/free-resources/vocabulary/a1-a2/"
+        "daily-routine-vocabulary-a1-beginner-english-vocabulary-lesson"
+    )
+    overview_url = "https://learnenglish.britishcouncil.org/free-resources/vocabulary/a1-a2"
+    _write_lesson(tmp_path, f"[Daily routine vocabulary]({url})\n[A1-A2 vocabulary]({overview_url})")
+    monitor = _monitor(tmp_path, tmp_path)
+
+    assert monitor._canonical_url(url) == url
+    assert monitor._canonical_url(overview_url) == overview_url
+    assert monitor._rag_policy(url) is None
+    assert all(item["rag_content_state"] == "metadata_only" for item in monitor.inventory()["sources"])
+
+
 def test_nist_si_appendix_b9_is_cached_with_public_information_attribution(tmp_path: Path) -> None:
     url = (
         "https://www.nist.gov/pml/special-publication-811/"
@@ -304,6 +319,7 @@ def test_bundled_lesson_sources_fit_the_bounded_monitor_inventory(tmp_path: Path
         "https://docs.python.org/3/library/os.html",
         "https://csrc.nist.gov/glossary/term/algorithm?download=1",
         "https://csrc.nist.gov/glossary/term/cryptographic_algorithm",
+        "https://learnenglish.britishcouncil.org/free-resources/vocabulary/a1-a2/actions",
     ],
 )
 def test_reference_policy_rejects_noncanonical_or_unapproved_urls(url: str) -> None:

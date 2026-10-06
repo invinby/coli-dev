@@ -1059,6 +1059,8 @@ private struct PracticeLab: View {
             TenseContrastLab()
         } else if subject == .english, moduleResource == "present_perfect_simple_continuous" {
             PresentPerfectAspectLab()
+        } else if subject == .english, moduleResource == "daily_routines_and_collocations" {
+            DailyRoutineVocabularyLab()
         } else if subject == .biology, moduleResource == "passive_transport_osmosis" {
             OsmosisLab()
         } else if subject == .biology, moduleResource == "mendelian_inheritance" {
@@ -1105,6 +1107,144 @@ private struct PracticeLab: View {
             ConditionalLab()
             }
         }
+    }
+}
+
+private struct RoutineVocabularyQuestion {
+    let promptKey: String
+    let optionKeys: [String]
+    let answerIndex: Int
+}
+
+private struct DailyRoutineVocabularyLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var questionIndex = 0
+    @State private var selectedOption: Int?
+    @State private var lastWasCorrect: Bool?
+    @State private var isComplete = false
+
+    private let questions = [
+        RoutineVocabularyQuestion(
+            promptKey: "lab.routinePrompt1",
+            optionKeys: ["lab.routineGoToBed", "lab.routineHaveBreakfast", "lab.routineHaveDinner"],
+            answerIndex: 1
+        ),
+        RoutineVocabularyQuestion(
+            promptKey: "lab.routinePrompt2",
+            optionKeys: ["lab.routineHaveDinner", "lab.routineWakeUp", "lab.routineGoToBed"],
+            answerIndex: 1
+        ),
+        RoutineVocabularyQuestion(
+            promptKey: "lab.routinePrompt3",
+            optionKeys: ["lab.routineHaveLunch", "lab.routineGoToBed", "lab.routineGetDressed"],
+            answerIndex: 2
+        ),
+        RoutineVocabularyQuestion(
+            promptKey: "lab.routinePrompt4",
+            optionKeys: ["lab.routineHaveBreakfast", "lab.routineWakeUp", "lab.routineHaveLunch"],
+            answerIndex: 2
+        ),
+        RoutineVocabularyQuestion(
+            promptKey: "lab.routinePrompt5",
+            optionKeys: ["lab.routineWakeUp", "lab.routineGoToBed", "lab.routineGetDressed"],
+            answerIndex: 1
+        )
+    ]
+
+    private var currentQuestion: RoutineVocabularyQuestion { questions[questionIndex] }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.routineHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if isComplete {
+                Label(L10n.text("lab.routineComplete", store.language), systemImage: "checkmark.circle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.green)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button {
+                    reset()
+                } label: {
+                    Label(L10n.text("lab.routineRestart", store.language), systemImage: "arrow.counterclockwise")
+                }
+                .buttonStyle(.bordered)
+            } else {
+                Text(String(format: L10n.text("lab.routineProgress", store.language), questionIndex + 1, questions.count))
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                ProgressView(value: Double(questionIndex + 1), total: Double(questions.count))
+                Text(L10n.text(currentQuestion.promptKey, store.language))
+                    .font(.title3.weight(.medium))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ForEach(Array(currentQuestion.optionKeys.enumerated()), id: \.offset) { index, optionKey in
+                    Button {
+                        selectedOption = index
+                        lastWasCorrect = nil
+                    } label: {
+                        Label(
+                            L10n.text(optionKey, store.language),
+                            systemImage: selectedOption == index ? "checkmark.circle.fill" : "circle"
+                        )
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(selectedOption == index ? .accentColor : .secondary)
+                    .accessibilityAddTraits(selectedOption == index ? .isSelected : [])
+                }
+
+                if let lastWasCorrect {
+                    Label(
+                        L10n.text(lastWasCorrect ? "lab.routineCorrect" : "lab.routineIncorrect", store.language),
+                        systemImage: lastWasCorrect ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath"
+                    )
+                    .font(.callout)
+                    .foregroundStyle(lastWasCorrect ? Color.green : Color.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Button {
+                    advanceOrCheck()
+                } label: {
+                    Text(checkButtonTitle)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(selectedOption == nil && lastWasCorrect != true)
+            }
+        }
+    }
+
+    private var checkButtonTitle: String {
+        guard lastWasCorrect == true else { return L10n.text("lab.routineCheck", store.language) }
+        return questionIndex == questions.count - 1
+            ? L10n.text("lab.routineFinish", store.language)
+            : L10n.text("lab.routineNext", store.language)
+    }
+
+    private func advanceOrCheck() {
+        if lastWasCorrect == true {
+            guard questionIndex < questions.count - 1 else {
+                isComplete = true
+                return
+            }
+            questionIndex += 1
+            selectedOption = nil
+            lastWasCorrect = nil
+            return
+        }
+
+        guard let selectedOption else { return }
+        lastWasCorrect = selectedOption == currentQuestion.answerIndex
+    }
+
+    private func reset() {
+        questionIndex = 0
+        selectedOption = nil
+        lastWasCorrect = nil
+        isComplete = false
     }
 }
 
