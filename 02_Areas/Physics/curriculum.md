@@ -10,6 +10,7 @@
 | Векторы и кинематика / Vectors and kinematics | Описывать положение и движение графиками, компонентами и выбранной системой отсчёта. / Describe motion with graphs, components, and reference frames. |
 | Силы и законы Ньютона / Forces and Newton's laws | Строить диаграммы сил и связывать результирующую силу с изменением движения. / Draw free-body diagrams and relate net force to motion. | lesson:net_force_and_acceleration |
 | Работа, энергия, импульс / Work, energy, momentum | Выбирать закон сохранения по границам системы и характеру взаимодействия. / Choose conservation laws from system boundaries and interactions. | lesson:work_and_kinetic_energy |
+| Импульс силы и столкновения / Impulse and collisions | Связывать силу с изменением импульса и решать одномерные задачи на сохранение импульса. / Relate force to momentum change and solve one-dimensional momentum-conservation problems. | lesson:impulse_and_momentum |
 | Колебания, волны и температура / Oscillations, waves, temperature | Объяснять периодичность, перенос энергии и тепловое равновесие на примерах. / Explain periodic behavior, energy transfer, and thermal equilibrium. |
 
 ## Углубление / Intermediate

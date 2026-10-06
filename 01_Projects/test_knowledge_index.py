@@ -368,6 +368,10 @@ def test_priority_curriculum_roadmaps_are_retrievable(
         "Physics/lessons/work_and_kinetic_energy.md",
     ),
     (
+        "signed velocity perfectly inelastic collision carts stick total momentum impulse",
+        "Physics/lessons/impulse_and_momentum.md",
+    ),
+    (
         "erythrocyte hypertonic water leaves aquaporins osmosis solute",
         "Biology/lessons/passive_transport_osmosis.md",
     ),

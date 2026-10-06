@@ -21,3 +21,35 @@ struct ForceMotion {
     var displacement: Double { 0.5 * acceleration * time * time }
     var hasFinished: Bool { time >= Self.duration }
 }
+
+/// One-dimensional perfectly inelastic collision: the objects stick together.
+/// Velocities are signed; momentum is conserved when external impulse is negligible.
+struct MomentumCollision {
+    let firstMass: Double
+    let firstVelocity: Double
+    let secondMass: Double
+    let secondVelocity: Double
+
+    init(firstMass: Double, firstVelocity: Double, secondMass: Double, secondVelocity: Double) {
+        precondition(
+            firstMass.isFinite && firstMass > 0
+                && secondMass.isFinite && secondMass > 0
+                && firstVelocity.isFinite && secondVelocity.isFinite
+        )
+        self.firstMass = firstMass
+        self.firstVelocity = firstVelocity
+        self.secondMass = secondMass
+        self.secondVelocity = secondVelocity
+    }
+
+    var totalMass: Double { firstMass + secondMass }
+    var momentumBefore: Double { firstMass * firstVelocity + secondMass * secondVelocity }
+    var finalVelocity: Double { momentumBefore / totalMass }
+    var momentumAfter: Double { totalMass * finalVelocity }
+    var kineticEnergyBefore: Double {
+        0.5 * firstMass * firstVelocity * firstVelocity
+            + 0.5 * secondMass * secondVelocity * secondVelocity
+    }
+    var kineticEnergyAfter: Double { 0.5 * totalMass * finalVelocity * finalVelocity }
+    var kineticEnergyConverted: Double { max(0, kineticEnergyBefore - kineticEnergyAfter) }
+}

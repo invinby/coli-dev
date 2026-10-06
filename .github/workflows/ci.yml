@@ -101,6 +101,7 @@ jobs:
           Physics:net_force_and_acceleration
           Physics:motion_with_constant_acceleration
           Physics:work_and_kinetic_energy
+          Physics:impulse_and_momentum
           Biology:passive_transport_osmosis
           Biology:photosynthesis_energy_and_carbon
           Biology:mendelian_inheritance
