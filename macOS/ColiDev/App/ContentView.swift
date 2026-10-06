@@ -666,18 +666,21 @@ private struct ManagementView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            switch pane {
-            case .overview:
-                overviewPane
-            case .courses:
-                coursesPane
-            case .rag:
-                ragPane
-            case .sources:
-                sourcesPane
-            case .integrations:
-                integrationsPane
+            Group {
+                switch pane {
+                case .overview:
+                    overviewPane
+                case .courses:
+                    coursesPane
+                case .rag:
+                    ragPane
+                case .sources:
+                    sourcesPane
+                case .integrations:
+                    integrationsPane
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .padding(28)
         .frame(maxWidth: 1120, alignment: .leading)
