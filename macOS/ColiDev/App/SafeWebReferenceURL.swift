@@ -10,6 +10,7 @@ enum SafeWebReferenceURL {
         "openstax.org",
         "www.genome.gov",
         "www.nist.gov",
+        "www.sqlite.org",
     ]
 
     private static let allowedRepositoryReferences: Set<String> = [

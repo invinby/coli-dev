@@ -105,6 +105,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-debugging-practice"
           "$RUNNER_TEMP/verify-debugging-practice"
 
+      - name: Verify programming transaction practice model
+        run: |
+          swiftc macOS/ColiDev/App/TransactionPractice.swift macOS/ColiDev/scripts/verify_transaction_practice.swift \
+            -o "$RUNNER_TEMP/verify-transaction-practice"
+          "$RUNNER_TEMP/verify-transaction-practice"
+
       - name: Verify biology experiment and food-web models
         run: |
           swiftc macOS/ColiDev/App/BiologyInvestigation.swift macOS/ColiDev/scripts/verify_biology_investigation.swift \

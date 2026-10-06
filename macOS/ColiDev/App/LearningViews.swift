@@ -1109,6 +1109,8 @@ private struct PracticeLab: View {
             FileReadingLab()
         } else if subject == .programming, moduleResource == "debugging_tests_and_git" {
             DebuggingLab()
+        } else if subject == .programming, moduleResource == "sql_transactions" {
+            TransactionLab()
         } else if subject == .programming, moduleResource == "variables_and_types" {
             VariablesTypesLab()
         } else if subject == .programming, moduleResource == "computational_thinking" {
@@ -5334,6 +5336,96 @@ private struct FileReadingLab: View {
             .buttonStyle(.borderedProminent)
             .disabled(selectedOutcome == nil || hasCheckedAnswer)
         }
+    }
+}
+
+private struct TransactionLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var scenario: TransactionScenario = .commitTransfer
+    @State private var snapshot = TransactionPractice.initialSnapshot()
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.transaction.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Picker(L10n.text("lab.transaction.scenarioPicker", store.language), selection: $scenario) {
+                ForEach(TransactionScenario.allCases) { item in
+                    Text(L10n.text(item.titleKey, store.language)).tag(item)
+                }
+            }
+            .pickerStyle(.menu)
+            .onChange(of: scenario) { _ in resetPractice() }
+
+            Text("BEGIN;  UPDATE;  COMMIT / ROLLBACK")
+                .font(.system(.callout, design: .monospaced).weight(.semibold))
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            HStack(spacing: 12) {
+                balanceColumn(title: "lab.transaction.source", value: snapshot.sourceBalance, saved: snapshot.committedSourceBalance)
+                Image(systemName: "arrow.right")
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+                balanceColumn(title: "lab.transaction.destination", value: snapshot.destinationBalance, saved: snapshot.committedDestinationBalance)
+            }
+
+            Label(L10n.text(snapshot.stage.titleKey, store.language), systemImage: snapshot.stage.isFinished ? "checkmark.circle.fill" : "arrow.trianglehead.2.clockwise.rotate.90")
+                .font(.callout.weight(.medium))
+                .foregroundStyle(snapshot.stage.isFinished ? Color.green : Color.accentColor)
+
+            Text(L10n.text(snapshot.traceKey, store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("transaction-practice-feedback")
+
+            Text(String(format: L10n.text("lab.transaction.savedTotal", store.language), snapshot.committedTotal))
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+
+            HStack {
+                Button {
+                    snapshot = TransactionPractice.advance(snapshot, scenario: scenario)
+                } label: {
+                    Label(
+                        L10n.text(TransactionPractice.nextActionKey(for: snapshot, scenario: scenario) ?? "lab.transaction.done", store.language),
+                        systemImage: snapshot.stage.isFinished ? "checkmark" : "arrow.right"
+                    )
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(snapshot.stage.isFinished)
+
+                Button {
+                    resetPractice()
+                } label: {
+                    Label(L10n.text("lab.transaction.reset", store.language), systemImage: "arrow.counterclockwise")
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+    }
+
+    private func balanceColumn(title: String, value: Int, saved: Int) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(L10n.text(title, store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(String(value))
+                .font(.system(.title3, design: .rounded).weight(.semibold).monospacedDigit())
+            Text(String(format: L10n.text("lab.transaction.persisted", store.language), saved))
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(.background, in: RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .combine)
+    }
+
+    private func resetPractice() {
+        snapshot = TransactionPractice.initialSnapshot()
     }
 }
 

@@ -34,7 +34,7 @@ _MARKDOWN_LINK_RE = re.compile(r"\[([^\]]{1,200})\]\(\s*(https://[^)\s]+)\s*\)",
 _TRAILING_PUNCTUATION = ".,;:!?"
 _MAX_LESSON_FILES = 200
 _MAX_LESSON_FILE_BYTES = 256 * 1024
-_MAX_SOURCES = 60
+_MAX_SOURCES = 80
 _MAX_CONCURRENT_REQUESTS = 5
 _MAX_TITLE_LENGTH = 200
 _MAX_PAGE_DESCRIPTION_LENGTH = 500
@@ -58,6 +58,7 @@ _TRUSTED_HOSTS = frozenset(
         "medlineplus.gov",
         "raw.githubusercontent.com",
         "www.nist.gov",
+        "www.sqlite.org",
         "openstax.org",
     }
 )
@@ -73,6 +74,7 @@ _ALLOWED_PATHS = {
     "www.nist.gov": re.compile(
         r"^/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b9$"
     ),
+    "www.sqlite.org": re.compile(r"^/lang_transaction\.html$"),
     "openstax.org": re.compile(r"^/books/[a-z0-9-]+/pages/[a-z0-9-]+/?$"),
     "raw.githubusercontent.com": re.compile(
         r"^/elifesciences/elife-article-xml/master/articles/elife-81613-v1\.xml$"

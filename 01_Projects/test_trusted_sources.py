@@ -167,6 +167,13 @@ def test_python_assert_reference_is_an_exact_approved_rag_path() -> None:
     assert TrustedSourceMonitor._canonical_url("https://docs.python.org/3/reference/expressions.html") is None
 
 
+def test_sqlite_transaction_reference_is_exact_and_metadata_only() -> None:
+    url = "https://www.sqlite.org/lang_transaction.html"
+    assert TrustedSourceMonitor._canonical_url(url) == url
+    assert TrustedSourceMonitor._rag_policy(url) is None
+    assert TrustedSourceMonitor._canonical_url("https://www.sqlite.org/lang_select.html") is None
+
+
 def test_public_domain_medlineplus_genetics_basics_are_cached_for_rag(tmp_path: Path) -> None:
     url = "https://medlineplus.gov/genetics/understanding/basics/gene/"
     _write_lesson(tmp_path, f"[What is a gene?]({url})")
@@ -406,13 +413,13 @@ def test_reference_policy_accepts_official_british_council_b1_b2_lesson() -> Non
 def test_reference_scan_reports_links_omitted_by_the_request_cap(tmp_path: Path) -> None:
     urls = [
         f"https://openstax.org/books/biology-2e/pages/chapter-{index}"
-        for index in range(65)
+        for index in range(85)
     ]
     _write_lesson(tmp_path, "\n".join(f"[Source]({url})" for url in urls))
 
     references, unsupported_count, omitted_count = _monitor(tmp_path, tmp_path)._references()
 
-    assert len(references) == 60
+    assert len(references) == 80
     assert omitted_count == 5
     assert unsupported_count == 0
 

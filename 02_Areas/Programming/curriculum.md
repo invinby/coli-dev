@@ -15,13 +15,13 @@
 
 ## Углубление / Intermediate
 
-| Модуль / Module | Результат обучения / Learning outcome |
-|---|---|
-| Структуры данных и сложность / Data structures and complexity | Выбирать структуру данных по операциям и объяснять компромисс времени и памяти. / Choose data structures and explain time-space tradeoffs. |
-| Объектная модель, композиция и типизация / Object model, composition, typing | Проектировать небольшие модули с ясными границами, типами и ответственностью. / Design small modules with clear interfaces and responsibilities. |
-| SQL и транзакции / SQL and transactions | Проектировать таблицы, запросы, индексы и транзакции с учётом целостности. / Build relational schemas and queries with integrity. |
-| HTTP, API и backend-приложение / HTTP, APIs, backend services | Строить и документировать API, понимать статусы, валидацию и ошибки сети. / Implement and document APIs with validation and failure handling. |
-| Зависимости, упаковка и конфигурация / Dependencies, packaging, configuration | Создавать воспроизводимую среду, управлять версиями и безопасно конфигурировать приложение. / Create reproducible environments and safe configuration. |
+| Модуль / Module | Результат обучения / Learning outcome | Урок / Lesson |
+|---|---|---|
+| Структуры данных и сложность / Data structures and complexity | Выбирать структуру данных по операциям и объяснять компромисс времени и памяти. / Choose data structures and explain time-space tradeoffs. | |
+| Объектная модель, композиция и типизация / Object model, composition, typing | Проектировать небольшие модули с ясными границами, типами и ответственностью. / Design small modules with clear interfaces and responsibilities. | |
+| SQL и транзакции / SQL and transactions | Проектировать таблицы, запросы, индексы и транзакции с учётом целостности. / Build relational schemas and queries with integrity. | lesson:sql_transactions |
+| HTTP, API и backend-приложение / HTTP, APIs, backend services | Строить и документировать API, понимать статусы, валидацию и ошибки сети. / Implement and document APIs with validation and failure handling. | |
+| Зависимости, упаковка и конфигурация / Dependencies, packaging, configuration | Создавать воспроизводимую среду, управлять версиями и безопасно конфигурировать приложение. / Create reproducible environments and safe configuration. | |
 
 ## Продвинутый уровень / Advanced
 

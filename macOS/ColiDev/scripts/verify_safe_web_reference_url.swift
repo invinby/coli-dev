@@ -11,6 +11,7 @@ enum SafeWebReferenceURLVerification {
             "https://www.genome.gov/genetics-glossary/genotype",
             "https://csrc.nist.gov/glossary/term/algorithm",
             "https://www.nist.gov/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b9",
+            "https://www.sqlite.org/lang_transaction.html",
             "https://raw.githubusercontent.com/elifesciences/elife-article-xml/master/articles/elife-81613-v1.xml",
         ] {
             precondition(SafeWebReferenceURL.parse(source) != nil, "official lesson references should be linkable: \(source)")
