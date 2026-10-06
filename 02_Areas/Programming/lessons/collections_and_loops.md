@@ -64,11 +64,6 @@ for index, item in enumerate(items):
 
 Тренажёр показывает только ограниченную учебную модель списка и цикла: он не запускает код ученика и не измеряет время выполнения. Индекс — это позиция в конкретной последовательности, а не постоянный идентификатор объекта. Индекс вне допустимого диапазона вызовет `IndexError`; удаление отсутствующего значения и изменение коллекции во время обхода требуют отдельной обработки.
 
-### Источники
-
-- [Python Tutorial: Lists and sequences — Python Software Foundation](https://docs.python.org/3/tutorial/introduction.html)
-- [Python Tutorial: for Statements and range — Python Software Foundation](https://docs.python.org/3/tutorial/controlflow.html)
-
 ## English
 
 ### Goal
@@ -124,7 +119,7 @@ The first option is correct: indexing starts at zero, `append()` adds `"c"` at t
 
 The trainer shows a small, bounded teaching model of a list and a loop; it does not run learner code or measure execution time. An index is a position in one particular sequence, not a permanent object identifier. An out-of-range index raises `IndexError`; handling missing values and modifying a collection while iterating need separate treatment.
 
-### Sources
+## Sources
 
 - [Python Tutorial: Lists and sequences — Python Software Foundation](https://docs.python.org/3/tutorial/introduction.html)
 - [Python Tutorial: for Statements and range — Python Software Foundation](https://docs.python.org/3/tutorial/controlflow.html)

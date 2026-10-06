@@ -609,6 +609,60 @@ def test_curriculum_lesson_links_resolve_to_bilingual_module_files() -> None:
     }
 
 
+def test_bundled_lessons_have_a_complete_bilingual_learning_structure() -> None:
+    project = Path(__file__).resolve().parent.parent
+    areas = project / "02_Areas"
+    required_sections = {
+        "Русский": ["Цель", "Идея и механизм", "Вопрос", "Варианты", "Ответ", "Разбор"],
+        "English": ["Goal", "Idea and mechanism", "Question", "Options", "Answer", "Explanation"],
+    }
+    practice_headings = {
+        "Русский": ["Исследуй и потренируйся", "Исследуй 3D-модель", "Исследуй в тренажёре"],
+        "English": ["Explore and practise", "Explore and practice", "Explore the 3D model", "Explore the lab"],
+    }
+    limit_headings = {
+        "Русский": ["Границы модели", "Границы правила", "Границы вывода", "Границы и безопасный запуск"],
+        "English": ["Limits", "Limits of the inference", "Limits and safe execution"],
+    }
+
+    def body_after_heading(markdown: str, heading: str, next_level: str) -> str:
+        match = re.search(
+            rf"^{re.escape(heading)}\s*\n(.*?)(?=^{re.escape(next_level)}|\Z)",
+            markdown,
+            flags=re.MULTILINE | re.DOTALL,
+        )
+        return match.group(1).strip() if match else ""
+
+    def section_body(language_body: str, section_headings: list[str]) -> str:
+        for heading in section_headings:
+            match = re.search(
+                rf"^### {re.escape(heading)}\s*\n(.*?)(?=^### |\Z)",
+                language_body,
+                flags=re.MULTILINE | re.DOTALL,
+            )
+            if match and match.group(1).strip():
+                return match.group(1).strip()
+        return ""
+
+    lessons = sorted(areas.glob("*/lessons/*.md"))
+    assert lessons, "No bundled lessons found"
+    for lesson in lessons:
+        markdown = lesson.read_text(encoding="utf-8")
+        assert re.search(r"^## Sources\s*$", markdown, re.MULTILINE), f"Missing Sources in {lesson}"
+        sources = markdown.split("## Sources", 1)[1]
+        assert re.search(r"https://\S+", sources), f"No source link in {lesson}"
+
+        for language, required in required_sections.items():
+            language_heading = f"## {language}"
+            following_heading = "## English" if language == "Русский" else "## Sources"
+            language_body = body_after_heading(markdown, language_heading, following_heading)
+            assert language_body, f"Missing {language} section in {lesson}"
+            for section in required:
+                assert section_body(language_body, [section]), f"Missing {section} in {language} in {lesson}"
+            assert section_body(language_body, practice_headings[language]), f"Missing practice in {language} in {lesson}"
+            assert section_body(language_body, limit_headings[language]), f"Missing limitations in {language} in {lesson}"
+
+
 def test_local_embeddings_find_semantic_match_and_cache_document_vectors(tmp_path: Path) -> None:
     project = tmp_path / "project"
     math = project / "02_Areas" / "Mathematics"

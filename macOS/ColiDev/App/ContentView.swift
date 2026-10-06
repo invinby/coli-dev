@@ -958,6 +958,7 @@ private struct ManagementView: View {
         let totalLessons = coverage.reduce(0) { $0 + $1.bundledLessonCount }
         let bilingualLessons = coverage.reduce(0) { $0 + $1.bilingualLessonCount }
         let sourceCitedLessons = coverage.reduce(0) { $0 + $1.sourceCitedLessonCount }
+        let structurallyCompleteLessons = coverage.reduce(0) { $0 + $1.structurallyCompleteLessonCount }
 
         return ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -985,6 +986,12 @@ private struct ManagementView: View {
                         symbol: "link",
                         tint: sourceCitedLessons == totalLessons ? .green : .orange
                     )
+                    metric(
+                        title: L10n.text("management.courseStructured", store.language),
+                        value: "\(structurallyCompleteLessons) / \(totalLessons)",
+                        symbol: "checklist",
+                        tint: structurallyCompleteLessons == totalLessons ? .green : .orange
+                    )
                 }
 
                 ForEach(coverage) { subjectCoverage in
@@ -1001,6 +1008,7 @@ private struct ManagementView: View {
                                     format: L10n.text("management.courseSubjectSummary", store.language),
                                     subjectCoverage.bilingualLessonCount,
                                     subjectCoverage.bundledLessonCount,
+                                    subjectCoverage.structurallyCompleteLessonCount,
                                     subjectCoverage.topicCount
                                 ))
                                 .font(.caption.monospacedDigit())
@@ -1022,6 +1030,56 @@ private struct ManagementView: View {
                                 }
                                 .font(.subheadline)
                             }
+
+                            if subjectCoverage.lessonStructureIssues.isEmpty {
+                                Label(
+                                    L10n.text("management.courseStructureComplete", store.language),
+                                    systemImage: "checkmark.circle.fill"
+                                )
+                                .font(.caption)
+                                .foregroundStyle(.green)
+                            } else {
+                                DisclosureGroup {
+                                    VStack(alignment: .leading, spacing: 10) {
+                                        ForEach(subjectCoverage.lessonStructureIssues) { issue in
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                Text(String(
+                                                    format: L10n.text("management.courseStructureResource", store.language),
+                                                    issue.resource
+                                                ))
+                                                .font(.caption.weight(.semibold))
+                                                Text(String(
+                                                    format: L10n.text("management.courseStructureRussian", store.language),
+                                                    structureSectionSummary(issue.missingRussianSections)
+                                                ))
+                                                .font(.caption)
+                                                Text(String(
+                                                    format: L10n.text("management.courseStructureEnglish", store.language),
+                                                    structureSectionSummary(issue.missingEnglishSections)
+                                                ))
+                                                .font(.caption)
+                                                if issue.missingSources {
+                                                    Text(L10n.text("management.courseStructureSources", store.language))
+                                                        .font(.caption)
+                                                }
+                                            }
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            .padding(.vertical, 5)
+                                        }
+                                    }
+                                    .padding(.top, 8)
+                                } label: {
+                                    Label(
+                                        String(
+                                            format: L10n.text("management.courseStructureIssues", store.language),
+                                            subjectCoverage.lessonStructureIssues.count
+                                        ),
+                                        systemImage: "exclamationmark.circle"
+                                    )
+                                    .font(.caption.weight(.medium))
+                                }
+                                .tint(.orange)
+                            }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.top, 5)
@@ -1035,6 +1093,15 @@ private struct ManagementView: View {
             }
             .padding(.bottom, 18)
         }
+    }
+
+    private func structureSectionSummary(_ sectionKeys: [String]) -> String {
+        guard !sectionKeys.isEmpty else {
+            return L10n.text("management.courseStructureNone", store.language)
+        }
+        return sectionKeys
+            .map { L10n.text($0, store.language) }
+            .joined(separator: ", ")
     }
 
     private var sourcesPane: some View {

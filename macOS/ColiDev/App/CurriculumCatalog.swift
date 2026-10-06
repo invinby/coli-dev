@@ -32,12 +32,23 @@ struct CurriculumLevelCoverage: Identifiable {
     var id: String { level.english }
 }
 
+struct CurriculumLessonStructureIssue: Identifiable {
+    let resource: String
+    let missingRussianSections: [String]
+    let missingEnglishSections: [String]
+    let missingSources: Bool
+
+    var id: String { resource }
+}
+
 struct SubjectCurriculumCoverage: Identifiable {
     let subject: Subject
     let levels: [CurriculumLevelCoverage]
     let bundledLessonCount: Int
     let bilingualLessonCount: Int
     let sourceCitedLessonCount: Int
+    let structurallyCompleteLessonCount: Int
+    let lessonStructureIssues: [CurriculumLessonStructureIssue]
 
     var topicCount: Int { levels.reduce(0) { $0 + $1.topicCount } }
     var linkedLessonCount: Int { levels.reduce(0) { $0 + $1.linkedLessonCount } }
@@ -51,6 +62,9 @@ enum CurriculumCatalog {
         let lessonContents = lessonFiles.compactMap { url -> (String, String)? in
             guard let contents = try? String(contentsOf: url, encoding: .utf8) else { return nil }
             return (url.deletingPathExtension().lastPathComponent, contents)
+        }
+        let lessonAudits = lessonContents.map { resource, contents in
+            auditLesson(resource: resource, markdown: contents)
         }
         let bundledResources = Set(lessonContents.map(\.0))
         let levelCoverage = levels.map { level in
@@ -71,7 +85,9 @@ enum CurriculumCatalog {
             levels: levelCoverage,
             bundledLessonCount: lessonContents.count,
             bilingualLessonCount: lessonContents.filter { hasBilingualAssessment($0.1) }.count,
-            sourceCitedLessonCount: lessonContents.filter { hasLinkedSource($0.1) }.count
+            sourceCitedLessonCount: lessonContents.filter { hasLinkedSource($0.1) }.count,
+            structurallyCompleteLessonCount: lessonAudits.filter(\.isComplete).count,
+            lessonStructureIssues: lessonAudits.filter { !$0.isComplete }.map(\.issue)
         )
     }
 
@@ -129,6 +145,75 @@ enum CurriculumCatalog {
         guard let sourceSection = markdown.range(of: "## Sources") else { return false }
         let sources = markdown[sourceSection.upperBound...]
         return sources.contains("https://")
+    }
+
+    private struct LessonAudit {
+        let issue: CurriculumLessonStructureIssue
+        let isComplete: Bool
+    }
+
+    private static func auditLesson(resource: String, markdown: String) -> LessonAudit {
+        let russianRequired: [(String, [String])] = [
+            ("management.courseSectionGoal", ["Цель"]),
+            ("management.courseSectionTheory", ["Идея и механизм"]),
+            ("management.courseSectionPractice", ["Исследуй и потренируйся", "Исследуй 3D-модель", "Исследуй в тренажёре"]),
+            ("management.courseSectionQuestion", ["Вопрос"]),
+            ("management.courseSectionOptions", ["Варианты"]),
+            ("management.courseSectionAnswer", ["Ответ"]),
+            ("management.courseSectionExplanation", ["Разбор"]),
+            ("management.courseSectionLimits", ["Границы модели", "Границы правила", "Границы вывода", "Границы и безопасный запуск"])
+        ]
+        let englishRequired: [(String, [String])] = [
+            ("management.courseSectionGoal", ["Goal"]),
+            ("management.courseSectionTheory", ["Idea and mechanism"]),
+            ("management.courseSectionPractice", ["Explore and practise", "Explore and practice", "Explore the 3D model", "Explore the lab"]),
+            ("management.courseSectionQuestion", ["Question"]),
+            ("management.courseSectionOptions", ["Options"]),
+            ("management.courseSectionAnswer", ["Answer"]),
+            ("management.courseSectionExplanation", ["Explanation"]),
+            ("management.courseSectionLimits", ["Limits", "Limits of the inference", "Limits and safe execution"])
+        ]
+
+        let russianText = languageBody(in: markdown, heading: "## Русский")
+        let englishText = languageBody(in: markdown, heading: "## English")
+        let missingRussian = russianRequired.compactMap { key, headings in
+            hasNonEmptySection(in: russianText, headings: headings) ? nil : key
+        }
+        let missingEnglish = englishRequired.compactMap { key, headings in
+            hasNonEmptySection(in: englishText, headings: headings) ? nil : key
+        }
+        let missingSources = !hasLinkedSource(markdown)
+        let issue = CurriculumLessonStructureIssue(
+            resource: resource,
+            missingRussianSections: missingRussian,
+            missingEnglishSections: missingEnglish,
+            missingSources: missingSources
+        )
+        return LessonAudit(
+            issue: issue,
+            isComplete: missingRussian.isEmpty && missingEnglish.isEmpty && !missingSources
+        )
+    }
+
+    private static func languageBody(in markdown: String, heading: String) -> String {
+        let lines = markdown.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n")
+        guard let start = lines.firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == heading }) else {
+            return ""
+        }
+        return lines.dropFirst(start + 1)
+            .prefix(while: { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("## ") })
+            .joined(separator: "\n")
+    }
+
+    private static func hasNonEmptySection(in body: String, headings: [String]) -> Bool {
+        let lines = body.components(separatedBy: .newlines)
+        guard let start = lines.firstIndex(where: { line in
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            return trimmed.hasPrefix("### ") && headings.contains(String(trimmed.dropFirst(4)))
+        }) else { return false }
+        return lines.dropFirst(start + 1)
+            .prefix(while: { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("### ") })
+            .contains(where: { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
     }
 
     private static func parse(_ markdown: String) -> [CurriculumLevel] {
