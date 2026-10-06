@@ -977,7 +977,7 @@ enum L10n {
         "management.autoAgentRole.gemini_draft": ("Дополнительный черновик", "Additional draft"),
         "management.autoAgentRole.critic": ("Критик", "Critic"),
         "management.autoAgentRole.verifier": ("Проверяющий", "Verifier"),
-        "management.autoAgentCloudNotice": ("В облако уйдут вопрос, контекст курса и материалы для этой роли. Платный маршрут останется заблокирован, пока не разрешишь платные вызовы в защите расходов.", "This role sends the question, course context, and supplied materials to the cloud provider. Paid routes stay blocked until you enable paid calls in cost protection."),
+        "management.autoAgentCloudNotice": ("Если для этого маршрута выбран и доступен облачный провайдер, ему отправятся вопрос, контекст курса и найденные материалы. Платные маршруты остаются заблокированы, пока явно не разрешишь платные вызовы в защите расходов.", "When this route selects an available cloud provider, the question, course context, and retrieved materials are sent to that provider. Paid routes stay blocked until you explicitly enable paid calls in cost protection."),
         "management.autoAgentModelHelp": ("Укажи точный model ID провайдера. Пустое поле использует модель по умолчанию; Ollama проверяется при запросе.", "Enter the provider's exact model ID. An empty field uses its default model; Ollama availability is checked when requested."),
         "management.ollamaModelsRefresh": ("Обновить список", "Refresh model list"),
         "management.ollamaModelsChoose": ("Выбрать установленную", "Choose installed model"),

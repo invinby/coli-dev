@@ -1727,6 +1727,17 @@ private struct ManagementView: View {
                                 .textFieldStyle(.roundedBorder)
                                 .frame(maxWidth: 520)
                         }
+                        if finalSynthesisProvider != "ollama"
+                            && (finalSynthesisProvider != "auto"
+                                || store.finalSynthesisModelRoute?.effectiveProvider != "ollama") {
+                            Label(
+                                L10n.text("management.autoAgentCloudNotice", store.language),
+                                systemImage: "exclamationmark.triangle"
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                        }
 
                         if let route = store.finalSynthesisModelRoute {
                             HStack(spacing: 8) {
@@ -1792,6 +1803,15 @@ private struct ManagementView: View {
                             Text(L10n.text("management.routeModelHelp", store.language))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                        }
+                        if routeProvider != "ollama" {
+                            Label(
+                                L10n.text("management.autoAgentCloudNotice", store.language),
+                                systemImage: "exclamationmark.triangle"
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
                         }
 
                         if let route = store.subjectModelRoutes[routeSubject.rawValue] {

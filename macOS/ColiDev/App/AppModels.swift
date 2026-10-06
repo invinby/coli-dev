@@ -1070,12 +1070,14 @@ struct LocalOllamaModelCatalog: Decodable, Equatable {
 struct FinalSynthesisModelRoute: Decodable, Hashable {
     let provider: String
     let model: String?
+    let effectiveProvider: String
     let effectiveModel: String
     let providerReady: Bool?
     let status: String
 
     enum CodingKeys: String, CodingKey {
         case provider, model, status
+        case effectiveProvider = "effective_provider"
         case effectiveModel = "effective_model"
         case providerReady = "provider_ready"
     }
