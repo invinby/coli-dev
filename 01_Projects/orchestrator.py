@@ -515,6 +515,7 @@ class OpenAICompatibleSettingsRequest(BaseModel):
 
 
 class AgentModelRouteRequest(BaseModel):
+    provider: Literal["auto", "gemini", "kimi", "openrouter", "compatible", "ollama"] = "ollama"
     model: str | None = Field(default=None, max_length=128)
 
 
@@ -1048,6 +1049,63 @@ class ConsiliumEngine:
             "[Custom API", "[Timeout: custom API",
         ))
 
+    async def _ask_auto_agent_role(
+        self,
+        role: str,
+        message: str,
+        system_prompt: str,
+        agent_tag: str,
+    ) -> str:
+        """Run a configured Auto role, enforcing free-only policy at execution time."""
+        route = _effective_auto_agent_route(role)
+        if route["paid_route_blocked"]:
+            return await self._ask_ollama(
+                message, system_prompt, f"{agent_tag}-free-only-local-fallback",
+                model=OLLAMA_MODEL_RESEARCHER,
+            )
+
+        provider = route["effective_provider"]
+        model = route["effective_model"]
+        if provider == "gemini":
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+            response = await self._ask_gemini(message, system_prompt, url, agent_tag)
+        elif provider == "kimi":
+            response = await self._ask_kimi(message, system_prompt, agent_tag, model=model)
+        elif provider == "openrouter":
+            response = await self._ask_openrouter(
+                message, system_prompt, agent_tag, model=model, track_specialist=False
+            )
+        elif provider == "compatible":
+            response = await self._ask_openai_compatible(
+                message, system_prompt, agent_tag, model=model, track_specialist=False
+            )
+        else:
+            response = await self._ask_ollama(message, system_prompt, agent_tag, model=model)
+
+        if (
+            isinstance(response, str)
+            and response.strip()
+            and not self._is_provider_error(response)
+        ):
+            return response
+
+        # Keep paid routes blocked above; a configured but unavailable free route can
+        # safely degrade to the local model so a single provider outage is not fatal.
+        if provider != "ollama":
+            logger.warning(
+                "Auto role provider failed; falling back to local Ollama",
+                extra={"role": role, "provider": provider},
+            )
+            return await self._ask_ollama(
+                message,
+                system_prompt,
+                f"{agent_tag}-local-fallback",
+                model=auto_agent_models.get_route(role)["model"]
+                if auto_agent_models.get_route(role)["provider"] == "ollama"
+                else None,
+            )
+        return response if isinstance(response, str) else f"[Ошибка: {response}]"
+
     # ─── УРОВЕНЬ 1: Независимые черновики ────────────────
 
     async def _run_cloud_code(
@@ -1071,16 +1129,10 @@ class ConsiliumEngine:
         t0 = datetime.now(timezone.utc)
         agent_system = self.agent_system(system_prompt)
         if allow_paid_routes:
-            gemini_flash_task = self._ask_gemini(
-                message, agent_system, GEMINI_FLASH_URL, "gemini-flash"
-            )
             specialist_task = self._ask_cloud_specialist(
                 message, agent_system, "cloud-specialist", subject=subject
             )
         else:
-            gemini_flash_task = asyncio.sleep(
-                0, result="[Auto policy: Gemini Flash disabled in free-only mode]"
-            )
             selected_subject_route = subject_model_routes.get(subject)
             if selected_subject_route["provider"] == "ollama":
                 specialist_task = self._ask_selected_specialist(
@@ -1101,11 +1153,11 @@ class ConsiliumEngine:
                 specialist_task = asyncio.sleep(
                     0, result="[Auto policy: OpenRouter free route is not configured]"
                 )
-        ollama_task = self._ask_ollama(
-            message,
-            agent_system,
-            "ollama-gen",
-            model=auto_agent_models.get("local_draft") or OLLAMA_MODEL_RESEARCHER,
+        gemini_flash_task = self._ask_auto_agent_role(
+            "gemini_draft", message, agent_system, "gemini-draft"
+        )
+        ollama_task = self._ask_auto_agent_role(
+            "local_draft", message, agent_system, "local-draft"
         )
 
         flash_result, specialist_result, ollama_result = await asyncio.gather(
@@ -1129,10 +1181,12 @@ class ConsiliumEngine:
             specialist_draft = f"[Ошибка: {specialist_result}]"
         ollama_draft = ollama_result if isinstance(ollama_result, str) else f"[Ошибка: {ollama_result}]"
 
+        gemini_route = _effective_auto_agent_route("gemini_draft")
+        local_draft_route = _effective_auto_agent_route("local_draft")
         drafts = (
-            ("Gemini Flash", flash_draft),
+            (f"{gemini_route['effective_provider'].title()} additional draft", flash_draft),
             (DebateLog._agent_label(specialist_agent), specialist_draft),
-            ("Local Ollama", ollama_draft),
+            (f"{local_draft_route['effective_provider'].title()} primary draft", ollama_draft),
         )
         usable_drafts = [
             (label, draft.strip())
@@ -1195,11 +1249,11 @@ class ConsiliumEngine:
                 f"Вопрос ученика: {message}\n\nЧерновики:\n{draft_bundle}\n\n"
                 f"Критический разбор на языке {self.output_language}:"
             )
-        freebuff_review = await self._ask_ollama(
+        freebuff_review = await self._ask_auto_agent_role(
+            "critic",
             freebuff_prompt,
             self.agent_system(system_prompt),
-            "freebuff",
-            model=auto_agent_models.get("critic") or OLLAMA_MODEL_RESEARCHER,
+            "critic",
         )
         if not isinstance(freebuff_review, str) or not freebuff_review.strip() or self._is_provider_error(freebuff_review):
             freebuff_review = (
@@ -1229,11 +1283,11 @@ class ConsiliumEngine:
                 f"Вопрос ученика: {message}\n\nЧерновики:\n{draft_bundle[:6000]}\n\n"
                 f"Проверка на языке {self.output_language} (2–4 предложения):"
             )
-        qwen_verify = await self._ask_ollama(
+        qwen_verify = await self._ask_auto_agent_role(
+            "verifier",
             qwen_verify_prompt,
             self.agent_system(system_prompt),
-            "qwen",
-            model=auto_agent_models.get("verifier") or OLLAMA_MODEL_RESEARCHER,
+            "verifier",
         )
         if not isinstance(qwen_verify, str) or not qwen_verify.strip() or self._is_provider_error(qwen_verify):
             qwen_verify = (
@@ -1662,6 +1716,8 @@ class ConsiliumEngine:
         system_prompt: str,
         agent_tag: str,
         model: str,
+        *,
+        track_specialist: bool = True,
     ) -> str:
         """Call the user-configured OpenAI-compatible chat-completions endpoint."""
         config = openai_compatible_settings.get()
@@ -1711,11 +1767,12 @@ class ConsiliumEngine:
             if not isinstance(content, str) or not content.strip():
                 return "[Custom API: empty response]"
             reported_model = data.get("model") if isinstance(data, dict) else None
-            self.specialist_model_label = (
-                " ".join(reported_model.split())[:160]
-                if isinstance(reported_model, str) and reported_model.strip()
-                else selected_model
-            )
+            if track_specialist:
+                self.specialist_model_label = (
+                    " ".join(reported_model.split())[:160]
+                    if isinstance(reported_model, str) and reported_model.strip()
+                    else selected_model
+                )
             return content.strip()
         except CloudCallLimitExceeded as exc:
             return f"[{exc}]"
@@ -1746,6 +1803,8 @@ class ConsiliumEngine:
         system_prompt: str,
         agent_tag: str,
         model: str | None = None,
+        *,
+        track_specialist: bool = True,
     ) -> str:
         """Request an OpenAI-compatible completion from the configured OpenRouter model."""
         if not OPENROUTER_KEY:
@@ -1793,7 +1852,8 @@ class ConsiliumEngine:
             else:
                 model = None
             self.openrouter_used = True
-            self.specialist_model_label = model
+            if track_specialist:
+                self.specialist_model_label = model
             return content.strip()
         except CloudCallLimitExceeded as exc:
             return f"[{exc}]"
@@ -2546,7 +2606,7 @@ provider_usage_store = ProviderUsageStore(app_data_dir() / "provider-usage.sqlit
 SUBJECT_MODEL_ROUTE_SUBJECTS = (
     "mathematics", "english", "physics", "biology", "zoology", "programming",
 )
-AUTO_AGENT_MODEL_ROLES = ("local_draft", "critic", "verifier")
+AUTO_AGENT_MODEL_ROLES = ("local_draft", "gemini_draft", "critic", "verifier")
 _SUBJECT_MODEL_ROUTE_PROVIDERS = frozenset({"auto", "gemini", "kimi", "openrouter", "compatible", "ollama"})
 _MODEL_ID_PATTERNS = {
     # These IDs are inserted into provider-specific URL paths or JSON payloads.
@@ -2829,13 +2889,33 @@ final_synthesis_routes = FinalSynthesisRouteStore(app_data_dir() / "final-synthe
 
 
 class AutoAgentModelStore:
-    """Persist per-role local Ollama model IDs without storing credentials."""
+    """Persist non-secret provider/model choices for Auto agent roles."""
 
     def __init__(self, path: Path) -> None:
         self.path = path.expanduser()
         self._lock = threading.RLock()
 
-    def _read_unlocked(self) -> dict[str, str]:
+    @staticmethod
+    def _default_route(role: str) -> dict[str, str | None]:
+        if role == "gemini_draft":
+            return {"provider": "auto", "model": None}
+        return {"provider": "ollama", "model": None}
+
+    @staticmethod
+    def _clean_route(role: str, value: Any) -> dict[str, str | None]:
+        if not isinstance(value, dict):
+            return AutoAgentModelStore._default_route(role)
+        provider = value.get("provider")
+        model = value.get("model")
+        if not isinstance(provider, str) or provider not in _SUBJECT_MODEL_ROUTE_PROVIDERS:
+            return AutoAgentModelStore._default_route(role)
+        if provider == "auto":
+            return {"provider": "auto", "model": None}
+        if model is not None and not _valid_subject_model_id(provider, model):
+            model = None
+        return {"provider": provider, "model": model}
+
+    def _read_unlocked(self) -> dict[str, dict[str, str | None]]:
         try:
             payload = json.loads(self.path.read_text(encoding="utf-8"))
         except FileNotFoundError:
@@ -2846,41 +2926,71 @@ class AutoAgentModelStore:
                 extra={"error_type": type(exc).__name__},
             )
             return {}
+        routes = payload.get("routes") if isinstance(payload, dict) else None
+        if isinstance(routes, dict):
+            return {
+                role: self._clean_route(role, routes.get(role))
+                for role in AUTO_AGENT_MODEL_ROLES
+                if role in routes
+            }
+
+        # Migrate schema-v1 local model choices to explicit Ollama routes.
         models = payload.get("models") if isinstance(payload, dict) else None
         if not isinstance(models, dict):
             return {}
         return {
-            role: model
+            role: {"provider": "ollama", "model": model}
             for role, model in models.items()
             if role in AUTO_AGENT_MODEL_ROLES and _valid_subject_model_id("ollama", model)
         }
 
-    def snapshot(self) -> dict[str, str | None]:
+    def route_snapshot(self) -> dict[str, dict[str, str | None]]:
         with self._lock:
             saved = self._read_unlocked()
-        return {role: saved.get(role) for role in AUTO_AGENT_MODEL_ROLES}
+        return {
+            role: saved.get(role, self._default_route(role))
+            for role in AUTO_AGENT_MODEL_ROLES
+        }
+
+    def snapshot(self) -> dict[str, str | None]:
+        return {role: route["model"] for role, route in self.route_snapshot().items()}
 
     def get(self, role: str) -> str | None:
         if role not in AUTO_AGENT_MODEL_ROLES:
             raise ValueError("Unknown agent role")
         return self.snapshot()[role]
 
-    def set(self, role: str, model: str | None) -> str | None:
+    def get_route(self, role: str) -> dict[str, str | None]:
         if role not in AUTO_AGENT_MODEL_ROLES:
             raise ValueError("Unknown agent role")
+        return self.route_snapshot()[role]
+
+    def set(self, role: str, model: str | None) -> str | None:
+        self.set_route(role, "ollama", model)
+        return model
+
+    def set_route(self, role: str, provider: str, model: str | None) -> dict[str, str | None]:
+        if role not in AUTO_AGENT_MODEL_ROLES:
+            raise ValueError("Unknown agent role")
+        if provider not in _SUBJECT_MODEL_ROUTE_PROVIDERS:
+            raise ValueError("Unknown provider")
         if model is not None:
             model = model.strip()
             if not model:
                 model = None
-            elif not _valid_subject_model_id("ollama", model):
-                raise ValueError("Invalid Ollama model identifier")
+            elif provider == "auto":
+                raise ValueError("Automatic routing cannot have a model identifier")
+            elif not _valid_subject_model_id(provider, model):
+                raise ValueError("Invalid model identifier")
+
+        route = {"provider": provider, "model": model}
 
         with self._lock:
-            models = self._read_unlocked()
-            if model is None:
-                models.pop(role, None)
+            routes = self._read_unlocked()
+            if route == self._default_route(role):
+                routes.pop(role, None)
             else:
-                models[role] = model
+                routes[role] = route
             self.path.parent.mkdir(parents=True, exist_ok=True)
             temporary_path: Path | None = None
             try:
@@ -2889,7 +2999,7 @@ class AutoAgentModelStore:
                     suffix=".tmp", dir=self.path.parent, delete=False,
                 ) as temporary:
                     temporary_path = Path(temporary.name)
-                    json.dump({"schema_version": 1, "models": models}, temporary, sort_keys=True)
+                    json.dump({"schema_version": 2, "routes": routes}, temporary, sort_keys=True)
                     temporary.write("\n")
                 try:
                     os.chmod(temporary_path, 0o600)
@@ -2899,10 +3009,33 @@ class AutoAgentModelStore:
             finally:
                 if temporary_path is not None and temporary_path.exists():
                     temporary_path.unlink(missing_ok=True)
-        return model
+        return route
 
     def reset(self, role: str) -> str | None:
-        return self.set(role, None)
+        if role not in AUTO_AGENT_MODEL_ROLES:
+            raise ValueError("Unknown agent role")
+        with self._lock:
+            routes = self._read_unlocked()
+            routes.pop(role, None)
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            temporary_path: Path | None = None
+            try:
+                with tempfile.NamedTemporaryFile(
+                    mode="w", encoding="utf-8", prefix=".auto-agent-models-",
+                    suffix=".tmp", dir=self.path.parent, delete=False,
+                ) as temporary:
+                    temporary_path = Path(temporary.name)
+                    json.dump({"schema_version": 2, "routes": routes}, temporary, sort_keys=True)
+                    temporary.write("\n")
+                try:
+                    os.chmod(temporary_path, 0o600)
+                except OSError:
+                    pass
+                os.replace(temporary_path, self.path)
+            finally:
+                if temporary_path is not None and temporary_path.exists():
+                    temporary_path.unlink(missing_ok=True)
+        return self._default_route(role)["model"]
 
 
 auto_agent_models = AutoAgentModelStore(app_data_dir() / "auto-agent-models.json")
@@ -3014,17 +3147,61 @@ def _subject_model_route_payload() -> dict[str, list[dict[str, Any]]]:
 
 
 def _auto_agent_model_payload() -> dict[str, list[dict[str, Any]]]:
-    endpoint_ready = _is_loopback_http_url(OLLAMA_BASE)
-    roles = []
-    for role, model in auto_agent_models.snapshot().items():
+    allow_paid_routes = auto_cost_policy.get()["allow_paid_routes"]
+    roles: list[dict[str, Any]] = []
+    for role, route in auto_agent_models.route_snapshot().items():
+        provider = route["provider"] or "ollama"
+        requested_model = route["model"] or _default_model_for_provider(provider)
+        configured_ready, configured_status = _subject_model_route_status(provider)
+        paid_route_blocked = (
+            not allow_paid_routes
+            and provider not in {"auto", "ollama"}
+            and not (provider == "openrouter" and requested_model == OPENROUTER_FREE_MODEL)
+        )
+
+        if paid_route_blocked:
+            effective_provider = "ollama"
+            effective_model = OLLAMA_MODEL_RESEARCHER
+            status = "blocked_by_free_only"
+        elif provider == "auto":
+            if not allow_paid_routes:
+                effective_provider = "openrouter" if OPENROUTER_KEY else "ollama"
+                effective_model = OPENROUTER_FREE_MODEL if OPENROUTER_KEY else OLLAMA_MODEL_RESEARCHER
+            else:
+                effective_provider = "gemini" if GEMINI_KEY else (
+                    "kimi" if KIMI_KEY else ("openrouter" if OPENROUTER_KEY else "ollama")
+                )
+                effective_model = _default_model_for_provider(effective_provider) or OLLAMA_MODEL_RESEARCHER
+            _, status = _subject_model_route_status(effective_provider)
+        else:
+            effective_provider = provider
+            effective_model = requested_model or OLLAMA_MODEL_RESEARCHER
+            _, status = _subject_model_route_status(effective_provider)
+
+        effective_ready, effective_status = _subject_model_route_status(effective_provider)
+        if not paid_route_blocked:
+            status = effective_status
         roles.append({
             "role": role,
-            "model": model,
-            "effective_model": model or OLLAMA_MODEL_RESEARCHER,
-            "provider_ready": endpoint_ready,
-            "status": "model_checked_on_use" if endpoint_ready else "loopback_required",
+            "provider": provider,
+            "model": route["model"],
+            "effective_provider": effective_provider,
+            "effective_model": effective_model,
+            "provider_ready": configured_ready,
+            "effective_provider_ready": effective_ready,
+            "status": status if configured_status != "automatic" else status,
+            "paid_route_blocked": paid_route_blocked,
         })
     return {"roles": roles}
+
+
+def _effective_auto_agent_route(role: str) -> dict[str, Any]:
+    if role not in AUTO_AGENT_MODEL_ROLES:
+        raise ValueError("Unknown agent role")
+    return next(
+        item for item in _auto_agent_model_payload()["roles"]
+        if item["role"] == role
+    )
 
 
 def _final_synthesis_route_payload() -> dict[str, Any]:
@@ -3937,7 +4114,7 @@ async def save_auto_agent_model(role: str, route: AgentModelRouteRequest, reques
     if role not in AUTO_AGENT_MODEL_ROLES:
         raise HTTPException(status_code=404, detail="Unknown agent role")
     try:
-        auto_agent_models.set(role, route.model)
+        auto_agent_models.set_route(role, route.provider, route.model)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
     return next(item for item in _auto_agent_model_payload()["roles"] if item["role"] == role)
