@@ -1099,6 +1099,8 @@ private struct PracticeLab: View {
             ProjectileMotionLab()
         } else if subject == .programming, moduleResource == "collections_and_loops" {
             CollectionsLoopsLab()
+        } else if subject == .programming, moduleResource == "conditions_loops_functions" {
+            LoopTraceLab()
         } else if subject == .programming, moduleResource == "variables_and_types" {
             VariablesTypesLab()
         } else if subject == .programming, moduleResource == "computational_thinking" {
@@ -5003,6 +5005,134 @@ private struct AlgorithmicThinkingLab: View {
         case "otherwise": "lab.algorithmOtherwise"
         default: "lab.algorithmDisplay"
         }
+    }
+}
+
+private struct LoopTraceLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var scenarioID = LoopTracePractice.scenarios[0].id
+    @State private var prediction = 0
+    @State private var hasCheckedPrediction = false
+    @State private var revealedStepCount = 0
+
+    private var scenario: LoopTraceScenario {
+        LoopTracePractice.scenario(id: scenarioID) ?? LoopTracePractice.scenarios[0]
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.loopTraceHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text("count_even(\(scenario.displayedValues))")
+                .font(.system(.body, design: .monospaced).weight(.semibold))
+                .textSelection(.enabled)
+                .accessibilityLabel(Text(L10n.text("lab.loopTraceInput", store.language)))
+
+            Picker(L10n.text("lab.loopTraceScenario", store.language), selection: $scenarioID) {
+                ForEach(LoopTracePractice.scenarios) { item in
+                    Text(L10n.text("lab.loopTraceScenario.\(item.id)", store.language)).tag(item.id)
+                }
+            }
+            .pickerStyle(.menu)
+            .onChange(of: scenarioID) { _ in resetPractice() }
+
+            Text("""
+            count = 0
+            for number in numbers:
+                if number % 2 == 0:
+                    count += 1
+            return count
+            """)
+            .font(.system(.callout, design: .monospaced))
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(.background, in: RoundedRectangle(cornerRadius: 12))
+            .accessibilityLabel(Text(L10n.text("lab.loopTraceCode", store.language)))
+
+            HStack {
+                Text(L10n.text("lab.loopTracePrediction", store.language))
+                Spacer()
+                Picker(L10n.text("lab.loopTracePrediction", store.language), selection: $prediction) {
+                    ForEach(0...scenario.values.count, id: \.self) { value in
+                        Text(String(value)).tag(value)
+                    }
+                }
+                .frame(width: 90)
+                .disabled(hasCheckedPrediction)
+            }
+
+            if hasCheckedPrediction {
+                Label(
+                    String(format: L10n.text("lab.loopTraceFeedback", store.language), scenario.expectedCount),
+                    systemImage: LoopTracePractice.isCorrect(prediction: prediction, for: scenarioID)
+                        ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
+                )
+                .foregroundStyle(LoopTracePractice.isCorrect(prediction: prediction, for: scenarioID) ? Color.green : Color.orange)
+                .fixedSize(horizontal: false, vertical: true)
+
+                ForEach(Array(scenario.steps.prefix(revealedStepCount))) { step in
+                    HStack(alignment: .top, spacing: 10) {
+                        Text("\(step.index + 1)")
+                            .font(.caption.monospacedDigit().weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 22, alignment: .leading)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(String(format: L10n.text("lab.loopTraceStep", store.language), step.value))
+                                .font(.system(.callout, design: .monospaced).weight(.medium))
+                            Text(L10n.text(step.isEven ? "lab.loopTraceEven" : "lab.loopTraceOdd", store.language))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(String(step.countAfter))
+                            .font(.system(.callout, design: .monospaced).weight(.semibold))
+                            .accessibilityLabel(Text(L10n.text("lab.loopTraceCount", store.language)))
+                    }
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 10))
+                    .accessibilityElement(children: .combine)
+                }
+
+                if revealedStepCount == scenario.steps.count {
+                    Label(
+                        String(format: L10n.text("lab.loopTraceReturn", store.language), scenario.expectedCount),
+                        systemImage: "arrow.uturn.backward.circle"
+                    )
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(.tint)
+                }
+            }
+
+            Button {
+                if hasCheckedPrediction {
+                    revealedStepCount = min(revealedStepCount + 1, scenario.steps.count)
+                } else {
+                    hasCheckedPrediction = true
+                    revealedStepCount = scenario.steps.isEmpty ? 0 : 1
+                }
+            } label: {
+                Label(
+                    L10n.text(
+                        hasCheckedPrediction ? "lab.loopTraceNextStep" : "lab.loopTraceCheck",
+                        store.language
+                    ),
+                    systemImage: hasCheckedPrediction ? "arrow.right" : "checkmark"
+                )
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(hasCheckedPrediction && revealedStepCount >= scenario.steps.count)
+        }
+    }
+
+    private func resetPractice() {
+        prediction = 0
+        hasCheckedPrediction = false
+        revealedStepCount = 0
     }
 }
 

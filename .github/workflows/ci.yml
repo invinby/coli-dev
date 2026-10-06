@@ -81,6 +81,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-percent-representation"
           "$RUNNER_TEMP/verify-percent-representation"
 
+      - name: Verify programming loop trace model
+        run: |
+          swiftc macOS/ColiDev/App/LoopTrace.swift macOS/ColiDev/scripts/verify_loop_trace.swift \
+            -o "$RUNNER_TEMP/verify-loop-trace"
+          "$RUNNER_TEMP/verify-loop-trace"
+
       - name: Verify biology experiment and food-web models
         run: |
           swiftc macOS/ColiDev/App/BiologyInvestigation.swift macOS/ColiDev/scripts/verify_biology_investigation.swift \
