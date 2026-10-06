@@ -143,3 +143,7 @@
 - 2026-10-07: Zoology Foundations доведён до 5/5 привязанных тем: добавлен урок `animal_function_and_environment` и bilingual экран для исследования питания, газообмена, движения и размножения. Ученик выбирает функцию, изучает конкретный пример, механизм и ограничение, затем отвечает, как сравнивать системы без чрезмерных обобщений. Текущий набор насчитывает 46 RU/EN lesson-файлов; промежуточные и продвинутые темы зоологии остаются незаполненными.
 - Источники урока — официальные разделы OpenStax Biology 2e по животной форме и функции, пищеварению, скелетным системам, газообмену и оплодотворению; страницы мониторятся как metadata-only, без текстового RAG-кэша.
 - Локально: lesson/source tests 102 passed, Ruff и diff-check прошли. GitHub Actions [37514827119](https://github.com/invinby/coli-dev/actions/runs/37514827119) passed: backend suite, animal-function Swift verifier, citation URL verifier, ARM/Intel builds, runtime packaging/smoke-tests, resource check и ZIP upload. Архивы до 2026-10-20: ARM 21,503,402 bytes, Intel 22,409,335 bytes. Проверка отображения/клавиатуры/VoiceOver на Mac остаётся открытой.
+
+### Физика Foundations: измерения и неопределённость — 2026-10-07
+
+В ветке `codex/physics-measurement-uncertainty` к карте добавлен урок Measurement, units, uncertainty; связанные темы Physics Foundations стали 5/7. Тренажёр сравнивает близость к опорному значению с повторяемостью и меняет графическую шкалу 10 mm/1 mm. Проверки backend и Xcode должны быть зафиксированы по результату CI, а не по плану; Mac GUI-приёмка остаётся отдельной.

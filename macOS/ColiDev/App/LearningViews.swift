@@ -1107,6 +1107,8 @@ private struct PracticeLab: View {
             KineticEnergyLab()
         } else if subject == .physics, moduleResource == "static_and_kinetic_friction" {
             FrictionLab()
+        } else if subject == .physics, moduleResource == "measurement_accuracy_precision_uncertainty" {
+            MeasurementUncertaintyLab()
         } else if subject == .physics, moduleResource == "impulse_and_momentum" {
             MomentumCollisionLab()
         } else if subject == .physics, moduleResource == "elastic_collisions" {
@@ -3267,6 +3269,152 @@ private struct ForceLab: View {
             Slider(value: value, in: range, step: 1)
                 .accessibilityLabel(Text(title))
         }
+    }
+}
+
+private struct MeasurementUncertaintyLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var selectedCriterion: MeasurementCriterion = .accuracy
+    @State private var selectedSeries: MeasurementSeries?
+    @State private var didCheck = false
+    @State private var smallestDivisionMillimetres = 10
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.physics.measurement.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Label(L10n.text("lab.physics.measurement.reference", store.language), systemImage: "scope")
+                .font(.headline)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text(L10n.text("lab.physics.measurement.criterion.accuracy", store.language))
+                .font(.callout.weight(.medium))
+            Picker(L10n.text("lab.physics.measurement.criterion.accuracy", store.language), selection: $selectedCriterion) {
+                ForEach(MeasurementCriterion.allCases) { criterion in
+                    Text(L10n.text(criterion.titleKey, store.language)).tag(criterion)
+                }
+            }
+            .pickerStyle(.radioGroup)
+            .onChange(of: selectedCriterion) { _ in resetAnswer() }
+
+            Text(L10n.text("lab.physics.measurement.chooseSeries", store.language))
+                .font(.callout.weight(.medium))
+            Picker(L10n.text("lab.physics.measurement.chooseSeries", store.language), selection: $selectedSeries) {
+                Text(L10n.text("lab.physics.measurement.chooseSeries", store.language))
+                    .tag(nil as MeasurementSeries?)
+                ForEach(MeasurementSeries.allCases) { series in
+                    Text(L10n.text(series.titleKey, store.language)).tag(series as MeasurementSeries?)
+                }
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: selectedSeries) { _ in didCheck = false }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(L10n.text("lab.physics.measurement.readings.a", store.language))
+                    .font(.callout.monospacedDigit())
+                Text(L10n.text("lab.physics.measurement.readings.b", store.language))
+                    .font(.callout.monospacedDigit())
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+
+            Button(L10n.text("lab.physics.measurement.check", store.language)) {
+                didCheck = true
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(selectedSeries == nil)
+
+            if didCheck, let selectedSeries {
+                let correct = MeasurementUncertaintyModel.isCorrect(selectedSeries, for: selectedCriterion)
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(
+                        L10n.text(correct ? "lab.physics.measurement.correct" : "lab.physics.measurement.review", store.language),
+                        systemImage: correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
+                    )
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(correct ? .green : .orange)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                    ForEach(MeasurementSeries.allCases) { series in
+                        Text(String(
+                            format: L10n.text("lab.physics.measurement.meanAndRange", store.language),
+                            locale: Locale(identifier: store.language == .ru ? "ru_RU" : "en_US"),
+                            MeasurementUncertaintyModel.meanInTenths(of: series) / 10,
+                            Double(MeasurementUncertaintyModel.spreadInTenths(of: series)) / 10
+                        ))
+                        .font(.callout.monospacedDigit())
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(L10n.text("lab.physics.measurement.scaleTitle", store.language))
+                    .font(.callout.weight(.medium))
+                Picker(L10n.text("lab.physics.measurement.scaleTitle", store.language), selection: $smallestDivisionMillimetres) {
+                    Text(L10n.text("lab.physics.measurement.scale.10mm", store.language)).tag(10)
+                    Text(L10n.text("lab.physics.measurement.scale.1mm", store.language)).tag(1)
+                }
+                .pickerStyle(.segmented)
+                MeasurementRulerView(smallestDivisionMillimetres: smallestDivisionMillimetres)
+                    .frame(height: 46)
+                    .accessibilityLabel(L10n.text("lab.physics.measurement.scaleTitle", store.language))
+                HStack(spacing: 5) {
+                    Text(L10n.text("lab.physics.measurement.halfDivision", store.language))
+                    Text("\(MeasurementUncertaintyModel.halfSmallestDivisionMillimetres(smallestDivisionMillimetres) ?? 0, specifier: "%.1f") mm")
+                        .font(.callout.monospacedDigit().weight(.semibold))
+                }
+                .font(.callout)
+            }
+            .padding(12)
+            .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+
+            Text(L10n.text("lab.physics.measurement.limit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func resetAnswer() {
+        selectedSeries = nil
+        didCheck = false
+    }
+}
+
+private struct MeasurementRulerView: View {
+    let smallestDivisionMillimetres: Int
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Canvas { context, size in
+                let divisions = smallestDivisionMillimetres == 10 ? 10 : 100
+                for index in 0...divisions {
+                    let x = size.width * CGFloat(index) / CGFloat(divisions)
+                    let isCentimetre = index.isMultiple(of: smallestDivisionMillimetres == 10 ? 1 : 10)
+                    var tick = Path()
+                    tick.move(to: CGPoint(x: x, y: 0))
+                    tick.addLine(to: CGPoint(x: x, y: isCentimetre ? 26 : 11))
+                    context.stroke(tick, with: .foreground, lineWidth: 1)
+                }
+            }
+            HStack {
+                Text("0")
+                Spacer()
+                Text("5")
+                Spacer()
+                Text("10 mm")
+            }
+            .font(.caption2.monospacedDigit())
+            .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .ignore)
     }
 }
 

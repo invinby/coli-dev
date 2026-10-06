@@ -168,6 +168,21 @@ def test_zoology_function_sources_are_monitored_metadata_only(tmp_path: Path) ->
     assert all(not monitor._has_rag_snapshot(url) for url in urls)
 
 
+def test_physics_measurement_source_is_monitored_metadata_only(tmp_path: Path) -> None:
+    url = "https://openstax.org/books/college-physics-2e/pages/1-3-accuracy-precision-and-significant-figures"
+    _write_lesson(tmp_path, f"[OpenStax measurements]({url})")
+    monitor = _monitor(tmp_path, tmp_path)
+
+    references, unsupported_count, omitted_count = monitor._references()
+
+    assert {reference.url for reference in references} == {url}
+    assert unsupported_count == 0
+    assert omitted_count == 0
+    assert monitor._rag_policy(url) is None
+    assert not monitor._has_rag_snapshot(url)
+    assert monitor.inventory()["sources"][0]["rag_content_state"] == "metadata_only_noncommercial"
+
+
 def test_approved_markdown_links_preserve_titles_and_reject_unapproved_urls() -> None:
     content = (
         "- OpenStax, [Active transport](https://openstax.org/books/biology-2e/pages/5-3-active-transport#pump)\n"

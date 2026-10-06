@@ -72,6 +72,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-friction-motion"
           "$RUNNER_TEMP/verify-friction-motion"
 
+      - name: Verify physics measurement uncertainty model
+        run: |
+          swiftc macOS/ColiDev/App/MeasurementUncertainty.swift macOS/ColiDev/scripts/verify_measurement_uncertainty.swift \
+            -o "$RUNNER_TEMP/verify-measurement-uncertainty"
+          "$RUNNER_TEMP/verify-measurement-uncertainty"
+
       - name: Verify shared linear equation model
         run: |
           swiftc macOS/ColiDev/App/LinearEquation.swift macOS/ColiDev/scripts/verify_linear_equation_model.swift \
@@ -208,6 +214,7 @@ jobs:
           English:zero_first_second_conditionals
           Physics:net_force_and_acceleration
           Physics:static_and_kinetic_friction
+          Physics:measurement_accuracy_precision_uncertainty
           Physics:motion_with_constant_acceleration
           Physics:projectile_motion
           Physics:work_and_kinetic_energy

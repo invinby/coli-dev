@@ -770,3 +770,9 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 - Added a regression with 85 approved OpenStax test URLs. It verifies first-batch cap, tail selection in the second pass, progress through older records on the third pass, and that the scheduler reports an immediate check while the tail is unchecked.
 - Verification: trusted-source module 53 passed; full backend suite 426 passed with one existing Starlette/httpx deprecation warning; Ruff and `git diff --check` passed. GitHub CI for this change has not yet run.
 - The repository’s automatic freshness scope remains narrow and allowlist-based. Checks refresh approved metadata/snapshots only while the backend is running; they do not rewrite lessons or guarantee current coverage of every subject.
+
+### Физика Foundations: измерения и неопределённость — 2026-10-07
+
+- Из `main` создана изолированная ветка `codex/physics-measurement-uncertainty`; открытый zoology PR не менялся. Добавлены RED-проверки: curriculum lesson link и bilingual controls падали ожидаемо; проверка OpenStax exact URL как metadata-only уже проходит.
+- Добавлены original RU/EN lesson, Swift measurement model/verifier, интерактивный сравниватель двух наборов повторов и наглядная шкала с 10 mm/1 mm делениями. Physics Foundations связал одну из пустых тем; число связанных foundation topics — 5/7.
+- Локальная проверка: полный backend suite — 429 passed с одним прежним Starlette/httpx deprecation warning; Ruff и `git diff --check` прошли. Следующее: отправить ветку и запустить GitHub CI на ARM и Intel, исправить находки и открыть отдельный PR. UI/keyboard/VoiceOver acceptance требует физического Mac.
