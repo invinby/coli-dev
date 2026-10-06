@@ -75,6 +75,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-linear-equation-model"
           "$RUNNER_TEMP/verify-linear-equation-model"
 
+      - name: Verify biology experiment design model
+        run: |
+          swiftc macOS/ColiDev/App/BiologyInvestigation.swift macOS/ColiDev/scripts/verify_biology_investigation.swift \
+            -o "$RUNNER_TEMP/verify-biology-investigation"
+          "$RUNNER_TEMP/verify-biology-investigation"
+
       - name: Build ColiDev for macOS
         run: >-
           xcodebuild
@@ -119,6 +125,7 @@ jobs:
           Physics:impulse_and_momentum
           Physics:elastic_collisions
           Biology:passive_transport_osmosis
+          Biology:scientific_method_and_experiments
           Biology:photosynthesis_energy_and_carbon
           Biology:mendelian_inheritance
           Biology:dna_genes_and_traits

@@ -1067,6 +1067,8 @@ private struct PracticeLab: View {
             GeneRegulationLab()
         } else if subject == .biology, moduleResource == "photosynthesis_energy_and_carbon" {
             PhotosynthesisLab()
+        } else if subject == .biology, moduleResource == "scientific_method_and_experiments" {
+            BiologyInvestigationLab()
         } else if subject == .biology, moduleResource == "eukaryotic_cell_organelles" {
             EukaryoticCellLab()
         } else if subject == .physics, moduleResource == "work_and_kinetic_energy" {
@@ -1772,6 +1774,215 @@ private struct OsmosisLab: View {
             }
             Slider(value: value, in: 0...10, step: 1)
         }
+    }
+}
+
+private struct BiologyInvestigationLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var design = BiologyExperimentDesign(
+        factorToChange: .waterAmount,
+        outcomeToMeasure: .leafCount,
+        controls: [],
+        plantsPerGroup: 1
+    )
+    @State private var didReviewDesign = false
+
+    var body: some View {
+        LabCard {
+            VStack(alignment: .leading, spacing: 6) {
+                Label(L10n.text("lab.investigation.title", store.language), systemImage: "leaf")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.green)
+                Text(L10n.text("lab.investigation.scenario", store.language))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            HStack(spacing: 12) {
+                lightGroup(
+                    title: L10n.text("lab.investigation.groupA", store.language),
+                    hours: "4"
+                )
+                Image(systemName: "arrow.left.and.right")
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+                lightGroup(
+                    title: L10n.text("lab.investigation.groupB", store.language),
+                    hours: "8"
+                )
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Picker(
+                    L10n.text("lab.investigation.change", store.language),
+                    selection: Binding(
+                        get: { design.factorToChange },
+                        set: { design.factorToChange = $0; didReviewDesign = false }
+                    )
+                ) {
+                    ForEach(BiologyStudyFactor.allCases, id: \.self) { factor in
+                        Text(L10n.text(factorTitleKey(factor), store.language)).tag(factor)
+                    }
+                }
+                .pickerStyle(.menu)
+
+                Picker(
+                    L10n.text("lab.investigation.measure", store.language),
+                    selection: Binding(
+                        get: { design.outcomeToMeasure },
+                        set: { design.outcomeToMeasure = $0; didReviewDesign = false }
+                    )
+                ) {
+                    ForEach(BiologyStudyOutcome.allCases, id: \.self) { outcome in
+                        Text(L10n.text(outcomeTitleKey(outcome), store.language)).tag(outcome)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(L10n.text("lab.investigation.keepSame", store.language))
+                    .font(.callout.weight(.semibold))
+                ForEach(BiologyStudyControl.allCases, id: \.self) { control in
+                    Toggle(
+                        L10n.text(controlTitleKey(control), store.language),
+                        isOn: Binding(
+                            get: { design.controls.contains(control) },
+                            set: { isSelected in
+                                if isSelected {
+                                    design.controls.insert(control)
+                                } else {
+                                    design.controls.remove(control)
+                                }
+                                didReviewDesign = false
+                            }
+                        )
+                    )
+                    .toggleStyle(.checkbox)
+                }
+            }
+
+            Stepper(
+                value: Binding(
+                    get: { design.plantsPerGroup },
+                    set: { design.plantsPerGroup = $0; didReviewDesign = false }
+                ),
+                in: 1...12
+            ) {
+                Text(
+                    String(
+                        format: L10n.text("lab.investigation.replicates", store.language),
+                        design.plantsPerGroup
+                    )
+                )
+                .monospacedDigit()
+            }
+
+            Button {
+                didReviewDesign = true
+            } label: {
+                Label(
+                    L10n.text("lab.investigation.check", store.language),
+                    systemImage: "checkmark.magnifyingglass"
+                )
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.green)
+
+            if didReviewDesign {
+                if design.isReadyToCollectData {
+                    Label(
+                        L10n.text("lab.investigation.ready", store.language),
+                        systemImage: "checkmark.seal.fill"
+                    )
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(.green)
+                    .fixedSize(horizontal: false, vertical: true)
+                    Text(L10n.text("lab.investigation.noResults", store.language))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label(
+                            L10n.text("lab.investigation.review", store.language),
+                            systemImage: "exclamationmark.circle"
+                        )
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(.orange)
+                        ForEach(design.issues, id: \.self) { issue in
+                            Label(
+                                L10n.text(issueTitleKey(issue), store.language),
+                                systemImage: "arrow.turn.down.right"
+                            )
+                            .font(.callout)
+                            .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func lightGroup(title: String, hours: String) -> some View {
+        VStack(spacing: 7) {
+            Image(systemName: "sun.max.fill")
+                .font(.title2)
+                .foregroundStyle(.orange)
+                .accessibilityHidden(true)
+            Text(title)
+                .font(.caption.weight(.medium))
+            Text(
+                String(
+                    format: L10n.text("lab.investigation.hours", store.language),
+                    hours
+                )
+            )
+            .font(.callout.weight(.semibold).monospacedDigit())
+        }
+        .frame(maxWidth: .infinity)
+        .padding(12)
+        .background(Color.green.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func factorTitleKey(_ factor: BiologyStudyFactor) -> String {
+        switch factor {
+        case .lightExposure:
+            return "lab.investigation.factor.light"
+        case .waterAmount:
+            return "lab.investigation.factor.water"
+        case .plantType:
+            return "lab.investigation.factor.plant"
+        }
+    }
+
+    private func outcomeTitleKey(_ outcome: BiologyStudyOutcome) -> String {
+        switch outcome {
+        case .heightChange:
+            return "lab.investigation.outcome.height"
+        case .leafCount:
+            return "lab.investigation.outcome.leaves"
+        case .soilMoisture:
+            return "lab.investigation.outcome.soil"
+        }
+    }
+
+    private func controlTitleKey(_ control: BiologyStudyControl) -> String {
+        switch control {
+        case .waterAmount:
+            return "lab.investigation.control.water"
+        case .seedType:
+            return "lab.investigation.control.seed"
+        case .potAndSoil:
+            return "lab.investigation.control.pot"
+        case .temperatureAndDuration:
+            return "lab.investigation.control.conditions"
+        }
+    }
+
+    private func issueTitleKey(_ issue: BiologyStudyIssue) -> String {
+        "lab.investigation.issue.\(issue.rawValue)"
     }
 }
 

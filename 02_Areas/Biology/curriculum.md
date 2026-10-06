@@ -6,7 +6,7 @@
 
 | Модуль / Module | Результат обучения / Learning outcome | Урок / Lesson |
 |---|---|---|
-| Научный метод, наблюдение и эксперимент / Scientific method and experiments | Формулировать проверяемый вопрос, различать наблюдение, гипотезу и вывод. / Frame testable questions and distinguish evidence from inference. |
+| Научный метод, наблюдение и эксперимент / Scientific method and experiments | Формулировать проверяемый вопрос, различать наблюдение, гипотезу и вывод. / Frame testable questions and distinguish evidence from inference. | lesson:scientific_method_and_experiments |
 | Химия жизни и биомолекулы / Chemistry of life and biomolecules | Объяснять роль воды, углеводов, липидов, белков и нуклеиновых кислот на базовом уровне. / Describe major biomolecules and their roles. |
 | Клетка, мембраны и обмен веществ / Cells, membranes, metabolism | Сравнивать клеточные структуры и описывать перенос веществ и преобразование энергии. / Compare cell structures, transport, and energy conversion. | lesson:eukaryotic_cell_organelles |
 | Осмос и избирательная проницаемость / Osmosis and selective permeability | Предсказывать направление движения воды по градиенту концентрации и указывать границы упрощённой модели. / Predict water movement along a concentration gradient and state the limits of a simplified model. | lesson:passive_transport_osmosis |
