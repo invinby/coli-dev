@@ -512,6 +512,54 @@ def test_reference_scan_reports_links_omitted_by_the_request_cap(tmp_path: Path)
     assert unsupported_count == 0
 
 
+def test_reference_scan_rotates_past_the_batch_cap_instead_of_starving_tail(
+    tmp_path: Path,
+) -> None:
+    urls = {
+        f"https://openstax.org/books/biology-2e/pages/chapter-{index}"
+        for index in range(85)
+    }
+    _write_lesson(tmp_path, "\n".join(f"[Source]({url})" for url in sorted(urls)))
+    monitor = _monitor(tmp_path, tmp_path)
+
+    first_batch, _unsupported_count, first_omitted_count = monitor._references()
+    first_urls = {reference.url for reference in first_batch}
+    first_check_time = "2026-10-06T00:00:00Z"
+    for reference in first_batch:
+        monitor._save_check(
+            reference,
+            etag=None,
+            last_modified=None,
+            checked_at=first_check_time,
+            http_status=200,
+            state="unchanged",
+        )
+
+    second_batch, _unsupported_count, second_omitted_count = monitor._references()
+    expected_tail = urls - first_urls
+    assert first_omitted_count == second_omitted_count == 5
+    assert {reference.url for reference in second_batch[:5]} == expected_tail
+    assert monitor.seconds_until_automatic_check(
+        now=datetime.fromisoformat("2026-10-06T00:02:00+00:00")
+    ) == 0
+
+    second_check_time = "2026-10-06T00:01:00Z"
+    for reference in second_batch:
+        monitor._save_check(
+            reference,
+            etag=None,
+            last_modified=None,
+            checked_at=second_check_time,
+            http_status=200,
+            state="unchanged",
+        )
+
+    third_batch, _unsupported_count, _omitted_count = monitor._references()
+    remaining_from_first = first_urls - {reference.url for reference in second_batch}
+    assert len(remaining_from_first) == 5
+    assert {reference.url for reference in third_batch[:5]} == remaining_from_first
+
+
 def test_inventory_exposes_only_approved_reference_metadata_and_saved_state(tmp_path: Path) -> None:
     url = "https://openstax.org/books/biology-2e/pages/12-3-laws-of-inheritance"
     _write_lesson(

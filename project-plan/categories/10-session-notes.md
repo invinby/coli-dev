@@ -763,3 +763,10 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 - Official OpenStax Biology 2e pages 33.1, 34.1, 38.1, 39.1, and 43.2 were checked 2026-10-06; all remain metadata-only in source monitoring and are not copied into the RAG cache. Lesson prose is original. The allowed external reference paths are covered by an exact regression test.
 - Local lesson/source suite: 102 passed; Ruff and `git diff --check` passed. Commit `603cf17` passed GitHub Actions [37514827119](https://github.com/invinby/coli-dev/actions/runs/37514827119): backend checks, new model verifier, citation URL verifier, Xcode builds on Apple Silicon and Intel, backend packaging/smoke-tests, curriculum bundle validation, and artifact upload. Archives expire 2026-10-20: ARM 21,503,402 bytes; Intel 22,409,335 bytes.
 - Zoology Foundations now has 5/5 linked topics; its Intermediate and Advanced course map still needs content. Mac visual, keyboard, and VoiceOver acceptance for the new trainer remains outstanding.
+
+### Backend: trusted-source monitor fairness — 2026-10-07
+
+- Fixed the source-monitor batch-cap starvation case: `_references()` still caps a pass at 80 approved URLs, but once the cap is exceeded it prioritizes URLs with no check record, then the oldest check timestamps. The scheduler therefore brings previously omitted tail URLs into the next due batch instead of repeatedly selecting the same alphabetical first 80.
+- Added a regression with 85 approved OpenStax test URLs. It verifies first-batch cap, tail selection in the second pass, progress through older records on the third pass, and that the scheduler reports an immediate check while the tail is unchecked.
+- Verification: trusted-source module 53 passed; full backend suite 426 passed with one existing Starlette/httpx deprecation warning; Ruff and `git diff --check` passed. GitHub CI for this change has not yet run.
+- The repository’s automatic freshness scope remains narrow and allowlist-based. Checks refresh approved metadata/snapshots only while the backend is running; they do not rewrite lessons or guarantee current coverage of every subject.

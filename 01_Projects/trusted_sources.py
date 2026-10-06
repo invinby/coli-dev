@@ -391,6 +391,33 @@ class TrustedSourceMonitor:
             for url in sorted(titles)
         ]
         omitted_count = max(0, len(ordered_refs) - _MAX_SOURCES)
+        if omitted_count:
+            # Keep the HTTP work bounded, but never permanently starve links
+            # beyond the alphabetical batch. Unchecked and oldest references
+            # get the next slots so the scheduler eventually visits the tail.
+            with self._db_lock, self._connect() as connection:
+                previous_checks = {
+                    str(row["url"]): str(row["last_checked_at"])
+                    for row in connection.execute(
+                        "SELECT url, last_checked_at FROM trusted_source_checks"
+                    ).fetchall()
+                }
+
+            minimum_time = datetime.min.replace(tzinfo=timezone.utc)
+
+            def oldest_check_first(reference: SourceReference) -> tuple[int, datetime, str]:
+                checked_text = previous_checks.get(reference.url)
+                if checked_text is None:
+                    return (0, minimum_time, reference.url)
+                try:
+                    checked_at = datetime.fromisoformat(checked_text.replace("Z", "+00:00"))
+                except ValueError:
+                    return (0, minimum_time, reference.url)
+                if checked_at.tzinfo is None:
+                    checked_at = checked_at.replace(tzinfo=timezone.utc)
+                return (1, checked_at.astimezone(timezone.utc), reference.url)
+
+            ordered_refs.sort(key=oldest_check_first)
         return ordered_refs[:_MAX_SOURCES], len(unsupported_urls), omitted_count
 
     def _connect(self) -> sqlite3.Connection:
