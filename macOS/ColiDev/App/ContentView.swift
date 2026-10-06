@@ -835,6 +835,16 @@ private struct ManagementView: View {
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
+                        statusRow(
+                            title: L10n.text("management.dailyCloudCalls", store.language),
+                            value: dailyCloudCallSummary,
+                            symbol: "cloud"
+                        )
+                        Text(L10n.text("management.dailyCloudCallsCaveat", store.language))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .padding(.top, 6)
                 }
@@ -1158,6 +1168,14 @@ private struct ManagementView: View {
         guard let current = store.aiHealth?.sessionCurrent,
               let maximum = store.aiHealth?.sessionMax else {
             return "—"
+        }
+        return String(format: L10n.text("management.dailyOnlineLimitValue", store.language), current, maximum)
+    }
+
+    private var dailyCloudCallSummary: String {
+        guard let current = store.aiHealth?.cloudModelCallsToday,
+              let maximum = store.aiHealth?.cloudModelCallsMax else {
+            return L10n.text("management.usageUnknown", store.language)
         }
         return String(format: L10n.text("management.dailyOnlineLimitValue", store.language), current, maximum)
     }

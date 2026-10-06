@@ -17,6 +17,7 @@ _MAX_MODEL_LENGTH = 160
 _MAX_FORMAT_LENGTH = 32
 _ALLOWED_PROVIDERS = {"gemini", "kimi", "openrouter", "compatible", "ollama"}
 _ALLOWED_FORMATS = {"gemini", "openai-compatible", "ollama"}
+_CLOUD_PROVIDERS = {"gemini", "kimi", "openrouter", "compatible"}
 _RETENTION_DAYS = 90
 
 
@@ -147,6 +148,18 @@ class ProviderUsageStore:
             """CREATE INDEX IF NOT EXISTS provider_usage_date_idx
                ON provider_usage_events (occurred_at)"""
         )
+        connection.execute(
+            """CREATE TABLE IF NOT EXISTS cloud_call_attempts (
+                attempt_id TEXT PRIMARY KEY,
+                occurred_at TEXT NOT NULL,
+                provider TEXT NOT NULL,
+                model TEXT NOT NULL
+            )"""
+        )
+        connection.execute(
+            """CREATE INDEX IF NOT EXISTS cloud_call_date_idx
+               ON cloud_call_attempts (occurred_at)"""
+        )
         return connection
 
     def initialize(self) -> None:
@@ -166,6 +179,68 @@ class ProviderUsageStore:
             "DELETE FROM provider_usage_events WHERE occurred_at < ?",
             (cutoff,),
         )
+        connection.execute(
+            "DELETE FROM cloud_call_attempts WHERE occurred_at < ?",
+            (cutoff,),
+        )
+
+    def reserve_cloud_call(
+        self,
+        provider: str,
+        model: str,
+        daily_limit: int,
+    ) -> dict[str, int | bool]:
+        """Atomically count one outbound cloud-model attempt before sending it."""
+        if not isinstance(provider, str) or provider not in _CLOUD_PROVIDERS:
+            raise ValueError("unsupported cloud provider")
+        if isinstance(daily_limit, bool) or not isinstance(daily_limit, int) or daily_limit < 1:
+            raise ValueError("daily_limit must be a positive integer")
+        now = self._now()
+        start_text = _timestamp(now.replace(hour=0, minute=0, second=0, microsecond=0))
+        with self._lock, self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            self._prune(connection, now=now)
+            used = int(connection.execute(
+                "SELECT COUNT(*) FROM cloud_call_attempts WHERE occurred_at >= ? AND occurred_at <= ?",
+                (start_text, _timestamp(now)),
+            ).fetchone()[0])
+            if used >= daily_limit:
+                return {"allowed": False, "used": used, "limit": daily_limit, "remaining": 0}
+            connection.execute(
+                """INSERT INTO cloud_call_attempts (attempt_id, occurred_at, provider, model)
+                   VALUES (?, ?, ?, ?)""",
+                (
+                    uuid.uuid4().hex,
+                    _timestamp(now),
+                    provider,
+                    _safe_model_label(model),
+                ),
+            )
+            used += 1
+            return {
+                "allowed": True,
+                "used": used,
+                "limit": daily_limit,
+                "remaining": max(0, daily_limit - used),
+            }
+
+    def cloud_call_status(self, daily_limit: int) -> dict[str, int]:
+        """Return today's local cloud-call attempts, including failed requests."""
+        if isinstance(daily_limit, bool) or not isinstance(daily_limit, int) or daily_limit < 1:
+            raise ValueError("daily_limit must be a positive integer")
+        now = self._now()
+        start_text = _timestamp(now.replace(hour=0, minute=0, second=0, microsecond=0))
+        with self._lock, self._connect() as connection:
+            self._prune(connection, now=now)
+            used = int(connection.execute(
+                "SELECT COUNT(*) FROM cloud_call_attempts WHERE occurred_at >= ? AND occurred_at <= ?",
+                (start_text, _timestamp(now)),
+            ).fetchone()[0])
+        return {
+            "used": used,
+            "limit": daily_limit,
+            "remaining": max(0, daily_limit - used),
+        }
 
     def record(
         self,

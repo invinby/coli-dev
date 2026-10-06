@@ -344,6 +344,9 @@ class TestAPIEndpoints:
         assert "session_mode" in data
         assert "session_current" in data
         assert "session_max" in data
+        assert data["cloud_model_calls_today"] == 0
+        assert data["cloud_model_calls_max"] == orchestrator.CLOUD_MODEL_MAX_CALLS_PER_DAY
+        assert data["cloud_model_calls_remaining"] == orchestrator.CLOUD_MODEL_MAX_CALLS_PER_DAY
         assert "knowledge_document_count" in data
         assert "knowledge_index_checked_at" in data
         assert data["knowledge_review_due_document_count"] == 2

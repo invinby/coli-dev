@@ -166,6 +166,84 @@ def test_store_records_custom_openai_compatible_provider_usage(tmp_path):
     assert result["providers"][0]["provider"] == "compatible"
 
 
+def test_cloud_call_budget_counts_attempts_and_blocks_after_limit(tmp_path):
+    store = ProviderUsageStore(tmp_path / "usage.sqlite3")
+
+    first = store.reserve_cloud_call("openrouter", "openrouter/free", 2)
+    second = store.reserve_cloud_call("gemini", "gemini-flash", 2)
+    blocked = store.reserve_cloud_call("kimi", "kimi-model", 2)
+
+    assert first == {"allowed": True, "used": 1, "limit": 2, "remaining": 1}
+    assert second == {"allowed": True, "used": 2, "limit": 2, "remaining": 0}
+    assert blocked == {"allowed": False, "used": 2, "limit": 2, "remaining": 0}
+    assert store.cloud_call_status(2) == {"used": 2, "limit": 2, "remaining": 0}
+
+
+def test_cloud_call_budget_is_atomic_under_concurrent_requests(tmp_path):
+    store = ProviderUsageStore(tmp_path / "usage.sqlite3")
+
+    with ThreadPoolExecutor(max_workers=12) as executor:
+        results = list(executor.map(
+            lambda index: store.reserve_cloud_call("openrouter", f"model-{index}", 5),
+            range(20),
+        ))
+
+    assert sum(result["allowed"] for result in results) == 5
+    assert store.cloud_call_status(5) == {"used": 5, "limit": 5, "remaining": 0}
+
+
+def test_cloud_call_budget_resets_at_next_utc_day(tmp_path):
+    now = [datetime(2026, 10, 5, 23, 59, tzinfo=timezone.utc)]
+    store = ProviderUsageStore(tmp_path / "usage.sqlite3", clock=lambda: now[0])
+    store.reserve_cloud_call("gemini", "gemini-flash", 1)
+    now[0] += timedelta(minutes=2)
+
+    assert store.cloud_call_status(1) == {"used": 0, "limit": 1, "remaining": 1}
+    assert store.reserve_cloud_call("gemini", "gemini-flash", 1)["allowed"] is True
+
+
+def test_model_adapter_blocks_outbound_request_after_call_budget_is_used(tmp_path, monkeypatch):
+    store = ProviderUsageStore(tmp_path / "usage.sqlite3")
+    monkeypatch.setattr(orchestrator, "provider_usage_store", store)
+    monkeypatch.setattr(orchestrator, "CLOUD_MODEL_MAX_CALLS_PER_DAY", 1)
+    monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "test-key")
+    outbound_requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        outbound_requests.append(request)
+        return httpx.Response(200, json={
+            "model": "free/example",
+            "choices": [{"message": {"content": "reply"}}],
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+        }, request=request)
+
+    async def exercise() -> list[str]:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            engine = orchestrator.ConsiliumEngine(client, "en", client)
+            return [
+                await engine._ask_openrouter("question", "system", "test"),
+                await engine._ask_openrouter("question", "system", "test"),
+            ]
+
+    replies = asyncio.run(exercise())
+
+    assert replies[0] == "reply"
+    assert "Daily cloud model call limit reached (1/1)" in replies[1]
+    assert len(outbound_requests) == 1
+    assert store.cloud_call_status(1) == {"used": 1, "limit": 1, "remaining": 0}
+
+
+@pytest.mark.parametrize(
+    ("provider", "limit"),
+    [("ollama", 1), ("unknown", 1), ("gemini", 0), ("gemini", True)],
+)
+def test_cloud_call_budget_rejects_invalid_arguments(tmp_path, provider, limit):
+    store = ProviderUsageStore(tmp_path / "usage.sqlite3")
+
+    with pytest.raises(ValueError):
+        store.reserve_cloud_call(provider, "model", limit)
+
+
 def test_concurrent_records_are_not_lost(tmp_path):
     store = ProviderUsageStore(tmp_path / "usage.sqlite3")
     store.initialize()
@@ -252,6 +330,7 @@ def test_model_adapters_record_provider_reported_usage_without_messages(tmp_path
     assert result["totals"]["total_tokens"] == 36
     router = next(row for row in result["providers"] if row["provider"] == "openrouter")
     assert router["model"] == "free/provider-model:v1"
+    assert store.cloud_call_status(orchestrator.CLOUD_MODEL_MAX_CALLS_PER_DAY)["used"] == 3
 
 
 def test_streaming_adapters_record_final_usage_metadata(tmp_path, monkeypatch):
@@ -317,3 +396,4 @@ def test_streaming_adapters_record_final_usage_metadata(tmp_path, monkeypatch):
     assert result["totals"]["input_tokens"] == 21
     assert result["totals"]["output_tokens"] == 5
     assert result["totals"]["total_tokens"] == 26
+    assert store.cloud_call_status(orchestrator.CLOUD_MODEL_MAX_CALLS_PER_DAY)["used"] == 1

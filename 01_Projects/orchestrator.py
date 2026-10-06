@@ -391,6 +391,7 @@ MAX_REQUEST_BODY_BYTES = 1_048_576
 # Сессии
 SESSION_MAX_PER_DAY = int(os.getenv("SESSION_MAX_PER_DAY", "5"))
 SESSION_DURATION_HOURS = int(os.getenv("SESSION_DURATION_HOURS", "1"))
+CLOUD_MODEL_MAX_CALLS_PER_DAY = int(os.getenv("CLOUD_MODEL_MAX_CALLS_PER_DAY", "25"))
 SESSION_FILE = session_file_path()
 _MAX_SESSION_FILE_BYTES = 1_000_000
 
@@ -568,6 +569,9 @@ class HealthResponse(BaseModel):
     session_mode: str
     session_current: int
     session_max: int
+    cloud_model_calls_today: int | None = None
+    cloud_model_calls_max: int | None = None
+    cloud_model_calls_remaining: int | None = None
     knowledge_document_count: int = 0
     knowledge_index_checked_at: str | None = None
     knowledge_review_due_document_count: int = 0
@@ -579,6 +583,17 @@ class ErrorResponse(BaseModel):
     error: str
     provider: str | None = None
     online: bool | None = None
+
+
+class CloudCallLimitExceeded(RuntimeError):
+    def __init__(self, used: int, limit: int) -> None:
+        super().__init__(f"Daily cloud model call limit reached ({used}/{limit})")
+        self.used = used
+        self.limit = limit
+
+
+class CloudCallBudgetUnavailable(RuntimeError):
+    pass
 
 
 # ─── Session Tracker ──────────────────────────────────
@@ -1612,6 +1627,8 @@ class ConsiliumEngine:
             ],
         }
         try:
+            if not _is_loopback_http_url(config["base_url"]):
+                await _reserve_cloud_model_call("compatible", selected_model)
             response = await self.http.post(
                 url,
                 json=payload,
@@ -1647,6 +1664,10 @@ class ConsiliumEngine:
                 else selected_model
             )
             return content.strip()
+        except CloudCallLimitExceeded as exc:
+            return f"[{exc}]"
+        except CloudCallBudgetUnavailable:
+            return "[Cloud model call budget unavailable; cloud request blocked]"
         except httpx.TimeoutException:
             logger.warning(
                 "Custom OpenAI-compatible API timeout",
@@ -1690,6 +1711,7 @@ class ConsiliumEngine:
             "Content-Type": "application/json",
         }
         try:
+            await _reserve_cloud_model_call("openrouter", selected_model)
             response = await self.http.post(
                 OPENROUTER_URL,
                 json=payload,
@@ -1720,6 +1742,10 @@ class ConsiliumEngine:
             self.openrouter_used = True
             self.specialist_model_label = model
             return content.strip()
+        except CloudCallLimitExceeded as exc:
+            return f"[{exc}]"
+        except CloudCallBudgetUnavailable:
+            return "[Cloud model call budget unavailable; cloud request blocked]"
         except httpx.TimeoutException:
             logger.warning("OpenRouter timeout", extra={"agent": agent_tag, "model": selected_model})
             return f"[Таймаут: OpenRouter не ответил за {HTTP_TIMEOUT}s]"
@@ -1760,6 +1786,7 @@ class ConsiliumEngine:
             "Content-Type": "application/json",
         }
         try:
+            await _reserve_cloud_model_call("kimi", selected_model)
             resp = await self.http.post(KIMI_URL, json=payload, headers=headers,
                                          timeout=HTTP_TIMEOUT)
             resp.raise_for_status()
@@ -1771,6 +1798,10 @@ class ConsiliumEngine:
                 openai_compatible_usage(data.get("usage") if isinstance(data, dict) else None),
             )
             return data["choices"][0]["message"]["content"]
+        except CloudCallLimitExceeded as exc:
+            return f"[{exc}]"
+        except CloudCallBudgetUnavailable:
+            return "[Cloud model call budget unavailable; cloud request blocked]"
         except httpx.TimeoutException:
             logger.warning(f"Kimi K3 timeout ({agent_tag})")
             return f"[Таймаут: Kimi K3 не ответил за {HTTP_TIMEOUT}s]"
@@ -1805,6 +1836,7 @@ class ConsiliumEngine:
         if use_google_search:
             payload["tools"] = [{"google_search": {}}]
         try:
+            await _reserve_cloud_model_call("gemini", _gemini_model_from_url(url))
             resp = await self.http.post(url, json=payload,
                                          headers={"Content-Type": "application/json",
                                                    "x-goog-api-key": GEMINI_KEY},
@@ -1841,6 +1873,10 @@ class ConsiliumEngine:
             if use_google_search:
                 return "[Google Search: Gemini returned no grounded answer]"
             return "[Gemini: пустой ответ]"
+        except CloudCallLimitExceeded as exc:
+            return f"[{exc}]"
+        except CloudCallBudgetUnavailable:
+            return "[Cloud model call budget unavailable; cloud request blocked]"
         except httpx.TimeoutException:
             logger.warning(f"Gemini timeout ({agent_tag})")
             return f"[Таймаут: Gemini не ответил за {HTTP_TIMEOUT}s]"
@@ -1983,6 +2019,7 @@ class ConsiliumEngine:
                 await on_chunk(chunk)
 
         try:
+            await _reserve_cloud_model_call("gemini", _gemini_model_from_url(url))
             async with self.http.stream(
                 "POST",
                 f"{stream_url}?alt=sse",
@@ -2027,6 +2064,10 @@ class ConsiliumEngine:
                     return "[Google Search: grounded response or required search suggestions were missing]"
                 answer = _add_grounding_citations(answer, grounded_candidate)
             return answer.strip()
+        except CloudCallLimitExceeded as exc:
+            return f"[{exc}]"
+        except CloudCallBudgetUnavailable:
+            return "[Cloud model call budget unavailable; cloud request blocked]"
         except httpx.TimeoutException:
             logger.warning("Gemini stream timeout", extra={"agent": agent_tag})
             return f"[Таймаут: Gemini не ответил за {HTTP_TIMEOUT}s]"
@@ -2819,6 +2860,29 @@ async def _record_provider_usage(
             "Provider usage metadata could not be stored",
             extra={"provider": provider, "error_type": type(exc).__name__},
         )
+
+
+async def _reserve_cloud_model_call(provider: str, model: str) -> None:
+    """Fail closed if a cloud attempt cannot be reserved in the local daily budget."""
+    try:
+        result = await asyncio.to_thread(
+            provider_usage_store.reserve_cloud_call,
+            provider,
+            model,
+            CLOUD_MODEL_MAX_CALLS_PER_DAY,
+        )
+    except Exception as exc:
+        logger.error(
+            "Cloud model call budget unavailable; blocking request",
+            extra={"provider": provider, "error_type": type(exc).__name__},
+        )
+        raise CloudCallBudgetUnavailable from None
+    if not result["allowed"]:
+        logger.warning(
+            "Daily cloud model call limit reached",
+            extra={"provider": provider, "used": result["used"], "limit": result["limit"]},
+        )
+        raise CloudCallLimitExceeded(int(result["used"]), int(result["limit"]))
 
 
 def _gemini_model_from_url(url: str) -> str:
@@ -3729,6 +3793,17 @@ async def health(request: Request):
     )
     state.online = net_ok
     session_status = session_tracker.get_status()
+    try:
+        cloud_call_status = await asyncio.to_thread(
+            provider_usage_store.cloud_call_status,
+            CLOUD_MODEL_MAX_CALLS_PER_DAY,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Cloud model call budget status is unavailable",
+            extra={"error_type": type(exc).__name__},
+        )
+        cloud_call_status = {}
 
     return HealthResponse(
         status="ok" if (net_ok or ollama_info["available"]) else "degraded",
@@ -3752,6 +3827,9 @@ async def health(request: Request):
         session_mode=session_status["mode"],
         session_current=session_status["current"],
         session_max=session_status["max"],
+        cloud_model_calls_today=cloud_call_status.get("used"),
+        cloud_model_calls_max=cloud_call_status.get("limit"),
+        cloud_model_calls_remaining=cloud_call_status.get("remaining"),
         knowledge_document_count=int(knowledge_status["document_count"] or 0),
         knowledge_index_checked_at=knowledge_status["last_checked_at"],
         knowledge_review_due_document_count=int(knowledge_status["review_due_document_count"] or 0),

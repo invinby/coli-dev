@@ -641,6 +641,9 @@ struct OrchestratorHealth: Decodable {
     let sessionMode: String?
     let sessionCurrent: Int?
     let sessionMax: Int?
+    let cloudModelCallsToday: Int?
+    let cloudModelCallsMax: Int?
+    let cloudModelCallsRemaining: Int?
     let knowledgeDocumentCount: Int?
     let knowledgeIndexCheckedAt: String?
     let knowledgeReviewDueDocumentCount: Int?
@@ -679,6 +682,9 @@ struct OrchestratorHealth: Decodable {
         case sessionMode = "session_mode"
         case sessionCurrent = "session_current"
         case sessionMax = "session_max"
+        case cloudModelCallsToday = "cloud_model_calls_today"
+        case cloudModelCallsMax = "cloud_model_calls_max"
+        case cloudModelCallsRemaining = "cloud_model_calls_remaining"
         case knowledgeDocumentCount = "knowledge_document_count"
         case knowledgeIndexCheckedAt = "knowledge_index_checked_at"
         case knowledgeReviewDueDocumentCount = "knowledge_review_due_document_count"
