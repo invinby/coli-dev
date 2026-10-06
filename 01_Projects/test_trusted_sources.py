@@ -148,6 +148,26 @@ def test_cell_cycle_sources_are_monitored_metadata_only(tmp_path: Path) -> None:
     assert all(not monitor._has_rag_snapshot(url) for url in urls)
 
 
+def test_zoology_function_sources_are_monitored_metadata_only(tmp_path: Path) -> None:
+    urls = {
+        "https://openstax.org/books/biology-2e/pages/33-1-animal-form-and-function",
+        "https://openstax.org/books/biology-2e/pages/34-1-digestive-systems",
+        "https://openstax.org/books/biology-2e/pages/38-1-types-of-skeletal-systems",
+        "https://openstax.org/books/biology-2e/pages/39-1-systems-of-gas-exchange",
+        "https://openstax.org/books/biology-2e/pages/43-2-fertilization",
+    }
+    _write_lesson(tmp_path, "\n".join(f"[OpenStax]({url})" for url in sorted(urls)))
+    monitor = _monitor(tmp_path, tmp_path)
+
+    references, unsupported_count, omitted_count = monitor._references()
+
+    assert {reference.url for reference in references} == urls
+    assert unsupported_count == 0
+    assert omitted_count == 0
+    assert all(monitor._rag_policy(url) is None for url in urls)
+    assert all(not monitor._has_rag_snapshot(url) for url in urls)
+
+
 def test_approved_markdown_links_preserve_titles_and_reject_unapproved_urls() -> None:
     content = (
         "- OpenStax, [Active transport](https://openstax.org/books/biology-2e/pages/5-3-active-transport#pump)\n"

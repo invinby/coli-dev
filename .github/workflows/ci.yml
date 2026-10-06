@@ -129,6 +129,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-cell-cycle-practice"
           "$RUNNER_TEMP/verify-cell-cycle-practice"
 
+      - name: Verify animal function practice model
+        run: |
+          swiftc macOS/ColiDev/App/AnimalFunctionPractice.swift macOS/ColiDev/scripts/verify_animal_function_practice.swift \
+            -o "$RUNNER_TEMP/verify-animal-function-practice"
+          "$RUNNER_TEMP/verify-animal-function-practice"
+
       - name: Verify English conditional practice model
         run: |
           swiftc macOS/ColiDev/App/EnglishLearningModels.swift macOS/ColiDev/scripts/verify_english_learning_models.swift \

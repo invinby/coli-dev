@@ -656,6 +656,31 @@ def test_biology_cell_cycle_intermediate_lesson_is_linked() -> None:
     assert "### Limits and safe execution" in content
 
 
+def test_zoology_animal_function_foundations_lesson_is_linked() -> None:
+    project = Path(__file__).resolve().parent.parent
+    curriculum = (project / "02_Areas/Zoology/curriculum.md").read_text(encoding="utf-8")
+    lesson = project / "02_Areas/Zoology/lessons/animal_function_and_environment.md"
+
+    assert "lesson:animal_function_and_environment" in curriculum
+    assert lesson.is_file()
+    content = lesson.read_text(encoding="utf-8")
+    assert "lesson_id: zoology.animal_function_and_environment" in content
+    assert "languages: ru, en" in content
+    assert "### Границы модели" in content
+    assert "### Limits and safe execution" in content
+
+
+def test_zoology_function_trainer_has_all_bilingual_labels() -> None:
+    project = Path(__file__).resolve().parent.parent
+    localization = (project / "macOS/ColiDev/App/L10n.swift").read_text(encoding="utf-8")
+    raw_values = ["feeding", "gasExchange", "movement", "reproduction"]
+
+    for raw_value in raw_values:
+        for group in ["function", "example", "mechanism", "limitation"]:
+            key = f'"lab.zoology.{group}.{raw_value}"'
+            assert key in localization, f"Missing RU/EN localization for {key}"
+
+
 def test_bundled_lessons_have_a_complete_bilingual_learning_structure() -> None:
     project = Path(__file__).resolve().parent.parent
     areas = project / "02_Areas"

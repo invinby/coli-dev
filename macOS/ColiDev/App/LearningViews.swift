@@ -1095,6 +1095,8 @@ private struct PracticeLab: View {
             BiomoleculeLab()
         } else if subject == .biology, moduleResource == "natural_selection_and_population_change" {
             NaturalSelectionLab()
+        } else if subject == .zoology, moduleResource == "animal_function_and_environment" {
+            AnimalFunctionLab()
         } else if subject == .biology, moduleResource == "cell_cycle_and_differentiation" {
             CellCycleLab()
         } else if subject == .biology, moduleResource == "ecosystem_energy_flow" {
@@ -4526,6 +4528,92 @@ private struct CellCycleLab: View {
         let nextIndex = index + offset
         guard CellCycleStage.allCases.indices.contains(nextIndex) else { return }
         selectedStage = CellCycleStage.allCases[nextIndex]
+    }
+}
+
+private struct AnimalFunctionLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var selectedFunction: AnimalFunction = .feeding
+    @State private var selectedAnswer = -1
+    @State private var didCheckAnswer = false
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.zoology.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Picker(L10n.text("lab.zoology.chooseFunction", store.language), selection: $selectedFunction) {
+                ForEach(AnimalFunction.allCases) { function in
+                    Text(L10n.text(function.titleKey, store.language)).tag(function)
+                }
+            }
+            .pickerStyle(.menu)
+            .onChange(of: selectedFunction) { _ in
+                selectedAnswer = -1
+                didCheckAnswer = false
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Label(L10n.text(selectedFunction.titleKey, store.language), systemImage: systemSymbol)
+                    .font(.headline)
+                Text(L10n.text(selectedFunction.exampleKey, store.language))
+                    .font(.callout.weight(.medium))
+                Text(L10n.text(selectedFunction.mechanismKey, store.language))
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(L10n.text(selectedFunction.limitationKey, store.language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            .accessibilityElement(children: .combine)
+
+            Text(L10n.text("lab.zoology.quiz", store.language))
+                .font(.callout.weight(.medium))
+            Picker(L10n.text("lab.zoology.quiz", store.language), selection: $selectedAnswer) {
+                Text(L10n.text("lab.zoology.optionA", store.language)).tag(0)
+                Text(L10n.text("lab.zoology.optionB", store.language)).tag(1)
+                Text(L10n.text("lab.zoology.optionC", store.language)).tag(2)
+            }
+            .pickerStyle(.radioGroup)
+            .onChange(of: selectedAnswer) { _ in didCheckAnswer = false }
+
+            Button(L10n.text("lab.zoology.check", store.language)) {
+                didCheckAnswer = true
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(selectedAnswer < 0)
+
+            if didCheckAnswer {
+                let correct = AnimalFunctionPractice.isCorrectComparisonAnswer(selectedAnswer)
+                Label(
+                    L10n.text(correct ? "lab.zoology.correct" : "lab.zoology.review", store.language),
+                    systemImage: correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
+                )
+                .font(.callout.weight(.medium))
+                .foregroundStyle(correct ? .green : .orange)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Text(L10n.text("lab.zoology.limit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var systemSymbol: String {
+        switch selectedFunction {
+        case .feeding: return "fork.knife"
+        case .gasExchange: return "wind"
+        case .movement: return "figure.walk"
+        case .reproduction: return "leaf"
+        }
     }
 }
 

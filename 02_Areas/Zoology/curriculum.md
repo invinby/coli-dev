@@ -9,7 +9,7 @@
 | Животные как группа организмов / Animals as a group of organisms | Различать признаки животных и границы обобщений о разнообразии группы. / Describe animal traits while respecting biological variation. | lesson:animals_as_a_group |
 | План строения, симметрия и ткани / Body plans, symmetry, tissues | Сопоставлять асимметрию, лучевую и двустороннюю симметрию, отмечая исключения и изменение в ходе развития. / Compare asymmetry, radial and bilateral symmetry while noting exceptions and developmental changes. | lesson:symmetry_and_body_plans |
 | Основные ветви животного мира / Major animal lineages | Пользоваться базовой классификацией и понимать, что классификация уточняется по данным. / Use introductory classification and understand its revisability. | lesson:major_animal_lineages |
-| Питание, дыхание, движение, размножение / Feeding, respiration, movement, reproduction | Связывать структуры органов с задачей и средой обитания конкретного вида. / Relate anatomy to function and habitat. |
+| Питание, дыхание, движение, размножение / Feeding, respiration, movement, reproduction | Связывать структуры органов с задачей и средой обитания конкретного вида. / Relate anatomy to function and habitat. | lesson:animal_function_and_environment |
 | Среда, адаптация и поведение / Habitat, adaptation, behavior | Отличать адаптацию популяции от целенаправленного изменения отдельного животного. / Distinguish population adaptation from individual intention. | lesson:adaptation_and_behavior |
 
 ## Углубление / Intermediate
