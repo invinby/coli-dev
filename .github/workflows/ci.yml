@@ -135,6 +135,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-animal-function-practice"
           "$RUNNER_TEMP/verify-animal-function-practice"
 
+      - name: Verify thermoregulation practice model
+        run: |
+          swiftc macOS/ColiDev/App/Thermoregulation.swift macOS/ColiDev/scripts/verify_thermoregulation.swift \
+            -o "$RUNNER_TEMP/verify-thermoregulation"
+          "$RUNNER_TEMP/verify-thermoregulation"
+
       - name: Verify English conditional practice model
         run: |
           swiftc macOS/ColiDev/App/EnglishLearningModels.swift macOS/ColiDev/scripts/verify_english_learning_models.swift \
