@@ -52,6 +52,7 @@ _TRANSIENT_SOURCE_STATES = frozenset({"network_error", "unavailable"})
 _TRUSTED_HOSTS = frozenset(
     {
         "animaldiversity.org",
+        "csrc.nist.gov",
         "docs.python.org",
         "learnenglish.britishcouncil.org",
         "medlineplus.gov",
@@ -61,6 +62,7 @@ _TRUSTED_HOSTS = frozenset(
 )
 _ALLOWED_PATHS = {
     "animaldiversity.org": re.compile(r"^/accounts/[A-Za-z0-9_.-]+/?$"),
+    "csrc.nist.gov": re.compile(r"^/glossary/term/algorithm$"),
     "docs.python.org": re.compile(r"^/3/tutorial/[A-Za-z0-9_.-]+\.html$"),
     "learnenglish.britishcouncil.org": re.compile(
         r"^/free-resources/grammar/(?:english-grammar-reference|b1-b2)/[A-Za-z0-9-]+/?$"

@@ -1083,6 +1083,8 @@ private struct PracticeLab: View {
             CollectionsLoopsLab()
         } else if subject == .programming, moduleResource == "variables_and_types" {
             VariablesTypesLab()
+        } else if subject == .programming, moduleResource == "computational_thinking" {
+            AlgorithmicThinkingLab()
         } else {
             switch subject {
         case .mathematics:
@@ -3772,6 +3774,114 @@ private struct VariablesTypesLab: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(.background, in: RoundedRectangle(cornerRadius: 12))
             .accessibilityElement(children: .combine)
+        }
+    }
+}
+
+private struct AlgorithmicThinkingLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var completedSteps: [String] = []
+    @State private var feedbackKey: String?
+    @State private var a = 6
+    @State private var b = 3
+
+    private let stepOrder = ["input", "compare", "otherwise", "display"]
+
+    private var choices: [String] {
+        switch completedSteps.count {
+        case 0: ["compare", "input", "display"]
+        case 1: ["otherwise", "compare", "display"]
+        case 2: ["display", "otherwise", "input"]
+        default: ["display", "compare", "input"]
+        }
+    }
+
+    private var result: Int { max(a, b) }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.algorithmHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            ForEach(Array(completedSteps.enumerated()), id: \.offset) { index, step in
+                Label("\(index + 1). \(L10n.text(stepTitleKey(step), store.language))", systemImage: "checkmark.circle.fill")
+                    .font(.callout)
+                    .foregroundStyle(Color.green)
+            }
+
+            if completedSteps.count < stepOrder.count {
+                Text(String(format: L10n.text("lab.algorithmProgress", store.language), completedSteps.count + 1, stepOrder.count))
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(.secondary)
+
+                ForEach(choices, id: \.self) { choice in
+                    Button {
+                        select(choice)
+                    } label: {
+                        Label(L10n.text(stepTitleKey(choice), store.language), systemImage: "arrow.right")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+
+            if let feedbackKey {
+                Label(L10n.text(feedbackKey, store.language), systemImage: completedSteps.count == stepOrder.count ? "checkmark.circle.fill" : "info.circle")
+                    .font(.callout)
+                    .foregroundStyle(completedSteps.count == stepOrder.count ? Color.green : Color.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if completedSteps.count == stepOrder.count {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(L10n.text("lab.algorithmInputs", store.language))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Stepper("a = \(a)", value: $a, in: -10...10)
+                    Stepper("b = \(b)", value: $b, in: -10...10)
+                    Text("\(L10n.text("lab.algorithmCondition", store.language)): \(a) > \(b) → \(L10n.text(a > b ? "lab.algorithmTrue" : "lab.algorithmFalse", store.language))")
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                    Text(String(format: L10n.text("lab.algorithmResult", store.language), result))
+                        .font(.headline.monospacedDigit())
+                    Text(L10n.text(a > b ? "lab.algorithmTraceGreater" : "lab.algorithmTraceOtherwise", store.language))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.background, in: RoundedRectangle(cornerRadius: 12))
+
+                Button {
+                    completedSteps = []
+                    feedbackKey = nil
+                } label: {
+                    Label(L10n.text("lab.algorithmRestart", store.language), systemImage: "arrow.counterclockwise")
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+    }
+
+    private func select(_ step: String) {
+        guard completedSteps.count < stepOrder.count else { return }
+        guard step == stepOrder[completedSteps.count] else {
+            feedbackKey = "lab.algorithmIncorrect"
+            return
+        }
+        completedSteps.append(step)
+        feedbackKey = completedSteps.count == stepOrder.count ? "lab.algorithmComplete" : "lab.algorithmStepCorrect"
+    }
+
+    private func stepTitleKey(_ step: String) -> String {
+        switch step {
+        case "input": "lab.algorithmInput"
+        case "compare": "lab.algorithmCompare"
+        case "otherwise": "lab.algorithmOtherwise"
+        default: "lab.algorithmDisplay"
         }
     }
 }

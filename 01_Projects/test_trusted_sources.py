@@ -222,6 +222,16 @@ def test_unlicensed_official_sources_remain_metadata_only_for_rag(tmp_path: Path
     )
 
 
+def test_nist_algorithm_glossary_is_monitored_but_not_cached_for_rag(tmp_path: Path) -> None:
+    url = "https://csrc.nist.gov/glossary/term/algorithm"
+    _write_lesson(tmp_path, f"[NIST algorithm definition]({url})")
+    monitor = _monitor(tmp_path, tmp_path)
+
+    assert monitor._canonical_url(url) == url
+    assert monitor._rag_policy(url) is None
+    assert monitor.inventory()["sources"][0]["rag_content_state"] == "metadata_only"
+
+
 def test_nist_si_appendix_b9_is_cached_with_public_information_attribution(tmp_path: Path) -> None:
     url = (
         "https://www.nist.gov/pml/special-publication-811/"
@@ -292,6 +302,8 @@ def test_bundled_lesson_sources_fit_the_bounded_monitor_inventory(tmp_path: Path
         "https://openstax.org/books/biology-2e/pages/12-3-laws-of-inheritance?download=1",
         "https://openstax.org/unapproved/path",
         "https://docs.python.org/3/library/os.html",
+        "https://csrc.nist.gov/glossary/term/algorithm?download=1",
+        "https://csrc.nist.gov/glossary/term/cryptographic_algorithm",
     ],
 )
 def test_reference_policy_rejects_noncanonical_or_unapproved_urls(url: str) -> None:
