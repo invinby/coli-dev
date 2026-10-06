@@ -606,9 +606,11 @@ private struct ManagementView: View {
     @State private var isPreparingBackup = false
     @State private var isRestoringBackup = false
     @State private var isExportingBackup = false
+    @State private var isExportingDiagnostics = false
     @State private var isImportingBackup = false
     @State private var showingRestoreConfirmation = false
     @State private var progressBackupDocument: LearningProgressBackupFile?
+    @State private var diagnosticsDocument: LearningProgressBackupFile?
     @State private var pendingBackupData: Data?
     @State private var statusMessage: String?
     @State private var statusIsError = false
@@ -710,6 +712,27 @@ private struct ManagementView: View {
                     statusMessage = nil
                 } else {
                     reportError("management.backupFailed")
+                }
+            }
+        }
+        .fileExporter(
+            isPresented: $isExportingDiagnostics,
+            document: diagnosticsDocument,
+            contentType: .json,
+            defaultFilename: "ColiDev-Diagnostics"
+        ) { result in
+            switch result {
+            case .success(let url):
+                statusMessage = String(
+                    format: L10n.text("management.diagnosticsExported", store.language),
+                    url.lastPathComponent
+                )
+                statusIsError = false
+            case .failure(let error):
+                if (error as? CocoaError)?.code == .userCancelled {
+                    statusMessage = nil
+                } else {
+                    reportError("management.diagnosticsFailed")
                 }
             }
         }
@@ -875,7 +898,17 @@ private struct ManagementView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(isCheckingSources || isRefreshingIndex)
+
+                    Button(action: prepareDiagnosticsExport) {
+                        Label(L10n.text("management.diagnosticsExport", store.language), systemImage: "stethoscope")
+                    }
+                    .buttonStyle(.bordered)
                 }
+
+                Text(L10n.text("management.diagnosticsPrivacy", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 if let usage = store.providerUsage {
                     GroupBox(label: Text(L10n.text("settings.usageTitle", store.language))) {
@@ -1170,6 +1203,94 @@ private struct ManagementView: View {
             return "—"
         }
         return String(format: L10n.text("management.dailyOnlineLimitValue", store.language), current, maximum)
+    }
+
+    private func prepareDiagnosticsExport() {
+        let health = store.aiHealth
+        let inventory = sourceInventory
+        let usage = store.providerUsage
+        let coverage: [[String: Any]] = Subject.allCases.map { subject in
+            let value = CurriculumCatalog.coverage(for: subject)
+            return [
+                "subject": subject.rawValue,
+                "bundled_lessons": value.bundledLessonCount,
+                "bilingual_lessons": value.bilingualLessonCount,
+                "lessons_with_sources": value.sourceCitedLessonCount,
+                "roadmap_topics": value.topicCount,
+                "topics_linked_to_full_lessons": value.linkedLessonCount,
+            ]
+        }
+        let modelUsage: [[String: Any]] = usage?.providers.map { provider in
+            [
+                "provider": provider.provider,
+                "model": provider.model,
+                "successful_responses": provider.successfulResponses,
+                "reported_tokens": provider.totalTokens,
+            ]
+        } ?? []
+        let report: [String: Any] = [
+            "schema_version": 1,
+            "generated_at": ISO8601DateFormatter().string(from: Date()),
+            "app": [
+                "bundle_identifier": Bundle.main.bundleIdentifier ?? "unknown",
+                "version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown",
+                "build": Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "unknown",
+                "language": store.language.rawValue,
+            ],
+            "system": [
+                "operating_system": ProcessInfo.processInfo.operatingSystemVersionString,
+            ],
+            "backend": [
+                "ready": backendSupervisor.isReady,
+                "health_available": health != nil,
+                "online": health?.online as Any? ?? NSNull(),
+                "ollama_available": health?.ollamaAvailable as Any? ?? NSNull(),
+                "ollama_model_ready": health?.ollamaModelReady as Any? ?? NSNull(),
+                "ollama_endpoint_is_local": health?.isOllamaEndpointLocal as Any? ?? NSNull(),
+                "obsidian_endpoint_is_local": health?.isObsidianEndpointLocal as Any? ?? NSNull(),
+                "indexed_documents": health?.knowledgeDocumentCount as Any? ?? NSNull(),
+                "index_checked_at": health?.knowledgeIndexCheckedAt as Any? ?? NSNull(),
+                "online_requests_today": health?.sessionCurrent as Any? ?? NSNull(),
+                "online_requests_daily_limit": health?.sessionMax as Any? ?? NSNull(),
+                "cloud_model_calls_today": health?.cloudModelCallsToday as Any? ?? NSNull(),
+                "cloud_model_calls_daily_limit": health?.cloudModelCallsMax as Any? ?? NSNull(),
+                "review_items_due": health?.knowledgeReviewDueDocumentCount as Any? ?? NSNull(),
+                "review_schedules_missing": health?.knowledgeReviewScheduleMissingDocumentCount as Any? ?? NSNull(),
+            ],
+            "sources": [
+                "inventory_available": inventory != nil,
+                "listed": inventory?.listedCount as Any? ?? NSNull(),
+                "unchecked": inventory?.uncheckedCount as Any? ?? NSNull(),
+                "changed": inventory?.changedCount as Any? ?? NSNull(),
+                "needs_attention": inventory?.needsAttentionCount as Any? ?? NSNull(),
+                "automatic_check_enabled": inventory?.automaticCheckEnabled as Any? ?? NSNull(),
+                "automatic_check_interval_hours": inventory?.automaticCheckIntervalHours as Any? ?? NSNull(),
+                "unsupported": inventory?.unsupportedCount as Any? ?? NSNull(),
+                "omitted": inventory?.omittedCount as Any? ?? NSNull(),
+            ],
+            "curriculum": coverage,
+            "provider_usage": [
+                "available": usage != nil,
+                "period_days": usage?.periodDays as Any? ?? NSNull(),
+                "successful_responses": usage?.totals.successfulResponses as Any? ?? NSNull(),
+                "reported_tokens": usage?.totals.totalTokens as Any? ?? NSNull(),
+                "models": modelUsage,
+            ],
+            "privacy": [
+                "api_keys_included": false,
+                "chat_messages_included": false,
+                "learning_reflections_included": false,
+                "source_page_text_included": false,
+            ],
+        ]
+        do {
+            let data = try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
+            diagnosticsDocument = LearningProgressBackupFile(data: data)
+            statusMessage = nil
+            isExportingDiagnostics = true
+        } catch {
+            reportError("management.diagnosticsFailed")
+        }
     }
 
     private var dailyCloudCallSummary: String {
