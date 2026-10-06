@@ -5340,21 +5340,7 @@ private struct TutorChatView: View {
     }
 
     private func officialSourceURL(_ reference: TutorSourceReference) -> URL? {
-        let allowedHosts = [
-            "animaldiversity.org",
-            "docs.python.org",
-            "learnenglish.britishcouncil.org",
-            "openstax.org",
-        ]
-        guard let components = URLComponents(string: reference.url),
-              components.scheme?.lowercased() == "https",
-              let host = components.host?.lowercased(),
-              allowedHosts.contains(host),
-              components.user == nil,
-              components.password == nil,
-              components.port == nil
-        else { return nil }
-        return components.url
+        reference.safeURL
     }
 
     private func routeDescription(for health: OrchestratorHealth) -> String {

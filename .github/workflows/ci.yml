@@ -87,6 +87,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-english-learning-models"
           "$RUNNER_TEMP/verify-english-learning-models"
 
+      - name: Verify safe official citation links
+        run: |
+          swiftc macOS/ColiDev/App/SafeWebReferenceURL.swift macOS/ColiDev/scripts/verify_safe_web_reference_url.swift \
+            -o "$RUNNER_TEMP/verify-safe-web-reference-url"
+          "$RUNNER_TEMP/verify-safe-web-reference-url"
+
       - name: Build ColiDev for macOS
         run: >-
           xcodebuild

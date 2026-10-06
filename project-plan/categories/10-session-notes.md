@@ -625,3 +625,9 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 - На этой Windows-машине локальный pytest/Ruff не запустился: в системном Python не установлены проектные зависимости `slowapi` и `ruff`. CI установил зависимости и прошёл; GUI не запускался на физическом Mac, поэтому визуальная и клавиатурная приёмка остаётся отдельной.
 
 Дополнительная проверка тренажёра условных конструкций: логика ответов выделена в `EnglishLearningModels.swift`, verifier в `verify_english_learning_models.swift` проверяет покрытие всех трёх форм, уникальность ID, принятие правильной формы, отклонение двух неверных и fail-closed для неизвестного ID. Commit `6a5ca20` и GitHub Actions [37439465100](https://github.com/invinby/coli-dev/actions/runs/37439465100) прошли verifier, 412 backend-тестов, ARM/Intel app build, bundled-resource check, smoke-test и artifact upload. Артефакты: ARM 21,017,225 bytes и Intel 21,923,835 bytes, 14 дней. Проверен кодовый путь и упаковка, но Mac GUI-тест ещё не сделан.
+
+### Кликабельные первоисточники RAG — 2026-10-06
+
+- Нашёл неполный allowlist у уже существующего списка первоисточников в чате тьютора: официальные ссылки на MedlinePlus, NHGRI/Genome.gov и NIST были получены backend, но UI скрывал переходы, потому что разрешал только четыре хоста. Расширил строгий host allowlist текущими официальными доменами; для `raw.githubusercontent.com` разрешён только конкретный eLife XML archive path.
+- Вынес URL-проверку в `SafeWebReferenceURL.swift`; она требует HTTPS, host из allowlist, запрещает userinfo, явный порт, query и неразрешённый host. Добавлен Swift verifier, который принимает реальные ссылки текущих курсов и отклоняет HTTP, userinfo, query, неизвестные хосты и любой другой raw GitHub path.
+- Python inventory check текущих Markdown-источников: 0 поддержанных lesson URL отклонено UI allowlist. `git diff --check` чистый. Xcode build, Swift verifier, backend checks и artifact upload ожидают CI.

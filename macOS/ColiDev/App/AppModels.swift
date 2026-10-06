@@ -1203,6 +1203,7 @@ struct TutorSourceReference: Decodable, Identifiable {
     let url: String
 
     var id: String { url }
+    var safeURL: URL? { SafeWebReferenceURL.parse(url) }
 }
 
 private struct TutorEvent: Decodable {
