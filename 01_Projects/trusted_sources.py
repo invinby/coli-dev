@@ -65,7 +65,9 @@ _TRUSTED_HOSTS = frozenset(
 _ALLOWED_PATHS = {
     "animaldiversity.org": re.compile(r"^/accounts/[A-Za-z0-9_.-]+/?$"),
     "csrc.nist.gov": re.compile(r"^/glossary/term/algorithm$"),
-    "docs.python.org": re.compile(r"^(?:/3/tutorial/[A-Za-z0-9_.-]+\.html|/3/reference/simple_stmts\.html)$"),
+    "docs.python.org": re.compile(
+        r"^(?:/3/tutorial/[A-Za-z0-9_.-]+\.html|/3/reference/simple_stmts\.html|/3/library/bisect\.html)$"
+    ),
     "learnenglish.britishcouncil.org": re.compile(
         r"^/(?:free-resources/(?:grammar/(?:english-grammar-reference|b1-b2)/[A-Za-z0-9-]+|"
         r"vocabulary/a1-a2(?:/daily-routine-vocabulary-a1-beginner-english-vocabulary-lesson)?|reading/a1)|"
@@ -86,10 +88,12 @@ _ALLOWED_PATHS = {
 # Other approved official sources remain metadata/preview-only pending review.
 _RAG_SOURCE_POLICIES = {
     "docs.python.org": {
-        "path": re.compile(r"^(?:/3/tutorial/[A-Za-z0-9_.-]+\.html|/3/reference/simple_stmts\.html)$"),
+        "path": re.compile(
+            r"^(?:/3/tutorial/[A-Za-z0-9_.-]+\.html|/3/reference/simple_stmts\.html|/3/library/bisect\.html)$"
+        ),
         "license": "Python Software Foundation License Version 2",
         "license_url": "https://docs.python.org/3/license.html",
-        "attribution": "Copyright © 2001 Python Software Foundation; All Rights Reserved. Python 3 Tutorial; PSF License Version 2.",
+        "attribution": "Copyright © 2001 Python Software Foundation; All Rights Reserved. Python 3 documentation; PSF License Version 2.",
     },
     "medlineplus.gov": {
         "path": re.compile(r"^/genetics/understanding/basics/(?:dna|gene)/?$"),

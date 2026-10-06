@@ -1115,6 +1115,8 @@ private struct PracticeLab: View {
             DebuggingLab()
         } else if subject == .programming, moduleResource == "sql_transactions" {
             TransactionLab()
+        } else if subject == .programming, moduleResource == "search_and_complexity" {
+            AlgorithmComplexityLab()
         } else if subject == .programming, moduleResource == "variables_and_types" {
             VariablesTypesLab()
         } else if subject == .programming, moduleResource == "computational_thinking" {
@@ -5679,6 +5681,82 @@ private struct DebuggingLab: View {
             .buttonStyle(.borderedProminent)
             .disabled(hasChecked)
         }
+    }
+}
+
+private struct AlgorithmComplexityLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var sizeIndex = 2.0
+
+    private var itemCount: Int {
+        AlgorithmComplexityPractice.sampleSizes[Int(sizeIndex.rounded())]
+    }
+
+    private var linearCount: Int {
+        AlgorithmComplexityPractice.linearSearchWorstCaseComparisons(for: itemCount)
+    }
+
+    private var binaryCount: Int {
+        AlgorithmComplexityPractice.binarySearchWorstCaseComparisons(for: itemCount)
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.complexityHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 7) {
+                Text(String(format: L10n.text("lab.complexitySize", store.language), itemCount))
+                    .font(.headline.monospacedDigit())
+                Slider(value: $sizeIndex, in: 0...3, step: 1)
+                    .accessibilityLabel(L10n.text("lab.complexitySize", store.language))
+                    .accessibilityValue(String(itemCount))
+            }
+
+            complexityBar(
+                title: L10n.text("lab.complexityLinear", store.language),
+                comparisons: linearCount,
+                maximum: linearCount,
+                tint: .blue
+            )
+            complexityBar(
+                title: L10n.text("lab.complexityBinary", store.language),
+                comparisons: binaryCount,
+                maximum: linearCount,
+                tint: .purple
+            )
+
+            Label(L10n.text("lab.complexityPrecondition", store.language), systemImage: "checkmark.seal")
+                .font(.callout.weight(.medium))
+                .fixedSize(horizontal: false, vertical: true)
+            Text(L10n.text("lab.complexityLimit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func complexityBar(title: String, comparisons: Int, maximum: Int, tint: Color) -> some View {
+        HStack(spacing: 10) {
+            Text(title)
+                .font(.caption.weight(.medium))
+                .frame(width: 132, alignment: .leading)
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.secondary.opacity(0.12))
+                    Capsule()
+                        .fill(tint.gradient)
+                        .frame(width: max(8, geometry.size.width * CGFloat(comparisons) / CGFloat(maximum)))
+                }
+            }
+            .frame(height: 14)
+            Text(String(format: L10n.text("lab.complexityComparisons", store.language), comparisons))
+                .font(.caption.monospacedDigit())
+                .frame(width: 82, alignment: .trailing)
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 

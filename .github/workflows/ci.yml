@@ -129,6 +129,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-rational-expression"
           "$RUNNER_TEMP/verify-rational-expression"
 
+      - name: Verify algorithm complexity model
+        run: |
+          swiftc macOS/ColiDev/App/AlgorithmComplexity.swift macOS/ColiDev/scripts/verify_algorithm_complexity.swift \
+            -o "$RUNNER_TEMP/verify-algorithm-complexity"
+          "$RUNNER_TEMP/verify-algorithm-complexity"
+
       - name: Verify safe official citation links
         run: |
           swiftc macOS/ColiDev/App/SafeWebReferenceURL.swift macOS/ColiDev/scripts/verify_safe_web_reference_url.swift \

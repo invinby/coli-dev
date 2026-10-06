@@ -167,6 +167,18 @@ def test_python_assert_reference_is_an_exact_approved_rag_path() -> None:
     assert TrustedSourceMonitor._canonical_url("https://docs.python.org/3/reference/expressions.html") is None
 
 
+def test_python_bisect_library_page_is_monitored_and_licensed_for_rag(tmp_path: Path) -> None:
+    url = "https://docs.python.org/3/library/bisect.html"
+    _write_lesson(tmp_path, f"[Python bisect reference]({url})")
+    monitor = _monitor(tmp_path, tmp_path)
+
+    assert monitor._canonical_url(url) == url
+    policy = monitor._rag_policy(url)
+    assert policy is not None
+    assert policy["license"] == "Python Software Foundation License Version 2"
+    assert monitor.inventory()["sources"][0]["rag_content_state"] == "license_approved_pending_check"
+
+
 def test_sqlite_transaction_reference_is_exact_and_metadata_only() -> None:
     url = "https://www.sqlite.org/lang_transaction.html"
     assert TrustedSourceMonitor._canonical_url(url) == url
