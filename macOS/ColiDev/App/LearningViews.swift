@@ -1107,6 +1107,8 @@ private struct PracticeLab: View {
             LoopTraceLab()
         } else if subject == .programming, moduleResource == "strings_files_and_exceptions" {
             FileReadingLab()
+        } else if subject == .programming, moduleResource == "debugging_tests_and_git" {
+            DebuggingLab()
         } else if subject == .programming, moduleResource == "variables_and_types" {
             VariablesTypesLab()
         } else if subject == .programming, moduleResource == "computational_thinking" {
@@ -5331,6 +5333,81 @@ private struct FileReadingLab: View {
             }
             .buttonStyle(.borderedProminent)
             .disabled(selectedOutcome == nil || hasCheckedAnswer)
+        }
+    }
+}
+
+private struct DebuggingLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var scenarioID = DebuggingPractice.scenarios[0].id
+    @State private var selectedChoice = 0
+    @State private var hasChecked = false
+
+    private var scenario: DebuggingScenario {
+        DebuggingPractice.scenario(id: scenarioID) ?? DebuggingPractice.scenarios[0]
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.debugging.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Picker(L10n.text("lab.debugging.scenarioPicker", store.language), selection: $scenarioID) {
+                ForEach(DebuggingPractice.scenarios) { item in
+                    Text(L10n.text(item.promptKey, store.language)).tag(item.id)
+                }
+            }
+            .pickerStyle(.menu)
+            .onChange(of: scenarioID) { _ in
+                selectedChoice = 0
+                hasChecked = false
+            }
+
+            Text(scenario.code)
+                .font(.system(.callout, design: .monospaced))
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(.background, in: RoundedRectangle(cornerRadius: 12))
+                .accessibilityLabel(Text(L10n.text("lab.debugging.code", store.language)))
+
+            Label(scenario.traceback, systemImage: "exclamationmark.triangle.fill")
+                .font(.system(.callout, design: .monospaced))
+                .foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityLabel(Text(L10n.text("lab.debugging.traceback", store.language)))
+
+            Text(L10n.text("lab.debugging.choose", store.language))
+                .font(.callout.weight(.medium))
+
+            Picker(L10n.text("lab.debugging.choicePicker", store.language), selection: $selectedChoice) {
+                ForEach(scenario.choiceKeys.indices, id: \.self) { index in
+                    Text(L10n.text(scenario.choiceKeys[index], store.language)).tag(index)
+                }
+            }
+            .pickerStyle(.radioGroup)
+            .disabled(hasChecked)
+
+            if hasChecked {
+                Label(
+                    L10n.text(scenario.explanationKey, store.language),
+                    systemImage: DebuggingPractice.isCorrect(selectedChoice, for: scenarioID)
+                        ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
+                )
+                .font(.callout)
+                .foregroundStyle(DebuggingPractice.isCorrect(selectedChoice, for: scenarioID) ? Color.green : Color.orange)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button {
+                hasChecked = true
+            } label: {
+                Label(L10n.text("lab.debugging.check", store.language), systemImage: "checkmark")
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(hasChecked)
         }
     }
 }

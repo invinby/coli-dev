@@ -21,6 +21,7 @@
 		A10000000000000000000014 /* LoopTrace.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* LoopTrace.swift */; };
 		A10000000000000000000015 /* FileReadingPractice.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000015 /* FileReadingPractice.swift */; };
 		A10000000000000000000016 /* GeometryMeasure.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000016 /* GeometryMeasure.swift */; };
+		A10000000000000000000017 /* DebuggingPractice.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000017 /* DebuggingPractice.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -41,6 +42,7 @@
 		A20000000000000000000014 /* LoopTrace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoopTrace.swift; sourceTree = "<group>"; };
 		A20000000000000000000015 /* FileReadingPractice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileReadingPractice.swift; sourceTree = "<group>"; };
 		A20000000000000000000016 /* GeometryMeasure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeometryMeasure.swift; sourceTree = "<group>"; };
+		A20000000000000000000017 /* DebuggingPractice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebuggingPractice.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -49,7 +51,7 @@
 
 /* Begin PBXGroup section */
 		A50000000000000000000001 = {isa = PBXGroup; children = (A50000000000000000000002 /* App */, A20000000000000000000007 /* 02_Areas */, A50000000000000000000003 /* Products */, ); sourceTree = "<group>"; };
-		A50000000000000000000002 /* App */ = {isa = PBXGroup; children = (A20000000000000000000001 /* ColiDevApp.swift */, A20000000000000000000002 /* AppModels.swift */, A20000000000000000000003 /* L10n.swift */, A20000000000000000000004 /* ContentView.swift */, A20000000000000000000005 /* LearningViews.swift */, A20000000000000000000006 /* CurriculumCatalog.swift */, A20000000000000000000008 /* ForceMotion.swift */, A20000000000000000000009 /* LinearEquation.swift */, A20000000000000000000010 /* BiologyInvestigation.swift */, A20000000000000000000011 /* EnglishLearningModels.swift */, A20000000000000000000012 /* SafeWebReferenceURL.swift */, A20000000000000000000013 /* PercentRepresentation.swift */, A20000000000000000000014 /* LoopTrace.swift */, A20000000000000000000015 /* FileReadingPractice.swift */, A20000000000000000000016 /* GeometryMeasure.swift */, ); path = App; sourceTree = "<group>"; };
+		A50000000000000000000002 /* App */ = {isa = PBXGroup; children = (A20000000000000000000001 /* ColiDevApp.swift */, A20000000000000000000002 /* AppModels.swift */, A20000000000000000000003 /* L10n.swift */, A20000000000000000000004 /* ContentView.swift */, A20000000000000000000005 /* LearningViews.swift */, A20000000000000000000006 /* CurriculumCatalog.swift */, A20000000000000000000008 /* ForceMotion.swift */, A20000000000000000000009 /* LinearEquation.swift */, A20000000000000000000010 /* BiologyInvestigation.swift */, A20000000000000000000011 /* EnglishLearningModels.swift */, A20000000000000000000012 /* SafeWebReferenceURL.swift */, A20000000000000000000013 /* PercentRepresentation.swift */, A20000000000000000000014 /* LoopTrace.swift */, A20000000000000000000015 /* FileReadingPractice.swift */, A20000000000000000000016 /* GeometryMeasure.swift */, A20000000000000000000017 /* DebuggingPractice.swift */, ); path = App; sourceTree = "<group>"; };
 		A50000000000000000000003 /* Products */ = {isa = PBXGroup; children = (A30000000000000000000001 /* ColiDev.app */, ); name = Products; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
@@ -66,7 +68,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		A70000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000001 /* ColiDevApp.swift in Sources */, A10000000000000000000002 /* AppModels.swift in Sources */, A10000000000000000000003 /* L10n.swift in Sources */, A10000000000000000000004 /* ContentView.swift in Sources */, A10000000000000000000005 /* LearningViews.swift in Sources */, A10000000000000000000006 /* CurriculumCatalog.swift in Sources */, A10000000000000000000008 /* ForceMotion.swift in Sources */, A10000000000000000000009 /* LinearEquation.swift in Sources */, A10000000000000000000010 /* BiologyInvestigation.swift in Sources */, A10000000000000000000011 /* EnglishLearningModels.swift in Sources */, A10000000000000000000012 /* SafeWebReferenceURL.swift in Sources */, A10000000000000000000013 /* PercentRepresentation.swift in Sources */, A10000000000000000000014 /* LoopTrace.swift in Sources */, A10000000000000000000015 /* FileReadingPractice.swift in Sources */, A10000000000000000000016 /* GeometryMeasure.swift in Sources */, ); runOnlyForDeploymentPostprocessing = 0; };
+		A70000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000001 /* ColiDevApp.swift in Sources */, A10000000000000000000002 /* AppModels.swift in Sources */, A10000000000000000000003 /* L10n.swift in Sources */, A10000000000000000000004 /* ContentView.swift in Sources */, A10000000000000000000005 /* LearningViews.swift in Sources */, A10000000000000000000006 /* CurriculumCatalog.swift in Sources */, A10000000000000000000008 /* ForceMotion.swift in Sources */, A10000000000000000000009 /* LinearEquation.swift in Sources */, A10000000000000000000010 /* BiologyInvestigation.swift in Sources */, A10000000000000000000011 /* EnglishLearningModels.swift in Sources */, A10000000000000000000012 /* SafeWebReferenceURL.swift in Sources */, A10000000000000000000013 /* PercentRepresentation.swift in Sources */, A10000000000000000000014 /* LoopTrace.swift in Sources */, A10000000000000000000015 /* FileReadingPractice.swift in Sources */, A10000000000000000000016 /* GeometryMeasure.swift in Sources */, A10000000000000000000017 /* DebuggingPractice.swift in Sources */, ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */

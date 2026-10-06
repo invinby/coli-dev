@@ -99,6 +99,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-file-reading-practice"
           "$RUNNER_TEMP/verify-file-reading-practice"
 
+      - name: Verify programming debugging practice model
+        run: |
+          swiftc macOS/ColiDev/App/DebuggingPractice.swift macOS/ColiDev/scripts/verify_debugging_practice.swift \
+            -o "$RUNNER_TEMP/verify-debugging-practice"
+          "$RUNNER_TEMP/verify-debugging-practice"
+
       - name: Verify biology experiment and food-web models
         run: |
           swiftc macOS/ColiDev/App/BiologyInvestigation.swift macOS/ColiDev/scripts/verify_biology_investigation.swift \

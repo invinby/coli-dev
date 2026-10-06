@@ -158,6 +158,15 @@ def test_only_licensed_python_tutorial_text_is_cached_for_rag_and_refreshes(
     assert monitor.inventory()["sources"][0]["rag_content_state"] == "cached"
 
 
+def test_python_assert_reference_is_an_exact_approved_rag_path() -> None:
+    url = "https://docs.python.org/3/reference/simple_stmts.html#the-assert-statement"
+    assert TrustedSourceMonitor._canonical_url(url) == "https://docs.python.org/3/reference/simple_stmts.html"
+    policy = TrustedSourceMonitor._rag_policy("https://docs.python.org/3/reference/simple_stmts.html")
+    assert policy is not None
+    assert policy["license"] == "Python Software Foundation License Version 2"
+    assert TrustedSourceMonitor._canonical_url("https://docs.python.org/3/reference/expressions.html") is None
+
+
 def test_public_domain_medlineplus_genetics_basics_are_cached_for_rag(tmp_path: Path) -> None:
     url = "https://medlineplus.gov/genetics/understanding/basics/gene/"
     _write_lesson(tmp_path, f"[What is a gene?]({url})")
