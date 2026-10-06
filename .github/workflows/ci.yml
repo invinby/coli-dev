@@ -81,6 +81,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-biology-investigation"
           "$RUNNER_TEMP/verify-biology-investigation"
 
+      - name: Verify English conditional practice model
+        run: |
+          swiftc macOS/ColiDev/App/EnglishLearningModels.swift macOS/ColiDev/scripts/verify_english_learning_models.swift \
+            -o "$RUNNER_TEMP/verify-english-learning-models"
+          "$RUNNER_TEMP/verify-english-learning-models"
+
       - name: Build ColiDev for macOS
         run: >-
           xcodebuild

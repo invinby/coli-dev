@@ -2048,8 +2048,8 @@ private struct PresentPerfectAspectLab: View {
 }
 
 private struct ConditionalPracticeQuestion {
+    let id: String
     let promptKey: String
-    let answerIndex: Int
     let feedbackKey: String
 }
 
@@ -2061,9 +2061,9 @@ private struct ConditionalsLab: View {
     @State private var complete = false
 
     private let questions = [
-        ConditionalPracticeQuestion(promptKey: "lab.conditionalScenario0", answerIndex: 0, feedbackKey: "lab.conditionalFeedback0"),
-        ConditionalPracticeQuestion(promptKey: "lab.conditionalScenario1", answerIndex: 1, feedbackKey: "lab.conditionalFeedback1"),
-        ConditionalPracticeQuestion(promptKey: "lab.conditionalScenario2", answerIndex: 2, feedbackKey: "lab.conditionalFeedback2")
+        ConditionalPracticeQuestion(id: EnglishConditionalPractice.scenarios[0].id, promptKey: "lab.conditionalScenario0", feedbackKey: "lab.conditionalFeedback0"),
+        ConditionalPracticeQuestion(id: EnglishConditionalPractice.scenarios[1].id, promptKey: "lab.conditionalScenario1", feedbackKey: "lab.conditionalFeedback1"),
+        ConditionalPracticeQuestion(id: EnglishConditionalPractice.scenarios[2].id, promptKey: "lab.conditionalScenario2", feedbackKey: "lab.conditionalFeedback2")
     ]
 
     var body: some View {
@@ -2126,8 +2126,8 @@ private struct ConditionalsLab: View {
                             selection = nil
                             wasCorrect = nil
                         }
-                    } else if let selection {
-                        wasCorrect = selection == questions[index].answerIndex
+                    } else if let selection, let selectedForm = EnglishConditionalForm(rawValue: selection) {
+                        wasCorrect = EnglishConditionalPractice.isCorrect(selectedForm, for: questions[index].id)
                     }
                 } label: {
                     Text(L10n.text(
