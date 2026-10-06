@@ -1346,6 +1346,35 @@ enum OrchestratorClient {
         return try JSONDecoder().decode(ProgressBackupRestoreSummary.self, from: responseData)
     }
 
+    static func saveObsidianNote(path: String, content: String) async throws {
+        let segments = path.split(separator: "/", omittingEmptySubsequences: false)
+        guard !path.isEmpty,
+              path.utf8.count <= 512,
+              !segments.isEmpty,
+              segments.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }),
+              !content.contains("\0"),
+              content.utf8.count <= 950_000 else {
+            throw ClientError.invalidResponse
+        }
+        let segmentCharacters = CharacterSet.urlPathAllowed.subtracting(CharacterSet(charactersIn: "/"))
+        let encodedPath = segments.map { segment in
+            String(segment).addingPercentEncoding(withAllowedCharacters: segmentCharacters) ?? ""
+        }.joined(separator: "/")
+        guard !encodedPath.isEmpty,
+              let url = URL(string: LearningStore.orchestratorBaseURL + "/obsidian/write/" + encodedPath) else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.timeoutInterval = 20
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(ObsidianWriteRequest(content: content))
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+    }
+
     static func recordStudyReview(_ event: StudyReviewEvent) async throws -> StudyProgressRecord {
         guard let url = URL(string: LearningStore.orchestratorBaseURL + "/learning/reviews") else {
             throw ClientError.invalidResponse
@@ -1671,6 +1700,10 @@ struct TutorMessage: Identifiable {
 
 private struct TrustedSourcePreviewRequest: Encodable {
     let url: String
+}
+
+private struct ObsidianWriteRequest: Encodable {
+    let content: String
 }
 
 private struct TrustedSourceReviewRequest: Encodable {

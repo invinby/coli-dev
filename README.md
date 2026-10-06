@@ -13,7 +13,7 @@ ColiDev is being built as a native macOS learning platform with a local Python b
 - Six Russian/English curriculum roadmaps now cover foundations, intermediate topics, advanced topics, and practice ideas for mathematics, English, physics, biology, zoology, and programming. They are indexed by local RAG as outlines; they are not complete, source-verified courses.
 - The macOS app bundles the same `02_Areas/` materials and now displays each priority subject's bilingual foundation-to-advanced roadmap before its starter lesson. The displayed roadmap remains an outline, not a completed course.
 - The physics starter exercise includes a two-second, one-dimensional motion experiment: set positive, zero, or negative net force and mass, then play, pause, reset, or step by 0.1 s. A SceneKit view uses a fixed metre scale; accessible readings show acceleration, signed velocity, displacement, and time. It models motion from rest under constant force without friction, not collisions or general rigid-body dynamics. Reduce Motion uses manual steps; changing parameters resets the experiment. Physical Mac acceptance is still required.
-- Optional Obsidian search and session-summary saving when its Local REST API is configured.
+- Optional Obsidian search and session-summary saving when its Local REST API is configured. A lesson can also be saved as a separate, uniquely named Markdown copy in the local vault from its module page.
 - GitHub Actions checks the backend suite and attempts a real Xcode macOS build after changes reach `main`.
 
 ## Still to build

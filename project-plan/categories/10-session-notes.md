@@ -502,3 +502,10 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 - Существующий backend и раньше блокировал OpenStax-текст от автоматического кэширования. Теперь inventory отдельно сообщает `metadata_only_noncommercial` и URL условий; Sources pane показывает RU/EN предупреждение с кликабельной официальной ссылкой. Одобренные политики Python Tutorial и MedlinePlus не меняются.
 - Исправлены устаревшие README: фактическое число учебных файлов — 16, allowlist содержит пять доменов. Добавлены проверки статуса/ссылки в inventory и обновлены пояснения ограничений.
 - Целевые проверки `test_trusted_sources.py` и `test_orchestrator.py`: 197 passed, одно известное предупреждение Starlette/httpx. GitHub Actions [run 37397089034](https://github.com/invinby/coli-dev/actions/runs/37397089034) прошёл backend suite и Xcode-сборки Apple Silicon/Intel, включая runtime packaging, smoke test и bundle-check.
+
+### Сохранение уроков в Obsidian из нативного клиента — 2026-10-06
+
+- В полном уроке добавлено явное сохранение текущей локали в локальный Obsidian vault через уже имеющийся loopback-only `PUT /obsidian/write/{path}` и Local REST API. Копия использует исходную структуру Markdown урока с целью, теорией, практикой, вопросом/разбором, ограничениями и официальными ссылками.
+- Путь формируется в `ColiDev/Lessons/<subject>/` с timestamp и UUID-суффиксом, поэтому повторное действие не перезаписывает существующую заметку. Секрет остаётся в backend Keychain, браузер/облако не используются; UI пишет, что создаётся отдельная копия только текущего языка. Состояние Obsidian disabled до локальной настройки ключа и endpoint.
+- NotebookLM оставлен через поддерживаемый Markdown export и ручной импорт: нативного write API здесь не заявляем. README и план синхронизированы.
+- `test_obsidian_worker.py` и `test_orchestrator.py`: 178 passed, одно известное предупреждение Starlette/httpx; compileall и diff-check прошли. Xcode CI и bundle/runtime build ожидают запуска после push; живой vault на пользовательском Mac ещё не проверен.

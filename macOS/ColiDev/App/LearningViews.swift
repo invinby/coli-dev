@@ -263,6 +263,8 @@ struct CurriculumModuleView: View {
     @State private var notebookExportDocument: NotebookLMSourceFile?
     @State private var notebookExportFilename = "ColiDev-lesson.md"
     @State private var notebookExportStatus: String?
+    @State private var isSavingObsidianNote = false
+    @State private var obsidianSaveStatus: String?
 
     let subject: Subject
     let resource: String
@@ -349,6 +351,36 @@ struct CurriculumModuleView: View {
                     if !document.sources.isEmpty {
                         ModuleTextCard(title: L10n.text("module.sources", store.language), text: document.sources, tint: subject.tint)
                     }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(L10n.text("module.obsidianTitle", store.language))
+                            .font(.headline)
+                        Button(action: saveLessonToObsidian) {
+                            if isSavingObsidianNote {
+                                Label(L10n.text("module.obsidianSaving", store.language), systemImage: "arrow.triangle.2.circlepath")
+                            } else {
+                                Label(L10n.text("module.obsidianSave", store.language), systemImage: "externaldrive.badge.plus")
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(
+                            isSavingObsidianNote
+                                || store.providerSecretStatuses["obsidian"]?.configured != true
+                                || store.aiHealth?.isObsidianEndpointLocal != true
+                        )
+                        Text(L10n.text("module.obsidianPrivacy", store.language))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        if let obsidianSaveStatus {
+                            Text(obsidianSaveStatus)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+                        }
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
 
                     VStack(alignment: .leading, spacing: 10) {
                         Text(L10n.text("module.notebookTitle", store.language))
@@ -752,6 +784,33 @@ private struct StudyReflectionFields: View {
                 .foregroundStyle(.secondary)
             Toggle(L10n.text("session.doneCheck", language), isOn: $learnerConfirmed)
                 .toggleStyle(.checkbox)
+        }
+    }
+
+    private func saveLessonToObsidian() {
+        guard let document, !isSavingObsidianNote else { return }
+        let timestampFormatter = DateFormatter()
+        timestampFormatter.locale = Locale(identifier: "en_US_POSIX")
+        timestampFormatter.timeZone = TimeZone.current
+        timestampFormatter.dateFormat = "yyyyMMdd-HHmmssSSS"
+        let timestamp = timestampFormatter.string(from: Date())
+        let uniqueSuffix = String(UUID().uuidString.prefix(8)).lowercased()
+        let path = "ColiDev/Lessons/\(subject.rawValue)/\(resource)-\(timestamp)-\(uniqueSuffix).md"
+        let source = document.notebookSource(subject: subject, language: store.language)
+        isSavingObsidianNote = true
+        obsidianSaveStatus = nil
+
+        Task { @MainActor in
+            defer { isSavingObsidianNote = false }
+            do {
+                try await OrchestratorClient.saveObsidianNote(path: path, content: source)
+                obsidianSaveStatus = String(
+                    format: L10n.text("module.obsidianSaved", store.language),
+                    path
+                )
+            } catch {
+                obsidianSaveStatus = L10n.text("module.obsidianSaveFailed", store.language)
+            }
         }
     }
 }
