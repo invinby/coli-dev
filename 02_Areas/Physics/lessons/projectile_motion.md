@@ -23,7 +23,7 @@ source_review_interval_days: 365
 
 `y(t) = v₀ sin θ · t − ½gt²`
 
-При старте и приземлении на одном уровне время полёта равно `T = 2v₀ sin θ / g`, дальность — `R = v₀² sin(2θ) / g`, а максимальная высота — `H = v₀² sin² θ / (2g)`. Формулы дальности и времени зависят от одинаковой высоты старта и приземления.
+При старте и приземлении на одном уровне время полёта равно `T = 2v₀ sin θ / g`, дальность — `R = v₀² sin(2θ) / g`, а максимальная высота — `H = v₀² sin² θ / (2g)`. Формулы дальности и времени зависят от одинаковой высоты старта и приземления. В тренажёре используется округлённое `g = 9,81 м/с²`; принятое стандартное значение NIST — `9,80665 м/с²`, а местное ускорение свободного падения меняется с условиями и местом.
 
 ### Пример
 
@@ -103,8 +103,9 @@ At the peak, vertical velocity is zero, but gravitational acceleration does not 
 
 ### Limits
 
-The model assumes constant gravitational acceleration, equal launch and landing heights, a point object, and no air resistance, wind, or spin. With appreciable drag, the path is no longer a symmetric parabola and range depends on the object's shape, size, and speed. A different landing height requires solving the vertical equation with that endpoint.
+The model assumes constant gravitational acceleration, equal launch and landing heights, a point object, and no air resistance, wind, or spin. With appreciable drag, the path is no longer a symmetric parabola and range depends on the object's shape, size, and speed. A different landing height requires solving the vertical equation with that endpoint. The lab uses rounded `g = 9.81 m/s²`; NIST's conventional standard value is `9.80665 m/s²`, while local free-fall acceleration varies with location and conditions.
 
 ## Sources
 
 - OpenStax, *College Physics 2e*, [3.4 Projectile Motion](https://openstax.org/books/college-physics-2e/pages/3-4-projectile-motion) — official reference for component-wise motion, trajectory, range, and the assumptions behind the ideal projectile model. Lesson text and practice are original; no textbook wording, figure, or worked problem is copied. OpenStax uses CC BY-NC-SA terms; verify product distribution rights before reusing any page text or figures.
+- National Institute of Standards and Technology (NIST), [Guide to the SI, Appendix B.9](https://www.nist.gov/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b9) — source for the conventional standard acceleration of free fall, `gₙ = 9.80665 m/s²`. NIST says its web information may be distributed or copied unless marked copyrighted and requests appropriate credit: [NIST copyrights and disclaimers](https://www.nist.gov/copyrights-disclaimers).

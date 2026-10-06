@@ -34,7 +34,7 @@ _MARKDOWN_LINK_RE = re.compile(r"\[([^\]]{1,200})\]\(\s*(https://[^)\s]+)\s*\)",
 _TRAILING_PUNCTUATION = ".,;:!?"
 _MAX_LESSON_FILES = 200
 _MAX_LESSON_FILE_BYTES = 256 * 1024
-_MAX_SOURCES = 20
+_MAX_SOURCES = 50
 _MAX_CONCURRENT_REQUESTS = 5
 _MAX_TITLE_LENGTH = 200
 _MAX_PAGE_DESCRIPTION_LENGTH = 500
@@ -55,6 +55,7 @@ _TRUSTED_HOSTS = frozenset(
         "docs.python.org",
         "learnenglish.britishcouncil.org",
         "medlineplus.gov",
+        "www.nist.gov",
         "openstax.org",
     }
 )
@@ -65,6 +66,9 @@ _ALLOWED_PATHS = {
         r"^/free-resources/grammar/(?:english-grammar-reference|b1-b2)/[A-Za-z0-9-]+/?$"
     ),
     "medlineplus.gov": re.compile(r"^/genetics/understanding/basics/(?:dna|gene)/?$"),
+    "www.nist.gov": re.compile(
+        r"^/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b9$"
+    ),
     "openstax.org": re.compile(r"^/books/[a-z0-9-]+/pages/[a-z0-9-]+/?$"),
 }
 
@@ -82,6 +86,14 @@ _RAG_SOURCE_POLICIES = {
         "license": "U.S. federal government work; public-domain MedlinePlus Genetics summary",
         "license_url": "https://medlineplus.gov/about/using/usingcontent/",
         "attribution": "Source: MedlinePlus, National Library of Medicine (NLM), National Institutes of Health (NIH). Public-domain Genetics summary.",
+    },
+    "www.nist.gov": {
+        "path": re.compile(
+            r"^/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b9$"
+        ),
+        "license": "NIST public information; may be distributed or copied unless marked copyrighted",
+        "license_url": "https://www.nist.gov/copyrights-disclaimers",
+        "attribution": "Source: National Institute of Standards and Technology (NIST), Guide to the SI, Appendix B.9. NIST requests appropriate source credit; no endorsement implied.",
     },
 }
 

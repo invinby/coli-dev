@@ -222,6 +222,66 @@ def test_unlicensed_official_sources_remain_metadata_only_for_rag(tmp_path: Path
     )
 
 
+def test_nist_si_appendix_b9_is_cached_with_public_information_attribution(tmp_path: Path) -> None:
+    url = (
+        "https://www.nist.gov/pml/special-publication-811/"
+        "nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b9"
+    )
+    _write_lesson(tmp_path, f"[NIST standard gravity]({url})")
+    monitor = _monitor(tmp_path, tmp_path)
+    page_text = (
+        "Acceleration of free fall, standard (g_n) is 9.80665 meter per second squared. "
+        "This is an exact conventional value for standard gravity."
+    )
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/html; charset=utf-8", "etag": '"nist-v1"'},
+            text=(
+                "<html><head><title>NIST Guide to the SI, Appendix B.9</title></head><body>"
+                f"<main><article><p>{page_text}</p></article></main></body></html>"
+            ),
+        )
+
+    async def check() -> dict[str, object]:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await monitor.check_sources(client)
+
+    result = asyncio.run(check())
+    found = monitor.search_rag_sources("standard acceleration gravity 9.80665")
+
+    assert result["checks"][0]["state"] == "available_untracked"
+    assert len(found) == 1
+    assert found[0]["source_type"] == "official_web"
+    assert found[0]["license"] == (
+        "NIST public information; may be distributed or copied unless marked copyrighted"
+    )
+    assert found[0]["license_url"] == "https://www.nist.gov/copyrights-disclaimers"
+    assert "NIST" in found[0]["attribution"]
+    assert "9.80665" in found[0]["excerpt"]
+
+
+def test_nist_rag_policy_only_allows_si_appendix_b9() -> None:
+    assert TrustedSourceMonitor._rag_policy(
+        "https://www.nist.gov/pml/special-publication-811/"
+        "nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b9"
+    ) is not None
+    assert TrustedSourceMonitor._rag_policy(
+        "https://www.nist.gov/how-do-you-measure-it/how-do-you-measure-strength-gravity"
+    ) is None
+
+
+def test_bundled_lesson_sources_fit_the_bounded_monitor_inventory(tmp_path: Path) -> None:
+    project_root = Path(__file__).resolve().parent.parent
+    monitor = TrustedSourceMonitor(project_root, tmp_path / "course-sources.sqlite3")
+
+    references, _unsupported_count, omitted_count = monitor._references()
+
+    assert references
+    assert omitted_count == 0
+
+
 @pytest.mark.parametrize(
     "url",
     [
@@ -247,13 +307,13 @@ def test_reference_policy_accepts_official_british_council_b1_b2_lesson() -> Non
 def test_reference_scan_reports_links_omitted_by_the_request_cap(tmp_path: Path) -> None:
     urls = [
         f"https://openstax.org/books/biology-2e/pages/chapter-{index}"
-        for index in range(25)
+        for index in range(55)
     ]
     _write_lesson(tmp_path, "\n".join(f"[Source]({url})" for url in urls))
 
     references, unsupported_count, omitted_count = _monitor(tmp_path, tmp_path)._references()
 
-    assert len(references) == 20
+    assert len(references) == 50
     assert omitted_count == 5
     assert unsupported_count == 0
 
