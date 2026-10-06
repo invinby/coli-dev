@@ -7,7 +7,7 @@
 | Модуль / Module | Результат обучения / Learning outcome | Урок / Lesson |
 |---|---|---|
 | Измерение, единицы, оценка погрешности / Measurement, units, uncertainty | Проверять размерности, разумность результата и точность измерения. / Check dimensions, plausibility, and measurement uncertainty. |
-| Векторы и кинематика / Vectors and kinematics | Описывать положение и движение графиками, компонентами и выбранной системой отсчёта. / Describe motion with graphs, components, and reference frames. |
+| Векторы и кинематика / Vectors and kinematics | Описывать положение и движение графиками, компонентами и выбранной системой отсчёта. / Describe motion with graphs, components, and reference frames. | lesson:vectors_and_kinematics |
 | Силы и законы Ньютона / Forces and Newton's laws | Строить диаграммы сил и связывать результирующую силу с изменением движения. / Draw free-body diagrams and relate net force to motion. | lesson:net_force_and_acceleration |
 | Трение и начало движения / Friction and the onset of motion | Различать трение покоя и скольжения и находить порог начала движения. / Distinguish static and kinetic friction and find the threshold for motion. | lesson:static_and_kinetic_friction |
 | Работа, энергия, импульс / Work, energy, momentum | Выбирать закон сохранения по границам системы и характеру взаимодействия. / Choose conservation laws from system boundaries and interactions. | lesson:work_and_kinetic_energy |

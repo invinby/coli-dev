@@ -770,3 +770,18 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 - Added a regression with 85 approved OpenStax test URLs. It verifies first-batch cap, tail selection in the second pass, progress through older records on the third pass, and that the scheduler reports an immediate check while the tail is unchecked.
 - Verification: trusted-source module 53 passed; full backend suite 426 passed with one existing Starlette/httpx deprecation warning; Ruff and `git diff --check` passed. GitHub CI for this change has not yet run.
 - The repository’s automatic freshness scope remains narrow and allowlist-based. Checks refresh approved metadata/snapshots only while the backend is running; they do not rewrite lessons or guarantee current coverage of every subject.
+
+- 2026-10-07: На отдельной ветке `codex/physics-vectors-kinematics` добавляется Foundation-урок `vectors_and_kinematics`: RU/EN, разложение перемещения на компоненты, различие расстояния и перемещения, проверочный вопрос и источники OpenStax, без копирования их текста. SwiftUI-тренажёр с координатной плоскостью и проекциями подключается к дорожной карте; модель имеет отдельный macOS CI verifier, так как локальная машина Windows не собирает Swift.
+- Перед отправкой проверить lesson structure/source tests, RAG retrieval regression, точные official citation URLs, проектный ресурс и полный CI на ARM/Intel. Ручная работа на Mac остаётся обязательной для визуальной и VoiceOver приёмки.
+
+### 2026-10-07 — Проверка свежести RAG и получения macOS-сборки
+
+- Повторно проверены `test_trusted_sources.py` и `test_source_scheduler.py`: 54 passed. Автоматическая проверка источников работает, пока запущен локальный backend: обычный интервал — 24 часа, повтор временных сетевых ошибок — 6 часов. Текст для RAG сохраняется только для точных URL с разрешёнными условиями повторного использования; остальные ссылки дают статус/метаданные. Кэшированный фрагмент допускается в retrieval не старше 48 часов. Изменение страницы обновляет разрешённый RAG-снимок, но не переписывает урок.
+- Последний GitHub Actions run текущей ветки [37527029126](https://github.com/invinby/coli-dev/actions/runs/37527029126) завершился успешно на backend, Apple Silicon и Intel; он проверил новые Swift-модели, Xcode-сборку, встроенный backend и smoke-test. Артефактов `.app` не выдал: workflow загружает ZIP только при push в `main`. Последний проверенный push в `main` [37518845775](https://github.com/invinby/coli-dev/actions/runs/37518845775) имеет ARM64 и x86_64 архивы, истекающие 2026-10-20. Чтобы тестировать код открытого PR без локального Xcode, нужно добавить выдачу артефакта для PR или ручного запуска.
+- Пользователь пришлёт финальные иконки позже; до получения файлов оставить текущие ресурсы приложения как есть и подключить их отдельным шагом после доставки материалов.
+
+### 2026-10-07 — Аудит покрытия дорожных карт по шести направлениям
+
+- Сверены карты `curriculum.md` и файлы уроков на текущей ветке: все 47 Markdown-уроков связаны с темами; ни одного осиротевшего файла или ссылки на отсутствующий урок не найдено.
+- В картах перечислено 122 темы: Foundations — 34/44 связаны с уроками, Intermediate — 13/42, Advanced — 0/36. По предметам Foundation-связи: Mathematics 5/6, English 3/6, Physics 5/8, Biology 10/11, Zoology 5/6, Programming 6/7. Эти числа показывают заполненность карты файлами, а не редакционное качество или полноту самих курсов.
+- Приоритет дальнейшего наполнения: завершить недостающие Foundation-модули во всех шести направлениях, затем постепенно закрывать Intermediate и Advanced. Проверить, что новые элементы появляются в control-center coverage и в ресурсах собранного `.app`.

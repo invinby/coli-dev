@@ -368,6 +368,10 @@ def test_priority_curriculum_roadmaps_are_retrievable(
         "Physics/lessons/work_and_kinetic_energy.md",
     ),
     (
+        "displacement vector magnitude direction components east north x y cosine sine coordinate axes",
+        "Physics/lessons/vectors_and_kinematics.md",
+    ),
+    (
         "signed velocity perfectly inelastic collision carts stick total momentum impulse",
         "Physics/lessons/impulse_and_momentum.md",
     ),

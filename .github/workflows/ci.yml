@@ -72,6 +72,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-friction-motion"
           "$RUNNER_TEMP/verify-friction-motion"
 
+      - name: Verify vector kinematics model
+        run: |
+          swiftc macOS/ColiDev/App/VectorKinematics.swift macOS/ColiDev/scripts/verify_vector_kinematics.swift \
+            -o "$RUNNER_TEMP/verify-vector-kinematics"
+          "$RUNNER_TEMP/verify-vector-kinematics"
+
       - name: Verify shared linear equation model
         run: |
           swiftc macOS/ColiDev/App/LinearEquation.swift macOS/ColiDev/scripts/verify_linear_equation_model.swift \
