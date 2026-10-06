@@ -1,5 +1,13 @@
 # 02. Текущее состояние ColiDev
 
+## Актуальный срез main — 2026-10-06
+
+- В `02_Areas/` находится 40 двуязычных Markdown-уроков; это стартовая подборка, а не завершённые академические курсы. По картам темы ссылаются на существующие полноценные RU/EN уроки: Mathematics — Foundations 5/5, Intermediate 1/5, Advanced 0/5; English — 3/5, 2/6, 0/5; Physics — 4/7, 3/8, 0/5; Biology — 10/10, 0/5, 0/5; Zoology — 4/5, 1/6, 0/5; Programming — 6/6, 1/5, 0/5. Эти количества показывают только наличие ссылок на структурно заполненный файл, не фактологическую полноту курса.
+- Commit `8276d56` добавил Programming Intermediate тему SQL transactions: RU/EN урок, step-by-step SwiftUI симулятор COMMIT/ROLLBACK и verifier для модели. SQLite transaction URL добавлен только в exact-path freshness/preview allowlist; SQLite page content остаётся metadata-only и не попадает в text RAG.
+- GitHub Actions [37497058621](https://github.com/invinby/coli-dev/actions/runs/37497058621) завершился success: backend 415 passed; Swift verifier suite, Xcode app builds ARM/Intel, bundled backend smoke-test, curriculum resource check и packaging прошли. ZIP-артефакты для теста сохраняются 14 дней: ARM 21,307,123 bytes; Intel 22,215,813 bytes.
+- Это подтверждает сборку и упаковку, но не проверку приложения на физическом Mac. Ручной запуск, визуальная/клавиатурная/VoiceOver приёмка, проверка реального Ollama и провайдеров, Obsidian и обновления источников остаются открытыми; ColiDev нельзя называть готовым релизом.
+- Source monitor обрабатывает до 80 разрешённых ссылок за проход. Автоматическая перепроверка обновляет source snapshots/сигналы, не переписывая и не публикуя lesson content. Действующие пределы web RAG перечислены в категории 04.
+
 ## Подтверждено чтением текущего репозитория
 
 - Python-проект с FastAPI и оркестратором ИИ-запросов.
