@@ -1862,7 +1862,9 @@ private struct SourceRegistryRow: View {
                                 ? "management.sourceRAGCached"
                                 : ragContentState == "license_approved_pending_check"
                                     ? "management.sourceRAGPending"
-                                    : "management.sourceRAGMetadataOnly",
+                                    : ragContentState == "metadata_only_noncommercial"
+                                        ? "management.sourceRAGNonCommercial"
+                                        : "management.sourceRAGMetadataOnly",
                             language
                         ),
                         systemImage: ragContentState == "cached" ? "doc.text.magnifyingglass" : "doc.text"
@@ -1879,6 +1881,12 @@ private struct SourceRegistryRow: View {
                             .buttonStyle(.plain)
                             .accessibilityLabel(licenseURL)
                         }
+                    }
+                    if ragContentState == "metadata_only_noncommercial",
+                       let licenseURL = source.ragRestrictionURL,
+                       let destination = URL(string: licenseURL) {
+                        Link(L10n.text("management.sourceLicenseTerms", language), destination: destination)
+                            .buttonStyle(.plain)
                     }
                     if let fetchedAt = source.ragContentFetchedAt {
                         Text("\(L10n.text("management.sourceRAGFetched", language)): \(formatISODate(fetchedAt))")

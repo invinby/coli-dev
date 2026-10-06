@@ -835,6 +835,7 @@ struct TrustedSourceInventoryItem: Decodable, Identifiable {
     let ragContentFetchedAt: String?
     let ragLicense: String?
     let ragLicenseURL: String?
+    let ragRestrictionURL: String?
 
     var id: String { url }
 
@@ -858,6 +859,7 @@ struct TrustedSourceInventoryItem: Decodable, Identifiable {
         case ragContentFetchedAt = "rag_content_fetched_at"
         case ragLicense = "rag_license"
         case ragLicenseURL = "rag_license_url"
+        case ragRestrictionURL = "rag_restriction_url"
     }
 }
 

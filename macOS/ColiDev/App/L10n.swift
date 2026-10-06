@@ -425,6 +425,8 @@ enum L10n {
         "management.sourceRAGCached": ("Текст лицензированного источника доступен в RAG", "Licensed source text is available in RAG"),
         "management.sourceRAGPending": ("Лицензия разрешает RAG; ожидается первая проверка", "License permits RAG; waiting for the first check"),
         "management.sourceRAGMetadataOnly": ("Только метаданные; текст в RAG не загружается", "Metadata only; page text is excluded from RAG"),
+        "management.sourceRAGNonCommercial": ("OpenStax: учебники обычно CC BY-NC-SA 4.0; текст не кэшируется до проверки прав на выпуск", "OpenStax textbooks are generally CC BY-NC-SA 4.0; text stays uncached pending release-rights review"),
+        "management.sourceLicenseTerms": ("Условия лицензии", "License terms"),
         "management.sourceRAGFetched": ("Обновлено", "Cached"),
         "management.sourcePageTitle": ("Название на сайте", "Website title"),
         "management.lessonReviewed": ("Урок проверен", "Lesson reviewed"),

@@ -216,7 +216,10 @@ def test_unlicensed_official_sources_remain_metadata_only_for_rag(tmp_path: Path
     monitor = _monitor(tmp_path, tmp_path)
 
     assert monitor._rag_policy(url) is None
-    assert monitor.inventory()["sources"][0]["rag_content_state"] == "metadata_only"
+    assert monitor.inventory()["sources"][0]["rag_content_state"] == "metadata_only_noncommercial"
+    assert monitor.inventory()["sources"][0]["rag_restriction_url"] == (
+        "https://help.openstax.org/s/article/Licensing-information-of-OpenStax-textbooks"
+    )
 
 
 @pytest.mark.parametrize(
@@ -295,10 +298,11 @@ def test_inventory_exposes_only_approved_reference_metadata_and_saved_state(tmp_
         "page_title": None,
         "page_description": None,
         "content_checked_at": None,
-        "rag_content_state": "metadata_only",
+        "rag_content_state": "metadata_only_noncommercial",
         "rag_content_fetched_at": None,
         "rag_license": None,
         "rag_license_url": None,
+        "rag_restriction_url": "https://help.openstax.org/s/article/Licensing-information-of-OpenStax-textbooks",
     }]
 
     monitor._save_check(
