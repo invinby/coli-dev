@@ -591,6 +591,8 @@ private struct ManagementView: View {
     @State private var routeSubject: Subject = .mathematics
     @State private var routeProvider = "auto"
     @State private var routeModel = ""
+    @State private var autoAgentRole = "local_draft"
+    @State private var autoAgentModel = ""
     @State private var finalSynthesisProvider = "auto"
     @State private var finalSynthesisModel = ""
     @State private var allowsPaidAutoRoutes = false
@@ -665,6 +667,7 @@ private struct ManagementView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .navigationTitle(Text(L10n.text("management.title", store.language)))
         .onChange(of: routeSubject) { _ in syncSubjectModelRouteForm() }
+        .onChange(of: autoAgentRole) { _ in syncAutoAgentModelForm() }
         .onChange(of: finalSynthesisProvider) { provider in
             if provider == "auto" { finalSynthesisModel = "" }
         }
@@ -1313,6 +1316,65 @@ private struct ManagementView: View {
                     .padding(.top, 6)
                 }
 
+                GroupBox(label: Text(L10n.text("management.autoAgentModels", store.language))) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(L10n.text("management.autoAgentModelsHelp", store.language))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Picker(L10n.text("management.autoAgentRole", store.language), selection: $autoAgentRole) {
+                            ForEach(["local_draft", "critic", "verifier"], id: \.self) { role in
+                                Text(L10n.text("management.autoAgentRole.\(role)", store.language)).tag(role)
+                            }
+                        }
+                        .frame(maxWidth: 360, alignment: .leading)
+
+                        TextField(L10n.text("management.autoAgentModel", store.language), text: $autoAgentModel)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(maxWidth: 520)
+                        Text(L10n.text("management.autoAgentModelHelp", store.language))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        if let route = store.autoAgentModelRoutes[autoAgentRole] {
+                            HStack(spacing: 8) {
+                                Image(systemName: route.providerReady ? "checkmark.circle" : "exclamationmark.circle")
+                                    .foregroundStyle(route.providerReady ? Color.secondary : Color.orange)
+                                Text(L10n.text("management.routeStatus.\(route.status)", store.language))
+                                Text(route.effectiveModel)
+                                    .font(.caption.monospaced())
+                                    .foregroundStyle(.secondary)
+                                    .textSelection(.enabled)
+                            }
+                            .font(.caption)
+                            .accessibilityElement(children: .combine)
+                        }
+
+                        HStack(spacing: 10) {
+                            Button {
+                                Task { await saveAutoAgentModel() }
+                            } label: {
+                                if isSavingRoute {
+                                    ProgressView().controlSize(.small)
+                                } else {
+                                    Text(L10n.text("management.routeSave", store.language))
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(isSavingRoute)
+
+                            Button(L10n.text("management.routeReset", store.language)) {
+                                Task { await resetAutoAgentModel() }
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(isSavingRoute)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 6)
+                }
+
                 Button(L10n.text("management.openSettings", store.language), action: openSettings)
                     .buttonStyle(.bordered)
             }
@@ -1454,10 +1516,12 @@ private struct ManagementView: View {
         await store.refreshAIStatus()
         await store.refreshProviderSecretStatuses()
         await store.refreshSubjectModelRoutes()
+        await store.refreshAutoAgentModelRoutes()
         await store.refreshFinalSynthesisModelRoute()
         await store.refreshAutoCostPolicy()
         await store.refreshProviderUsage()
         syncSubjectModelRouteForm()
+        syncAutoAgentModelForm()
         syncFinalSynthesisRouteForm()
         syncAutoCostPolicyForm()
         do {
@@ -1533,6 +1597,11 @@ private struct ManagementView: View {
     }
 
     @MainActor
+    private func syncAutoAgentModelForm() {
+        autoAgentModel = store.autoAgentModelRoutes[autoAgentRole]?.model ?? ""
+    }
+
+    @MainActor
     private func syncAutoCostPolicyForm() {
         allowsPaidAutoRoutes = store.autoCostPolicy?.allowPaidRoutes ?? false
     }
@@ -1563,6 +1632,38 @@ private struct ManagementView: View {
         do {
             try await store.resetSubjectModelRoute(subject: routeSubject)
             syncSubjectModelRouteForm()
+            statusMessage = L10n.text("management.routeResetDone", store.language)
+            statusIsError = false
+        } catch {
+            reportError("management.routeSaveFailed")
+        }
+    }
+
+    @MainActor
+    private func saveAutoAgentModel() async {
+        isSavingRoute = true
+        defer { isSavingRoute = false }
+        do {
+            let model = autoAgentModel.trimmingCharacters(in: .whitespacesAndNewlines)
+            try await store.saveAutoAgentModelRoute(
+                role: autoAgentRole,
+                model: model.isEmpty ? nil : model
+            )
+            syncAutoAgentModelForm()
+            statusMessage = L10n.text("management.routeSaved", store.language)
+            statusIsError = false
+        } catch {
+            reportError("management.routeSaveFailed")
+        }
+    }
+
+    @MainActor
+    private func resetAutoAgentModel() async {
+        isSavingRoute = true
+        defer { isSavingRoute = false }
+        do {
+            try await store.resetAutoAgentModelRoute(role: autoAgentRole)
+            syncAutoAgentModelForm()
             statusMessage = L10n.text("management.routeResetDone", store.language)
             statusIsError = false
         } catch {

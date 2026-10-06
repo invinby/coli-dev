@@ -99,6 +99,11 @@ def _reset_session_tracker(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         orchestrator,
+        "auto_agent_models",
+        orchestrator.AutoAgentModelStore(tmp_path / "auto-agent-models.json"),
+    )
+    monkeypatch.setattr(
+        orchestrator,
         "auto_cost_policy",
         orchestrator.AutoCostPolicyStore(tmp_path / "auto-cost-policy.json"),
     )
@@ -623,6 +628,73 @@ class TestSubjectModelRouting:
             "Explain photosynthesis", "Biology system prompt", "test", model=model_id,
         )
         assert engine.specialist_model_label == f"OpenRouter: {model_id}"
+
+
+class TestAutoAgentModelRouting:
+    def test_defaults_expose_local_models_for_every_agent_role(self, client):
+        response = client.get("/settings/agent-models")
+
+        assert response.status_code == 200
+        roles = {item["role"]: item for item in response.json()["roles"]}
+        assert set(roles) == set(orchestrator.AUTO_AGENT_MODEL_ROLES)
+        assert all(item["model"] is None for item in roles.values())
+        assert all(item["effective_model"] == orchestrator.OLLAMA_MODEL_RESEARCHER for item in roles.values())
+        assert all(item["status"] == "model_checked_on_use" for item in roles.values())
+
+    def test_role_models_persist_validate_and_reset_without_credentials(self, client):
+        saved = client.put("/settings/agent-models/critic", json={"model": "qwen3:8b"})
+        assert saved.status_code == 200
+        assert saved.json()["effective_model"] == "qwen3:8b"
+        assert saved.json()["provider_ready"] is True
+
+        persisted = orchestrator.auto_agent_models.path.read_text(encoding="utf-8")
+        assert "qwen3:8b" in persisted
+        assert "API_KEY" not in persisted
+
+        invalid_model = client.put("/settings/agent-models/verifier", json={"model": "../../external"})
+        unknown_role = client.put("/settings/agent-models/root", json={"model": "qwen3:8b"})
+        assert invalid_model.status_code == 422
+        assert unknown_role.status_code == 404
+
+        reset = client.delete("/settings/agent-models/critic")
+        assert reset.status_code == 200
+        assert reset.json()["model"] is None
+
+    def test_route_settings_are_loopback_only(self):
+        with TestClient(app, client=("203.0.113.41", 50000)) as remote_client:
+            get_response = remote_client.get("/settings/agent-models")
+            put_response = remote_client.put(
+                "/settings/agent-models/critic", json={"model": "qwen3:8b"},
+            )
+            delete_response = remote_client.delete("/settings/agent-models/critic")
+
+        assert get_response.status_code == 403
+        assert put_response.status_code == 403
+        assert delete_response.status_code == 403
+
+    def test_route_settings_reject_untrusted_origin(self):
+        with TestClient(app, client=("127.0.0.1", 50000)) as local_client:
+            response = local_client.put(
+                "/settings/agent-models/critic",
+                json={"model": "qwen3:8b"},
+                headers={"Origin": "https://attacker.example"},
+            )
+
+        assert response.status_code == 403
+
+    def test_auto_consilium_uses_per_role_ollama_models(self):
+        orchestrator.auto_agent_models.set("critic", "qwen3:8b")
+        orchestrator.auto_agent_models.set("verifier", "llama3.2:3b")
+        orchestrator.final_synthesis_routes.set("ollama", "qwen3:8b")
+        engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient))
+        engine._ask_ollama = AsyncMock(side_effect=["Critical review", "Independent verification"])
+        engine._ask_selected_specialist = AsyncMock(return_value=("Final answer", "ollama"))
+
+        answer = asyncio.run(engine._run_consilium("Question", "Instructions", "Candidate draft"))
+
+        assert answer == "Final answer"
+        assert engine._ask_ollama.await_args_list[0].kwargs["model"] == "qwen3:8b"
+        assert engine._ask_ollama.await_args_list[1].kwargs["model"] == "llama3.2:3b"
 
 
 class TestFinalSynthesisRouting:

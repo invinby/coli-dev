@@ -494,6 +494,10 @@ class FinalSynthesisRouteRequest(BaseModel):
     model: str | None = Field(default=None, max_length=128)
 
 
+class AgentModelRouteRequest(BaseModel):
+    model: str | None = Field(default=None, max_length=128)
+
+
 class AutoCostPolicyRequest(BaseModel):
     allow_paid_routes: bool = False
 
@@ -1056,7 +1060,12 @@ class ConsiliumEngine:
                 specialist_task = asyncio.sleep(
                     0, result="[Auto policy: OpenRouter free route is not configured]"
                 )
-        ollama_task = self._ask_ollama(message, agent_system, "ollama-gen")
+        ollama_task = self._ask_ollama(
+            message,
+            agent_system,
+            "ollama-gen",
+            model=auto_agent_models.get("local_draft") or OLLAMA_MODEL_RESEARCHER,
+        )
 
         flash_result, specialist_result, ollama_result = await asyncio.gather(
             gemini_flash_task, specialist_task, ollama_task, return_exceptions=True
@@ -1145,7 +1154,12 @@ class ConsiliumEngine:
                 f"Вопрос ученика: {message}\n\nЧерновики:\n{draft_bundle}\n\n"
                 f"Критический разбор на языке {self.output_language}:"
             )
-        freebuff_review = await self._ask_ollama(freebuff_prompt, self.agent_system(system_prompt), "freebuff")
+        freebuff_review = await self._ask_ollama(
+            freebuff_prompt,
+            self.agent_system(system_prompt),
+            "freebuff",
+            model=auto_agent_models.get("critic") or OLLAMA_MODEL_RESEARCHER,
+        )
         if not isinstance(freebuff_review, str) or not freebuff_review.strip() or self._is_provider_error(freebuff_review):
             freebuff_review = (
                 "Local critic unavailable." if self.language == "en" else "Локальная критическая проверка недоступна."
@@ -1174,7 +1188,12 @@ class ConsiliumEngine:
                 f"Вопрос ученика: {message}\n\nЧерновики:\n{draft_bundle[:6000]}\n\n"
                 f"Проверка на языке {self.output_language} (2–4 предложения):"
             )
-        qwen_verify = await self._ask_ollama(qwen_verify_prompt, self.agent_system(system_prompt), "qwen")
+        qwen_verify = await self._ask_ollama(
+            qwen_verify_prompt,
+            self.agent_system(system_prompt),
+            "qwen",
+            model=auto_agent_models.get("verifier") or OLLAMA_MODEL_RESEARCHER,
+        )
         if not isinstance(qwen_verify, str) or not qwen_verify.strip() or self._is_provider_error(qwen_verify):
             qwen_verify = (
                 "Independent local verification unavailable."
@@ -2154,6 +2173,7 @@ provider_usage_store = ProviderUsageStore(app_data_dir() / "provider-usage.sqlit
 SUBJECT_MODEL_ROUTE_SUBJECTS = (
     "mathematics", "english", "physics", "biology", "zoology", "programming",
 )
+AUTO_AGENT_MODEL_ROLES = ("local_draft", "critic", "verifier")
 _SUBJECT_MODEL_ROUTE_PROVIDERS = frozenset({"auto", "gemini", "kimi", "openrouter", "ollama"})
 _MODEL_ID_PATTERNS = {
     # These IDs are inserted into provider-specific URL paths or JSON payloads.
@@ -2350,6 +2370,86 @@ class FinalSynthesisRouteStore:
 final_synthesis_routes = FinalSynthesisRouteStore(app_data_dir() / "final-synthesis-route.json")
 
 
+class AutoAgentModelStore:
+    """Persist per-role local Ollama model IDs without storing credentials."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path.expanduser()
+        self._lock = threading.RLock()
+
+    def _read_unlocked(self) -> dict[str, str]:
+        try:
+            payload = json.loads(self.path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return {}
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            logger.warning(
+                "Auto agent model preferences could not be read; defaults will be used",
+                extra={"error_type": type(exc).__name__},
+            )
+            return {}
+        models = payload.get("models") if isinstance(payload, dict) else None
+        if not isinstance(models, dict):
+            return {}
+        return {
+            role: model
+            for role, model in models.items()
+            if role in AUTO_AGENT_MODEL_ROLES and _valid_subject_model_id("ollama", model)
+        }
+
+    def snapshot(self) -> dict[str, str | None]:
+        with self._lock:
+            saved = self._read_unlocked()
+        return {role: saved.get(role) for role in AUTO_AGENT_MODEL_ROLES}
+
+    def get(self, role: str) -> str | None:
+        if role not in AUTO_AGENT_MODEL_ROLES:
+            raise ValueError("Unknown agent role")
+        return self.snapshot()[role]
+
+    def set(self, role: str, model: str | None) -> str | None:
+        if role not in AUTO_AGENT_MODEL_ROLES:
+            raise ValueError("Unknown agent role")
+        if model is not None:
+            model = model.strip()
+            if not model:
+                model = None
+            elif not _valid_subject_model_id("ollama", model):
+                raise ValueError("Invalid Ollama model identifier")
+
+        with self._lock:
+            models = self._read_unlocked()
+            if model is None:
+                models.pop(role, None)
+            else:
+                models[role] = model
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            temporary_path: Path | None = None
+            try:
+                with tempfile.NamedTemporaryFile(
+                    mode="w", encoding="utf-8", prefix=".auto-agent-models-",
+                    suffix=".tmp", dir=self.path.parent, delete=False,
+                ) as temporary:
+                    temporary_path = Path(temporary.name)
+                    json.dump({"schema_version": 1, "models": models}, temporary, sort_keys=True)
+                    temporary.write("\n")
+                try:
+                    os.chmod(temporary_path, 0o600)
+                except OSError:
+                    pass
+                os.replace(temporary_path, self.path)
+            finally:
+                if temporary_path is not None and temporary_path.exists():
+                    temporary_path.unlink(missing_ok=True)
+        return model
+
+    def reset(self, role: str) -> str | None:
+        return self.set(role, None)
+
+
+auto_agent_models = AutoAgentModelStore(app_data_dir() / "auto-agent-models.json")
+
+
 class AutoCostPolicyStore:
     """Persist whether normal Auto conversations may call potentially billed APIs."""
 
@@ -2448,6 +2548,20 @@ def _subject_model_route_payload() -> dict[str, list[dict[str, Any]]]:
             "status": status,
         })
     return {"subjects": result}
+
+
+def _auto_agent_model_payload() -> dict[str, list[dict[str, Any]]]:
+    endpoint_ready = _is_loopback_http_url(OLLAMA_BASE)
+    roles = []
+    for role, model in auto_agent_models.snapshot().items():
+        roles.append({
+            "role": role,
+            "model": model,
+            "effective_model": model or OLLAMA_MODEL_RESEARCHER,
+            "provider_ready": endpoint_ready,
+            "status": "model_checked_on_use" if endpoint_ready else "loopback_required",
+        })
+    return {"roles": roles}
 
 
 def _final_synthesis_route_payload() -> dict[str, Any]:
@@ -3264,6 +3378,36 @@ async def reset_subject_model_route(subject: str, request: Request):
         item for item in _subject_model_route_payload()["subjects"]
         if item["subject"] == subject
     )
+
+
+@app.get("/settings/agent-models")
+async def get_auto_agent_models(request: Request):
+    _require_local_settings_request(request)
+    return _auto_agent_model_payload()
+
+
+@app.put("/settings/agent-models/{role}")
+async def save_auto_agent_model(role: str, route: AgentModelRouteRequest, request: Request):
+    _require_local_settings_request(request)
+    if role not in AUTO_AGENT_MODEL_ROLES:
+        raise HTTPException(status_code=404, detail="Unknown agent role")
+    try:
+        auto_agent_models.set(role, route.model)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    return next(item for item in _auto_agent_model_payload()["roles"] if item["role"] == role)
+
+
+@app.delete("/settings/agent-models/{role}")
+async def reset_auto_agent_model(role: str, request: Request):
+    _require_local_settings_request(request)
+    if role not in AUTO_AGENT_MODEL_ROLES:
+        raise HTTPException(status_code=404, detail="Unknown agent role")
+    try:
+        auto_agent_models.reset(role)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from None
+    return next(item for item in _auto_agent_model_payload()["roles"] if item["role"] == role)
 
 
 @app.get("/settings/final-synthesis-route")
