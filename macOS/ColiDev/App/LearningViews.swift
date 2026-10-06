@@ -1059,6 +1059,8 @@ private struct PracticeLab: View {
             TenseContrastLab()
         } else if subject == .english, moduleResource == "present_perfect_simple_continuous" {
             PresentPerfectAspectLab()
+        } else if subject == .english, moduleResource == "zero_first_second_conditionals" {
+            ConditionalsLab()
         } else if subject == .english, moduleResource == "daily_routines_and_collocations" {
             DailyRoutineVocabularyLab()
         } else if subject == .zoology, moduleResource == "animals_as_a_group" {
@@ -2042,6 +2044,110 @@ private struct PresentPerfectAspectLab: View {
             return Color.secondary.opacity(0.08)
         }
         return option == correctAnswers[scenario] ? Color.green.opacity(0.16) : Color.orange.opacity(0.16)
+    }
+}
+
+private struct ConditionalPracticeQuestion {
+    let promptKey: String
+    let answerIndex: Int
+    let feedbackKey: String
+}
+
+private struct ConditionalsLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var index = 0
+    @State private var selection: Int?
+    @State private var wasCorrect: Bool?
+    @State private var complete = false
+
+    private let questions = [
+        ConditionalPracticeQuestion(promptKey: "lab.conditionalScenario0", answerIndex: 0, feedbackKey: "lab.conditionalFeedback0"),
+        ConditionalPracticeQuestion(promptKey: "lab.conditionalScenario1", answerIndex: 1, feedbackKey: "lab.conditionalFeedback1"),
+        ConditionalPracticeQuestion(promptKey: "lab.conditionalScenario2", answerIndex: 2, feedbackKey: "lab.conditionalFeedback2")
+    ]
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.conditionalHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if complete {
+                Label(L10n.text("lab.conditionalComplete", store.language), systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(L10n.text("lab.conditionalRestart", store.language), systemImage: "arrow.counterclockwise") {
+                    reset()
+                }
+                .buttonStyle(.bordered)
+            } else {
+                Text(String(format: L10n.text("lab.conditionalProgress", store.language), index + 1, questions.count))
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                ProgressView(value: Double(index + 1), total: Double(questions.count))
+                Text(L10n.text(questions[index].promptKey, store.language))
+                    .font(.title3.weight(.medium))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ForEach(0..<3, id: \.self) { option in
+                    Button {
+                        selection = option
+                        wasCorrect = nil
+                    } label: {
+                        Label(
+                            L10n.text("lab.conditionalOption\(option)", store.language),
+                            systemImage: selection == option ? "checkmark.circle.fill" : "circle"
+                        )
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(selection == option ? .accentColor : .secondary)
+                    .accessibilityAddTraits(selection == option ? .isSelected : [])
+                }
+
+                if let wasCorrect {
+                    Label(
+                        wasCorrect
+                            ? L10n.text(questions[index].feedbackKey, store.language)
+                            : L10n.text("lab.conditionalTryAgain", store.language),
+                        systemImage: wasCorrect ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath"
+                    )
+                    .foregroundStyle(wasCorrect ? Color.green : Color.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Button {
+                    if wasCorrect == true {
+                        if index == questions.count - 1 {
+                            complete = true
+                        } else {
+                            index += 1
+                            selection = nil
+                            wasCorrect = nil
+                        }
+                    } else if let selection {
+                        wasCorrect = selection == questions[index].answerIndex
+                    }
+                } label: {
+                    Text(L10n.text(
+                        wasCorrect == true
+                            ? (index == questions.count - 1 ? "lab.conditionalFinish" : "lab.conditionalNext")
+                            : "lab.conditionalCheck",
+                        store.language
+                    ))
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(selection == nil && wasCorrect != true)
+            }
+        }
+    }
+
+    private func reset() {
+        index = 0
+        selection = nil
+        wasCorrect = nil
+        complete = false
     }
 }
 
