@@ -1081,6 +1081,8 @@ private struct PracticeLab: View {
             BiomoleculeLab()
         } else if subject == .biology, moduleResource == "natural_selection_and_population_change" {
             NaturalSelectionLab()
+        } else if subject == .biology, moduleResource == "ecosystem_energy_flow" {
+            EcosystemEnergyLab()
         } else if subject == .physics, moduleResource == "work_and_kinetic_energy" {
             KineticEnergyLab()
         } else if subject == .physics, moduleResource == "impulse_and_momentum" {
@@ -4104,6 +4106,95 @@ private struct NaturalSelectionLab: View {
                 .accessibilityLabel(Text(L10n.text(labelKey, store.language)))
         }
         .font(.caption)
+    }
+}
+
+private struct EcosystemEnergyLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var producerEnergy = 8_000.0
+    @State private var transferFraction = 0.12
+
+    private let levels = ["producers", "primary", "secondary", "tertiary"]
+    private var energies: [Double] {
+        levels.indices.map { producerEnergy * pow(transferFraction, Double($0)) }
+    }
+
+    var body: some View {
+        LabCard {
+            VStack(alignment: .leading, spacing: 12) {
+                Label(L10n.text("biology.energyLab.title", store.language), systemImage: "chart.bar.xaxis")
+                    .font(.headline)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(Array(levels.enumerated()), id: \.offset) { index, level in
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text(L10n.text("biology.energy.level.\(level)", store.language))
+                                Spacer()
+                                Text("\(energies[index], specifier: "%.1f") kJ")
+                                    .monospacedDigit()
+                            }
+                            .font(.caption.weight(.medium))
+                            ProgressView(value: energies[index], total: producerEnergy)
+                                .tint(levelColor(index))
+                                .accessibilityLabel(Text(L10n.text("biology.energy.level.\(level)", store.language)))
+                                .accessibilityValue(Text("\(energies[index], specifier: "%.1f") kJ"))
+                        }
+                    }
+                }
+                .padding(12)
+                .background(.background, in: RoundedRectangle(cornerRadius: 10))
+
+                energySlider(
+                    key: "biology.energyLab.producerEnergy",
+                    value: $producerEnergy,
+                    range: 1_000...20_000,
+                    format: "%.0f kJ"
+                )
+                energySlider(
+                    key: "biology.energyLab.transfer",
+                    value: $transferFraction,
+                    range: 0.05...0.30,
+                    format: "%.0f%%",
+                    scale: 100
+                )
+
+                Text(L10n.text("biology.energyLab.limit", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func energySlider(
+        key: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double>,
+        format: String,
+        scale: Double = 1
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack {
+                Text(L10n.text(key, store.language))
+                Spacer()
+                Text(String(format: format, value.wrappedValue * scale))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+            Slider(value: value, in: range)
+                .accessibilityLabel(Text(L10n.text(key, store.language)))
+        }
+        .font(.caption)
+    }
+
+    private func levelColor(_ index: Int) -> Color {
+        switch index {
+        case 0: .green
+        case 1: .teal
+        case 2: .orange
+        default: .purple
+        }
     }
 }
 

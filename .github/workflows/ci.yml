@@ -133,6 +133,7 @@ jobs:
           Biology:eukaryotic_cell_organelles
           Biology:biomolecules_and_building_blocks
           Biology:natural_selection_and_population_change
+          Biology:ecosystem_energy_flow
           Zoology:adaptation_and_behavior
           Zoology:animals_as_a_group
           Zoology:major_animal_lineages

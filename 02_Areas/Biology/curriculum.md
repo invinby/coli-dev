@@ -14,7 +14,7 @@
 | ДНК и работа клетки / DNA and cell function | Связывать последовательность ДНК с геном, его возможными продуктами и регуляцией. / Relate a DNA sequence to a gene, its possible products, and regulation. | lesson:dna_genes_and_traits |
 | ДНК, наследование и вариация / DNA, inheritance, variation | Прослеживать базовую передачу признаков и отличать генотип от наблюдаемого признака. / Trace inheritance and distinguish genotype from phenotype. | lesson:mendelian_inheritance |
 | Эволюция и естественный отбор / Evolution and natural selection | Объяснять, как наследуемая вариация и разный репродуктивный успех могут изменить популяцию; отличать это от намеренного изменения отдельной особи. / Explain how heritable variation and differential reproductive success can change a population; distinguish this from an individual intentionally changing. | lesson:natural_selection_and_population_change |
-| Экосистемы и взаимодействия / Ecosystems and interactions | Анализировать потоки энергии, круговорот веществ и пищевые связи с учётом границ модели. / Analyze energy flow, matter cycling, and food relationships with model limits in mind. |
+| Поток энергии и трофические уровни / Energy flow and trophic levels | Читать простую пищевую цепь и энергетическую пирамиду, отличая поток энергии от круговорота вещества. / Read a simple food chain and energy pyramid, distinguishing energy flow from matter cycling. | lesson:ecosystem_energy_flow |
 
 ## Углубление / Intermediate
 
