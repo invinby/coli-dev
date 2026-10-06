@@ -163,6 +163,8 @@ final class LearningStore: ObservableObject {
     @Published private(set) var providerSecretStatuses: [String: ProviderSecretStatus] = [:]
     @Published private(set) var subjectModelRoutes: [String: SubjectModelRoute] = [:]
     @Published private(set) var autoAgentModelRoutes: [String: AutoAgentModelRoute] = [:]
+    @Published private(set) var localOllamaModelCatalog = LocalOllamaModelCatalog.notChecked
+    @Published private(set) var isRefreshingLocalOllamaModelCatalog = false
     @Published private(set) var finalSynthesisModelRoute: FinalSynthesisModelRoute?
     @Published private(set) var autoCostPolicy: AutoCostPolicy?
     @Published private(set) var providerUsage: ProviderUsageSummary?
@@ -246,6 +248,17 @@ final class LearningStore: ObservableObject {
             autoAgentModelRoutes = Dictionary(uniqueKeysWithValues: routes.map { ($0.role, $0) })
         } catch {
             autoAgentModelRoutes = [:]
+        }
+    }
+
+    func refreshLocalOllamaModelCatalog() async {
+        guard !isRefreshingLocalOllamaModelCatalog else { return }
+        isRefreshingLocalOllamaModelCatalog = true
+        defer { isRefreshingLocalOllamaModelCatalog = false }
+        do {
+            localOllamaModelCatalog = try await OrchestratorClient.localOllamaModelCatalog()
+        } catch {
+            localOllamaModelCatalog = .unavailable
         }
     }
 
@@ -973,6 +986,15 @@ struct AutoAgentModelRoutingSnapshot: Decodable {
     let roles: [AutoAgentModelRoute]
 }
 
+struct LocalOllamaModelCatalog: Decodable, Equatable {
+    let available: Bool
+    let status: String
+    let models: [String]
+
+    static let notChecked = Self(available: false, status: "not_checked", models: [])
+    static let unavailable = Self(available: false, status: "unavailable", models: [])
+}
+
 struct FinalSynthesisModelRoute: Decodable, Hashable {
     let provider: String
     let model: String?
@@ -1409,6 +1431,19 @@ enum OrchestratorClient {
             throw ClientError.unavailable
         }
         return try JSONDecoder().decode(AutoAgentModelRoutingSnapshot.self, from: data).roles
+    }
+
+    static func localOllamaModelCatalog() async throws -> LocalOllamaModelCatalog {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/settings/ollama/models") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 4
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(LocalOllamaModelCatalog.self, from: data)
     }
 
     static func saveAutoAgentModelRoute(role: String, model: String?) async throws -> AutoAgentModelRoute {

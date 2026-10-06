@@ -1333,6 +1333,48 @@ private struct ManagementView: View {
                         TextField(L10n.text("management.autoAgentModel", store.language), text: $autoAgentModel)
                             .textFieldStyle(.roundedBorder)
                             .frame(maxWidth: 520)
+                        HStack(spacing: 10) {
+                            Button {
+                                Task { await store.refreshLocalOllamaModelCatalog() }
+                            } label: {
+                                if store.isRefreshingLocalOllamaModelCatalog {
+                                    ProgressView().controlSize(.small)
+                                } else {
+                                    Label(
+                                        L10n.text("management.ollamaModelsRefresh", store.language),
+                                        systemImage: "arrow.clockwise"
+                                    )
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(store.isRefreshingLocalOllamaModelCatalog)
+
+                            Menu {
+                                ForEach(store.localOllamaModelCatalog.models, id: \.self) { model in
+                                    Button(model) { autoAgentModel = model }
+                                }
+                            } label: {
+                                Label(
+                                    L10n.text("management.ollamaModelsChoose", store.language),
+                                    systemImage: "list.bullet"
+                                )
+                            }
+                            .disabled(store.localOllamaModelCatalog.models.isEmpty)
+                        }
+                        if store.localOllamaModelCatalog.available {
+                            Text(store.localOllamaModelCatalog.models.isEmpty
+                                ? L10n.text("management.ollamaModelsEmpty", store.language)
+                                : L10n.text("management.ollamaModelsReady", store.language))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        } else if store.localOllamaModelCatalog.status != "not_checked" {
+                            Text(L10n.text(
+                                "management.ollamaModelsStatus.\(store.localOllamaModelCatalog.status)",
+                                store.language
+                            ))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                         Text(L10n.text("management.autoAgentModelHelp", store.language))
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -1517,6 +1559,7 @@ private struct ManagementView: View {
         await store.refreshProviderSecretStatuses()
         await store.refreshSubjectModelRoutes()
         await store.refreshAutoAgentModelRoutes()
+        await store.refreshLocalOllamaModelCatalog()
         await store.refreshFinalSynthesisModelRoute()
         await store.refreshAutoCostPolicy()
         await store.refreshProviderUsage()

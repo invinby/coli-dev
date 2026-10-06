@@ -3386,6 +3386,40 @@ async def get_auto_agent_models(request: Request):
     return _auto_agent_model_payload()
 
 
+@app.get("/settings/ollama/models")
+async def get_installed_ollama_models(request: Request):
+    """List only installed local Ollama model IDs for the loopback Control Center."""
+    _require_local_settings_request(request)
+    if not _is_loopback_http_url(OLLAMA_BASE):
+        return {"available": False, "status": "loopback_required", "models": []}
+    if state.ollama_client is None:
+        return {"available": False, "status": "not_running", "models": []}
+
+    try:
+        response = await state.ollama_client.get(f"{OLLAMA_BASE}/api/tags", timeout=2)
+        if response.status_code != 200:
+            return {"available": False, "status": "unavailable", "models": []}
+        payload = response.json()
+        raw_models = payload.get("models") if isinstance(payload, dict) else None
+        if not isinstance(raw_models, list):
+            return {"available": False, "status": "unavailable", "models": []}
+        models = sorted({
+            item["name"]
+            for item in raw_models
+            if isinstance(item, dict)
+            and _valid_subject_model_id("ollama", item.get("name"))
+        })[:100]
+        return {"available": True, "status": "ready", "models": models}
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:
+        logger.info(
+            "Local Ollama model inventory is unavailable",
+            extra={"error_type": type(exc).__name__},
+        )
+        return {"available": False, "status": "unavailable", "models": []}
+
+
 @app.put("/settings/agent-models/{role}")
 async def save_auto_agent_model(role: str, route: AgentModelRouteRequest, request: Request):
     _require_local_settings_request(request)

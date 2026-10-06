@@ -667,10 +667,12 @@ class TestAutoAgentModelRouting:
                 "/settings/agent-models/critic", json={"model": "qwen3:8b"},
             )
             delete_response = remote_client.delete("/settings/agent-models/critic")
+            ollama_inventory_response = remote_client.get("/settings/ollama/models")
 
         assert get_response.status_code == 403
         assert put_response.status_code == 403
         assert delete_response.status_code == 403
+        assert ollama_inventory_response.status_code == 403
 
     def test_route_settings_reject_untrusted_origin(self):
         with TestClient(app, client=("127.0.0.1", 50000)) as local_client:
@@ -681,6 +683,86 @@ class TestAutoAgentModelRouting:
             )
 
         assert response.status_code == 403
+
+    def test_local_ollama_inventory_returns_only_valid_installed_model_names(
+        self, client, monkeypatch
+    ):
+        ollama_client = MagicMock()
+        response = MagicMock(status_code=200)
+        response.json.return_value = {
+            "models": [
+                {"name": "qwen3:8b", "size": 123456},
+                {"name": "llama3.2:3b"},
+                {"name": "../../invalid"},
+                {"name": None},
+                "not-an-object",
+            ],
+            "server_secret": "must-not-be-forwarded",
+        }
+        ollama_client.get = AsyncMock(return_value=response)
+        ollama_client.aclose = AsyncMock()
+        monkeypatch.setattr(orchestrator.state, "ollama_client", ollama_client)
+
+        inventory = client.get("/settings/ollama/models")
+
+        assert inventory.status_code == 200
+        assert inventory.json() == {
+            "available": True,
+            "status": "ready",
+            "models": ["llama3.2:3b", "qwen3:8b"],
+        }
+        ollama_client.get.assert_awaited_once_with(
+            "http://127.0.0.1:11434/api/tags", timeout=2,
+        )
+
+    def test_local_ollama_inventory_reports_not_running_without_remote_fallback(
+        self, client, monkeypatch
+    ):
+        monkeypatch.setattr(orchestrator.state, "ollama_client", None)
+        inventory = client.get("/settings/ollama/models")
+
+        assert inventory.status_code == 200
+        assert inventory.json() == {
+            "available": False,
+            "status": "not_running",
+            "models": [],
+        }
+
+    def test_local_ollama_inventory_never_queries_a_non_loopback_endpoint(
+        self, client, monkeypatch
+    ):
+        ollama_client = MagicMock()
+        ollama_client.get = AsyncMock()
+        ollama_client.aclose = AsyncMock()
+        monkeypatch.setattr(orchestrator.state, "ollama_client", ollama_client)
+        monkeypatch.setattr(orchestrator, "OLLAMA_BASE", "http://ollama.example:11434")
+
+        inventory = client.get("/settings/ollama/models")
+
+        assert inventory.status_code == 200
+        assert inventory.json() == {
+            "available": False,
+            "status": "loopback_required",
+            "models": [],
+        }
+        ollama_client.get.assert_not_awaited()
+
+    def test_local_ollama_inventory_converts_connection_failures_to_unavailable(
+        self, client, monkeypatch
+    ):
+        ollama_client = MagicMock()
+        ollama_client.get = AsyncMock(side_effect=httpx.ConnectError("offline"))
+        ollama_client.aclose = AsyncMock()
+        monkeypatch.setattr(orchestrator.state, "ollama_client", ollama_client)
+
+        inventory = client.get("/settings/ollama/models")
+
+        assert inventory.status_code == 200
+        assert inventory.json() == {
+            "available": False,
+            "status": "unavailable",
+            "models": [],
+        }
 
     def test_auto_consilium_uses_per_role_ollama_models(self):
         orchestrator.auto_agent_models.set("critic", "qwen3:8b")
