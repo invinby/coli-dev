@@ -429,6 +429,32 @@ def test_programming_variables_lesson_rag_returns_python_docs_source(tmp_path: P
     } in lesson["official_references"]
 
 
+def test_programming_collections_lesson_rag_returns_official_python_tutorial_pages(
+    tmp_path: Path,
+) -> None:
+    project = Path(__file__).resolve().parent.parent
+    index = KnowledgeIndex(project, tmp_path / "knowledge.sqlite3")
+
+    results = index.refresh_and_search(
+        "ordered list append items enumerate index for loop sequence"
+    )
+
+    assert results
+    lesson = next(
+        source for source in results
+        if source["path"] == "02_Areas/Programming/lessons/collections_and_loops.md"
+    )
+    assert lesson["source_checked_at"] == "2026-10-06"
+    assert {
+        "title": "Python Tutorial: Lists and sequences — Python Software Foundation",
+        "url": "https://docs.python.org/3/tutorial/introduction.html",
+    } in lesson["official_references"]
+    assert {
+        "title": "Python Tutorial: for Statements and range — Python Software Foundation",
+        "url": "https://docs.python.org/3/tutorial/controlflow.html",
+    } in lesson["official_references"]
+
+
 def test_bundled_biology_lesson_links_official_genetics_basics(tmp_path: Path) -> None:
     project = Path(__file__).resolve().parent.parent
     index = KnowledgeIndex(project, tmp_path / "knowledge.sqlite3")

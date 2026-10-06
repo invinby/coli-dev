@@ -805,6 +805,8 @@ private struct PracticeLab: View {
             GeneRegulationLab()
         } else if subject == .physics, moduleResource == "work_and_kinetic_energy" {
             KineticEnergyLab()
+        } else if subject == .programming, moduleResource == "collections_and_loops" {
+            CollectionsLoopsLab()
         } else if subject == .programming, moduleResource == "variables_and_types" {
             VariablesTypesLab()
         } else {
@@ -2135,6 +2137,119 @@ private struct VariablesTypesLab: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(.background, in: RoundedRectangle(cornerRadius: 12))
             .accessibilityElement(children: .combine)
+        }
+    }
+}
+
+private struct CollectionsLoopsLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var tasks = ["docs", "tests", "app"]
+    @State private var nextTask = 0
+    @State private var includesIndexes = true
+
+    private let additions = ["build", "review", "ship", "notes", "measure"]
+
+    private var outputLines: [String] {
+        if includesIndexes {
+            return tasks.enumerated().map { "\($0.offset)  \($0.element)" }
+        }
+        return tasks.map { $0 }
+    }
+
+    private var loopCode: String {
+        includesIndexes
+            ? "for index, task in enumerate(tasks):\n    print(index, task)"
+            : "for task in tasks:\n    print(task)"
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.collectionsHelp", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text("tasks = [\(tasks.map { "\"\($0)\"" }.joined(separator: ", "))]")
+                .font(.system(.body, design: .monospaced).weight(.medium))
+                .textSelection(.enabled)
+                .accessibilityLabel(Text(L10n.text("lab.collectionsState", store.language)))
+
+            if tasks.isEmpty {
+                Label(L10n.text("lab.collectionsEmpty", store.language), systemImage: "list.bullet")
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 12))
+            } else {
+                ScrollView(.horizontal) {
+                    HStack(spacing: 10) {
+                        ForEach(tasks.indices, id: \.self) { index in
+                            VStack(alignment: .leading, spacing: 7) {
+                                if includesIndexes {
+                                    Text("[\(index)]")
+                                        .font(.caption.monospacedDigit())
+                                        .foregroundStyle(.secondary)
+                                }
+                                Text(tasks[index])
+                                    .font(.system(.body, design: .monospaced).weight(.semibold))
+                                    .textSelection(.enabled)
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
+                            .background(.background, in: RoundedRectangle(cornerRadius: 12))
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+                .scrollIndicators(.hidden)
+                .accessibilityLabel(Text(L10n.text("lab.collectionsState", store.language)))
+            }
+
+            Picker(L10n.text("lab.collectionsLoop", store.language), selection: $includesIndexes) {
+                Text(L10n.text("lab.collectionsValuesOnly", store.language)).tag(false)
+                Text(L10n.text("lab.collectionsWithIndex", store.language)).tag(true)
+            }
+            .pickerStyle(.segmented)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(loopCode)
+                    .font(.system(.caption, design: .monospaced))
+                    .textSelection(.enabled)
+                Divider()
+                ForEach(outputLines.indices, id: \.self) { index in
+                    Text(outputLines[index])
+                        .font(.system(.callout, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(.background, in: RoundedRectangle(cornerRadius: 12))
+            .accessibilityElement(children: .combine)
+
+            HStack(spacing: 10) {
+                Button {
+                    guard tasks.count < 8 else { return }
+                    tasks.append(additions[nextTask % additions.count])
+                    nextTask += 1
+                } label: {
+                    Label(L10n.text("lab.collectionsAdd", store.language), systemImage: "plus")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(tasks.count >= 8)
+
+                Button {
+                    guard !tasks.isEmpty else { return }
+                    tasks.removeLast()
+                } label: {
+                    Label(L10n.text("lab.collectionsRemove", store.language), systemImage: "minus")
+                }
+                .buttonStyle(.bordered)
+                .disabled(tasks.isEmpty)
+            }
+
+            Text(L10n.text("lab.collectionsCount", store.language) + ": \(tasks.count)")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
         }
     }
 }

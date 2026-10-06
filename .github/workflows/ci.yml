@@ -105,5 +105,6 @@ jobs:
           Biology:dna_genes_and_traits
           Zoology:adaptation_and_behavior
           Programming:conditions_loops_functions
+          Programming:collections_and_loops
           Programming:variables_and_types
           LESSONS
