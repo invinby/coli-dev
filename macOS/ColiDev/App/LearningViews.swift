@@ -1051,6 +1051,8 @@ private struct PracticeLab: View {
     var body: some View {
         if subject == .mathematics, moduleResource == "solving_linear_equations" {
             LinearEquationLab()
+        } else if subject == .mathematics, moduleResource == "geometry_area_perimeter" {
+            GeometryMeasureLab()
         } else if subject == .mathematics, moduleResource == "numbers_fractions_and_percentages" {
             PercentRepresentationLab()
         } else if subject == .mathematics, moduleResource == "domain_and_range" {
@@ -1476,6 +1478,111 @@ private struct AnimalLineageLab: View {
         .frame(maxWidth: .infinity, minHeight: 76)
         .padding(10)
         .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct GeometryMeasureLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var shape = GeometryShape.rectangle
+    @State private var base = 6.0
+    @State private var height = 4.0
+
+    private var measure: GeometryMeasure {
+        GeometryMeasure(base: base, height: height, shape: shape)
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.geometryHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            Picker(L10n.text("lab.geometryShape", store.language), selection: $shape) {
+                Text(L10n.text("lab.geometryRectangle", store.language)).tag(GeometryShape.rectangle)
+                Text(L10n.text("lab.geometryTriangle", store.language)).tag(GeometryShape.rightTriangle)
+            }
+            .pickerStyle(.segmented)
+
+            Canvas { context, size in
+                let inset: CGFloat = 24
+                let availableWidth = max(size.width - 2 * inset, 0)
+                let availableHeight = max(size.height - 2 * inset, 0)
+                guard availableWidth > 0, availableHeight > 0 else { return }
+                let scale = min(availableWidth / CGFloat(base), availableHeight / CGFloat(height))
+                let width = CGFloat(base) * scale
+                let drawnHeight = CGFloat(height) * scale
+                let left = (size.width - width) / 2
+                let bottom = size.height - (size.height - drawnHeight) / 2
+                var path = Path()
+                if shape == .rectangle {
+                    path.addRect(CGRect(x: left, y: bottom - drawnHeight, width: width, height: drawnHeight))
+                } else {
+                    path.move(to: CGPoint(x: left, y: bottom))
+                    path.addLine(to: CGPoint(x: left, y: bottom - drawnHeight))
+                    path.addLine(to: CGPoint(x: left + width, y: bottom))
+                    path.closeSubpath()
+                    var rightAngle = Path()
+                    let mark: CGFloat = min(12, scale * 0.2)
+                    rightAngle.move(to: CGPoint(x: left, y: bottom - mark))
+                    rightAngle.addLine(to: CGPoint(x: left + mark, y: bottom - mark))
+                    rightAngle.addLine(to: CGPoint(x: left + mark, y: bottom))
+                    context.stroke(rightAngle, with: .color(.secondary), lineWidth: 1.5)
+                }
+                context.fill(path, with: .color(Color.accentColor.opacity(0.18)))
+                context.stroke(path, with: .color(.accentColor), lineWidth: 3)
+            }
+            .frame(height: 220)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(L10n.text("lab.geometryDiagram", store.language)))
+            .accessibilityValue(Text("\(L10n.text(shape == .rectangle ? "lab.geometryRectangle" : "lab.geometryTriangle", store.language)); b = \(base, specifier: "%.1f") m; h = \(height, specifier: "%.1f") m"))
+
+            HStack {
+                Text("b = \(base, specifier: "%.1f") m")
+                Spacer()
+                Text("h = \(height, specifier: "%.1f") m")
+            }
+            .font(.callout.monospacedDigit())
+
+            slider("lab.geometryBase", value: $base)
+            slider("lab.geometryHeight", value: $height)
+
+            HStack(spacing: 20) {
+                metric("lab.geometryArea", value: measure.area, unit: "m²")
+                metric("lab.geometryPerimeter", value: measure.perimeter, unit: "m")
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text(L10n.text("lab.geometryScaling", store.language))
+                .font(.callout)
+            Text(L10n.text("lab.geometryLimits", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func slider(_ key: String, value: Binding<Double>) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(L10n.text(key, store.language))
+                Spacer()
+                Text("\(value.wrappedValue, specifier: "%.1f") m")
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+            Slider(value: value, in: 1...10, step: 0.5)
+                .accessibilityLabel(Text(L10n.text(key, store.language)))
+                .accessibilityValue(Text("\(value.wrappedValue, specifier: "%.1f") m"))
+        }
+    }
+
+    private func metric(_ key: String, value: Double, unit: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(L10n.text(key, store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text("\(value, specifier: "%.2f") \(unit)")
+                .font(.title3.monospacedDigit())
+        }
         .accessibilityElement(children: .combine)
     }
 }

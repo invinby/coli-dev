@@ -7,6 +7,7 @@ enum SafeWebReferenceURLVerification {
         precondition(valid?.scheme == "https", "a canonical HTTPS lesson source should be linkable")
         for source in [
             "https://medlineplus.gov/genetics/understanding/basics/dna/",
+            "https://openstax.org/books/prealgebra-2e/pages/9-4-use-properties-of-rectangles-triangles-and-trapezoids",
             "https://www.genome.gov/genetics-glossary/genotype",
             "https://csrc.nist.gov/glossary/term/algorithm",
             "https://www.nist.gov/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b9",

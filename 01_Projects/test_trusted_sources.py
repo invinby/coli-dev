@@ -363,6 +363,10 @@ def test_bundled_lesson_sources_fit_the_bounded_monitor_inventory(tmp_path: Path
 
     assert references
     assert omitted_count == 0
+    assert any(
+        reference.url == "https://openstax.org/books/prealgebra-2e/pages/9-4-use-properties-of-rectangles-triangles-and-trapezoids"
+        for reference in references
+    )
 
 
 @pytest.mark.parametrize(

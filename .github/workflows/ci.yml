@@ -83,6 +83,9 @@ jobs:
           swiftc macOS/ColiDev/App/PercentRepresentation.swift macOS/ColiDev/scripts/verify_percent_representation.swift \
             -o "$RUNNER_TEMP/verify-percent-representation"
           "$RUNNER_TEMP/verify-percent-representation"
+          swiftc macOS/ColiDev/App/GeometryMeasure.swift macOS/ColiDev/scripts/verify_geometry_measure.swift \
+            -o "$RUNNER_TEMP/verify-geometry-measure"
+          "$RUNNER_TEMP/verify-geometry-measure"
 
       - name: Verify programming loop trace model
         run: |
@@ -149,6 +152,7 @@ jobs:
           Mathematics:rates_of_change_and_derivative
           Mathematics:solving_linear_equations
           Mathematics:numbers_fractions_and_percentages
+          Mathematics:geometry_area_perimeter
           English:present_simple_and_continuous
           English:present_perfect_simple_continuous
           English:reading_for_gist_and_detail
