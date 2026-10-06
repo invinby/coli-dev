@@ -10,6 +10,7 @@ enum SafeWebReferenceURLVerification {
             "https://openstax.org/books/prealgebra-2e/pages/9-4-use-properties-of-rectangles-triangles-and-trapezoids",
             "https://openstax.org/books/college-algebra-2e/pages/1-6-rational-expressions",
             "https://openstax.org/books/college-algebra-2e/pages/5-6-rational-functions",
+            "https://openstax.org/books/college-algebra-2e/pages/7-1-systems-of-linear-equations-two-variables",
             "https://docs.python.org/3/library/bisect.html",
             "https://www.genome.gov/genetics-glossary/genotype",
             "https://csrc.nist.gov/glossary/term/algorithm",

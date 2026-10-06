@@ -17,6 +17,7 @@
 | Модуль / Module | Результат обучения / Learning outcome | Урок / Lesson |
 |---|---|---|
 | Полиномы, рациональные выражения и системы / Polynomials, rational expressions, systems | Выбирать преобразование по структуре задачи и объяснять ограничения области определения. / Choose transformations and track domain restrictions. | lesson:rational_expressions_and_restrictions |
+| Системы линейных уравнений / Linear systems | Решать пары уравнений сложением и объяснять случаи одной, нулевой или бесконечного числа общих точек. / Solve pairs by elimination and explain one, zero, or infinitely many intersections. | lesson:systems_of_linear_equations |
 | Тригонометрия и периодические функции / Trigonometry and periodic functions | Использовать единичную окружность, тождества и графики для моделирования периодических процессов. / Use the unit circle, identities, and graphs to model periodic behavior. | |
 | Векторы и линейная алгебра / Vectors and linear algebra | Работать с векторами, матрицами, линейными системами и геометрическим смыслом преобразований. / Relate vectors, matrices, linear systems, and transformations. | |
 | Пределы, производные и интегралы / Limits, derivatives, integrals | Объяснять скорость изменения и накопление, связывая вычисление с графиком и единицами. / Explain rates of change and accumulation using graphs and units. | lesson:rates_of_change_and_derivative |

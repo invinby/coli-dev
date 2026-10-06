@@ -1051,6 +1051,8 @@ private struct PracticeLab: View {
     var body: some View {
         if subject == .mathematics, moduleResource == "solving_linear_equations" {
             LinearEquationLab()
+        } else if subject == .mathematics, moduleResource == "systems_of_linear_equations" {
+            LinearSystemLab()
         } else if subject == .mathematics, moduleResource == "rational_expressions_and_restrictions" {
             RationalExpressionLab()
         } else if subject == .mathematics, moduleResource == "geometry_area_perimeter" {
@@ -5681,6 +5683,107 @@ private struct DebuggingLab: View {
             .buttonStyle(.borderedProminent)
             .disabled(hasChecked)
         }
+    }
+}
+
+private struct LinearSystemLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var scenarioID = LinearSystemPractice.scenarios[0].id
+    @State private var prediction = -1
+    @State private var hasChecked = false
+
+    private var scenario: LinearSystemScenario {
+        LinearSystemPractice.scenario(id: scenarioID)
+    }
+
+    private var equationOne: String {
+        equation(scenario.first.x, scenario.first.y, scenario.first.result)
+    }
+
+    private var equationTwo: String {
+        equation(scenario.second.x, scenario.second.y, scenario.second.result)
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.linearSystemHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Picker(L10n.text("lab.linearSystemScenario", store.language), selection: $scenarioID) {
+                Text(L10n.text("lab.linearSystemUnique", store.language)).tag("unique")
+                Text(L10n.text("lab.linearSystemParallel", store.language)).tag("parallel")
+                Text(L10n.text("lab.linearSystemSameLine", store.language)).tag("same-line")
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: scenarioID) { _ in
+                prediction = -1
+                hasChecked = false
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(equationOne).font(.title3.monospaced())
+                Text(equationTwo).font(.title3.monospaced())
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+
+            Label(L10n.text("lab.linearSystemEliminate", store.language), systemImage: "arrow.down.to.line")
+                .font(.callout.weight(.medium))
+            Text(String(format: L10n.text("lab.linearSystemReduction", store.language), scenario.eliminationResult.x, scenario.eliminationResult.result))
+                .font(.title3.monospaced())
+                .accessibilityLabel(L10n.text("lab.linearSystemReduction", store.language))
+
+            Picker(L10n.text("lab.linearSystemPredict", store.language), selection: $prediction) {
+                Text(L10n.text("lab.linearSystemOne", store.language)).tag(0)
+                Text(L10n.text("lab.linearSystemNone", store.language)).tag(1)
+                Text(L10n.text("lab.linearSystemInfinite", store.language)).tag(2)
+            }
+            .pickerStyle(.segmented)
+
+            Button(L10n.text("lab.linearSystemCheck", store.language)) {
+                hasChecked = true
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(prediction < 0)
+
+            if hasChecked {
+                let correct = LinearSystemPractice.isCorrectPrediction(prediction, for: scenario)
+                Label(
+                    L10n.text(correct ? "lab.linearSystemCorrect" : "lab.linearSystemReview", store.language),
+                    systemImage: correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
+                )
+                .font(.callout.weight(.medium))
+                .foregroundStyle(correct ? .green : .orange)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if hasChecked {
+                Text(outcomeDescription)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var outcomeDescription: String {
+        switch LinearSystemPractice.classify(scenario) {
+        case let .oneSolution(x, y):
+            return String(format: L10n.text("lab.linearSystemOutcomeOne", store.language), x, y)
+        case .noSolution:
+            return L10n.text("lab.linearSystemOutcomeNone", store.language)
+        case .infinitelyManySolutions:
+            return L10n.text("lab.linearSystemOutcomeInfinite", store.language)
+        }
+    }
+
+    private func equation(_ x: Int, _ y: Int, _ result: Int) -> String {
+        let xTerm = x == 1 ? "x" : (x == -1 ? "−x" : "\(x)x")
+        let yMagnitude = abs(y) == 1 ? "y" : "\(abs(y))y"
+        let yTerm = y >= 0 ? " + \(yMagnitude)" : " − \(yMagnitude)"
+        return "\(xTerm)\(yTerm) = \(result)"
     }
 }
 

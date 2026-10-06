@@ -135,6 +135,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-algorithm-complexity"
           "$RUNNER_TEMP/verify-algorithm-complexity"
 
+      - name: Verify linear system practice model
+        run: |
+          swiftc macOS/ColiDev/App/LinearSystemPractice.swift macOS/ColiDev/scripts/verify_linear_system_practice.swift \
+            -o "$RUNNER_TEMP/verify-linear-system-practice"
+          "$RUNNER_TEMP/verify-linear-system-practice"
+
       - name: Verify safe official citation links
         run: |
           swiftc macOS/ColiDev/App/SafeWebReferenceURL.swift macOS/ColiDev/scripts/verify_safe_web_reference_url.swift \
