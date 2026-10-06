@@ -6,7 +6,7 @@
 
 | Модуль / Module | Результат обучения / Learning outcome | Урок / Lesson |
 |---|---|---|
-| Числа, дроби, проценты и единицы / Numbers, fractions, percentages, units | Ученик оценивает порядок величин и уверенно преобразует числа и единицы. / Estimate magnitude and convert numeric forms and units. | |
+| Числа, дроби, проценты и единицы / Numbers, fractions, percentages, units | Ученик оценивает порядок величин, представляет долю разными способами и уверенно преобразует числа и единицы. / Estimate magnitude, represent a part in multiple forms, and convert numeric forms and units. | lesson:numbers_fractions_and_percentages |
 | Алгебраические выражения, уравнения и неравенства / Expressions, equations, inequalities | Преобразовывать выражения и решать линейные и простые квадратные задачи с проверкой ответа. / Transform expressions and solve elementary equations with a check. | lesson:solving_linear_equations |
 | Геометрия и измерение / Geometry and measurement | Связывать определения фигур с доказательством свойств, длиной, площадью и объёмом. / Connect geometric definitions and proofs with measurement. | |
 | Координаты, графики и функции / Coordinates, graphs, functions | Читать график как отношение входа и выхода, строить таблицу и формулу по простому контексту. / Interpret graphs as input-output relationships and model simple contexts. | lesson:functions_as_models |

@@ -75,6 +75,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-linear-equation-model"
           "$RUNNER_TEMP/verify-linear-equation-model"
 
+      - name: Verify fraction and percent representation model
+        run: |
+          swiftc macOS/ColiDev/App/PercentRepresentation.swift macOS/ColiDev/scripts/verify_percent_representation.swift \
+            -o "$RUNNER_TEMP/verify-percent-representation"
+          "$RUNNER_TEMP/verify-percent-representation"
+
       - name: Verify biology experiment and food-web models
         run: |
           swiftc macOS/ColiDev/App/BiologyInvestigation.swift macOS/ColiDev/scripts/verify_biology_investigation.swift \
@@ -127,6 +133,7 @@ jobs:
           Mathematics:domain_and_range
           Mathematics:rates_of_change_and_derivative
           Mathematics:solving_linear_equations
+          Mathematics:numbers_fractions_and_percentages
           English:present_simple_and_continuous
           English:present_perfect_simple_continuous
           English:reading_for_gist_and_detail

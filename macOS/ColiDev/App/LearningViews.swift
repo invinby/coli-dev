@@ -1051,6 +1051,8 @@ private struct PracticeLab: View {
     var body: some View {
         if subject == .mathematics, moduleResource == "solving_linear_equations" {
             LinearEquationLab()
+        } else if subject == .mathematics, moduleResource == "numbers_fractions_and_percentages" {
+            PercentRepresentationLab()
         } else if subject == .mathematics, moduleResource == "domain_and_range" {
             DomainRangeLab()
         } else if subject == .mathematics, moduleResource == "rates_of_change_and_derivative" {
@@ -1469,6 +1471,121 @@ private struct AnimalLineageLab: View {
         .padding(10)
         .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
         .accessibilityElement(children: .combine)
+    }
+}
+
+private struct PercentRepresentationLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var percent = 35.0
+    @State private var whole = 240.0
+    @State private var kilometres = 1.5
+
+    private var representation: PercentRepresentation {
+        PercentRepresentation(percent: Int(percent.rounded()))
+    }
+
+    private var formattedDecimal: String {
+        let locale = Locale(identifier: store.language == .ru ? "ru_RU" : "en_US")
+        return String(format: "%.2f", locale: locale, representation.decimal)
+    }
+
+    private var formattedKilometres: String {
+        String(format: "%.1f", locale: Locale(identifier: store.language == .ru ? "ru_RU" : "en_US"), kilometres)
+    }
+
+    private var formattedMetres: String {
+        String(format: "%.0f", locale: Locale(identifier: store.language == .ru ? "ru_RU" : "en_US"), KilometreConversion(kilometres: kilometres).metres)
+    }
+
+    var body: some View {
+        LabCard {
+            Label(L10n.text("lab.percent.title", store.language), systemImage: "chart.pie.fill")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.orange)
+
+            Text(L10n.text("lab.percent.help", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 8) {
+                Text("\(representation.percent)%")
+                Text("=")
+                Text(representation.fractionDescription)
+                Text("=")
+                Text(formattedDecimal)
+            }
+            .font(.system(size: 22, weight: .semibold, design: .rounded).monospacedDigit())
+            .frame(maxWidth: .infinity, minHeight: 54)
+            .background(Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(L10n.text("lab.percent.representations", store.language)
+                .replacingOccurrences(of: "%1", with: "\(representation.percent)%")
+                .replacingOccurrences(of: "%2", with: representation.fractionDescription)
+                .replacingOccurrences(of: "%3", with: formattedDecimal))
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(L10n.text("lab.percent.share", store.language))
+                    Spacer()
+                    Text("\(representation.percent)%")
+                        .monospacedDigit()
+                }
+                Slider(value: $percent, in: 0...100, step: 1)
+                    .tint(.orange)
+                    .accessibilityLabel(L10n.text("lab.percent.share", store.language))
+            }
+
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.secondary.opacity(0.16))
+                    Capsule()
+                        .fill(Color.orange.gradient)
+                        .frame(width: geometry.size.width * CGFloat(representation.decimal))
+                }
+            }
+            .frame(height: 18)
+            .accessibilityElement()
+            .accessibilityLabel(L10n.text("lab.percent.bar", store.language)
+                .replacingOccurrences(of: "%@", with: "\(representation.percent)%"))
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(L10n.text("lab.percent.whole", store.language))
+                    Spacer()
+                    Text("\(Int(whole))")
+                        .monospacedDigit()
+                }
+                Slider(value: $whole, in: 100...1000, step: 50)
+                    .tint(.orange)
+                    .accessibilityLabel(L10n.text("lab.percent.whole", store.language))
+            }
+
+            Text(String(format: L10n.text("lab.percent.part", store.language), representation.part(of: Int(whole))))
+                .font(.headline.monospacedDigit())
+                .accessibilityElement(children: .combine)
+
+            Divider()
+
+            Text(L10n.text("lab.percent.unitsTitle", store.language))
+                .font(.headline)
+
+            HStack {
+                Text(L10n.text("lab.percent.kilometres", store.language))
+                Spacer()
+                Text(formattedKilometres)
+                    .monospacedDigit()
+            }
+            Slider(value: $kilometres, in: 0...10, step: 0.5)
+                .tint(.teal)
+                .accessibilityLabel(L10n.text("lab.percent.kilometres", store.language))
+
+            Text(L10n.text("lab.percent.unitEquation", store.language)
+                .replacingOccurrences(of: "%1", with: formattedKilometres)
+                .replacingOccurrences(of: "%2", with: formattedMetres))
+                .font(.headline.monospacedDigit())
+                .accessibilityElement(children: .combine)
+        }
     }
 }
 
