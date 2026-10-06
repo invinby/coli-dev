@@ -924,8 +924,18 @@ class TestFinalSynthesisRouting:
         orchestrator.final_synthesis_routes.set("openrouter", model)
         engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient))
         engine._ask_ollama = AsyncMock(side_effect=["Critic", "Verifier"])
-        engine._ask_selected_specialist = AsyncMock(return_value=("Final answer", "openrouter"))
+        engine._ask_selected_specialist = AsyncMock(return_value=("Buffered answer", "openrouter"))
         emitted: list[str] = []
+
+        async def stream_final(message, system_prompt, agent_tag, model, provider="compatible"):
+            assert "Question" in message and "Candidate draft" in message
+            assert agent_tag == "final-synthesis"
+            assert model == "qwen/qwen3-30b-a3b:free"
+            assert provider == "openrouter"
+            yield "Final "
+            yield "answer"
+
+        engine._stream_openai_compatible = stream_final
 
         async def on_chunk(chunk: str) -> None:
             emitted.append(chunk)
@@ -937,13 +947,8 @@ class TestFinalSynthesisRouting:
 
         answer = asyncio.run(run_final())
         assert answer == "Final answer"
-        engine._ask_selected_specialist.assert_awaited_once()
-        args = engine._ask_selected_specialist.await_args.args
-        assert args[0] == "openrouter"
-        assert args[1] == model
-        assert "Question" in args[2] and "Candidate draft" in args[2]
-        assert args[4] == "final-synthesis"
-        assert emitted == ["Final answer"]
+        engine._ask_selected_specialist.assert_not_awaited()
+        assert emitted == ["Final ", "answer"]
         assert engine.completion_provider == "openrouter"
         assert engine.completion_model == f"OpenRouter final: {model}"
 
@@ -956,10 +961,11 @@ class TestFinalSynthesisRouting:
         engine._ask_selected_specialist = AsyncMock(return_value=("Buffered answer", "compatible"))
         emitted: list[str] = []
 
-        async def stream_final(message, system_prompt, agent_tag, model):
+        async def stream_final(message, system_prompt, agent_tag, model, provider="compatible"):
             assert "Question" in message and "Candidate draft" in message
             assert "final-synthesis" == agent_tag
             assert model == "vendor/stream-model"
+            assert provider == "compatible"
             for chunk in ("Streaming ", "answer"):
                 yield chunk
 
@@ -979,6 +985,42 @@ class TestFinalSynthesisRouting:
         engine._ask_selected_specialist.assert_not_awaited()
         assert engine.completion_provider == "compatible"
         assert engine.completion_model == f"Custom API final: {model}"
+
+    def test_selected_final_openrouter_provider_streams_chunks_as_they_arrive(self, monkeypatch):
+        model = orchestrator.OPENROUTER_FREE_MODEL
+        orchestrator.final_synthesis_routes.set("openrouter", model)
+        monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "openrouter-stream-secret")
+        engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient), "en")
+        engine._ask_ollama = AsyncMock(side_effect=["Critical review", "Independent verification"])
+        engine._ask_selected_specialist = AsyncMock(return_value=("Buffered answer", "openrouter"))
+        emitted: list[str] = []
+        streamed_providers: list[str] = []
+
+        async def stream_final(message, system_prompt, agent_tag, model, provider="compatible"):
+            assert "Question" in message and "Candidate draft" in message
+            assert "final-synthesis" == agent_tag
+            assert model == orchestrator.OPENROUTER_FREE_MODEL
+            streamed_providers.append(provider)
+            yield "Streaming "
+            yield "answer"
+
+        engine._stream_openai_compatible = stream_final
+
+        async def on_chunk(chunk: str) -> None:
+            emitted.append(chunk)
+
+        answer = asyncio.run(
+            engine._run_consilium(
+                "Question", "Instructions", "Candidate draft", on_final_chunk=on_chunk
+            )
+        )
+
+        assert answer == "Streaming answer"
+        assert emitted == ["Streaming ", "answer"]
+        assert streamed_providers == ["openrouter"]
+        engine._ask_selected_specialist.assert_not_awaited()
+        assert engine.completion_provider == "openrouter"
+        assert engine.completion_model == f"OpenRouter final: {model}"
 
     def test_failed_final_stream_after_first_chunk_marks_answer_incomplete(self):
         orchestrator.final_synthesis_routes.set("compatible", "vendor/stream-model")
@@ -1453,6 +1495,8 @@ def test_custom_compatible_stream_emits_sse_deltas_and_records_usage(monkeypatch
     orchestrator.openai_compatible_settings.set(
         "https://api.example.com/v1", "vendor/stream-model"
     )
+
+
     monkeypatch.setattr(orchestrator, "_reserve_cloud_model_call", AsyncMock())
     record_usage = AsyncMock()
     monkeypatch.setattr(orchestrator, "_record_provider_usage", record_usage)
@@ -1506,6 +1550,68 @@ def test_custom_compatible_stream_emits_sse_deltas_and_records_usage(monkeypatch
         orchestrator.openai_compatible_usage(
             {"prompt_tokens": 9, "completion_tokens": 4, "total_tokens": 13}
         ),
+    )
+
+
+def test_openrouter_stream_emits_sse_deltas_and_uses_openrouter_budget(monkeypatch):
+    monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "openrouter-stream-secret")
+    monkeypatch.setattr(orchestrator, "_reserve_cloud_model_call", AsyncMock())
+    record_usage = AsyncMock()
+    monkeypatch.setattr(orchestrator, "_record_provider_usage", record_usage)
+    events = [
+        {"model": "openrouter/free", "choices": [{"delta": {"content": "Free "}, "finish_reason": None}]},
+        {"choices": [{"delta": {"content": "answer."}, "finish_reason": "stop"}]},
+    ]
+    body = "".join(f"data: {json.dumps(event)}\n\n" for event in events) + "data: [DONE]\n\n"
+
+    class ChunkedBody(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            encoded = body.encode("utf-8")
+            for offset in range(0, len(encoded), 19):
+                yield encoded[offset:offset + 19]
+
+        async def aclose(self):
+            return None
+
+    async def handle_request(request):
+        payload = json.loads(request.content)
+        assert request.method == "POST"
+        assert request.url == orchestrator.OPENROUTER_URL
+        assert request.headers["Authorization"] == "Bearer openrouter-stream-secret"
+        assert request.headers["Accept"] == "text/event-stream"
+        assert request.headers["HTTP-Referer"] == "https://github.com/invinby/coli-dev"
+        assert request.headers["X-Title"] == "ColiDev"
+        assert payload["model"] == orchestrator.OPENROUTER_FREE_MODEL
+        assert payload["stream"] is True
+        return httpx.Response(200, stream=ChunkedBody())
+
+    async def collect():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handle_request)) as http_client:
+            engine = orchestrator.ConsiliumEngine(http_client, "en")
+            chunks = [
+                chunk
+                async for chunk in engine._stream_openai_compatible(
+                    "Question",
+                    "System",
+                    "final-synthesis",
+                    orchestrator.OPENROUTER_FREE_MODEL,
+                    provider="openrouter",
+                )
+            ]
+            return engine, chunks
+
+    engine, chunks = asyncio.run(collect())
+    assert chunks == ["Free ", "answer."]
+    assert engine.specialist_model_label == orchestrator.OPENROUTER_FREE_MODEL
+    assert engine.openrouter_used
+    orchestrator._reserve_cloud_model_call.assert_awaited_once_with(
+        "openrouter", orchestrator.OPENROUTER_FREE_MODEL
+    )
+    record_usage.assert_awaited_once_with(
+        "openrouter",
+        orchestrator.OPENROUTER_FREE_MODEL,
+        "openai-compatible",
+        orchestrator.openai_compatible_usage(None),
     )
 
 

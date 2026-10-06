@@ -1309,17 +1309,18 @@ class ConsiliumEngine:
                     "final-synthesis",
                     on_final_chunk,
                 )
-        elif on_final_chunk is not None and effective_provider in {"compatible", "ollama"}:
+        elif on_final_chunk is not None and effective_provider in {"compatible", "openrouter", "ollama"}:
             prior_specialist_label = self.specialist_model_label
             self.specialist_model_label = None
             streamed_parts: list[str] = []
             try:
-                if effective_provider == "compatible":
+                if effective_provider in {"compatible", "openrouter"}:
                     chunks = self._stream_openai_compatible(
                         consensus_prompt,
                         self.agent_system(system_prompt),
                         "final-synthesis",
                         model=synthesis_model,
+                        provider=effective_provider,
                     )
                 else:
                     chunks = self._stream_ollama(
@@ -2334,16 +2335,25 @@ class ConsiliumEngine:
         system_prompt: str,
         agent_tag: str,
         model: str,
+        provider: str = "compatible",
     ):
-        """Stream learner-facing deltas from the configured OpenAI-compatible API."""
-        config = openai_compatible_settings.get()
-        if not OPENAI_COMPATIBLE_KEY or not config["base_url"]:
-            raise RuntimeError("Custom API endpoint or key is not configured")
+        """Stream learner-facing deltas from an OpenAI-compatible cloud route."""
+        if provider == "openrouter":
+            base_url = OPENROUTER_URL.removesuffix("/chat/completions")
+            api_key = OPENROUTER_KEY
+        elif provider == "compatible":
+            config = openai_compatible_settings.get()
+            base_url = config["base_url"]
+            api_key = OPENAI_COMPATIBLE_KEY
+        else:
+            raise RuntimeError("Unsupported OpenAI-compatible streaming provider")
+        if not api_key or not base_url:
+            raise RuntimeError("OpenAI-compatible API endpoint or key is not configured")
         selected_model = model.strip()
-        if not _valid_subject_model_id("compatible", selected_model):
-            raise RuntimeError("Custom API model identifier is invalid")
+        if not _valid_subject_model_id(provider, selected_model):
+            raise RuntimeError("OpenAI-compatible model identifier is invalid")
 
-        url = config["base_url"] + "/chat/completions"
+        url = base_url + "/chat/completions"
         payload = {
             "model": selected_model,
             "max_tokens": 2048,
@@ -2403,16 +2413,21 @@ class ConsiliumEngine:
                 yield content
 
         try:
-            if not _is_loopback_http_url(config["base_url"]):
-                await _reserve_cloud_model_call("compatible", selected_model)
+            if provider != "compatible" or not _is_loopback_http_url(base_url):
+                await _reserve_cloud_model_call(provider, selected_model)
             async with self.http.stream(
                 "POST",
                 url,
                 json=payload,
                 headers={
-                    "Authorization": f"Bearer {OPENAI_COMPATIBLE_KEY}",
+                    "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
                     "Accept": "text/event-stream",
+                    **(
+                        {"HTTP-Referer": "https://github.com/invinby/coli-dev", "X-Title": "ColiDev"}
+                        if provider == "openrouter"
+                        else {}
+                    ),
                 },
                 timeout=HTTP_TIMEOUT,
             ) as response:
@@ -2436,8 +2451,10 @@ class ConsiliumEngine:
                 raise RuntimeError("OpenAI-compatible stream ended before completion")
             final_model = reported_model or selected_model
             self.specialist_model_label = " ".join(final_model.split())[:160]
+            if provider == "openrouter":
+                self.openrouter_used = True
             await _record_provider_usage(
-                "compatible",
+                provider,
                 final_model,
                 "openai-compatible",
                 openai_compatible_usage(usage_data),
@@ -2448,22 +2465,32 @@ class ConsiliumEngine:
             raise
         except httpx.TimeoutException:
             logger.warning(
-                "Custom OpenAI-compatible stream timeout",
-                extra={"agent": agent_tag, "model": selected_model},
+                "OpenAI-compatible stream timeout",
+                extra={"agent": agent_tag, "model": selected_model, "provider": provider},
             )
-            raise RuntimeError("Custom API request timed out") from None
+            raise RuntimeError("OpenAI-compatible request timed out") from None
         except httpx.HTTPStatusError as exc:
             logger.warning(
-                "Custom OpenAI-compatible stream HTTP error",
-                extra={"agent": agent_tag, "status": exc.response.status_code, "model": selected_model},
+                "OpenAI-compatible stream HTTP error",
+                extra={
+                    "agent": agent_tag,
+                    "status": exc.response.status_code,
+                    "model": selected_model,
+                    "provider": provider,
+                },
             )
-            raise RuntimeError(f"Custom API HTTP error {exc.response.status_code}") from None
+            raise RuntimeError(f"OpenAI-compatible API HTTP error {exc.response.status_code}") from None
         except Exception as exc:
             logger.warning(
-                "Custom OpenAI-compatible stream failed",
-                extra={"agent": agent_tag, "error_type": type(exc).__name__, "model": selected_model},
+                "OpenAI-compatible stream failed",
+                extra={
+                    "agent": agent_tag,
+                    "error_type": type(exc).__name__,
+                    "model": selected_model,
+                    "provider": provider,
+                },
             )
-            raise RuntimeError("Custom API stream failed") from None
+            raise RuntimeError("OpenAI-compatible stream failed") from None
 
 
     async def _fallback_local(self, message: str, system_prompt: str) -> str:

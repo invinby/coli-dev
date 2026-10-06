@@ -531,3 +531,8 @@ XGENT не смешивать с ColiDev. В этой сессии обновл�
 ### Архивы тестовых macOS-сборок — 2026-10-06
 
 - Для успешных push в `main` CI упаковывает `.app` в ZIP с сохранением структуры macOS bundle и выгружает два отдельных архитектурных артефакта (`arm64`, `x86_64`) на 14 дней. GitHub Actions [run 37414387553](https://github.com/invinby/coli-dev/actions/runs/37414387553) прошёл backend checks, обе сборки, runtime packaging, smoke tests, curriculum checks и upload обоих ZIP (около 20–21 MB каждый). Это неподписанная тестовая сборка, не финальный установщик; реальное открытие и UX всё равно проверяются на Mac вручную.
+
+### Потоковый финал OpenRouter — 2026-10-06
+
+- Финальный Auto-маршрут OpenRouter использует общий OpenAI-compatible SSE parser (`stream: true`), но выбирает OpenRouter URL, ключ, model ID, budget bucket и usage category. Сообщаются только текстовые чанки финальной роли; API key и промежуточные агентские ответы UI не получает.
+- Добавлены проверки финального выбора OpenRouter и реального chunked SSE parsing с model ID, заголовками, cloud budget и usage. Focused tests прошли: 4 passed; полный backend suite: 181 passed, одно прежнее Starlette/httpx предупреждение; Ruff, compileall и git diff --check прошли. Свежий GitHub CI ожидается после push; live OpenRouter вызов и ручной UX на Mac не выполнены.
