@@ -87,6 +87,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-loop-trace"
           "$RUNNER_TEMP/verify-loop-trace"
 
+      - name: Verify programming file-reading practice model
+        run: |
+          swiftc macOS/ColiDev/App/FileReadingPractice.swift macOS/ColiDev/scripts/verify_file_reading_practice.swift \
+            -o "$RUNNER_TEMP/verify-file-reading-practice"
+          "$RUNNER_TEMP/verify-file-reading-practice"
+
       - name: Verify biology experiment and food-web models
         run: |
           swiftc macOS/ColiDev/App/BiologyInvestigation.swift macOS/ColiDev/scripts/verify_biology_investigation.swift \
@@ -168,6 +174,7 @@ jobs:
           Zoology:comparative_gas_exchange_and_circulation
           Programming:computational_thinking
           Programming:conditions_loops_functions
+          Programming:strings_files_and_exceptions
           Programming:collections_and_loops
           Programming:variables_and_types
           LESSONS

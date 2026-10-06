@@ -10,7 +10,7 @@
 | Переменные, типы, выражения, ввод и вывод / Variables, types, expressions, input/output | Объяснять состояние программы и предсказывать результат простого кода. / Track program state and predict simple execution. | lesson:variables_and_types |
 | Условия, циклы и функции / Conditionals, loops, functions | Выбирать управляющую конструкцию, разбивать логику на именованные функции и проверять крайние случаи. / Structure logic and test edge cases. | lesson:conditions_loops_functions |
 | Коллекции, индексы и обход последовательностей / Collections, indexes, and iteration | Изменять упорядоченный список и предсказывать обход значений или пар «индекс — значение». / Mutate an ordered list and predict value-only or index–value iteration. | lesson:collections_and_loops
-| Строки, файлы и исключения / Strings, files, and exceptions | Преобразовывать данные и корректно обрабатывать ошибочный ввод и сбои. / Transform data and handle invalid input and failures. |
+| Строки, файлы и исключения / Strings, files, and exceptions | Преобразовывать данные, безопасно читать текст и обрабатывать ожидаемые ошибки ввода и доступа. / Transform data, read text safely, and handle expected input and access failures. | lesson:strings_files_and_exceptions |
 | Отладка, тесты и Git / Debugging, tests, version control | Воспроизводить дефект, читать stack trace, писать проверку и фиксировать изменение в Git. / Reproduce a bug, inspect traces, test, and track changes. |
 
 ## Углубление / Intermediate

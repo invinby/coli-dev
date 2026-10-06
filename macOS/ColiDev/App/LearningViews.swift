@@ -1101,6 +1101,8 @@ private struct PracticeLab: View {
             CollectionsLoopsLab()
         } else if subject == .programming, moduleResource == "conditions_loops_functions" {
             LoopTraceLab()
+        } else if subject == .programming, moduleResource == "strings_files_and_exceptions" {
+            FileReadingLab()
         } else if subject == .programming, moduleResource == "variables_and_types" {
             VariablesTypesLab()
         } else if subject == .programming, moduleResource == "computational_thinking" {
@@ -5004,6 +5006,98 @@ private struct AlgorithmicThinkingLab: View {
         case "compare": "lab.algorithmCompare"
         case "otherwise": "lab.algorithmOtherwise"
         default: "lab.algorithmDisplay"
+        }
+    }
+}
+
+private struct FileReadingLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var scenarioID = FileReadingPractice.scenarios[0].id
+    @State private var selectedOutcome: FileReadingOutcome?
+    @State private var hasCheckedAnswer = false
+
+    private var scenario: FileReadingScenario {
+        FileReadingPractice.scenario(id: scenarioID) ?? FileReadingPractice.scenarios[0]
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.fileTrace.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Picker(L10n.text("lab.fileTrace.scenario", store.language), selection: $scenarioID) {
+                ForEach(FileReadingPractice.scenarios) { item in
+                    Text(L10n.text("lab.fileTrace.scenario.\(item.id)", store.language)).tag(item.id)
+                }
+            }
+            .pickerStyle(.menu)
+            .onChange(of: scenarioID) { _ in
+                selectedOutcome = nil
+                hasCheckedAnswer = false
+            }
+
+            Text("""
+            with path.open("r", encoding="utf-8") as file:
+                total = sum(int(line.strip()) for line in file if line.strip())
+            """)
+            .font(.system(.callout, design: .monospaced))
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(.background, in: RoundedRectangle(cornerRadius: 12))
+            .accessibilityLabel(Text(L10n.text("lab.fileTrace.code", store.language)))
+
+            Text(L10n.text("lab.fileTrace.question", store.language))
+                .font(.headline)
+                .fixedSize(horizontal: false, vertical: true)
+
+            ForEach(FileReadingPractice.outcomes, id: \.self) { outcome in
+                Button {
+                    guard !hasCheckedAnswer else { return }
+                    selectedOutcome = outcome
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: selectedOutcome == outcome ? "largecircle.fill.circle" : "circle")
+                        Text(L10n.text(outcome.localizationKey, store.language))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(10)
+                    .background(
+                        selectedOutcome == outcome ? Color.accentColor.opacity(0.12) : Color.secondary.opacity(0.06),
+                        in: RoundedRectangle(cornerRadius: 10)
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(hasCheckedAnswer)
+                .accessibilityAddTraits(selectedOutcome == outcome ? .isSelected : [])
+            }
+
+            if hasCheckedAnswer {
+                let correct = selectedOutcome.map { FileReadingPractice.isCorrect($0, for: scenarioID) } ?? false
+                Label(
+                    L10n.text(correct ? "lab.fileTrace.correct" : "lab.fileTrace.incorrect", store.language),
+                    systemImage: correct ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
+                )
+                .foregroundStyle(correct ? Color.green : Color.orange)
+
+                Label(
+                    L10n.text(scenario.explanationKey, store.language),
+                    systemImage: "info.circle"
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button {
+                hasCheckedAnswer = true
+            } label: {
+                Label(L10n.text("lab.fileTrace.check", store.language), systemImage: "checkmark")
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(selectedOutcome == nil || hasCheckedAnswer)
         }
     }
 }
