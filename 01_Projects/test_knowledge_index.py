@@ -527,7 +527,13 @@ def test_curriculum_lesson_links_resolve_to_bilingual_module_files() -> None:
     for curriculum in areas.glob("*/curriculum.md"):
         subject = curriculum.parent.name
         content = curriculum.read_text(encoding="utf-8")
-        resources = re.findall(r"\|\s*lesson:([a-z0-9_-]+)\s*\|", content)
+        resources = []
+        for line in content.splitlines():
+            if not line.strip().startswith("|"):
+                continue
+            columns = [column.strip() for column in line.strip().strip("|").split("|")]
+            if len(columns) >= 3 and columns[2].startswith("lesson:"):
+                resources.append(columns[2].removeprefix("lesson:"))
         assert resources, f"{curriculum.relative_to(project)} has no linked lesson"
 
         for resource in resources:

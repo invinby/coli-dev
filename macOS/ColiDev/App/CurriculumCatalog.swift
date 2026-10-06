@@ -24,7 +24,57 @@ struct CurriculumLevel: Identifiable {
     var id: String { title.english }
 }
 
+struct CurriculumLevelCoverage: Identifiable {
+    let level: CurriculumText
+    let topicCount: Int
+    let linkedLessonCount: Int
+
+    var id: String { level.english }
+}
+
+struct SubjectCurriculumCoverage: Identifiable {
+    let subject: Subject
+    let levels: [CurriculumLevelCoverage]
+    let bundledLessonCount: Int
+    let bilingualLessonCount: Int
+    let sourceCitedLessonCount: Int
+
+    var topicCount: Int { levels.reduce(0) { $0 + $1.topicCount } }
+    var linkedLessonCount: Int { levels.reduce(0) { $0 + $1.linkedLessonCount } }
+    var id: String { subject.rawValue }
+}
+
 enum CurriculumCatalog {
+    static func coverage(for subject: Subject) -> SubjectCurriculumCoverage {
+        let levels = roadmap(for: subject)
+        let lessonFiles = lessonFiles(for: subject)
+        let lessonContents = lessonFiles.compactMap { url -> (String, String)? in
+            guard let contents = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+            return (url.deletingPathExtension().lastPathComponent, contents)
+        }
+        let bundledResources = Set(lessonContents.map(\.0))
+        let levelCoverage = levels.map { level in
+            let linked = level.topics.filter { topic in
+                guard let resource = topic.lessonResource,
+                      bundledResources.contains(resource),
+                      let content = lessonContents.first(where: { $0.0 == resource })?.1 else { return false }
+                return hasBilingualAssessment(content)
+            }.count
+            return CurriculumLevelCoverage(
+                level: level.title,
+                topicCount: level.topics.count,
+                linkedLessonCount: linked
+            )
+        }
+        return SubjectCurriculumCoverage(
+            subject: subject,
+            levels: levelCoverage,
+            bundledLessonCount: lessonContents.count,
+            bilingualLessonCount: lessonContents.filter { hasBilingualAssessment($0.1) }.count,
+            sourceCitedLessonCount: lessonContents.filter { hasLinkedSource($0.1) }.count
+        )
+    }
+
     static func roadmap(for subject: Subject) -> [CurriculumLevel] {
         guard
             let resourcesURL = Bundle.main.resourceURL,
@@ -40,14 +90,45 @@ enum CurriculumCatalog {
 
     static func lessonMarkdown(for subject: Subject, resource: String) -> String? {
         guard resource.range(of: "^[a-z0-9_-]{1,80}$", options: .regularExpression) != nil,
-              let resourcesURL = Bundle.main.resourceURL else { return nil }
-        let lessonURL = resourcesURL
+              let lessonURL = lessonFiles(for: subject).first(where: {
+                  $0.deletingPathExtension().lastPathComponent == resource
+              }) else { return nil }
+        return try? String(contentsOf: lessonURL, encoding: .utf8)
+    }
+
+    private static func lessonFiles(for subject: Subject) -> [URL] {
+        guard let resourcesURL = Bundle.main.resourceURL else { return [] }
+        let lessonsURL = resourcesURL
             .appendingPathComponent("02_Areas", isDirectory: true)
             .appendingPathComponent(subject.rawValue.capitalized, isDirectory: true)
             .appendingPathComponent("lessons", isDirectory: true)
-            .appendingPathComponent(resource)
-            .appendingPathExtension("md")
-        return try? String(contentsOf: lessonURL, encoding: .utf8)
+        return (try? FileManager.default.contentsOfDirectory(
+            at: lessonsURL,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ))?.filter { $0.pathExtension.caseInsensitiveCompare("md") == .orderedSame }
+            .sorted { $0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent) == .orderedAscending }
+            ?? []
+    }
+
+    private static func hasBilingualAssessment(_ markdown: String) -> Bool {
+        let normalized = markdown.replacingOccurrences(of: "\r\n", with: "\n")
+        return normalized.contains("## Русский")
+            && normalized.contains("## English")
+            && normalized.contains("### Вопрос")
+            && normalized.contains("### Варианты")
+            && normalized.contains("### Ответ")
+            && normalized.contains("### Разбор")
+            && normalized.contains("### Question")
+            && normalized.contains("### Options")
+            && normalized.contains("### Answer")
+            && normalized.contains("### Explanation")
+    }
+
+    private static func hasLinkedSource(_ markdown: String) -> Bool {
+        guard let sourceSection = markdown.range(of: "## Sources") else { return false }
+        let sources = markdown[sourceSection.upperBound...]
+        return sources.contains("https://")
     }
 
     private static func parse(_ markdown: String) -> [CurriculumLevel] {

@@ -546,6 +546,7 @@ private struct ProviderKeyEntryView: View {
 
 private enum ManagementPane: String, CaseIterable, Identifiable {
     case overview
+    case courses
     case sources
     case integrations
 
@@ -554,6 +555,7 @@ private enum ManagementPane: String, CaseIterable, Identifiable {
     var titleKey: String {
         switch self {
         case .overview: return "management.overview"
+        case .courses: return "management.courses"
         case .sources: return "management.sources"
         case .integrations: return "management.integrations"
         }
@@ -659,6 +661,8 @@ private struct ManagementView: View {
             switch pane {
             case .overview:
                 overviewPane
+            case .courses:
+                coursesPane
             case .sources:
                 sourcesPane
             case .integrations:
@@ -891,6 +895,90 @@ private struct ManagementView: View {
                         .padding(.top, 6)
                     }
                 }
+            }
+            .padding(.bottom, 18)
+        }
+    }
+
+    private var coursesPane: some View {
+        let coverage = Subject.allCases.map { CurriculumCatalog.coverage(for: $0) }
+        let totalLessons = coverage.reduce(0) { $0 + $1.bundledLessonCount }
+        let bilingualLessons = coverage.reduce(0) { $0 + $1.bilingualLessonCount }
+        let sourceCitedLessons = coverage.reduce(0) { $0 + $1.sourceCitedLessonCount }
+
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(L10n.text("management.coursesDescription", store.language))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                LazyVGrid(columns: metricColumns, alignment: .leading, spacing: 12) {
+                    metric(
+                        title: L10n.text("management.courseFiles", store.language),
+                        value: String(totalLessons),
+                        symbol: "books.vertical",
+                        tint: .accentColor
+                    )
+                    metric(
+                        title: L10n.text("management.courseBilingual", store.language),
+                        value: "\(bilingualLessons) / \(totalLessons)",
+                        symbol: "character.bubble",
+                        tint: bilingualLessons == totalLessons ? .green : .orange
+                    )
+                    metric(
+                        title: L10n.text("management.courseWithSources", store.language),
+                        value: "\(sourceCitedLessons) / \(totalLessons)",
+                        symbol: "link",
+                        tint: sourceCitedLessons == totalLessons ? .green : .orange
+                    )
+                }
+
+                ForEach(coverage) { subjectCoverage in
+                    GroupBox {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack(spacing: 10) {
+                                Image(systemName: subjectCoverage.subject.symbol)
+                                    .foregroundStyle(subjectCoverage.subject.tint)
+                                    .frame(width: 22)
+                                Text(subjectCoverage.subject.title(in: store.language))
+                                    .font(.headline)
+                                Spacer()
+                                Text(String(
+                                    format: L10n.text("management.courseSubjectSummary", store.language),
+                                    subjectCoverage.bilingualLessonCount,
+                                    subjectCoverage.bundledLessonCount,
+                                    subjectCoverage.topicCount
+                                ))
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                            }
+
+                            ForEach(subjectCoverage.levels) { level in
+                                HStack {
+                                    Text(level.level.value(in: store.language))
+                                        .frame(minWidth: 105, alignment: .leading)
+                                    Spacer()
+                                    Text(String(
+                                        format: L10n.text("management.courseLevelSummary", store.language),
+                                        level.linkedLessonCount,
+                                        level.topicCount
+                                    ))
+                                    .font(.callout.monospacedDigit())
+                                    .foregroundStyle(level.linkedLessonCount == level.topicCount ? Color.green : Color.secondary)
+                                }
+                                .font(.subheadline)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 5)
+                    }
+                }
+
+                Label(L10n.text("management.courseCoverageCaveat", store.language), systemImage: "info.circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.bottom, 18)
         }
