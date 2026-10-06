@@ -1097,6 +1097,8 @@ private struct PracticeLab: View {
             NaturalSelectionLab()
         } else if subject == .zoology, moduleResource == "animal_function_and_environment" {
             AnimalFunctionLab()
+        } else if subject == .zoology, moduleResource == "thermoregulation_and_heat_exchange" {
+            ThermoregulationLab()
         } else if subject == .biology, moduleResource == "cell_cycle_and_differentiation" {
             CellCycleLab()
         } else if subject == .biology, moduleResource == "ecosystem_energy_flow" {
@@ -4528,6 +4530,110 @@ private struct CellCycleLab: View {
         let nextIndex = index + offset
         guard CellCycleStage.allCases.indices.contains(nextIndex) else { return }
         selectedStage = CellCycleStage.allCases[nextIndex]
+    }
+}
+
+private struct ThermoregulationLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var selectedAnimal: ThermalAnimalMode = .ectotherm
+    @State private var selectedEnvironment: ThermalEnvironment = .cool
+    @State private var selectedResponse: ThermoregulatoryResponse?
+    @State private var didCheck = false
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.zoology.thermal.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(L10n.text("lab.zoology.thermal.modeTitle", store.language))
+                    .font(.headline)
+                Picker(L10n.text("lab.zoology.thermal.modeTitle", store.language), selection: $selectedAnimal) {
+                    ForEach(ThermalAnimalMode.allCases) { animal in
+                        Text(L10n.text(animal.titleKey, store.language)).tag(animal)
+                    }
+                }
+                .pickerStyle(.segmented)
+                Text(L10n.text(selectedAnimal.heatSourceKey, store.language))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(L10n.text("lab.zoology.thermal.environmentTitle", store.language))
+                    .font(.headline)
+                Picker(L10n.text("lab.zoology.thermal.environmentTitle", store.language), selection: $selectedEnvironment) {
+                    ForEach(ThermalEnvironment.allCases) { environment in
+                        Text(L10n.text(environment.titleKey, store.language)).tag(environment)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+
+            Label(
+                L10n.text(selectedAnimal == .ectotherm ? "lab.zoology.thermal.icon.ectotherm" : "lab.zoology.thermal.icon.endotherm", store.language),
+                systemImage: selectedAnimal == .ectotherm ? "sun.max" : "thermometer.medium"
+            )
+            .font(.callout.weight(.medium))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            .accessibilityElement(children: .combine)
+
+            Text(L10n.text("lab.zoology.thermal.responseTitle", store.language))
+                .font(.headline)
+            Picker(L10n.text("lab.zoology.thermal.responseTitle", store.language), selection: $selectedResponse) {
+                Text(L10n.text("lab.zoology.thermal.chooseResponse", store.language)).tag(nil as ThermoregulatoryResponse?)
+                ForEach(ThermoregulatoryResponse.allCases) { response in
+                    Text(L10n.text(response.titleKey, store.language)).tag(response as ThermoregulatoryResponse?)
+                }
+            }
+            .pickerStyle(.menu)
+            .onChange(of: selectedResponse) { _ in didCheck = false }
+
+            Button(L10n.text("lab.zoology.thermal.check", store.language)) {
+                didCheck = true
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(selectedResponse == nil)
+
+            if didCheck, let selectedResponse {
+                let correct = ThermoregulationModel.isCorrect(
+                    selectedAnimal,
+                    environment: selectedEnvironment,
+                    response: selectedResponse
+                )
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(
+                        L10n.text(correct ? "lab.zoology.thermal.correct" : "lab.zoology.thermal.review", store.language),
+                        systemImage: correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
+                    )
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(correct ? .green : .orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                    Text(L10n.text(ThermoregulationModel.recommendedResponse(for: selectedAnimal, in: selectedEnvironment).explanationKey, store.language))
+                        .font(.callout)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            }
+
+            Text(L10n.text("lab.zoology.thermal.limit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .onChange(of: selectedAnimal) { _ in resetPrediction() }
+        .onChange(of: selectedEnvironment) { _ in resetPrediction() }
+    }
+
+    private func resetPrediction() {
+        selectedResponse = nil
+        didCheck = false
     }
 }
 

@@ -670,6 +670,41 @@ def test_zoology_animal_function_foundations_lesson_is_linked() -> None:
     assert "### Limits and safe execution" in content
 
 
+def test_zoology_thermoregulation_intermediate_lesson_is_linked() -> None:
+    project = Path(__file__).resolve().parent.parent
+    curriculum = (project / "02_Areas/Zoology/curriculum.md").read_text(encoding="utf-8")
+    lesson = project / "02_Areas/Zoology/lessons/thermoregulation_and_heat_exchange.md"
+
+    assert "lesson:thermoregulation_and_heat_exchange" in curriculum
+    assert lesson.is_file()
+    content = lesson.read_text(encoding="utf-8")
+    assert "lesson_id: zoology.thermoregulation_and_heat_exchange" in content
+    assert "level: intermediate" in content
+    assert "languages: ru, en" in content
+    assert "### Границы модели" in content
+    assert "### Limits and safe execution" in content
+    assert "https://openstax.org/books/biology-2e/pages/33-3-homeostasis" in content
+
+
+def test_zoology_thermoregulation_trainer_has_bilingual_choices() -> None:
+    project = Path(__file__).resolve().parent.parent
+    localization = (project / "macOS/ColiDev/App/L10n.swift").read_text(encoding="utf-8")
+
+    for key in (
+        "lab.zoology.thermal.mode.ectotherm",
+        "lab.zoology.thermal.mode.endotherm",
+        "lab.zoology.thermal.environment.cool",
+        "lab.zoology.thermal.environment.mild",
+        "lab.zoology.thermal.environment.hot",
+        "lab.zoology.thermal.response.externalHeat",
+        "lab.zoology.thermal.response.coolerMicrohabitat",
+        "lab.zoology.thermal.response.conserveHeat",
+        "lab.zoology.thermal.response.dissipateHeat",
+        "lab.zoology.thermal.response.observe",
+    ):
+        assert f'"{key}"' in localization, f"Missing RU/EN localization for {key}"
+
+
 def test_zoology_function_trainer_has_all_bilingual_labels() -> None:
     project = Path(__file__).resolve().parent.parent
     localization = (project / "macOS/ColiDev/App/L10n.swift").read_text(encoding="utf-8")

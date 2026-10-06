@@ -135,6 +135,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-animal-function-practice"
           "$RUNNER_TEMP/verify-animal-function-practice"
 
+      - name: Verify thermoregulation practice model
+        run: |
+          swiftc macOS/ColiDev/App/Thermoregulation.swift macOS/ColiDev/scripts/verify_thermoregulation.swift \
+            -o "$RUNNER_TEMP/verify-thermoregulation"
+          "$RUNNER_TEMP/verify-thermoregulation"
+
       - name: Verify English conditional practice model
         run: |
           swiftc macOS/ColiDev/App/EnglishLearningModels.swift macOS/ColiDev/scripts/verify_english_learning_models.swift \
@@ -228,6 +234,7 @@ jobs:
           Zoology:major_animal_lineages
           Zoology:symmetry_and_body_plans
           Zoology:comparative_gas_exchange_and_circulation
+          Zoology:thermoregulation_and_heat_exchange
           Programming:computational_thinking
           Programming:conditions_loops_functions
           Programming:strings_files_and_exceptions
