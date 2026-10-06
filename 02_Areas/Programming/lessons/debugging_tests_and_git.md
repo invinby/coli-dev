@@ -119,7 +119,7 @@ The last traceback line says `NameError: name 'totel' is not defined`; above it 
 
 The code defines `total` but reads `totel`. `NameError` means the name is not defined in the current scope. Re-run the reproducible case to verify the correction.
 
-### Limits and safety
+### Limits and safe execution
 
 One error can hide another. Fixing one case does not prove the entire program correct; test the requirement, boundaries, and regressions. The exception text and traceback line may show where a problem surfaced rather than its original cause. Git records change history but does not prove that code is correct.
 
