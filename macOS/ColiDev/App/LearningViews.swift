@@ -111,6 +111,7 @@ struct SubjectOverviewView: View {
 
 private struct CurriculumLessonDocument {
     let title: String
+    let sourceCheckedOn: String?
     let objective: String
     let theory: String
     let practice: String
@@ -123,6 +124,11 @@ private struct CurriculumLessonDocument {
 
     static func load(subject: Subject, resource: String, language: AppLanguage) -> CurriculumLessonDocument? {
         guard let raw = CurriculumCatalog.lessonMarkdown(for: subject, resource: resource) else { return nil }
+        let sourceCheckedOn = raw.components(separatedBy: .newlines)
+            .first(where: { $0.trimmingCharacters(in: .whitespaces).hasPrefix("source_checked:") })?
+            .split(separator: ":", maxSplits: 1)
+            .last
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "\"'")) }
         var lines = raw.components(separatedBy: .newlines)
         if lines.first?.trimmingCharacters(in: .whitespaces) == "---",
            let end = lines.dropFirst().firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == "---" }) {
@@ -157,6 +163,7 @@ private struct CurriculumLessonDocument {
         let sources = sourceLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
         return CurriculumLessonDocument(
             title: title,
+            sourceCheckedOn: sourceCheckedOn,
             objective: objective,
             theory: theory,
             practice: practice,
@@ -259,6 +266,9 @@ struct CurriculumModuleView: View {
     @State private var reflection = ""
     @State private var recallQuality = 4
     @State private var selectedCheckAnswer: Int?
+    @State private var sourceInventory: TrustedSourceInventory?
+    @State private var sourceInventoryUnavailable = false
+    @State private var isLoadingSourceInventory = false
     @State private var isExportingNotebookSource = false
     @State private var notebookExportDocument: NotebookLMSourceFile?
     @State private var notebookExportFilename = "ColiDev-lesson.md"
@@ -291,6 +301,16 @@ struct CurriculumModuleView: View {
                             .foregroundStyle(.secondary)
                     }
                     .padding(.top, 24)
+
+                    LessonSourceFreshnessCard(
+                        inventory: sourceInventory,
+                        unavailable: sourceInventoryUnavailable,
+                        isLoading: isLoadingSourceInventory,
+                        lessonPath: "02_Areas/\(subject.rawValue.capitalized)/lessons/\(resource).md",
+                        authorCheckedOn: document.sourceCheckedOn,
+                        language: store.language,
+                        onRetry: { Task { await loadSourceInventory() } }
+                    )
 
                     Button { showingTutor = true } label: {
                         Label(L10n.text("tutor.title", store.language), systemImage: "sparkles")
@@ -481,6 +501,7 @@ struct CurriculumModuleView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .navigationTitle(Text(document?.title ?? L10n.text("module.title", store.language)))
         .onAppear { loadDocument() }
+        .task(id: lessonID) { await loadSourceInventory() }
         .onChange(of: store.language) { _ in loadDocument() }
         .onChange(of: store.studyProgress[lessonID]?.reflection) { savedReflection in
             if reflection.isEmpty, let savedReflection {
@@ -524,6 +545,19 @@ struct CurriculumModuleView: View {
         }
     }
 
+    @MainActor
+    private func loadSourceInventory() async {
+        isLoadingSourceInventory = true
+        defer { isLoadingSourceInventory = false }
+        sourceInventoryUnavailable = false
+        do {
+            sourceInventory = try await OrchestratorClient.trustedSourceInventory()
+        } catch {
+            sourceInventory = nil
+            sourceInventoryUnavailable = true
+        }
+    }
+
     private func saveLessonToObsidian() {
         guard let document, !isSavingObsidianNote else { return }
         let timestampFormatter = DateFormatter()
@@ -549,6 +583,170 @@ struct CurriculumModuleView: View {
                 obsidianSaveStatus = L10n.text("module.obsidianSaveFailed", store.language)
             }
         }
+    }
+}
+
+private struct LessonSourceFreshnessCard: View {
+    let inventory: TrustedSourceInventory?
+    let unavailable: Bool
+    let isLoading: Bool
+    let lessonPath: String
+    let authorCheckedOn: String?
+    let language: AppLanguage
+    let onRetry: () -> Void
+
+    private var matchingSources: [TrustedSourceInventoryItem] {
+        let target = lessonPath.lowercased()
+        return (inventory?.sources ?? []).filter { source in
+            (source.lessonPaths ?? [source.lessonPath]).contains { $0.lowercased() == target }
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Label(L10n.text("module.sourceStatusTitle", language), systemImage: "checkmark.icloud")
+                .font(.headline)
+
+            if let authorCheckedOn {
+                Text(String(format: L10n.text("module.sourceAuthorDate", language), authorCheckedOn))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text(L10n.text("module.sourceAuthorDateMissing", language))
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+
+            if unavailable {
+                HStack {
+                    Label(L10n.text("module.sourceMonitorUnavailable", language), systemImage: "wifi.slash")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 8)
+                    Button(action: onRetry) {
+                        if isLoading {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Label(L10n.text("management.retry", language), systemImage: "arrow.clockwise")
+                        }
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(isLoading)
+                }
+            } else if inventory != nil, matchingSources.isEmpty {
+                Label(L10n.text("module.sourceNotMonitored", language), systemImage: "link")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else if inventory != nil {
+                ForEach(matchingSources) { source in
+                    VStack(alignment: .leading, spacing: 3) {
+                        Label(
+                            L10n.text(sourceStateKey(source.state), language),
+                            systemImage: sourceStateSymbol(source.state)
+                        )
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(sourceStateColor(source.state))
+
+                        Text(source.title)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+
+                        if let checkedAt = source.contentCheckedAt ?? source.lastCheckedAt {
+                            Text(String(format: L10n.text("module.sourceLastChecked", language), formatDate(checkedAt)))
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+
+                        if let review = source.lessonReviews?.first(where: {
+                            $0.lessonPath.lowercased() == lessonPath.lowercased()
+                        }) {
+                            Label(
+                                L10n.text(editorialStatusKey(review.editorialReviewStatus), language),
+                                systemImage: editorialStatusSymbol(review.editorialReviewStatus)
+                            )
+                            .font(.caption2)
+                            .foregroundStyle(editorialStatusColor(review.editorialReviewStatus))
+                        }
+                    }
+                    .padding(.top, 3)
+                }
+            } else if isLoading {
+                ProgressView(L10n.text("module.sourceStatusLoading", language))
+                    .controlSize(.small)
+            }
+
+            Text(L10n.text("module.sourceStatusCaveat", language))
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.secondary.opacity(0.055), in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func sourceStateKey(_ state: String) -> String {
+        switch state {
+        case "not_checked": return "management.sourceNotChecked"
+        case "available_untracked": return "management.sourceAvailable"
+        case "content_baseline": return "management.sourceContentBaseline"
+        case "unchanged": return "management.sourceUnchanged"
+        case "changed": return "management.sourceChanged"
+        case "content_unavailable": return "management.sourceContentUnavailable"
+        case "content_too_large": return "management.sourceContentTooLarge"
+        case "unsupported_content_type": return "management.sourceUnsupportedContent"
+        case "redirect_review": return "management.sourceRedirect"
+        case "unexpected_not_modified": return "management.sourceUnexpected304"
+        case "unavailable": return "management.sourceUnavailable"
+        case "network_error": return "management.sourceNetworkError"
+        default: return "management.sourceUnknown"
+        }
+    }
+
+    private func sourceStateSymbol(_ state: String) -> String {
+        switch state {
+        case "changed", "content_baseline", "content_unavailable", "content_too_large",
+             "unsupported_content_type", "redirect_review", "unexpected_not_modified",
+             "unavailable", "network_error": return "exclamationmark.triangle.fill"
+        case "unchanged": return "checkmark.circle"
+        case "available_untracked": return "questionmark.circle"
+        default: return "clock"
+        }
+    }
+
+    private func sourceStateColor(_ state: String) -> Color {
+        switch state {
+        case "changed", "content_baseline", "content_unavailable", "content_too_large",
+             "unsupported_content_type", "redirect_review", "unexpected_not_modified",
+             "unavailable", "network_error": return .orange
+        default: return .secondary
+        }
+    }
+
+    private func editorialStatusKey(_ status: String) -> String {
+        switch status {
+        case "review_due": return "management.editorialReviewDue"
+        case "review_scheduled": return "management.editorialReviewScheduled"
+        case "review_missing": return "management.editorialReviewMissing"
+        case "review_unscheduled": return "management.editorialReviewUnscheduled"
+        default: return "management.editorialReviewUnknown"
+        }
+    }
+
+    private func editorialStatusSymbol(_ status: String) -> String {
+        status == "review_due" || status == "review_missing"
+            ? "exclamationmark.circle.fill"
+            : status == "review_scheduled" ? "calendar" : "calendar.badge.exclamationmark"
+    }
+
+    private func editorialStatusColor(_ status: String) -> Color {
+        status == "review_due" || status == "review_missing" ? .orange : .secondary
+    }
+
+    private func formatDate(_ value: String) -> String {
+        guard let date = ISO8601DateFormatter().date(from: value) else { return value }
+        return DateFormatter.localizedString(from: date, dateStyle: .medium, timeStyle: .short)
     }
 }
 
