@@ -1228,6 +1228,88 @@ def test_manual_and_scheduled_source_checks_share_a_lock(monkeypatch):
     assert max_active == 1
 
 
+def test_local_rag_inspector_returns_real_cited_sources_and_opt_in_obsidian(client, monkeypatch):
+    course = {
+        "title": "Lesson title",
+        "excerpt": "A local course excerpt.",
+        "retrieved_at": "2026-10-06T00:00:00Z",
+        "path": "02_Areas/Physics/lessons/example.md",
+        "location": "4-8",
+        "source_type": "course",
+    }
+    official = {
+        "title": "Licensed official page",
+        "excerpt": "A recently checked official excerpt.",
+        "retrieved_at": "2026-10-06T00:00:00Z",
+        "path": "https://docs.example.test/approved",
+        "source_type": "official_web",
+        "source_checked_at": "2026-10-06T00:00:00Z",
+        "license": "CC BY 4.0",
+        "license_url": "https://example.test/license",
+        "attribution": "Credit the author.",
+    }
+    obsidian = {
+        "title": "Vault note",
+        "excerpt": "An excerpt from the local vault.",
+        "retrieved_at": "2026-10-06T00:00:00Z",
+        "path": "Courses/Physics.md",
+        "source_type": "obsidian",
+    }
+    local_search = AsyncMock(return_value=[course])
+    licensed_search = AsyncMock(return_value=[official])
+    obsidian_search = AsyncMock(return_value=[obsidian])
+    monkeypatch.setattr(orchestrator, "_retrieve_local_course_sources", local_search)
+    monkeypatch.setattr(orchestrator, "_retrieve_licensed_official_sources", licensed_search)
+    monkeypatch.setattr(orchestrator, "_retrieve_obsidian_sources", obsidian_search)
+
+    response = client.post(
+        "/knowledge/rag/search",
+        json={"query": "  force and acceleration  ", "include_obsidian": True},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["query"] == "force and acceleration"
+    assert payload["source_count"] == 3
+    assert [item["id"] for item in payload["sources"]] == ["K1", "K2", "K3"]
+    assert {item["source_type"] for item in payload["sources"]} == {
+        "course", "official_web", "obsidian",
+    }
+    cited_web = next(item for item in payload["sources"] if item["source_type"] == "official_web")
+    assert cited_web["license"] == "CC BY 4.0"
+    assert cited_web["attribution"] == "Credit the author."
+    local_search.assert_awaited_once_with("force and acceleration")
+    licensed_search.assert_awaited_once_with("force and acceleration")
+    obsidian_search.assert_awaited_once_with("force and acceleration")
+
+
+def test_local_rag_inspector_does_not_query_obsidian_without_explicit_opt_in(client, monkeypatch):
+    obsidian_search = AsyncMock(return_value=[])
+    monkeypatch.setattr(orchestrator, "_retrieve_local_course_sources", AsyncMock(return_value=[]))
+    monkeypatch.setattr(orchestrator, "_retrieve_licensed_official_sources", AsyncMock(return_value=[]))
+    monkeypatch.setattr(orchestrator, "_retrieve_obsidian_sources", obsidian_search)
+
+    response = client.post("/knowledge/rag/search", json={"query": "gravity"})
+
+    assert response.status_code == 200
+    assert response.json()["sources"] == []
+    obsidian_search.assert_not_awaited()
+
+
+def test_local_rag_inspector_rejects_remote_origin_and_excessive_limit(client):
+    blocked = client.post(
+        "/knowledge/rag/search",
+        json={"query": "gravity"},
+        headers={"Origin": "https://attacker.example"},
+    )
+    excessive = client.post(
+        "/knowledge/rag/search", json={"query": "gravity", "limit": 5}
+    )
+
+    assert blocked.status_code == 403
+    assert excessive.status_code == 422
+
+
 def test_scheduler_rechecks_due_time_after_waiting_for_manual_check(monkeypatch):
     class SourceMonitor:
         due = True

@@ -543,6 +543,12 @@ class TrustedSourcePreviewRequest(BaseModel):
     url: str = Field(min_length=1, max_length=2048)
 
 
+class KnowledgeRAGSearchRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=500)
+    include_obsidian: bool = False
+    limit: int = Field(default=4, strict=True, ge=1, le=4)
+
+
 class TrustedSourceReviewRequest(BaseModel):
     url: str = Field(min_length=1, max_length=2048)
     lesson_path: str = Field(min_length=1, max_length=256)
@@ -4139,6 +4145,40 @@ async def refresh_local_knowledge(request: Request):
         logger.exception("Local knowledge index refresh failed")
         raise HTTPException(status_code=503, detail="Local course index refresh failed") from None
     return {"status": "ok", **status}
+
+
+@app.post("/knowledge/rag/search")
+@limiter.limit("30/minute")
+async def inspect_knowledge_rag(payload: KnowledgeRAGSearchRequest, request: Request):
+    """Inspect bounded local retrieval without answer generation or external web search."""
+    _require_local_settings_request(request)
+    query = payload.query.strip()
+    if not query:
+        raise HTTPException(status_code=422, detail="Query must not be blank")
+    try:
+        course_sources = await _retrieve_local_course_sources(query)
+        official_sources = await _retrieve_licensed_official_sources(query)
+        obsidian_sources = (
+            await _retrieve_obsidian_sources(query) if payload.include_obsidian else []
+        )
+        sources = _combine_retrieval_sources(
+            course_sources,
+            obsidian_sources,
+            limit=payload.limit,
+            official_sources=official_sources,
+        )
+        return {
+            "status": "ok",
+            "query": query,
+            "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace(
+                "+00:00", "Z"
+            ),
+            "source_count": len(sources),
+            "sources": sources,
+        }
+    except Exception:
+        logger.exception("Local RAG inspection failed")
+        raise HTTPException(status_code=503, detail="Local RAG inspection failed") from None
 
 
 @app.post("/knowledge/sources/check")

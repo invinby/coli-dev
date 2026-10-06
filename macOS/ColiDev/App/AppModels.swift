@@ -774,6 +774,20 @@ struct KnowledgeIndexRefreshResult: Decodable {
     }
 }
 
+struct KnowledgeRAGSearchResult: Decodable {
+    let status: String
+    let query: String
+    let generatedAt: String
+    let sourceCount: Int
+    let sources: [TutorSource]
+
+    enum CodingKeys: String, CodingKey {
+        case status, query, sources
+        case generatedAt = "generated_at"
+        case sourceCount = "source_count"
+    }
+}
+
 struct TrustedSourceCheckResult: Decodable {
     let supportedCount: Int
     let checkedCount: Int
@@ -1268,6 +1282,32 @@ enum OrchestratorClient {
             throw ClientError.unavailable
         }
         return try JSONDecoder().decode(KnowledgeIndexRefreshResult.self, from: data)
+    }
+
+    static func searchKnowledgeRAG(
+        query: String, includeObsidian: Bool, limit: Int = 4
+    ) async throws -> KnowledgeRAGSearchResult {
+        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard (1...500).contains(normalizedQuery.count), (1...4).contains(limit),
+              let url = URL(string: LearningStore.orchestratorBaseURL + "/knowledge/rag/search") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 20
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(
+            KnowledgeRAGSearchRequest(
+                query: normalizedQuery,
+                includeObsidian: includeObsidian,
+                limit: limit
+            )
+        )
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(KnowledgeRAGSearchResult.self, from: data)
     }
 
     static func checkTrustedSourceReferences() async throws -> TrustedSourceCheckResult {
@@ -1791,6 +1831,17 @@ struct TutorMessage: Identifiable {
 
 private struct TrustedSourcePreviewRequest: Encodable {
     let url: String
+}
+
+private struct KnowledgeRAGSearchRequest: Encodable {
+    let query: String
+    let includeObsidian: Bool
+    let limit: Int
+
+    enum CodingKeys: String, CodingKey {
+        case query, limit
+        case includeObsidian = "include_obsidian"
+    }
 }
 
 private struct ObsidianWriteRequest: Encodable {

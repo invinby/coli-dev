@@ -547,6 +547,7 @@ private struct ProviderKeyEntryView: View {
 private enum ManagementPane: String, CaseIterable, Identifiable {
     case overview
     case courses
+    case rag
     case sources
     case integrations
 
@@ -556,6 +557,7 @@ private enum ManagementPane: String, CaseIterable, Identifiable {
         switch self {
         case .overview: return "management.overview"
         case .courses: return "management.courses"
+        case .rag: return "management.rag"
         case .sources: return "management.sources"
         case .integrations: return "management.integrations"
         }
@@ -587,6 +589,10 @@ private struct ManagementView: View {
     @State private var sourceInventory: TrustedSourceInventory?
     @State private var sourceSearchText = ""
     @State private var sourceFilter = SourceRegistryFilter.all
+    @State private var ragQuery = ""
+    @State private var ragSearchResult: KnowledgeRAGSearchResult?
+    @State private var includeObsidianRAG = false
+    @State private var isSearchingRAG = false
     @State private var isLoading = false
     @State private var isRefreshingIndex = false
     @State private var isCheckingSources = false
@@ -665,6 +671,8 @@ private struct ManagementView: View {
                 overviewPane
             case .courses:
                 coursesPane
+            case .rag:
+                ragPane
             case .sources:
                 sourcesPane
             case .integrations:
@@ -1102,6 +1110,143 @@ private struct ManagementView: View {
         return sectionKeys
             .map { L10n.text($0, store.language) }
             .joined(separator: ", ")
+    }
+
+    private var ragPane: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(L10n.text("management.ragExplanation", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 10) {
+                TextField(L10n.text("management.ragQuery", store.language), text: $ragQuery)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit { Task { await searchRAG() } }
+
+                Button {
+                    Task { await searchRAG() }
+                } label: {
+                    if isSearchingRAG {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Label(L10n.text("management.ragSearch", store.language), systemImage: "magnifyingglass")
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(isSearchingRAG || ragQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+
+            Toggle(L10n.text("management.ragIncludeObsidian", store.language), isOn: $includeObsidianRAG)
+                .toggleStyle(.checkbox)
+
+            if let ragSearchResult {
+                HStack {
+                    Label(
+                        String(format: L10n.text("management.ragResultCount", store.language), ragSearchResult.sourceCount),
+                        systemImage: "doc.text.magnifyingglass"
+                    )
+                    Spacer()
+                    Text(ragSearchResult.generatedAt)
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.tertiary)
+                }
+
+                if ragSearchResult.sources.isEmpty {
+                    Label(L10n.text("management.ragNoResults", store.language), systemImage: "magnifyingglass")
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List(ragSearchResult.sources) { source in
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Text(source.id)
+                                    .font(.caption.weight(.bold).monospaced())
+                                    .foregroundStyle(Color.accentColor)
+                                Text(source.title)
+                                    .font(.headline)
+                                    .textSelection(.enabled)
+                                Spacer(minLength: 8)
+                                Text(L10n.text("management.ragType.\(source.sourceType ?? "course")", store.language))
+                                    .font(.caption.weight(.medium))
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Text(source.excerpt)
+                                .font(.callout)
+                                .textSelection(.enabled)
+                                .fixedSize(horizontal: false, vertical: true)
+
+                            if let path = source.path {
+                                if source.sourceType == "official_web", let url = URL(string: path) {
+                                    Link(path, destination: url)
+                                        .font(.caption.monospaced())
+                                        .lineLimit(2)
+                                        .textSelection(.enabled)
+                                } else {
+                                    Text(source.location.map { "\(path):\($0)" } ?? path)
+                                        .font(.caption.monospaced())
+                                        .foregroundStyle(.tertiary)
+                                        .textSelection(.enabled)
+                                }
+                            }
+
+                            HStack(spacing: 12) {
+                                Text("\(L10n.text("management.ragRetrieved", store.language)): \(source.displayRetrievedAt)")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                                if let sourceCheckedAt = source.sourceCheckedAt {
+                                    Text("\(L10n.text("management.ragFreshness", store.language)): \(sourceCheckedAt)")
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
+                                }
+                            }
+
+                            if let license = source.license {
+                                Text("\(license) · \(source.attribution ?? "")")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+
+                            if let licenseURL = source.licenseURL, let url = URL(string: licenseURL) {
+                                Link(L10n.text("management.ragLicense", store.language), destination: url)
+                                    .font(.caption)
+                            }
+
+                            if let references = source.officialReferences, !references.isEmpty {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    ForEach(references) { reference in
+                                        if let url = URL(string: reference.url) {
+                                            Link(reference.title, destination: url)
+                                                .font(.caption)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.vertical, 6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .listStyle(.inset)
+                    .frame(minHeight: 320)
+                }
+            } else {
+                VStack(spacing: 10) {
+                    Image(systemName: "text.magnifyingglass")
+                        .font(.system(size: 28))
+                        .foregroundStyle(.secondary)
+                    Text(L10n.text("management.ragEmptyTitle", store.language))
+                        .font(.headline)
+                    Text(L10n.text("management.ragEmptyBody", store.language))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var sourcesPane: some View {
@@ -1984,6 +2129,28 @@ private struct ManagementView: View {
             statusIsError = result.needsAttentionCount > 0
         } catch {
             reportError("management.checkSourcesFailed")
+        }
+    }
+
+    @MainActor
+    private func searchRAG() async {
+        let query = ragQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return }
+        isSearchingRAG = true
+        defer { isSearchingRAG = false }
+        guard await backendSupervisor.ensureRunning() else {
+            reportError("management.ragSearchFailed")
+            return
+        }
+        do {
+            ragSearchResult = try await OrchestratorClient.searchKnowledgeRAG(
+                query: query,
+                includeObsidian: includeObsidianRAG
+            )
+            statusMessage = nil
+            statusIsError = false
+        } catch {
+            reportError("management.ragSearchFailed")
         }
     }
 
