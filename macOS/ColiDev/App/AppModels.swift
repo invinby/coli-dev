@@ -643,6 +643,9 @@ struct OrchestratorHealth: Decodable {
     let sessionMode: String?
     let sessionCurrent: Int?
     let sessionMax: Int?
+    let cloudRouteReady: Bool?
+    let localRouteReady: Bool?
+    let automaticRouteReady: Bool?
     let cloudModelCallsToday: Int?
     let cloudModelCallsMax: Int?
     let cloudModelCallsRemaining: Int?
@@ -668,7 +671,8 @@ struct OrchestratorHealth: Decodable {
         guard let sessionCurrent, let sessionMax else { return true }
         return sessionCurrent < sessionMax
     }
-    var hasAutomaticRoute: Bool { hasCloudSession || hasLocalModel }
+    var hasCloudRoute: Bool { cloudRouteReady ?? false }
+    var hasAutomaticRoute: Bool { automaticRouteReady ?? false }
 
     enum CodingKeys: String, CodingKey {
         case status, online, provider
@@ -684,6 +688,9 @@ struct OrchestratorHealth: Decodable {
         case sessionMode = "session_mode"
         case sessionCurrent = "session_current"
         case sessionMax = "session_max"
+        case cloudRouteReady = "cloud_route_ready"
+        case localRouteReady = "local_route_ready"
+        case automaticRouteReady = "automatic_route_ready"
         case cloudModelCallsToday = "cloud_model_calls_today"
         case cloudModelCallsMax = "cloud_model_calls_max"
         case cloudModelCallsRemaining = "cloud_model_calls_remaining"

@@ -576,6 +576,9 @@ class HealthResponse(BaseModel):
     session_mode: str
     session_current: int
     session_max: int
+    cloud_route_ready: bool = False
+    local_route_ready: bool = False
+    automatic_route_ready: bool = False
     cloud_model_calls_today: int | None = None
     cloud_model_calls_max: int | None = None
     cloud_model_calls_remaining: int | None = None
@@ -3240,6 +3243,86 @@ def _final_synthesis_route_payload() -> dict[str, Any]:
     }
 
 
+def _effective_tutor_provider_ready(
+    provider: str,
+    configured_ready: bool | None,
+    local_model_ready: bool,
+) -> bool:
+    """Resolve endpoint-level local status to actual installed model status.
+
+    Переводит статус локального endpoint в фактический статус установленной модели.
+    """
+    if provider == "ollama":
+        return local_model_ready
+    return configured_ready is True
+
+
+def _tutor_route_readiness(
+    *,
+    online: bool,
+    ollama_info: dict[str, Any],
+) -> dict[str, bool]:
+    """Report configured tutor routes separately from backend/network reachability.
+
+    Отдельно сообщает о настроенных маршрутах тьютора и доступности backend/сети.
+    """
+    local_ready = (
+        _is_loopback_http_url(OLLAMA_BASE)
+        and ollama_info.get("available") is True
+        and ollama_info.get("model_ready") is True
+    )
+
+    agent_routes = {
+        route["role"]: route
+        for route in _auto_agent_model_payload()["roles"]
+    }
+    cloud_draft_ready = any(
+        _effective_tutor_provider_ready(
+            str(agent_routes[role]["effective_provider"]),
+            agent_routes[role].get("effective_provider_ready"),
+            local_ready,
+        )
+        and agent_routes[role]["effective_provider"] != "ollama"
+        for role in ("gemini_draft", "local_draft")
+    )
+
+    # A subject-specific specialist route can be the only configured generator.
+    # Предметный специалист может оказаться единственным настроенным генератором.
+    allow_paid_routes = auto_cost_policy.get()["allow_paid_routes"]
+    for subject_route in subject_model_routes.snapshot().values():
+        provider = subject_route["provider"] or "auto"
+        if not allow_paid_routes:
+            if provider == "ollama" and local_ready:
+                cloud_draft_ready = True
+            elif provider != "ollama" and OPENROUTER_KEY:
+                cloud_draft_ready = True
+        elif provider == "auto":
+            cloud_draft_ready = cloud_draft_ready or bool(KIMI_KEY or OPENROUTER_KEY)
+        elif provider == "ollama":
+            cloud_draft_ready = cloud_draft_ready or local_ready
+        else:
+            provider_ready, _ = _subject_model_route_status(provider)
+            cloud_draft_ready = cloud_draft_ready or provider_ready is True
+
+    final_route = _final_synthesis_route_payload()
+    final_ready = _effective_tutor_provider_ready(
+        str(final_route["effective_provider"]),
+        final_route.get("provider_ready"),
+        local_ready,
+    )
+    session_ready = (
+        online
+        and session_tracker.mode != "local"
+        and session_tracker.can_start_session()
+    )
+    cloud_ready = session_ready and cloud_draft_ready and final_ready
+    return {
+        "cloud_route_ready": cloud_ready,
+        "local_route_ready": local_ready,
+        "automatic_route_ready": local_ready or cloud_ready,
+    }
+
+
 async def _record_provider_usage(
     provider: str,
     model: str,
@@ -3492,24 +3575,47 @@ async def log_requests(request: Request, call_next) -> Response:
 
 
 async def _check_network() -> bool:
-    """Проверка доступности облачных API."""
+    """Check configured cloud APIs without generating a model response.
+
+    Проверяет доступность настроенных облачных API без генерации ответа моделью.
+    """
     if state.http_client is None:
         return False
-    # Проверяем Google (для Gemini)
+
+    checks: list[tuple[str, str, dict[str, str]]] = []
     if GEMINI_KEY:
+        checks.append((
+            "Gemini",
+            "https://generativelanguage.googleapis.com/v1beta/models",
+            {"x-goog-api-key": GEMINI_KEY},
+        ))
+    if KIMI_KEY:
+        checks.append((
+            "Kimi",
+            "https://api.moonshot.cn/v1/models",
+            {"Authorization": f"Bearer {KIMI_KEY}"},
+        ))
+    if OPENROUTER_KEY:
+        checks.append((
+            "OpenRouter",
+            "https://openrouter.ai/api/v1/models",
+            {"Authorization": f"Bearer {OPENROUTER_KEY}"},
+        ))
+
+    for provider, url, headers in checks:
         try:
-            resp = await state.http_client.get(
-                "https://generativelanguage.googleapis.com/v1beta/models",
-                headers={"x-goog-api-key": GEMINI_KEY},
-                timeout=NET_CHECK_TIMEOUT,
-            )
+            resp = await state.http_client.get(url, headers=headers, timeout=NET_CHECK_TIMEOUT)
             if resp.status_code == 200:
-                logger.debug("Network check: Google Gemini ONLINE")
+                logger.debug("Network check: configured model provider is reachable", extra={"provider": provider})
                 return True
-        except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError):
-            pass
-    # Ollama проверяется отдельно. Наличие локальной модели не означает,
-    # что облачные агенты доступны; иначе авто-маршрут зря запускал бы консилиум.
+        except Exception as exc:
+            logger.debug(
+                "Configured model provider network check failed",
+                extra={"provider": provider, "error_type": type(exc).__name__},
+            )
+
+    # Ollama проверяется отдельно. Настроенный облачный ключ не должен выдавать
+    # отсутствующий или недоступный провайдер за рабочий маршрут.
     logger.debug("Network check: OFFLINE")
     return False
 
@@ -4197,6 +4303,7 @@ async def health(request: Request):
     )
     state.online = net_ok
     session_status = session_tracker.get_status()
+    route_readiness = _tutor_route_readiness(online=net_ok, ollama_info=ollama_info)
     try:
         cloud_call_status = await asyncio.to_thread(
             provider_usage_store.cloud_call_status,
@@ -4231,6 +4338,7 @@ async def health(request: Request):
         session_mode=session_status["mode"],
         session_current=session_status["current"],
         session_max=session_status["max"],
+        **route_readiness,
         cloud_model_calls_today=cloud_call_status.get("used"),
         cloud_model_calls_max=cloud_call_status.get("limit"),
         cloud_model_calls_remaining=cloud_call_status.get("remaining"),

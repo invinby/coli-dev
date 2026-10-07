@@ -96,6 +96,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-loop-trace"
           "$RUNNER_TEMP/verify-loop-trace"
 
+      - name: Verify answer choice order / Проверка порядка вариантов
+        run: |
+          swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/scripts/verify_answer_choice_order.swift \
+            -o "$RUNNER_TEMP/verify-answer-choice-order"
+          "$RUNNER_TEMP/verify-answer-choice-order"
+
       - name: Verify programming file-reading practice model
         run: |
           swiftc macOS/ColiDev/App/FileReadingPractice.swift macOS/ColiDev/scripts/verify_file_reading_practice.swift \

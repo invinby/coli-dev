@@ -195,6 +195,26 @@ def test_network_check_sends_gemini_key_in_header_not_url(monkeypatch):
     assert secret not in str(http_client.get.await_args.args[0])
 
 
+def test_network_check_uses_openrouter_when_gemini_is_not_configured(monkeypatch):
+    secret = "openrouter-network-check-secret"
+    response = MagicMock(status_code=200)
+    http_client = MagicMock()
+    http_client.get = AsyncMock(return_value=response)
+    monkeypatch.setattr(orchestrator.state, "http_client", http_client)
+    monkeypatch.setattr(orchestrator, "GEMINI_KEY", "")
+    monkeypatch.setattr(orchestrator, "KIMI_KEY", "")
+    monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", secret)
+
+    assert asyncio.run(orchestrator._check_network())
+
+    http_client.get.assert_awaited_once_with(
+        "https://openrouter.ai/api/v1/models",
+        headers={"Authorization": f"Bearer {secret}"},
+        timeout=orchestrator.NET_CHECK_TIMEOUT,
+    )
+    assert secret not in str(http_client.get.await_args.args[0])
+
+
 # ─── Тесты API Endpoints ───────────────────────────────
 
 
@@ -366,6 +386,86 @@ class TestAPIEndpoints:
         assert data["knowledge_review_due_document_count"] == 2
         assert data["knowledge_review_scheduled_document_count"] == 3
         assert data["knowledge_review_schedule_missing_document_count"] == 2
+
+    def test_health_does_not_claim_tutor_route_without_a_configured_model(self, client, monkeypatch):
+        """Network/session availability alone does not make a tutor ready.
+
+        Одной сети и доступной сессии недостаточно, чтобы считать тьютора готовым.
+        """
+        monkeypatch.setattr(orchestrator, "GEMINI_KEY", "")
+        monkeypatch.setattr(orchestrator, "KIMI_KEY", "")
+        monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "")
+        monkeypatch.setattr(orchestrator, "OPENAI_COMPATIBLE_KEY", "")
+        orchestrator.auto_cost_policy.set(False)
+        monkeypatch.setattr(
+            orchestrator,
+            "_check_network",
+            AsyncMock(return_value=True),
+        )
+        monkeypatch.setattr(
+            orchestrator,
+            "_check_ollama",
+            AsyncMock(return_value={
+                "available": False,
+                "version": None,
+                "models": [],
+                "model_ready": False,
+            }),
+        )
+
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["cloud_route_ready"] is False
+        assert data["local_route_ready"] is False
+        assert data["automatic_route_ready"] is False
+
+    def test_health_reports_local_route_only_when_the_configured_model_is_installed(self, client, monkeypatch):
+        monkeypatch.setattr(orchestrator, "_check_network", AsyncMock(return_value=False))
+        monkeypatch.setattr(
+            orchestrator,
+            "_check_ollama",
+            AsyncMock(return_value={
+                "available": True,
+                "version": "0.1.0",
+                "models": [orchestrator.OLLAMA_MODEL_RESEARCHER],
+                "model_ready": True,
+            }),
+        )
+
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["cloud_route_ready"] is False
+        assert data["local_route_ready"] is True
+        assert data["automatic_route_ready"] is True
+
+    def test_health_reports_configured_free_cloud_route(self, client, monkeypatch):
+        monkeypatch.setattr(orchestrator, "GEMINI_KEY", "")
+        monkeypatch.setattr(orchestrator, "KIMI_KEY", "")
+        monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "test-openrouter-key")
+        orchestrator.auto_cost_policy.set(False)
+        monkeypatch.setattr(orchestrator, "_check_network", AsyncMock(return_value=True))
+        monkeypatch.setattr(
+            orchestrator,
+            "_check_ollama",
+            AsyncMock(return_value={
+                "available": False,
+                "version": None,
+                "models": [],
+                "model_ready": False,
+            }),
+        )
+
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["cloud_route_ready"] is True
+        assert data["local_route_ready"] is False
+        assert data["automatic_route_ready"] is True
 
     def test_oversized_http_body_is_rejected_before_fastapi_parses_it(self, client):
         response = client.post(

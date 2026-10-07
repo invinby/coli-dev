@@ -431,7 +431,7 @@ private struct SettingsView: View {
         if store.aiMode == .localOnly {
             return L10n.text(health.hasLocalModel ? "settings.aiLocalRoute" : "settings.aiNoLocal", store.language)
         }
-        if health.hasCloudSession { return L10n.text("settings.aiOnlineRoute", store.language) }
+        if health.hasCloudRoute { return L10n.text("settings.aiOnlineRoute", store.language) }
         if health.hasLocalModel { return L10n.text("settings.aiLocalRoute", store.language) }
         return L10n.text("settings.aiNoRoute", store.language)
     }
@@ -547,6 +547,7 @@ private struct ProviderKeyEntryView: View {
 private enum ManagementPane: String, CaseIterable, Identifiable {
     case overview
     case courses
+    case models
     case rag
     case sources
     case integrations
@@ -557,6 +558,7 @@ private enum ManagementPane: String, CaseIterable, Identifiable {
         switch self {
         case .overview: return "management.overview"
         case .courses: return "management.courses"
+        case .models: return "management.models"
         case .rag: return "management.rag"
         case .sources: return "management.sources"
         case .integrations: return "management.integrations"
@@ -658,7 +660,7 @@ private struct ManagementView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .frame(maxWidth: 520)
+            .frame(maxWidth: 900)
 
             if let statusMessage {
                 Label(statusMessage, systemImage: statusIsError ? "exclamationmark.triangle" : "checkmark.circle")
@@ -673,6 +675,8 @@ private struct ManagementView: View {
                     overviewPane
                 case .courses:
                     coursesPane
+                case .models:
+                    modelsPane
                 case .rag:
                     ragPane
                 case .sources:
@@ -962,6 +966,106 @@ private struct ManagementView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.top, 6)
                     }
+                }
+            }
+            .padding(.bottom, 18)
+        }
+    }
+
+    private var modelsPane: some View {
+        let localRoles = store.autoAgentModelRoutes.values
+            .filter { $0.effectiveProvider == "ollama" }
+            .sorted { $0.role < $1.role }
+
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(L10n.text("management.modelsSubtitle", store.language))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                GroupBox(label: Text(L10n.text("management.ollamaLocalService", store.language))) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        statusRow(
+                            title: "Ollama",
+                            value: store.localOllamaModelCatalog.available
+                                ? L10n.text("management.ollamaServiceReachable", store.language)
+                                : L10n.text("management.serviceUnavailable", store.language),
+                            symbol: store.localOllamaModelCatalog.available ? "checkmark.circle.fill" : "wifi.slash"
+                        )
+                        statusRow(
+                            title: L10n.text("management.localTutorRoute", store.language),
+                            value: store.aiHealth?.hasLocalModel == true
+                                ? L10n.text("settings.aiLocalRoute", store.language)
+                                : L10n.text("settings.aiNoLocal", store.language),
+                            symbol: store.aiHealth?.hasLocalModel == true ? "checkmark.circle.fill" : "exclamationmark.circle"
+                        )
+                        Text(L10n.text("management.localModelsDescription", store.language))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Button {
+                            Task { await store.refreshLocalOllamaModelCatalog() }
+                        } label: {
+                            if store.isRefreshingLocalOllamaModelCatalog {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Label(
+                                    L10n.text("management.ollamaModelsRefresh", store.language),
+                                    systemImage: "arrow.clockwise"
+                                )
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(store.isRefreshingLocalOllamaModelCatalog)
+
+                        if store.localOllamaModelCatalog.available {
+                            if store.localOllamaModelCatalog.models.isEmpty {
+                                Text(L10n.text("management.ollamaModelsEmpty", store.language))
+                                    .font(.callout)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    ForEach(store.localOllamaModelCatalog.models, id: \.self) { model in
+                                        Label(model, systemImage: "cube")
+                                            .font(.callout.monospaced())
+                                            .textSelection(.enabled)
+                                            .padding(.vertical, 2)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 6)
+                }
+
+                GroupBox(label: Text(L10n.text("management.localModelAssignments", store.language))) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        if localRoles.isEmpty {
+                            Text(L10n.text("management.noLocalModelRoles", store.language))
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            ForEach(localRoles) { route in
+                                statusRow(
+                                    title: L10n.text("management.autoAgentRole.\(route.role)", store.language),
+                                    value: route.effectiveModel,
+                                    symbol: route.effectiveProviderReady == true
+                                        ? "checkmark.circle.fill"
+                                        : "exclamationmark.circle"
+                                )
+                            }
+                        }
+
+                        Button(L10n.text("management.configureAIRoutes", store.language)) {
+                            pane = .integrations
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 6)
                 }
             }
             .padding(.bottom, 18)

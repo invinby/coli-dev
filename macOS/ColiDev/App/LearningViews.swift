@@ -802,6 +802,7 @@ struct LessonSessionView: View {
     let showRoadmap: () -> Void
 
     @State private var selectedAnswer: Int?
+    @State private var optionOrder = AnswerChoiceOrder(optionCount: 3)
     @State private var learnerConfirmed = false
     @State private var reflection = ""
     @State private var showingTutor = false
@@ -811,7 +812,11 @@ struct LessonSessionView: View {
     }
 
     private var answerIsCorrect: Bool {
-        selectedAnswer == content.answerIndex
+        guard let selectedAnswer else { return false }
+        return optionOrder.isCorrect(
+            displayedIndex: selectedAnswer,
+            answerOriginalIndex: content.answerIndex
+        )
     }
 
     var body: some View {
@@ -887,7 +892,7 @@ struct LessonSessionView: View {
 
                 quizCard
 
-                if selectedAnswer == content.answerIndex || store.isComplete(subject) {
+                if answerIsCorrect || store.isComplete(subject) {
                     StudyReflectionFields(
                         language: store.language,
                         reflection: $reflection,
@@ -952,14 +957,14 @@ struct LessonSessionView: View {
                 .font(.title2.weight(.semibold))
             Text(content.question)
                 .font(.headline)
-            ForEach(content.options.indices, id: \.self) { index in
+            ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
                 Button {
-                    selectedAnswer = index
+                    selectedAnswer = displayIndex
                 } label: {
                     HStack(spacing: 12) {
-                        Image(systemName: selectedAnswer == index ? "largecircle.fill.circle" : "circle")
-                            .foregroundStyle(selectedAnswer == index ? subject.tint : Color.secondary)
-                        Text(content.options[index])
+                        Image(systemName: selectedAnswer == displayIndex ? "largecircle.fill.circle" : "circle")
+                            .foregroundStyle(selectedAnswer == displayIndex ? subject.tint : Color.secondary)
+                        Text(content.options[originalIndex])
                             .multilineTextAlignment(.leading)
                         Spacer(minLength: 0)
                     }
@@ -1266,6 +1271,7 @@ private struct DailyRoutineVocabularyLab: View {
     @State private var selectedOption: Int?
     @State private var lastWasCorrect: Bool?
     @State private var isComplete = false
+    @State private var optionOrders: [[Int]] = (0..<5).map { _ in Array(0..<3).shuffled() }
 
     private let questions = [
         RoutineVocabularyQuestion(
@@ -1324,20 +1330,20 @@ private struct DailyRoutineVocabularyLab: View {
                     .font(.title3.weight(.medium))
                     .fixedSize(horizontal: false, vertical: true)
 
-                ForEach(Array(currentQuestion.optionKeys.enumerated()), id: \.offset) { index, optionKey in
+                ForEach(Array(optionOrders[questionIndex].enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Button {
-                        selectedOption = index
+                        selectedOption = displayIndex
                         lastWasCorrect = nil
                     } label: {
                         Label(
-                            L10n.text(optionKey, store.language),
-                            systemImage: selectedOption == index ? "checkmark.circle.fill" : "circle"
+                            L10n.text(currentQuestion.optionKeys[originalIndex], store.language),
+                            systemImage: selectedOption == displayIndex ? "checkmark.circle.fill" : "circle"
                         )
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.bordered)
-                    .tint(selectedOption == index ? .accentColor : .secondary)
-                    .accessibilityAddTraits(selectedOption == index ? .isSelected : [])
+                    .tint(selectedOption == displayIndex ? .accentColor : .secondary)
+                    .accessibilityAddTraits(selectedOption == displayIndex ? .isSelected : [])
                 }
 
                 if let lastWasCorrect {
@@ -1381,7 +1387,7 @@ private struct DailyRoutineVocabularyLab: View {
         }
 
         guard let selectedOption else { return }
-        lastWasCorrect = selectedOption == currentQuestion.answerIndex
+        lastWasCorrect = optionOrders[questionIndex][selectedOption] == currentQuestion.answerIndex
     }
 
     private func reset() {
@@ -1389,6 +1395,7 @@ private struct DailyRoutineVocabularyLab: View {
         selectedOption = nil
         lastWasCorrect = nil
         isComplete = false
+        optionOrders = questions.map { Array($0.optionKeys.indices).shuffled() }
     }
 }
 
@@ -1404,6 +1411,7 @@ private struct AnimalGroupLab: View {
     @State private var selection: Int?
     @State private var wasCorrect: Bool?
     @State private var complete = false
+    @State private var optionOrders: [[Int]] = (0..<4).map { _ in Array(0..<3).shuffled() }
 
     private let questions = [
         AnimalGroupQuestion(promptKey: "lab.animalGroupQ1", options: ["lab.animalGroupQ1A", "lab.animalGroupQ1B", "lab.animalGroupQ1C"], answerIndex: 0),
@@ -1427,6 +1435,7 @@ private struct AnimalGroupLab: View {
                     selection = nil
                     wasCorrect = nil
                     complete = false
+                    optionOrders = questions.map { Array($0.options.indices).shuffled() }
                 }
                 .buttonStyle(.bordered)
             } else {
@@ -1438,17 +1447,20 @@ private struct AnimalGroupLab: View {
                     .font(.title3.weight(.medium))
                     .fixedSize(horizontal: false, vertical: true)
 
-                ForEach(Array(questions[index].options.enumerated()), id: \.offset) { optionIndex, key in
+                ForEach(Array(optionOrders[index].enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Button {
-                        selection = optionIndex
+                        selection = displayIndex
                         wasCorrect = nil
                     } label: {
-                        Label(L10n.text(key, store.language), systemImage: selection == optionIndex ? "checkmark.circle.fill" : "circle")
+                        Label(
+                            L10n.text(questions[index].options[originalIndex], store.language),
+                            systemImage: selection == displayIndex ? "checkmark.circle.fill" : "circle"
+                        )
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.bordered)
-                    .tint(selection == optionIndex ? .accentColor : .secondary)
-                    .accessibilityAddTraits(selection == optionIndex ? .isSelected : [])
+                    .tint(selection == displayIndex ? .accentColor : .secondary)
+                    .accessibilityAddTraits(selection == displayIndex ? .isSelected : [])
                 }
 
                 if let wasCorrect {
@@ -1470,7 +1482,7 @@ private struct AnimalGroupLab: View {
                             wasCorrect = nil
                         }
                     } else if let selection {
-                        wasCorrect = selection == questions[index].answerIndex
+                        wasCorrect = optionOrders[index][selection] == questions[index].answerIndex
                     }
                 } label: {
                     Text(L10n.text(wasCorrect == true ? (index == questions.count - 1 ? "lab.animalGroupFinish" : "lab.animalGroupNext") : "lab.animalGroupCheck", store.language))
@@ -1488,6 +1500,7 @@ private struct AnimalLineageLab: View {
     @State private var selection: Int?
     @State private var wasCorrect: Bool?
     @State private var complete = false
+    @State private var optionOrders: [[Int]] = (0..<4).map { _ in Array(0..<3).shuffled() }
 
     private let questions = [
         AnimalGroupQuestion(promptKey: "lab.lineageQ1", options: ["lab.lineageQ1A", "lab.lineageQ1B", "lab.lineageQ1C"], answerIndex: 1),
@@ -1528,6 +1541,7 @@ private struct AnimalLineageLab: View {
                     selection = nil
                     wasCorrect = nil
                     complete = false
+                    optionOrders = questions.map { Array($0.options.indices).shuffled() }
                 }
                 .buttonStyle(.bordered)
             } else {
@@ -1539,17 +1553,20 @@ private struct AnimalLineageLab: View {
                     .font(.title3.weight(.medium))
                     .fixedSize(horizontal: false, vertical: true)
 
-                ForEach(Array(questions[index].options.enumerated()), id: \.offset) { optionIndex, key in
+                ForEach(Array(optionOrders[index].enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Button {
-                        selection = optionIndex
+                        selection = displayIndex
                         wasCorrect = nil
                     } label: {
-                        Label(L10n.text(key, store.language), systemImage: selection == optionIndex ? "checkmark.circle.fill" : "circle")
+                        Label(
+                            L10n.text(questions[index].options[originalIndex], store.language),
+                            systemImage: selection == displayIndex ? "checkmark.circle.fill" : "circle"
+                        )
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.bordered)
-                    .tint(selection == optionIndex ? .accentColor : .secondary)
-                    .accessibilityAddTraits(selection == optionIndex ? .isSelected : [])
+                    .tint(selection == displayIndex ? .accentColor : .secondary)
+                    .accessibilityAddTraits(selection == displayIndex ? .isSelected : [])
                 }
 
                 if let wasCorrect {
@@ -1571,7 +1588,7 @@ private struct AnimalLineageLab: View {
                             wasCorrect = nil
                         }
                     } else if let selection {
-                        wasCorrect = selection == questions[index].answerIndex
+                        wasCorrect = optionOrders[index][selection] == questions[index].answerIndex
                     }
                 } label: {
                     Text(L10n.text(wasCorrect == true ? (index == questions.count - 1 ? "lab.lineageFinish" : "lab.lineageNext") : "lab.lineageCheck", store.language))
@@ -6847,7 +6864,7 @@ private struct TutorChatView: View {
         if store.aiMode == .localOnly {
             return L10n.text(health.hasLocalModel ? "settings.aiLocalRoute" : "settings.aiNoLocal", language)
         }
-        if health.hasCloudSession { return L10n.text("settings.aiOnlineRoute", language) }
+        if health.hasCloudRoute { return L10n.text("settings.aiOnlineRoute", language) }
         if health.hasLocalModel { return L10n.text("settings.aiLocalRoute", language) }
         return L10n.text("settings.aiNoRoute", language)
     }
