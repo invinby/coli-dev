@@ -87,29 +87,29 @@
 - Это по одному содержательному примеру на предмет, а не полная программа. Живые провайдеры, ручной запуск на Mac, экспертная редактура всех курсов и остальные продуктовые интеграции остаются непроверенными/незавершёнными.
 - Индекс и источник теперь различают файловый `modified_at` и авторский `source_checked_at` из Markdown frontmatter; заголовок убирается из RAG-выдержек, а исходные номера строк сохраняются. В prompt/UI есть оговорка: проверка списка ссылок не доказывает актуальность фактов. Commit `304717a`; run [37250882001](https://github.com/invinby/coli-dev/actions/runs/37250882001) зелёный по backend suite, macOS build и bundle-check. Локально прошло 121 тест; фактическая свежесть внешних источников не автоматизирована.
 
-## Backend API guard — 2026-10-05
+## Backend API guard / Защита API backend — 2026-10-05
 
 Loopback и Origin проверки распространены на health/status, сессии, tutor chat и все Obsidian-маршруты; настройки провайдеров и учебный прогресс уже используют ту же проверку. Тесты проверяют блокировку чужого Origin и удалённого клиента до обращения к локальным данным или провайдерам. Полный security-аудит остаётся открытым; сам сервер по-прежнему не имеет пользовательской аутентификации.
 
 Commit `aac9cb9` запушен в `main`; GitHub Actions run [37251653614](https://github.com/invinby/coli-dev/actions/runs/37251653614) прошёл backend checks и macOS build/bundle-check. Локально полный suite прошёл: 137 тестов.
 
-## OS-aware storage paths — 2026-10-05
+## OS-aware storage paths / Пути хранения с учётом операционной системы — 2026-10-05
 
 Backend использует per-user пути ОС для индекса, состояния сессий, прогресса и логов; `COLIDEV_DATA_DIR` и `COLIDEV_LOG_DIR` позволяют задать отдельные директории. Существующие SQLite прогресса и JSON-сессий в прежних путях остаются доступны, пока новая база/файл не появятся. Windows больше не пишет логи и сессии в macOS-папку `~/Library`.
 
 Commit `a8b7320`; run [37252284801](https://github.com/invinby/coli-dev/actions/runs/37252284801) прошёл backend checks и macOS build/bundle-check. Полный локальный backend suite: 143 passed.
 
-## Obsidian bridge hardening — 2026-10-05
+## Obsidian bridge hardening / Усиление защиты моста Obsidian — 2026-10-05
 
 Obsidian worker сам отвергает удалённые target URL до отправки Bearer token; перед построением endpoint проверяются и URL-кодируются vault-relative пути. Абсолютные пути, traversal, закодированные `..`, контрольные символы и чрезмерно длинные пути блокируются; API возвращает 422 на неверный путь. Commit `e1ee8db`; GitHub Actions run [37252817814](https://github.com/invinby/coli-dev/actions/runs/37252817814) прошёл backend checks и macOS build/bundle-check. Локальный backend suite: 160 тестов.
 
-## Session state resilience — 2026-10-05
+## Session state resilience / Устойчивость состояния сессии — 2026-10-05
 
 Файл квоты/режима сессий теперь загружается с проверкой схемы и размера; повреждённые записи сбрасываются безопасно. Запись идёт во временный файл с `fsync` и атомарным `replace`, чтобы прерванная операция не затёрла прежнее состояние. Unit-тесты передают временный путь вместо пользовательского app-data файла.
 
 Полный локальный backend suite: 165 passed; `compileall` и `git diff --check` прошли. Commit `b5fc09c`; GitHub Actions run [37253372336](https://github.com/invinby/coli-dev/actions/runs/37253372336) успешно прошёл backend checks и macOS build/bundle-check.
 
-## Request body limits — 2026-10-05
+## Request body limits / Ограничение размера тела запроса — 2026-10-05
 
 ASGI middleware ограничивает запросы размером 1 MiB до разбора JSON, включая chunked body, и проверяет согласованность `Content-Length`. Для tutor prompt/context и Obsidian write/search установлены отдельные максимумы; чрезмерный HTTP body возвращает 413, некорректный `Content-Length` — 400.
 

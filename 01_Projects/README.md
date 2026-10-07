@@ -17,7 +17,7 @@ python -m pip install -r requirements-orchestrator.txt
 python -m uvicorn orchestrator:app --app-dir 01_Projects --host 127.0.0.1 --port 8000
 ```
 
-Windows PowerShell / Windows PowerShell:
+Windows PowerShell / оболочка Windows PowerShell:
 
 ```powershell
 py -3.12 -m venv .venv

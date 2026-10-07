@@ -99,7 +99,7 @@ cp .env.example .env
 python 01_Projects/orchestrator.py
 ~~~
 
-Windows PowerShell / Windows PowerShell:
+Windows PowerShell / оболочка Windows PowerShell:
 
 ~~~powershell
 py -3 -m venv .venv
