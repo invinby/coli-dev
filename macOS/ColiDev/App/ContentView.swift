@@ -69,14 +69,19 @@ struct ContentView: View {
             Group {
                 switch selection ?? .today {
                 case .today:
-                    TodayView(open: open, openCustom: openCustom, openDueReview: openDueReview)
+                    TodayView(
+                        open: open,
+                        openCustom: openCustom,
+                        openCourseLesson: openRecommendedLesson,
+                        openDueReview: openDueReview
+                    )
                 case .subjects:
                     SubjectCatalogView(open: open, openCustom: openCustom)
                 case .subject(let subject):
                     SubjectOverviewView(
                         subject: subject,
                         openCourseLesson: { resource in
-                            selection = .courseLesson(subject, resource)
+                            openCourseLesson(subject: subject, resource: resource)
                         },
                         openCustomTopic: { selection = .builtInCustomTopic(subject, $0) }
                     ) {
@@ -140,6 +145,16 @@ struct ContentView: View {
         selection = .customSubject(subjectID)
     }
 
+    private func openCourseLesson(subject: Subject, resource: String) {
+        store.rememberCourseLesson(subject: subject, resource: resource)
+        selection = .courseLesson(subject, resource)
+    }
+
+    private func openRecommendedLesson(_ route: StudyLessonRoute) {
+        guard let subject = Subject(rawValue: route.subjectID) else { return }
+        openCourseLesson(subject: subject, resource: route.resource)
+    }
+
     private func openDueReview(_ subject: Subject, lessonID: String) {
         if lessonID == subject.lessonID {
             selection = .lesson(subject)
@@ -155,9 +170,22 @@ private struct TodayView: View {
     @EnvironmentObject private var store: LearningStore
     let open: (Subject) -> Void
     let openCustom: (UUID) -> Void
+    let openCourseLesson: (StudyLessonRoute) -> Void
     let openDueReview: (Subject, String) -> Void
 
     private let columns = [GridItem(.adaptive(minimum: 210), spacing: 16)]
+
+    private var nextLessonRoute: StudyLessonRoute? {
+        StudyRecommendationSelector.nextLesson(
+            roadmaps: CurriculumCatalog.studyRoadmaps(),
+            completedLessonIDs: store.completedLessonIDs,
+            resume: store.lastOpenedCourseRoute
+        )
+    }
+
+    private var hasAddressableDueReview: Bool {
+        store.nextDueLessonID != nil && store.nextDueSubject != nil
+    }
 
     var body: some View {
         ScrollView {
@@ -243,17 +271,21 @@ private struct TodayView: View {
             }
             Spacer(minLength: 0)
             Button {
-                if let subject = store.nextDueSubject, let lessonID = store.nextDueLessonID {
+                if hasAddressableDueReview,
+                   let subject = store.nextDueSubject,
+                   let lessonID = store.nextDueLessonID {
                     openDueReview(subject, lessonID)
+                } else if let nextLessonRoute {
+                    openCourseLesson(nextLessonRoute)
                 } else {
                     let next = Subject.allCases.first(where: { !store.isComplete($0) }) ?? .mathematics
                     open(next)
                 }
             } label: {
                 Label {
-                    Text(L10n.text(store.dueReviewCount > 0 ? "home.reviewNow" : "home.continue", store.language))
+                    Text(L10n.text(hasAddressableDueReview ? "home.reviewNow" : "home.continue", store.language))
                 } icon: {
-                    Image(systemName: store.dueReviewCount > 0 ? "arrow.counterclockwise" : "arrow.right")
+                    Image(systemName: hasAddressableDueReview ? "arrow.counterclockwise" : "arrow.right")
                 }
             }
             .buttonStyle(.borderedProminent)

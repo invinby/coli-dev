@@ -104,7 +104,7 @@ jobs:
 
       - name: Verify adaptive study recommendation / Проверка следующего шага обучения
         run: |
-          swiftc -parse-as-library macOS/ColiDev/scripts/verify_study_recommendation.swift \
+          swiftc -parse-as-library macOS/ColiDev/App/StudyRecommendation.swift macOS/ColiDev/scripts/verify_study_recommendation.swift \
             -o "$RUNNER_TEMP/verify-study-recommendation"
           "$RUNNER_TEMP/verify-study-recommendation"
 

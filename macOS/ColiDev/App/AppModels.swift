@@ -158,6 +158,16 @@ final class LearningStore: ObservableObject {
     @Published private(set) var completedLessonIDs: Set<String> {
         didSet { UserDefaults.standard.set(Array(completedLessonIDs), forKey: "colidev.completedLessons") }
     }
+    @Published private(set) var lastOpenedCourseRoute: StudyLessonRoute? {
+        didSet {
+            guard let lastOpenedCourseRoute,
+                  let data = try? JSONEncoder().encode(lastOpenedCourseRoute) else {
+                UserDefaults.standard.removeObject(forKey: "colidev.lastOpenedCourseRoute")
+                return
+            }
+            UserDefaults.standard.set(data, forKey: "colidev.lastOpenedCourseRoute")
+        }
+    }
     @Published private(set) var aiHealth: OrchestratorHealth?
     @Published private(set) var isCheckingAI = false
     @Published private(set) var providerSecretStatuses: [String: ProviderSecretStatus] = [:]
@@ -197,6 +207,12 @@ final class LearningStore: ObservableObject {
         let savedLanguage = UserDefaults.standard.string(forKey: "colidev.language")
         language = AppLanguage(rawValue: savedLanguage ?? "") ?? .ru
         completedLessonIDs = Set(UserDefaults.standard.stringArray(forKey: "colidev.completedLessons") ?? [])
+        if let data = UserDefaults.standard.data(forKey: "colidev.lastOpenedCourseRoute"),
+           let savedRoute = try? JSONDecoder().decode(StudyLessonRoute.self, from: data) {
+            lastOpenedCourseRoute = savedRoute
+        } else {
+            lastOpenedCourseRoute = nil
+        }
         if let data = UserDefaults.standard.data(forKey: "colidev.customCurriculum"),
            let savedCurriculum = try? JSONDecoder().decode(CustomCurriculum.self, from: data) {
             customCurriculum = savedCurriculum
@@ -376,6 +392,10 @@ final class LearningStore: ObservableObject {
 
     func isComplete(lessonID: String) -> Bool {
         completedLessonIDs.contains(lessonID)
+    }
+
+    func rememberCourseLesson(subject: Subject, resource: String) {
+        lastOpenedCourseRoute = StudyLessonRoute(subjectID: subject.rawValue, resource: resource)
     }
 
     func markComplete(_ subject: Subject, reflection: String = "") {
