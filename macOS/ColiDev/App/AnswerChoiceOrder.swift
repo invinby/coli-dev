@@ -22,3 +22,47 @@ struct AnswerChoiceOrder: Equatable {
         originalIndex(forDisplayedIndex: displayedIndex) == answerOriginalIndex
     }
 }
+
+struct CurriculumCheckAttempt: Equatable {
+    let answerOriginalIndex: Int
+    private(set) var choiceOrder: AnswerChoiceOrder
+    private(set) var selectedOriginalIndex: Int?
+
+    var isCorrect: Bool { selectedOriginalIndex == answerOriginalIndex }
+    var canComplete: Bool { isCorrect }
+    var canRetry: Bool { selectedOriginalIndex != nil && !isCorrect }
+    var hasAnswered: Bool { selectedOriginalIndex != nil }
+
+    init?(optionCount: Int, answerOriginalIndex: Int) {
+        var generator = SystemRandomNumberGenerator()
+        self.init(optionCount: optionCount, answerOriginalIndex: answerOriginalIndex, using: &generator)
+    }
+
+    init?<Generator: RandomNumberGenerator>(
+        optionCount: Int,
+        answerOriginalIndex: Int,
+        using generator: inout Generator
+    ) {
+        guard optionCount > 0, (0..<optionCount).contains(answerOriginalIndex) else { return nil }
+        self.answerOriginalIndex = answerOriginalIndex
+        choiceOrder = AnswerChoiceOrder(optionCount: optionCount, using: &generator)
+        selectedOriginalIndex = nil
+    }
+
+    mutating func select(displayedIndex: Int) {
+        guard !hasAnswered,
+              let originalIndex = choiceOrder.originalIndex(forDisplayedIndex: displayedIndex) else { return }
+        selectedOriginalIndex = originalIndex
+    }
+
+    mutating func retry() {
+        var generator = SystemRandomNumberGenerator()
+        retry(using: &generator)
+    }
+
+    mutating func retry<Generator: RandomNumberGenerator>(using generator: inout Generator) {
+        guard canRetry else { return }
+        choiceOrder = AnswerChoiceOrder(optionCount: choiceOrder.displayedOriginalIndices.count, using: &generator)
+        selectedOriginalIndex = nil
+    }
+}

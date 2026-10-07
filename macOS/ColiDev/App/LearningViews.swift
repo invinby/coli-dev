@@ -319,7 +319,7 @@ struct CurriculumModuleView: View {
     @State private var learnerConfirmed = false
     @State private var reflection = ""
     @State private var recallQuality = 4
-    @State private var selectedCheckAnswer: Int?
+    @State private var checkAttempt: CurriculumCheckAttempt?
     @State private var sourceInventory: TrustedSourceInventory?
     @State private var sourceInventoryUnavailable = false
     @State private var isLoadingSourceInventory = false
@@ -384,39 +384,74 @@ struct CurriculumModuleView: View {
                                 .font(.title2.weight(.semibold))
                             Text(document.checkQuestion)
                                 .font(.headline)
-                            ForEach(document.checkOptions.indices, id: \.self) { index in
-                                Button {
-                                    selectedCheckAnswer = index
-                                } label: {
-                                    HStack(spacing: 10) {
-                                        Image(systemName: selectedCheckAnswer == index ? "largecircle.fill.circle" : "circle")
-                                        Text(document.checkOptions[index])
-                                            .multilineTextAlignment(.leading)
-                                        Spacer(minLength: 0)
+                            if let checkAttempt {
+                                ForEach(Array(checkAttempt.choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayedIndex, originalIndex in
+                                    Button {
+                                        selectCheckAnswer(displayedIndex: displayedIndex)
+                                    } label: {
+                                        HStack(spacing: 10) {
+                                            Image(systemName: checkAttempt.selectedOriginalIndex == originalIndex
+                                                ? "largecircle.fill.circle"
+                                                : "circle")
+                                            Text(document.checkOptions[originalIndex])
+                                                .multilineTextAlignment(.leading)
+                                            Spacer(minLength: 0)
+                                        }
+                                        .padding(11)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .background(.background, in: RoundedRectangle(cornerRadius: 11))
+                                        .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(.quaternary, lineWidth: 1))
                                     }
-                                    .padding(11)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(.background, in: RoundedRectangle(cornerRadius: 11))
-                                    .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(.quaternary, lineWidth: 1))
+                                    .buttonStyle(.plain)
+                                    .disabled(checkAttempt.hasAnswered)
                                 }
-                                .buttonStyle(.plain)
-                            }
-                            if let selectedCheckAnswer {
-                                let isCorrect = selectedCheckAnswer == document.checkAnswerIndex
-                                Label(
-                                    L10n.text(isCorrect ? "module.correct" : "module.incorrect", store.language),
-                                    systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
-                                )
-                                .foregroundStyle(isCorrect ? Color.green : Color.orange)
-                                if isCorrect, !document.answer.isEmpty {
-                                    Text((try? AttributedString(markdown: document.answer)) ?? AttributedString(document.answer))
-                                        .textSelection(.enabled)
-                                        .padding(.top, 2)
+
+                                if checkAttempt.hasAnswered {
+                                    let isCorrect = checkAttempt.isCorrect
+                                    Label(
+                                        L10n.text(isCorrect ? "module.correct" : "module.incorrect", store.language),
+                                        systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
+                                    )
+                                    .foregroundStyle(isCorrect ? Color.green : Color.orange)
+
+                                    if !isCorrect {
+                                        Text(String(
+                                            format: L10n.text("module.correctOption", store.language),
+                                            document.checkOptions[checkAttempt.answerOriginalIndex]
+                                        ))
+                                            .font(.callout.weight(.medium))
+                                    }
+
+                                    if !document.answer.isEmpty {
+                                        Text((try? AttributedString(markdown: document.answer)) ?? AttributedString(document.answer))
+                                            .textSelection(.enabled)
+                                            .padding(.top, 2)
+                                    } else {
+                                        Text(L10n.text("module.explanationUnavailable", store.language))
+                                            .font(.callout)
+                                            .foregroundStyle(.orange)
+                                    }
+
+                                    if checkAttempt.canRetry {
+                                        Button(action: retryKnowledgeCheck) {
+                                            Label(L10n.text("module.tryAgain", store.language), systemImage: "arrow.counterclockwise")
+                                        }
+                                        .buttonStyle(.bordered)
+                                    }
                                 }
+                            } else {
+                                Label(L10n.text("module.quizUnavailable", store.language), systemImage: "exclamationmark.triangle")
+                                    .foregroundStyle(.orange)
                             }
                         }
                         .padding(18)
                         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+                    } else {
+                        Label(L10n.text("module.quizUnavailable", store.language), systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(.orange)
+                            .padding(18)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
                     }
 
                     if !document.limitations.isEmpty {
@@ -537,7 +572,7 @@ struct CurriculumModuleView: View {
                     .buttonStyle(.borderedProminent)
                     .disabled(
                         !learnerConfirmed
-                            || selectedCheckAnswer != document.checkAnswerIndex
+                            || checkAttempt?.canComplete != true
                             || hasPendingReview
                             || (isComplete && !isReviewDue)
                     )
@@ -555,6 +590,7 @@ struct CurriculumModuleView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .navigationTitle(Text(document?.title ?? L10n.text("module.title", store.language)))
         .onAppear { loadDocument() }
+        .onChange(of: lessonID) { _ in loadDocument() }
         .task(id: lessonID) { await loadSourceInventory() }
         .onChange(of: store.language) { _ in loadDocument() }
         .onChange(of: store.studyProgress[lessonID]?.reflection) { savedReflection in
@@ -592,11 +628,28 @@ struct CurriculumModuleView: View {
     }
 
     private func loadDocument() {
-        document = CurriculumLessonDocument.load(subject: subject, resource: resource, language: store.language)
+        let loadedDocument = CurriculumLessonDocument.load(subject: subject, resource: resource, language: store.language)
+        document = loadedDocument
+        checkAttempt = loadedDocument.flatMap { lesson in
+            guard let answerIndex = lesson.checkAnswerIndex else { return nil }
+            return CurriculumCheckAttempt(optionCount: lesson.checkOptions.count, answerOriginalIndex: answerIndex)
+        }
         learnerConfirmed = isComplete
         if reflection.isEmpty {
             reflection = store.studyProgress[lessonID]?.reflection ?? ""
         }
+    }
+
+    private func selectCheckAnswer(displayedIndex: Int) {
+        guard var attempt = checkAttempt else { return }
+        attempt.select(displayedIndex: displayedIndex)
+        checkAttempt = attempt
+    }
+
+    private func retryKnowledgeCheck() {
+        guard var attempt = checkAttempt else { return }
+        attempt.retry()
+        checkAttempt = attempt
     }
 
     @MainActor
