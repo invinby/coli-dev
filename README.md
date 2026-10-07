@@ -25,7 +25,7 @@ The preview is for team testing. It is not notarized, and visual, keyboard, Voic
 - A SwiftUI client for macOS 13 and later, with Russian and English interface strings, six subject areas, lesson pages, interactive exercises, and locally saved study progress.<br>
   Клиент на SwiftUI для macOS 13 и новее: интерфейс на русском и английском, шесть предметных направлений, страницы уроков, интерактивные упражнения и локальное сохранение прогресса.
 - The repository contains 47 bilingual lesson files. They form a starter collection, not complete or academically reviewed courses.<br>
-  В репозитории 57 двуязычных файлов уроков. Это начальная подборка, а не полные курсы с академической проверкой.
+  В репозитории 47 двуязычных файлов уроков. Это начальная подборка, а не полные курсы с академической проверкой.
 - Courses are planned from foundations through advanced topics. Each roadmap is an outline; its presence does not mean every topic has a finished lesson.<br>
   Учебные маршруты идут от основ к углублённым темам. Каждый маршрут пока является планом: его наличие не означает, что для каждой темы уже готов урок.
 - A local FastAPI backend provides the tutor, study-progress storage, service settings, and Obsidian routes. The macOS app can start its packaged backend runtime.<br>
