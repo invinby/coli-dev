@@ -173,18 +173,19 @@ private struct TodayView: View {
     let openCourseLesson: (StudyLessonRoute) -> Void
     let openDueReview: (Subject, String) -> Void
 
+    @State private var studyRoadmaps = CurriculumCatalog.studyRoadmaps()
     private let columns = [GridItem(.adaptive(minimum: 210), spacing: 16)]
 
     private var courseProgress: StudyCourseProgress {
         StudyCourseProgress(
-            roadmaps: CurriculumCatalog.studyRoadmaps(),
+            roadmaps: studyRoadmaps,
             completedLessonIDs: store.completedLessonIDs
         )
     }
 
     private var nextLessonRoute: StudyLessonRoute? {
         StudyRecommendationSelector.nextLesson(
-            roadmaps: CurriculumCatalog.studyRoadmaps(),
+            roadmaps: studyRoadmaps,
             completedLessonIDs: store.completedLessonIDs,
             resume: store.lastOpenedCourseRoute
         )
