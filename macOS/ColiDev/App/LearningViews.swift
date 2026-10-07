@@ -6016,6 +6016,10 @@ private struct FileReadingLab: View {
     @State private var scenarioID = FileReadingPractice.scenarios[0].id
     @State private var selectedOutcome: FileReadingOutcome?
     @State private var hasCheckedAnswer = false
+    @State private var outcomeOrder = QuizAnswerOrder(
+        optionCount: FileReadingOutcome.allCases.count,
+        answerOriginalIndex: FileReadingPractice.scenarios[0].expectedOutcome.rawValue
+    )
 
     private var scenario: FileReadingScenario {
         FileReadingPractice.scenario(id: scenarioID) ?? FileReadingPractice.scenarios[0]
@@ -6037,6 +6041,10 @@ private struct FileReadingLab: View {
             .onChange(of: scenarioID) { _ in
                 selectedOutcome = nil
                 hasCheckedAnswer = false
+                outcomeOrder = QuizAnswerOrder(
+                    optionCount: FileReadingOutcome.allCases.count,
+                    answerOriginalIndex: scenario.expectedOutcome.rawValue
+                )
             }
 
             Text("""
@@ -6054,7 +6062,8 @@ private struct FileReadingLab: View {
                 .font(.headline)
                 .fixedSize(horizontal: false, vertical: true)
 
-            ForEach(FileReadingPractice.outcomes, id: \.self) { outcome in
+            ForEach(Array(outcomeOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                let outcome = FileReadingPractice.outcomes[originalIndex]
                 Button {
                     guard !hasCheckedAnswer else { return }
                     selectedOutcome = outcome
@@ -6196,8 +6205,12 @@ private struct TransactionLab: View {
 private struct DebuggingLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var scenarioID = DebuggingPractice.scenarios[0].id
-    @State private var selectedChoice = 0
+    @State private var selectedChoice = -1
     @State private var hasChecked = false
+    @State private var optionOrder = QuizAnswerOrder(
+        optionCount: DebuggingPractice.scenarios[0].choiceKeys.count,
+        answerOriginalIndex: DebuggingPractice.scenarios[0].correctChoice
+    )
 
     private var scenario: DebuggingScenario {
         DebuggingPractice.scenario(id: scenarioID) ?? DebuggingPractice.scenarios[0]
@@ -6216,9 +6229,15 @@ private struct DebuggingLab: View {
                 }
             }
             .pickerStyle(.menu)
-            .onChange(of: scenarioID) { _ in
-                selectedChoice = 0
+            .onChange(of: scenarioID) { newScenarioID in
+                selectedChoice = -1
                 hasChecked = false
+                if let newScenario = DebuggingPractice.scenario(id: newScenarioID) {
+                    optionOrder = QuizAnswerOrder(
+                        optionCount: newScenario.choiceKeys.count,
+                        answerOriginalIndex: newScenario.correctChoice
+                    )
+                }
             }
 
             Text(scenario.code)
@@ -6239,8 +6258,8 @@ private struct DebuggingLab: View {
                 .font(.callout.weight(.medium))
 
             Picker(L10n.text("lab.debugging.choicePicker", store.language), selection: $selectedChoice) {
-                ForEach(scenario.choiceKeys.indices, id: \.self) { index in
-                    Text(L10n.text(scenario.choiceKeys[index], store.language)).tag(index)
+                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Text(L10n.text(scenario.choiceKeys[originalIndex], store.language)).tag(displayIndex)
                 }
             }
             .pickerStyle(.radioGroup)
@@ -6249,11 +6268,11 @@ private struct DebuggingLab: View {
             if hasChecked {
                 Label(
                     L10n.text(scenario.explanationKey, store.language),
-                    systemImage: DebuggingPractice.isCorrect(selectedChoice, for: scenarioID)
+                    systemImage: optionOrder.isCorrect(displayedIndex: selectedChoice)
                         ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
                 )
                 .font(.callout)
-                .foregroundStyle(DebuggingPractice.isCorrect(selectedChoice, for: scenarioID) ? Color.green : Color.orange)
+                .foregroundStyle(optionOrder.isCorrect(displayedIndex: selectedChoice) ? Color.green : Color.orange)
                 .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -6263,7 +6282,7 @@ private struct DebuggingLab: View {
                 Label(L10n.text("lab.debugging.check", store.language), systemImage: "checkmark")
             }
             .buttonStyle(.borderedProminent)
-            .disabled(hasChecked)
+            .disabled(hasChecked || selectedChoice < 0)
         }
     }
 }
