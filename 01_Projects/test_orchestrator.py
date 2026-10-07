@@ -2966,8 +2966,18 @@ class TestStreamingChat:
         network_check.assert_not_awaited()
         engine_factory.assert_not_called()
 
-    def test_stream_local_mode(self, client_offline):
+    def test_stream_local_mode(self, client_offline, monkeypatch):
         """В offline-режиме стрим идёт через Digital Twin (Qwen)."""
+        monkeypatch.setattr(
+            orchestrator,
+            "_check_ollama",
+            AsyncMock(return_value={
+                "available": True,
+                "version": "0.12.0",
+                "models": [orchestrator.OLLAMA_MODEL_RESEARCHER],
+                "model_ready": True,
+            }),
+        )
         mock_answer = "Локальный ответ"
         mock_log = DebateLog()
         mock_log.add("consilium", "qwen", "Local response", 100)
@@ -2986,6 +2996,60 @@ class TestStreamingChat:
             done_events = [e for e in events if e["type"] == "done"]
             assert len(done_events) == 1
             assert done_events[0]["provider"] == "local"
+
+    def test_automatic_stream_reports_unconfigured_tutor_route(self, client, monkeypatch):
+        monkeypatch.setattr(orchestrator, "GEMINI_KEY", "")
+        monkeypatch.setattr(orchestrator, "KIMI_KEY", "")
+        monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "")
+
+        mock_engine = MagicMock()
+        mock_engine.run = AsyncMock(return_value=(
+            "⚠️ Консилиум не смог обработать запрос. Попробуйте ещё раз или переключитесь на локальный режим.",
+            DebateLog(),
+        ))
+        with patch("orchestrator.ConsiliumEngine", return_value=mock_engine) as engine_factory:
+            response = client.post("/chat/stream", json={"message": "Объясни тему"})
+
+        events = _parse_sse(response.text)
+
+        assert any(event["type"] == "error" for event in events)
+        assert not any(event["type"] == "done" for event in events)
+        engine_factory.assert_not_called()
+
+    def test_automatic_stream_uses_ready_local_route_without_cloud_configuration(
+        self, client, monkeypatch
+    ):
+        monkeypatch.setattr(orchestrator, "GEMINI_KEY", "")
+        monkeypatch.setattr(orchestrator, "KIMI_KEY", "")
+        monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "")
+        monkeypatch.setattr(
+            orchestrator,
+            "_check_ollama",
+            AsyncMock(return_value={
+                "available": True,
+                "version": "0.12.0",
+                "models": [orchestrator.OLLAMA_MODEL_RESEARCHER],
+                "model_ready": True,
+            }),
+        )
+
+        mock_engine = MagicMock()
+
+        async def local_chunks(message, system_prompt):
+            yield "Ответ локальной модели"
+
+        mock_engine.stream_local = local_chunks
+        mock_engine.log = DebateLog()
+        mock_engine.run = AsyncMock(return_value=("Cloud answer", DebateLog()))
+        with patch("orchestrator.ConsiliumEngine", return_value=mock_engine):
+            response = client.post("/chat/stream", json={"message": "Объясни тему"})
+
+        events = _parse_sse(response.text)
+        done = next(event for event in events if event["type"] == "done")
+
+        assert done["provider"] == "local"
+        assert done["answer"] == "Ответ локальной модели"
+        mock_engine.run.assert_not_awaited()
 
 
 # ─── Тесты ConsiliumEngine ─────────────────────────────

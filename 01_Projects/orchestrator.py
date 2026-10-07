@@ -4772,10 +4772,19 @@ async def chat_stream(request: Request, req: ChatRequest):
         logger.info("Stream → USER_SELECTED_LOCAL", extra={"mode": "local"})
         return await _handle_local_or_error_stream(req, system_prompt, sources, learner_message)
 
-    state.online = await _check_network()
+    state.online, ollama_info = await asyncio.gather(
+        _check_network(),
+        _check_ollama(),
+    )
+    route_readiness = _tutor_route_readiness(
+        online=state.online,
+        ollama_info=ollama_info,
+    )
 
-    # Автоматический маршрут: консилиум при доступной сети/квоте, иначе Ollama.
-    if state.online and session_tracker.can_start_session():
+    # Сеть сама по себе не означает, что для тьютора настроена хотя бы одна модель.
+    # Платный/облачный консилиум разрешаем только при готовности его маршрута;
+    # иначе используем проверенную локальную модель или возвращаем честную ошибку.
+    if route_readiness["cloud_route_ready"]:
         try:
             session_tracker.start_session()
             logger.info("Stream → CONSILIUM (multi-agent debate)",
@@ -4785,9 +4794,25 @@ async def chat_stream(request: Request, req: ChatRequest):
             logger.warning("Consilium failed, falling back to LOCAL", extra={"error": str(exc)[:100]})
             session_tracker.reset_mode()
 
-    logger.info("Stream → LOCAL (offline or automatic fallback)",
-                 extra={"session_count": session_tracker.current, "mode": "local"})
-    return await _handle_local_or_error_stream(req, system_prompt, sources, learner_message)
+    if route_readiness["local_route_ready"]:
+        logger.info("Stream → LOCAL (offline or unavailable cloud route)",
+                    extra={"session_count": session_tracker.current, "mode": "local"})
+        return await _handle_local_or_error_stream(req, system_prompt, sources, learner_message)
+
+    logger.warning(
+        "No configured tutor model route is ready",
+        extra={
+            "online": state.online,
+            "cloud_route_ready": route_readiness["cloud_route_ready"],
+            "local_route_ready": route_readiness["local_route_ready"],
+        },
+    )
+    unavailable_message = (
+        "Не настроена доступная модель тьютора. Установите выбранную модель Ollama или настройте разрешённый облачный маршрут."
+        if req.language == "ru" else
+        "No tutor model is ready. Install the selected Ollama model or configure an allowed cloud route."
+    )
+    return _error_stream_response(req.language, unavailable_message)
 
 
 async def _handle_local_or_error_stream(
