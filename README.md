@@ -1,33 +1,61 @@
 # ColiDev
 
-ColiDev is being built as a native macOS learning platform with a local Python backend. The current repository brings the ColiDev course idea and the earlier tutor/orchestrator code into one project. **The product is still under development; it is not a finished or bug-free release.** See the [macOS app notes](macOS/ColiDev/README.md) and [project plan](project-plan/README.md) for verified scope and remaining work.
+**A native macOS learning app with bilingual courses, interactive practice, and a local AI tutor.**<br>
+**Нативное учебное приложение для macOS с двуязычными курсами, интерактивной практикой и локальным ИИ-тьютором.**
 
-## Download a test build
+ColiDev brings structured learning, a lesson-aware tutor, and local course search into one SwiftUI app backed by a Python service.<br>
+ColiDev объединяет последовательное обучение, ИИ-тьютора с контекстом урока и локальный поиск по курсам в одном приложении SwiftUI с сервером на Python.
 
-Successful pushes to `main` publish separate 14-day GitHub Actions artifacts for Apple Silicon (`arm64`) and Intel (`x86_64`). Open the latest successful run under **Actions**, then download the artifact matching the Mac. Extract the ZIP and move `ColiDev.app` to Applications or the Desktop. This is an unsigned development build for team testing, not the future signed/notarized installer; it can trigger macOS security prompts and should only be run by the project team.
+The app is in active development. Current builds are team previews, not a finished or bug-free product.<br>
+Приложение активно разрабатывается. Текущие сборки предназначены для тестирования командой; это ещё не готовый продукт без ошибок.
 
-## What exists now
+The interface and starter materials support Russian and English. The six priority subjects are mathematics, English, physics, biology, zoology, and programming.<br>
+Интерфейс и начальные учебные материалы доступны на русском и английском. Шесть приоритетных направлений: математика, английский язык, физика, биология, зоология и программирование.
 
-- A SwiftUI macOS 13+ client with Russian and English, starter lessons across mathematics, English, physics, biology, zoology, and programming, linked modules including mathematics area/perimeter, domain/range, rational-expression domain restrictions and linear systems, biology gene expression and an interactive cell-cycle/differentiation guide, a zoology anatomy-function explorer, English reading strategies and daily routines/collocations, plus programming computational thinking, variables/types, conditionals/loops/functions, collection traversal, search complexity, file handling, debugging/tests, and SQL transactions. The app includes interactive exercises, local lesson progress, and a lesson-aware tutor screen. Programming labs use bounded scenarios and do not execute arbitrary learner code.
-- A FastAPI backend with automatic and Ollama-local chat routes. Ordinary Auto defaults to free-only routing: it may use the exact OpenRouter `openrouter/free` route when configured, and uses loopback Ollama for the other agent roles and fallbacks. The Control Center can set separate local Ollama models for draft, critic, and verifier roles, browse installed model IDs from the local Ollama service, and enter a custom model ID manually. The model catalog never queries a remote endpoint or downloads models; local-role preferences cannot switch those roles to a cloud provider. Paid cloud roles still require the global explicit cost-policy setting. Provider account limits are not guaranteed by this client.
-- An explicit Google Search grounding path in Auto mode when a Gemini key is configured and the user has enabled potentially paid cloud calls in Control Center. It is blocked by default in both the UI and backend. When enabled, it searches the web without local retrieval; a separate, off-by-default choice can include up to four matching course/Obsidian excerpts in that one request. It returns inline citations and Google's Search Suggestions, bypasses agent debate, and is not saved to Obsidian.
-- An offline SQLite index for Markdown in `02_Areas/` and Markdown/text cheat sheets in `03_Resources/Cheatsheets/`. It always supports lexical search and can add optional Ollama embeddings for semantic retrieval; vectors stay in the local SQLite database. Search results can cite file paths and line spans. Settings summarizes author-scheduled review reminders and materials without a declared review schedule; those counts do not verify that course facts are current or correct.
-- The backend checks only fixed official-source URLs from lessons while it is running. The Control Center can show a plain-text preview of up to 4,000 characters from one approved page on demand, then record an explicit review for a selected lesson only after fetching the page again and confirming its digest still matches. The local ledger stores only the approved URL, lesson path, review date/time, and text fingerprint; it never stores the page excerpt or adds it to RAG. Local review history is bounded to the latest 10,000 events.
-- The Control Center has a local RAG inspector that shows the same four-source course/licensed-web retrieval cap used by chat, with citation IDs, source dates, license terms, and attribution. It does not generate an answer or call Google Search; configured local embeddings may call Ollama, and Obsidian search happens only when explicitly enabled.
-- Local SQLite study-progress API for lesson review grades and SM-2-style spaced-repetition dates. Review writes are UUID-idempotent. Health/status, sessions, tutor chat, provider settings, progress, and Obsidian routes require a loopback caller and reject untrusted browser Origins when present. HTTP request bodies are capped at 1 MiB before JSON parsing; tutor and Obsidian fields also have explicit length limits. The Obsidian bridge itself only accepts loopback destinations and validates/encodes vault-relative paths before constructing requests.
-- Six Russian/English curriculum roadmaps now cover foundations, intermediate topics, advanced topics, and practice ideas for mathematics, English, physics, biology, zoology, and programming. They are indexed by local RAG as outlines; they are not complete, source-verified courses.
-- The macOS app bundles the same `02_Areas/` materials and now displays each priority subject's bilingual foundation-to-advanced roadmap before its starter lesson. The displayed roadmap remains an outline, not a completed course.
-- The physics starter exercise includes a two-second, one-dimensional motion experiment: set positive, zero, or negative net force and mass, then play, pause, reset, or step by 0.1 s. A SceneKit view uses a fixed metre scale; accessible readings show acceleration, signed velocity, displacement, and time. It models motion from rest under constant force without friction, not collisions or general rigid-body dynamics. Reduce Motion uses manual steps; changing parameters resets the experiment. A linked friction module adds a separate static/kinetic-friction threshold lab. Physical Mac acceptance is still required.
-- Optional Obsidian search and session-summary saving when its Local REST API is configured. A lesson can also be saved as a separate, uniquely named Markdown copy in the local vault from its module page.
-- GitHub Actions checks the backend suite and attempts a real Xcode macOS build after changes reach `main`.
+## Try a macOS preview / Попробовать предварительную сборку macOS
 
-## Still to build
+[Download the latest unsigned preview / Скачать последнюю неподписанную сборку](https://github.com/invinby/coli-dev/releases/tag/preview-2026-10-07-measurement-lab). Choose the archive for Apple Silicon or Intel, extract it, and open `ColiDev.app`. macOS may ask you to confirm because the app is unsigned.<br>
+[Скачать последнюю неподписанную сборку](https://github.com/invinby/coli-dev/releases/tag/preview-2026-10-07-measurement-lab). Выберите архив для Apple Silicon или Intel, распакуйте его и откройте `ColiDev.app`. macOS может попросить подтвердить запуск, потому что приложение не подписано.
 
-The repository currently contains 46 bilingual lesson files across six subjects; this is a small starter set, not complete or academically reviewed courses. Local spaced repetition accepts any linked course module lesson ID; a backend regression check covers both an entry lesson and a full module lesson. Physical Mac acceptance of offline-to-online sync remains pending. Optional local semantic retrieval has not yet been validated against a live Ollama model. The opt-in Google Search path can combine local course/Obsidian excerpts for one answer when the learner separately enables that choice; it is not a full web-RAG pipeline and can consume quota or incur charges. The same saved global cost policy now gates both ordinary Auto paid models and Google Search; both are blocked by default. Fixed-domain source monitoring, on-demand excerpt preview, per-lesson review records, and a paginated review-history viewer exist. Bounded source text enters web-RAG only for exact Python Tutorial pages and the Python Reference assert page, MedlinePlus Genetics DNA/gene basics, NIST SI Appendix B.9, and one eLife CC BY 4.0 article XML file; other monitored sources, including OpenStax and the NIST algorithm glossary, stay metadata-only. OpenStax sources are marked in the admin panel with their usual CC BY-NC-SA 4.0 restriction and stay uncached pending product-release rights review. Full course editing/revision, broader license-reviewed source indexing, and automatic editorial approval remain unimplemented. Native NotebookLM support exports a lesson to a local Markdown file for user-initiated import; direct API integration and sync are not implemented. Course-quality review, a real video library, complete subject-specific 3D simulations, and account/sync remain incomplete. Ordinary Auto has a free-only-by-default policy; provider availability and account limits can change. Google Search use is gated by an 18+ confirmation, but eligibility and audience restrictions must be resolved before broad distribution. The remaining starter visual exercises are 2D; physics has one interactive 3D visualization prototype. See the project plan before treating a planned feature as implemented.
+The preview is for team testing. It is not notarized, and visual, keyboard, VoiceOver, and live-service checks on a physical Mac are still required.<br>
+Эта сборка предназначена для командного тестирования. Она не нотариально заверена; на реальном Mac ещё нужно проверить интерфейс, клавиатуру, VoiceOver и работу подключённых сервисов.
 
-## Run the backend
+## What works now / Что уже работает
 
-Create a virtual environment, install the backend dependencies, copy `.env.example` to `.env`, and run the API from the repository root.
+- A SwiftUI client for macOS 13 and later, with Russian and English interface strings, six subject areas, lesson pages, interactive exercises, and locally saved study progress.<br>
+  Клиент на SwiftUI для macOS 13 и новее: интерфейс на русском и английском, шесть предметных направлений, страницы уроков, интерактивные упражнения и локальное сохранение прогресса.
+- The repository contains 47 bilingual lesson files. They form a starter collection, not complete or academically reviewed courses.<br>
+  В репозитории 57 двуязычных файлов уроков. Это начальная подборка, а не полные курсы с академической проверкой.
+- Courses are planned from foundations through advanced topics. Each roadmap is an outline; its presence does not mean every topic has a finished lesson.<br>
+  Учебные маршруты идут от основ к углублённым темам. Каждый маршрут пока является планом: его наличие не означает, что для каждой темы уже готов урок.
+- A local FastAPI backend provides the tutor, study-progress storage, service settings, and Obsidian routes. The macOS app can start its packaged backend runtime.<br>
+  Локальный сервер FastAPI обслуживает тьютора, хранение прогресса, настройки сервисов и интеграцию с Obsidian. Приложение macOS умеет запускать встроенную сборку сервера.
+- Auto routing has a free-only default. It can use the exact OpenRouter `openrouter/free` route when configured and local Ollama for local agent roles and fallbacks. Paid cloud routes require an explicit cost-policy setting. Provider quotas and availability are not guaranteed.<br>
+  По умолчанию режим Auto использует только бесплатную маршрутизацию. При настройке он может обращаться к точному маршруту OpenRouter `openrouter/free`, а для локальных ролей и запасных ответов — к Ollama. Платные облачные маршруты требуют явного разрешения в настройках расходов. Лимиты и доступность у провайдеров приложение не гарантирует.
+- The Control Center can choose separate Ollama models for draft, critic, and verifier roles. It lists installed local model IDs and accepts a model ID entered by hand. These role preferences cannot silently switch to cloud providers.<br>
+  В Центре управления можно выбрать отдельные модели Ollama для черновика, критики и проверки. Он показывает установленные локальные модели и позволяет ввести идентификатор вручную. Эти настройки ролей не переключают их в облако автоматически.
+- Local RAG indexes Markdown course files and text cheat sheets in SQLite. It supports lexical search and optional Ollama embeddings; search results can include file paths and line ranges. Chat retrieval is capped at four sources.<br>
+  Локальный RAG индексирует учебные Markdown-файлы и текстовые шпаргалки в SQLite. Доступен обычный текстовый поиск и необязательные векторные представления через Ollama; в результатах могут быть пути к файлам и строки. В чат передаётся не более четырёх найденных источников.
+- The admin tools can inspect retrieved sources and show source dates, licenses, and attribution. The backend checks a fixed list of official-source URLs while it is running. A person can preview an approved page and record a review after its content fingerprint is checked again.<br>
+  Инструменты администратора позволяют просматривать найденные источники, их даты, лицензии и атрибуцию. Во время работы сервер проверяет ограниченный список URL официальных источников. Человек может открыть текст одобренной страницы и записать проверку только после повторной сверки отпечатка её содержимого.
+- **Lesson content does not update or get approved automatically.** Source checks do not rewrite lessons. A recorded review is an editorial note, not proof that a whole course is current or correct. Web-grounded retrieval covers only a small, explicitly approved source set.<br>
+  **Содержание уроков не обновляется и не утверждается автоматически.** Проверки источников не переписывают уроки. Запись о проверке — это заметка редактора, а не доказательство актуальности или правильности всего курса. Поиск по веб-источникам охватывает лишь небольшой явно одобренный набор материалов.
+- Optional Google Search grounding is blocked by default and requires a configured Gemini key plus explicit permission for potentially paid cloud calls. It can include local course or Obsidian excerpts only after a separate choice and warning. It may use quota or incur charges.<br>
+  Дополнительный поиск Google отключён по умолчанию: для него нужен ключ Gemini и явное разрешение на потенциально платные облачные запросы. Фрагменты курсов или Obsidian можно добавить только отдельным выбором после предупреждения. Такой поиск может расходовать квоту или привести к оплате.
+- The physics starter includes interactive motion and measurement exercises. One 3D prototype models one-dimensional motion under constant force; it does not model general rigid-body dynamics. Other starter visual exercises are 2D.<br>
+  В начальном курсе физики есть интерактивные задания по движению и измерениям. Один 3D-прототип моделирует одномерное движение под действием постоянной силы; он не моделирует динамику произвольных твёрдых тел. Остальные стартовые визуальные упражнения двумерные.
+- Obsidian search and saving lesson/session notes are optional and require its loopback Local REST API. NotebookLM support exports a lesson as a local Markdown file for the learner to import; direct NotebookLM API integration and synchronization are not implemented.<br>
+  Поиск в Obsidian и сохранение заметок урока или занятия доступны по желанию и требуют локального Local REST API. Для NotebookLM урок можно экспортировать в Markdown-файл и импортировать вручную; прямое подключение к API NotebookLM и синхронизация пока не реализованы.
+
+## Still in development / Что ещё разрабатывается
+
+Full course coverage and editorial review, automatic content updates, a complete video library, subject-specific 3D practice, broader license-reviewed source coverage, automatic editorial approval, NotebookLM synchronization, and account-based cross-device sync are not implemented. See the [project plan / план проекта](project-plan/README.md) for the detailed scope and status.<br>
+Полное покрытие курсов и редакторская проверка, автоматическое обновление учебных материалов, полноценная видеотека, 3D-тренажёры по всем направлениям, расширение набора источников с проверкой лицензий, автоматическое редакторское утверждение, синхронизация с NotebookLM и аккаунтная синхронизация между устройствами ещё не реализованы. Подробный объём и статус см. в [плане проекта](project-plan/README.md).
+
+## Run the backend / Запустить сервер
+
+From the repository root, create an environment, install the backend dependencies, copy the sample configuration, and start the API.<br>
+В корне репозитория создайте виртуальное окружение, установите зависимости сервера, скопируйте пример настроек и запустите API.
 
 ```bash
 python3 -m venv .venv
@@ -37,25 +65,40 @@ cp .env.example .env
 python 01_Projects/orchestrator.py
 ```
 
-On Windows PowerShell, use `py -3 -m venv .venv`, activate with `\.venv\Scripts\Activate.ps1`, and copy the template with `Copy-Item .env.example .env`.
+In Windows PowerShell, create the environment with `py -3 -m venv .venv`, activate it with `\.venv\Scripts\Activate.ps1`, and copy the configuration with `Copy-Item .env.example .env`.<br>
+В Windows PowerShell создайте окружение командой `py -3 -m venv .venv`, активируйте его через `\.venv\Scripts\Activate.ps1` и скопируйте настройки командой `Copy-Item .env.example .env`.
 
-The server binds to `127.0.0.1:8000` by default. The CI-built macOS `.app` includes a PyInstaller backend runtime and starts it when the app opens; an ordinary Xcode build from source still needs the backend started separately unless you package it with `macOS/ColiDev/scripts/package_backend_runtime.sh`. On macOS, save Gemini, Kimi, OpenRouter, and Obsidian credentials from the Control Center's Services pane; the backend stores them in macOS Keychain. `.env` remains a development fallback and can also configure Ollama and other backend options. The course index, session state, study progress, and logs use per-user OS data/log directories; set `COLIDEV_DATA_DIR` to override app data and `COLIDEV_LOG_DIR` to override logs. For local-only chat, install Ollama, pull the model named by `OLLAMA_RESEARCHER`, and set `OLLAMA_URL` to `localhost`, `127.0.0.1`, or `::1`; the backend blocks non-loopback endpoints before sending the prompt. Optional semantic course search is disabled by default; set `OLLAMA_EMBEDDING_MODEL` (for example, `embeddinggemma`) to enable Ollama's local `/api/embed` route. Course text and vectors are sent only to the configured loopback Ollama endpoint, and lexical search remains available if embeddings are unset or unavailable. Obsidian Local REST API must also use a loopback URL. Ordinary Auto blocks paid routes by default. Its cloud leg is limited to OpenRouter's exact `openrouter/free` route when its key is configured; otherwise Auto uses local Ollama. The global paid-route setting in Control Center explicitly allows configured potentially paid models and Google Search. Google Search sends the current question and lesson context to Gemini/Google and skips the ordinary agents and Obsidian save path; by default it skips local retrieval too. A second, off-by-default choice includes matching course/Obsidian excerpts in the Google request and displays an additional privacy warning. Google stores grounding prompts, context, and output for up to 30 days; unpaid quota may be used to improve Google's services and processed by human reviewers. Search may consume quota or incur charges. Do not send sensitive information; API users must be 18 or older.
+The server listens on `127.0.0.1:8000` by default. A source build from Xcode needs the backend started separately unless you package it with `macOS/ColiDev/scripts/package_backend_runtime.sh`. The CI preview bundles a PyInstaller runtime.<br>
+По умолчанию сервер слушает `127.0.0.1:8000`. При сборке исходников через Xcode сервер нужно запускать отдельно, если не упаковать его скриптом `macOS/ColiDev/scripts/package_backend_runtime.sh`. В сборку из CI включён runtime PyInstaller.
 
-## Open the macOS app
+## Build and check / Собрать и проверить
 
-On a Mac with Xcode, open `macOS/ColiDev/ColiDev.xcodeproj`, select the `ColiDev` scheme, and run it. To test the backend-free launch path, build and package the local runtime using `requirements-macos-runtime.txt` and `macOS/ColiDev/scripts/package_backend_runtime.sh`. The GitHub workflow packages the backend and smoke-tests its API and tutor page; it does not launch the SwiftUI app or prove provider credentials, Obsidian, Ollama, or Keychain behavior on a user's Mac.
+Open `macOS/ColiDev/ColiDev.xcodeproj` in Xcode, choose the `ColiDev` scheme, and run it. The [macOS notes / заметки по macOS](macOS/ColiDev/README.md) describe packaging the backend runtime.<br>
+Откройте `macOS/ColiDev/ColiDev.xcodeproj` в Xcode, выберите схему `ColiDev` и запустите приложение. В [заметках по macOS](macOS/ColiDev/README.md) описана упаковка серверного runtime.
 
-## Run backend checks
+Run the backend checks with:<br>
+Запустить проверки сервера можно так:
 
 ```bash
 python -m pip install -r requirements-test.txt
 python -m pytest 01_Projects -q
 ```
 
-The tests use mocked provider calls. They do not consume API credits or verify live services.
+The test suite mocks provider requests. It does not spend API credits or verify live services. GitHub Actions also builds the app for Apple Silicon and Intel and checks the packaged backend; it does not replace hands-on Mac acceptance.<br>
+В тестах запросы к провайдерам заменены заглушками. Проверки не расходуют API-кредиты и не подтверждают работу настоящих сервисов. GitHub Actions также собирает приложение для Apple Silicon и Intel и проверяет упакованный сервер, но не заменяет ручную проверку на Mac.
 
-## Configuration and private data
+## Keys and local data / Ключи и локальные данные
 
-Keys saved from the macOS Control Center are stored in the system Keychain; their values are never returned to the client. `.env` is ignored by Git and remains a development fallback. Never commit real provider or Obsidian credentials. Keep the backend bound to loopback unless network exposure is deliberately designed and protected; the local service has no user-account authentication. The local database and lesson progress are stored on the user's device. The default cost policy gates potentially paid model routes and Google Search on the backend; allowing either requires explicitly saving the policy in Control Center.
+On macOS, credentials saved in the Control Center are stored in Keychain; their values are not returned to the app client. The ignored `.env` file is a development fallback. Never commit real provider or Obsidian credentials.<br>
+В macOS ключи, сохранённые через Центр управления, хранятся в Keychain; приложение не возвращает их значения клиенту. Игнорируемый Git файл `.env` служит запасным вариантом для разработки. Никогда не добавляйте настоящие ключи провайдеров или Obsidian в репозиторий.
 
-Earlier prototype launch scripts remain in the repository for reference; the native learning client uses `01_Projects/orchestrator.py` as its backend.
+Course indexes, session state, study progress, and logs use per-user system data directories. The backend binds to loopback by default and does not provide user-account authentication. Keep it local unless network access is deliberately designed and protected.<br>
+Индексы курсов, состояние занятий, прогресс и журналы хранятся в системных каталогах текущего пользователя. По умолчанию сервер привязан к loopback-адресу и не использует авторизацию аккаунтов. Оставляйте его локальным, пока сетевой доступ отдельно не спроектирован и не защищён.
+
+The global cost policy gates potentially paid model routes and Google Search on the backend. Saving credentials alone does not enable these routes.<br>
+Общая политика расходов блокирует потенциально платные маршруты моделей и Google Search на стороне сервера. Одно лишь сохранение ключей эти маршруты не включает.
+
+---
+
+**Project repository / Репозиторий проекта:** [github.com/invinby/coli-dev](https://github.com/invinby/coli-dev)<br>
+**Current preview / Текущая сборка для тестирования:** [macOS preview / сборка macOS](https://github.com/invinby/coli-dev/releases/tag/preview-2026-10-07-measurement-lab)
