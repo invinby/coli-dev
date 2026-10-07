@@ -1,5 +1,33 @@
 # 02. Текущее состояние ColiDev
 
+# Аудит прототипа и уточнение требований — 2026-10-08
+
+## Подтверждено в исходниках / Confirmed in source
+
+| По-русски | In English |
+|---|---|
+| В рабочей ветке есть отдельный экран локальных моделей Ollama, выбор моделей для ролей Auto и статусы доступности. Это код черновой ветки, а не последняя опубликованная сборка. | The draft branch has a separate Ollama local-models screen, model selection for Auto roles, and availability states. This is branch code, not the latest published preview. |
+| Варианты перемешиваются во вводных проверках предметов и в части существующих упражнений. Это не означает, что проверены все тесты каталога. | Choices are shuffled in subject introductions and some existing exercises. This does not mean every quiz in the catalog has been covered. |
+| Редактор пользователя поддерживает новые двуязычные предметы, темы и подтемы; темы можно добавлять также во встроенные предметы. Данные сохраняются локально. Встроенная биология уже существует; по уточнению команды, создавать её заново не требуется. | The learner editor supports new bilingual subjects, topics, and subtopics; topics can also be added to built-in subjects. Data is stored locally. Built-in Biology already exists; the team clarified that it must not be recreated. |
+| Тема пользовательского курса может открыть контекст тьютора с целью и заметками ученика. Это не генератор полного проверенного курса: он не создаёт автоматически академически выверенный урок, упражнения и ссылки на источники. | A custom-curriculum topic can open a tutor context containing the learner's goal and notes. This is not a complete verified-course generator: it does not automatically create an academically reviewed lesson, exercises, and source links. |
+| Кнопка «Продолжить» сначала выбирает доступное повторение, затем возвращает к последнему открытому незавершённому уроку, затем выбирает следующий незавершённый урок в наименее пройденном встроенном курсе. Это логика завершения и повторения, а не оценка глубины знаний. | Continue first selects an addressable due review, then resumes the last opened unfinished lesson, then chooses the next unfinished lesson in the least-completed built-in course. This uses completion and review state, not depth of understanding. |
+| SwiftUI-клиент отправляет запрос тьютора в локальный `/chat/stream`; backend разделяет локальный и автоматический маршруты. Наличие этой связи в коде ещё не подтверждает успешный ответ настроенной модели на Mac. | The SwiftUI client sends tutor requests to the local `/chat/stream` endpoint; the backend separates local and automatic routes. This code path alone does not confirm that a configured model successfully answers on the Mac. |
+
+## Открытые пробелы / Open gaps
+
+| Приоритет | Русский статус | English status |
+|---|---|---|
+| P0 | Не пройдена ручная сквозная проверка приложения на Mac: запуск встроенного backend, ответ локальной модели, ответ выбранного разрешённого облачного маршрута и корректные ошибки при недоступном маршруте. CI проверяет сборку и кодовые сценарии, но не заменяет живой разговор с моделью. | The full app has not passed hands-on end-to-end acceptance on a Mac: launching the bundled backend, receiving a local-model reply, receiving a reply from a selected allowed cloud route, and showing useful errors when a route is unavailable. CI checks builds and code paths but does not replace a live model conversation. |
+| P0 | Нужна ручная проверка навигации по предметам, дорожным картам, урокам, добавленным темам и кнопке «Продолжить». Отдельная ошибка открытия биологии не подтверждена; общая проверка должна оставить встроенную биологию доступной и не создавать дубликат. | Navigation through subjects, roadmaps, lessons, added topics, and Continue still needs hands-on review. A Biology-specific opening bug is not confirmed; the general check must keep built-in Biology available without adding a duplicate. |
+| P1 | Перемешивание охватывает не все упражнения; ещё требуется инвентаризация объяснений после верного и неверного ответа. Источники указаны не во всех материалах, а наличие ссылок само по себе не доказывает точность текста. | Shuffling does not cover every exercise; explanations after both correct and incorrect answers still need an inventory. Some materials lack sources, and the presence of links alone does not prove the text is accurate. |
+| P2 | Нет полной модели освоения по типам ошибок, переносу знаний, самостоятельности и устойчивости памяти. Рекомендации пока используют завершённость уроков и расписание повторений. | There is no complete mastery model based on error types, knowledge transfer, independence, and retention. Recommendations currently use lesson completion and review scheduling. |
+| P2 | Визуальные материалы пока точечные: есть отдельный 3D-сценарий физики и несколько предметных 2D-практик. Нет широкого набора 3D-моделей и видео по учебным темам. | Visual material remains limited: there is one physics 3D activity and several subject-specific 2D exercises. There is no broad set of 3D models and learning videos. |
+| P3 | Дорожные карты содержат темы, для которых ещё нет законченных уроков, особенно на продвинутом и научном уровне. Полноту и научную редактуру нужно наращивать отдельно по каждому предмету. | Roadmaps include topics without finished lessons, especially at advanced and scientific levels. Coverage and academic review need to grow separately for each subject. |
+
+**RU:** Ветка `codex/ai-role-routing` на момент аудита — `85f0d59`. GitHub Actions run [37693131210](https://github.com/invinby/coli-dev/actions/runs/37693131210) завершился успешно: backend-проверки, Xcode-сборки Apple Silicon и Intel, упаковка backend, smoke-проверки и проверка ресурсов прошли; два тестовых архива доступны до 2026-10-21. Физический Mac, живые ключи/квоты провайдеров и приёмка интерфейса в этом аудите недоступны.
+
+**EN:** At audit time, branch `codex/ai-role-routing` was at `85f0d59`. GitHub Actions run [37693131210](https://github.com/invinby/coli-dev/actions/runs/37693131210) succeeded: backend checks, Apple Silicon and Intel Xcode builds, backend packaging, smoke checks, and resource checks passed; both test archives are available through 21 October 2026. A physical Mac, live provider credentials/quotas, and hands-on UI acceptance were unavailable for this audit.
+
 ## Проверенное состояние main — 2026-10-07
 
 - Текущий `main`: commit `d38b05a6a235383c535527a625a0d5bc24b67bb1`; локальный `HEAD` совпадает с `origin/main`, предыдущая реализационная проверка завершена чистой рабочей копией.
