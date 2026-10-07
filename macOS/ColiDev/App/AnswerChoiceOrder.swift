@@ -23,6 +23,37 @@ struct AnswerChoiceOrder: Equatable {
     }
 }
 
+struct QuizAnswerOrder: Equatable {
+    let answerOriginalIndex: Int
+    private let choiceOrder: AnswerChoiceOrder
+
+    var displayedOriginalIndices: [Int] { choiceOrder.displayedOriginalIndices }
+
+    init(optionCount: Int, answerOriginalIndex: Int) {
+        precondition(optionCount > 0 && (0..<optionCount).contains(answerOriginalIndex), "The answer index must match an option.")
+        var generator = SystemRandomNumberGenerator()
+        self.init(optionCount: optionCount, answerOriginalIndex: answerOriginalIndex, using: &generator)
+    }
+
+    init<Generator: RandomNumberGenerator>(
+        optionCount: Int,
+        answerOriginalIndex: Int,
+        using generator: inout Generator
+    ) {
+        precondition(optionCount > 0 && (0..<optionCount).contains(answerOriginalIndex), "The answer index must match an option.")
+        self.answerOriginalIndex = answerOriginalIndex
+        choiceOrder = AnswerChoiceOrder(optionCount: optionCount, using: &generator)
+    }
+
+    func originalIndex(forDisplayedIndex index: Int) -> Int? {
+        choiceOrder.originalIndex(forDisplayedIndex: index)
+    }
+
+    func isCorrect(displayedIndex: Int) -> Bool {
+        choiceOrder.isCorrect(displayedIndex: displayedIndex, answerOriginalIndex: answerOriginalIndex)
+    }
+}
+
 struct CurriculumCheckAttempt: Equatable {
     let answerOriginalIndex: Int
     private(set) var choiceOrder: AnswerChoiceOrder

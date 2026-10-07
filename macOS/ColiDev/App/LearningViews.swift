@@ -1280,6 +1280,9 @@ private struct ReadingStrategyLab: View {
     @State private var selection: Int?
     @State private var wasCorrect: Bool?
     @State private var complete = false
+    @State private var optionOrders = EnglishReadingPractice.questions.map {
+        QuizAnswerOrder(optionCount: 3, answerOriginalIndex: $0.correctOption)
+    }
 
     private let questions = [
         ConditionalPracticeQuestion(id: EnglishReadingPractice.questions[0].id, promptKey: "lab.readingQuestion0", feedbackKey: "lab.readingFeedback0"),
@@ -1311,20 +1314,20 @@ private struct ReadingStrategyLab: View {
                     .font(.title3.weight(.medium))
                     .fixedSize(horizontal: false, vertical: true)
 
-                ForEach(0..<3, id: \.self) { option in
+                ForEach(Array(optionOrders[index].displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Button {
-                        selection = option
+                        selection = displayIndex
                         wasCorrect = nil
                     } label: {
                         Label(
-                            L10n.text("lab.readingOption\(index * 3 + option)", store.language),
-                            systemImage: selection == option ? "checkmark.circle.fill" : "circle"
+                            L10n.text("lab.readingOption\(index * 3 + originalIndex)", store.language),
+                            systemImage: selection == displayIndex ? "checkmark.circle.fill" : "circle"
                         )
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.bordered)
-                    .tint(selection == option ? .accentColor : .secondary)
-                    .accessibilityAddTraits(selection == option ? .isSelected : [])
+                    .tint(selection == displayIndex ? .accentColor : .secondary)
+                    .accessibilityAddTraits(selection == displayIndex ? .isSelected : [])
                 }
 
                 if let wasCorrect {
@@ -1348,7 +1351,7 @@ private struct ReadingStrategyLab: View {
                             wasCorrect = nil
                         }
                     } else if let selection {
-                        wasCorrect = EnglishReadingPractice.isCorrect(selection, for: questions[index].id)
+                        wasCorrect = optionOrders[index].isCorrect(displayedIndex: selection)
                     }
                 } label: {
                     Text(L10n.text(
@@ -1369,6 +1372,9 @@ private struct ReadingStrategyLab: View {
         selection = nil
         wasCorrect = nil
         complete = false
+        optionOrders = EnglishReadingPractice.questions.map {
+            QuizAnswerOrder(optionCount: 3, answerOriginalIndex: $0.correctOption)
+        }
     }
 }
 
@@ -2490,8 +2496,7 @@ private struct TenseContrastLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var scenario = 0
     @State private var selectedAnswer: Int?
-
-    private var correctAnswer: Int { scenario }
+    @State private var optionOrder = QuizAnswerOrder(optionCount: 2, answerOriginalIndex: 0)
 
     var body: some View {
         LabCard {
@@ -2502,19 +2507,22 @@ private struct TenseContrastLab: View {
                 Text(L10n.text("lab.tenseScenario1", store.language)).tag(1)
             }
             .pickerStyle(.segmented)
-            .onChange(of: scenario) { _ in selectedAnswer = nil }
+            .onChange(of: scenario) { newScenario in
+                selectedAnswer = nil
+                optionOrder = QuizAnswerOrder(optionCount: 2, answerOriginalIndex: newScenario)
+            }
 
             HStack(spacing: 10) {
-                ForEach(0..<2, id: \.self) { option in
+                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Button {
-                        selectedAnswer = option
+                        selectedAnswer = displayIndex
                     } label: {
-                        Text(L10n.text("lab.tenseOption\(scenario)\(option)", store.language))
+                        Text(L10n.text("lab.tenseOption\(scenario)\(originalIndex)", store.language))
                             .frame(maxWidth: .infinity)
                             .padding(10)
                             .background(
-                                selectedAnswer == option
-                                    ? (option == correctAnswer ? Color.green.opacity(0.16) : Color.orange.opacity(0.16))
+                                selectedAnswer == displayIndex
+                                    ? (optionOrder.isCorrect(displayedIndex: displayIndex) ? Color.green.opacity(0.16) : Color.orange.opacity(0.16))
                                     : Color.secondary.opacity(0.08),
                                 in: RoundedRectangle(cornerRadius: 10)
                             )
@@ -2525,10 +2533,10 @@ private struct TenseContrastLab: View {
 
             if let selectedAnswer {
                 Label(
-                    L10n.text(selectedAnswer == correctAnswer ? "lab.tenseCorrect" : "lab.tenseIncorrect", store.language),
-                    systemImage: selectedAnswer == correctAnswer ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
+                    L10n.text(optionOrder.isCorrect(displayedIndex: selectedAnswer) ? "lab.tenseCorrect" : "lab.tenseIncorrect", store.language),
+                    systemImage: optionOrder.isCorrect(displayedIndex: selectedAnswer) ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
                 )
-                .foregroundStyle(selectedAnswer == correctAnswer ? Color.green : Color.orange)
+                .foregroundStyle(optionOrder.isCorrect(displayedIndex: selectedAnswer) ? Color.green : Color.orange)
             }
         }
     }
@@ -2540,6 +2548,7 @@ private struct PresentPerfectAspectLab: View {
     @State private var selectedAnswer: Int?
 
     private let correctAnswers = [1, 1, 0]
+    @State private var optionOrder = QuizAnswerOrder(optionCount: 2, answerOriginalIndex: 1)
 
     var body: some View {
         LabCard {
@@ -2552,7 +2561,10 @@ private struct PresentPerfectAspectLab: View {
                 }
             }
             .pickerStyle(.segmented)
-            .onChange(of: scenario) { _ in selectedAnswer = nil }
+            .onChange(of: scenario) { newScenario in
+                selectedAnswer = nil
+                optionOrder = QuizAnswerOrder(optionCount: 2, answerOriginalIndex: correctAnswers[newScenario])
+            }
 
             Text(L10n.text("lab.perfectSentence\(scenario)", store.language))
                 .font(.title3.weight(.medium))
@@ -2562,21 +2574,21 @@ private struct PresentPerfectAspectLab: View {
                 .background(Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
 
             HStack(spacing: 10) {
-                ForEach(0..<2, id: \.self) { option in
+                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Button {
-                        selectedAnswer = option
+                        selectedAnswer = displayIndex
                     } label: {
-                        Text(L10n.text("lab.perfectOption\(scenario)\(option)", store.language))
+                        Text(L10n.text("lab.perfectOption\(scenario)\(originalIndex)", store.language))
                             .frame(maxWidth: .infinity)
                             .padding(10)
-                            .background(answerColor(for: option), in: RoundedRectangle(cornerRadius: 10))
+                            .background(answerColor(forDisplayedIndex: displayIndex), in: RoundedRectangle(cornerRadius: 10))
                     }
                     .buttonStyle(.plain)
                 }
             }
 
             if let selectedAnswer {
-                let isCorrect = selectedAnswer == correctAnswers[scenario]
+                let isCorrect = optionOrder.isCorrect(displayedIndex: selectedAnswer)
                 Label(
                     L10n.text("lab.perfectFeedback\(scenario)\(isCorrect ? 1 : 0)", store.language),
                     systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
@@ -2587,11 +2599,11 @@ private struct PresentPerfectAspectLab: View {
         }
     }
 
-    private func answerColor(for option: Int) -> Color {
-        guard let selectedAnswer, selectedAnswer == option else {
+    private func answerColor(forDisplayedIndex displayIndex: Int) -> Color {
+        guard let selectedAnswer, selectedAnswer == displayIndex else {
             return Color.secondary.opacity(0.08)
         }
-        return option == correctAnswers[scenario] ? Color.green.opacity(0.16) : Color.orange.opacity(0.16)
+        return optionOrder.isCorrect(displayedIndex: displayIndex) ? Color.green.opacity(0.16) : Color.orange.opacity(0.16)
     }
 }
 
@@ -2607,6 +2619,10 @@ private struct ConditionalsLab: View {
     @State private var selection: Int?
     @State private var wasCorrect: Bool?
     @State private var complete = false
+    @State private var optionOrder = QuizAnswerOrder(
+        optionCount: EnglishConditionalForm.allCases.count,
+        answerOriginalIndex: EnglishConditionalPractice.scenarios[0].correctForm.rawValue
+    )
 
     private let questions = [
         ConditionalPracticeQuestion(id: EnglishConditionalPractice.scenarios[0].id, promptKey: "lab.conditionalScenario0", feedbackKey: "lab.conditionalFeedback0"),
@@ -2638,20 +2654,20 @@ private struct ConditionalsLab: View {
                     .font(.title3.weight(.medium))
                     .fixedSize(horizontal: false, vertical: true)
 
-                ForEach(0..<3, id: \.self) { option in
+                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Button {
-                        selection = option
+                        selection = displayIndex
                         wasCorrect = nil
                     } label: {
                         Label(
-                            L10n.text("lab.conditionalOption\(option)", store.language),
-                            systemImage: selection == option ? "checkmark.circle.fill" : "circle"
+                            L10n.text("lab.conditionalOption\(originalIndex)", store.language),
+                            systemImage: selection == displayIndex ? "checkmark.circle.fill" : "circle"
                         )
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.bordered)
-                    .tint(selection == option ? .accentColor : .secondary)
-                    .accessibilityAddTraits(selection == option ? .isSelected : [])
+                    .tint(selection == displayIndex ? .accentColor : .secondary)
+                    .accessibilityAddTraits(selection == displayIndex ? .isSelected : [])
                 }
 
                 if let wasCorrect {
@@ -2673,9 +2689,13 @@ private struct ConditionalsLab: View {
                             index += 1
                             selection = nil
                             wasCorrect = nil
+                            optionOrder = QuizAnswerOrder(
+                                optionCount: EnglishConditionalForm.allCases.count,
+                                answerOriginalIndex: EnglishConditionalPractice.scenarios[index].correctForm.rawValue
+                            )
                         }
-                    } else if let selection, let selectedForm = EnglishConditionalForm(rawValue: selection) {
-                        wasCorrect = EnglishConditionalPractice.isCorrect(selectedForm, for: questions[index].id)
+                    } else if let selection {
+                        wasCorrect = optionOrder.isCorrect(displayedIndex: selection)
                     }
                 } label: {
                     Text(L10n.text(
@@ -2696,6 +2716,10 @@ private struct ConditionalsLab: View {
         selection = nil
         wasCorrect = nil
         complete = false
+        optionOrder = QuizAnswerOrder(
+            optionCount: EnglishConditionalForm.allCases.count,
+            answerOriginalIndex: EnglishConditionalPractice.scenarios[0].correctForm.rawValue
+        )
     }
 }
 
@@ -4430,6 +4454,7 @@ private struct GeneRegulationLab: View {
     @State private var variant = 0
     @State private var signalPresent = true
     @State private var selectedAnswer: Int?
+    @State private var optionOrder = QuizAnswerOrder(optionCount: 2, answerOriginalIndex: 1)
 
     private var productMade: Bool { variant == 0 && signalPresent }
 
@@ -4444,7 +4469,10 @@ private struct GeneRegulationLab: View {
                 Text(L10n.text("lab.dnaVariant1", store.language)).tag(1)
             }
             .pickerStyle(.segmented)
-            .onChange(of: variant) { _ in selectedAnswer = nil }
+            .onChange(of: variant) { _ in
+                selectedAnswer = nil
+                optionOrder = QuizAnswerOrder(optionCount: 2, answerOriginalIndex: 1)
+            }
 
             DNAHelixVisualization(variant: variant)
                 .frame(height: 230)
@@ -4458,7 +4486,10 @@ private struct GeneRegulationLab: View {
                 .accessibilityLabel(Text(L10n.text(variant == 0 ? "lab.dnaPairAT" : "lab.dnaPairCG", store.language)))
 
             Toggle(L10n.text("lab.dnaSignal", store.language), isOn: $signalPresent)
-                .onChange(of: signalPresent) { _ in selectedAnswer = nil }
+                .onChange(of: signalPresent) { _ in
+                    selectedAnswer = nil
+                    optionOrder = QuizAnswerOrder(optionCount: 2, answerOriginalIndex: 1)
+                }
 
             HStack(spacing: 8) {
                 flowNode(title: L10n.text("lab.dnaSequence", store.language), value: "A · T · C · G")
@@ -4478,20 +4509,25 @@ private struct GeneRegulationLab: View {
             Text(L10n.text("lab.dnaPredict", store.language))
                 .font(.callout.weight(.medium))
             HStack {
-                answerButton(0, key: "lab.dnaPredictOption0")
-                answerButton(1, key: "lab.dnaPredictOption1")
+                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    answerButton(
+                        displayIndex,
+                        key: originalIndex == 0 ? "lab.dnaPredictOption0" : "lab.dnaPredictOption1"
+                    )
+                }
             }
 
             if let selectedAnswer {
+                let isCorrect = optionOrder.isCorrect(displayedIndex: selectedAnswer)
                 Label(
                     L10n.text(
-                        selectedAnswer == 1 ? "lab.dnaPredictCorrect" : "lab.dnaPredictIncorrect",
+                        isCorrect ? "lab.dnaPredictCorrect" : "lab.dnaPredictIncorrect",
                         store.language
                     ),
-                    systemImage: selectedAnswer == 1 ? "checkmark.circle.fill" : "arrow.clockwise.circle"
+                    systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.clockwise.circle"
                 )
                 .font(.callout)
-                .foregroundStyle(selectedAnswer == 1 ? Color.green : Color.secondary)
+                .foregroundStyle(isCorrect ? Color.green : Color.secondary)
             }
         }
     }
@@ -4531,6 +4567,13 @@ private struct GeneExpressionLab: View {
     @State private var selectedStage = 0
     @State private var selectedAnswer = -1
     @State private var didCheckAnswer = false
+    @State private var optionOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: 1)
+
+    private let answerOptionKeys = [
+        "lab.geneExpressionOptionA",
+        "lab.geneExpressionOptionB",
+        "lab.geneExpressionOptionC"
+    ]
 
     private var snapshot: GeneExpressionSnapshot {
         GeneExpressionPractice.snapshot(promoterIsActive: transcriptionEnabled)
@@ -4547,6 +4590,7 @@ private struct GeneExpressionLab: View {
                 .onChange(of: transcriptionEnabled) { _ in
                     selectedAnswer = -1
                     didCheckAnswer = false
+                    optionOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: 1)
                 }
 
             Picker(L10n.text("lab.geneExpressionStage", store.language), selection: $selectedStage) {
@@ -4576,9 +4620,9 @@ private struct GeneExpressionLab: View {
             Text(L10n.text("lab.geneExpressionQuiz", store.language))
                 .font(.callout.weight(.medium))
             Picker(L10n.text("lab.geneExpressionQuiz", store.language), selection: $selectedAnswer) {
-                Text(L10n.text("lab.geneExpressionOptionA", store.language)).tag(0)
-                Text(L10n.text("lab.geneExpressionOptionB", store.language)).tag(1)
-                Text(L10n.text("lab.geneExpressionOptionC", store.language)).tag(2)
+                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Text(L10n.text(answerOptionKeys[originalIndex], store.language)).tag(displayIndex)
+                }
             }
             .pickerStyle(.radioGroup)
             .onChange(of: selectedAnswer) { _ in didCheckAnswer = false }
@@ -4590,7 +4634,7 @@ private struct GeneExpressionLab: View {
             .disabled(selectedAnswer < 0)
 
             if didCheckAnswer {
-                let isCorrect = selectedAnswer == 1
+                let isCorrect = optionOrder.isCorrect(displayedIndex: selectedAnswer)
                 Label(
                     L10n.text(isCorrect ? "lab.geneExpressionCorrect" : "lab.geneExpressionReview", store.language),
                     systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
@@ -4638,6 +4682,13 @@ private struct CellCycleLab: View {
     @State private var selectedStage: CellCycleStage = .g1
     @State private var selectedAnswer = -1
     @State private var didCheckAnswer = false
+    @State private var optionOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: 0)
+
+    private let answerOptionKeys = [
+        "lab.cellCycle.optionS",
+        "lab.cellCycle.optionAnaphase",
+        "lab.cellCycle.optionCytokinesis"
+    ]
 
     var body: some View {
         LabCard {
@@ -4655,6 +4706,7 @@ private struct CellCycleLab: View {
             .onChange(of: selectedStage) { _ in
                 selectedAnswer = -1
                 didCheckAnswer = false
+                optionOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: 0)
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -4693,9 +4745,9 @@ private struct CellCycleLab: View {
             Text(L10n.text("lab.cellCycle.quiz", store.language))
                 .font(.callout.weight(.medium))
             Picker(L10n.text("lab.cellCycle.quiz", store.language), selection: $selectedAnswer) {
-                Text(L10n.text("lab.cellCycle.optionS", store.language)).tag(0)
-                Text(L10n.text("lab.cellCycle.optionAnaphase", store.language)).tag(1)
-                Text(L10n.text("lab.cellCycle.optionCytokinesis", store.language)).tag(2)
+                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Text(L10n.text(answerOptionKeys[originalIndex], store.language)).tag(displayIndex)
+                }
             }
             .pickerStyle(.radioGroup)
             .onChange(of: selectedAnswer) { _ in didCheckAnswer = false }
@@ -4707,7 +4759,7 @@ private struct CellCycleLab: View {
             .disabled(selectedAnswer < 0)
 
             if didCheckAnswer {
-                let correct = selectedAnswer == 0
+                let correct = optionOrder.isCorrect(displayedIndex: selectedAnswer)
                 Label(
                     L10n.text(correct ? "lab.cellCycle.correct" : "lab.cellCycle.review", store.language),
                     systemImage: correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
@@ -4745,6 +4797,16 @@ private struct AnimalFunctionLab: View {
     @State private var selectedFunction: AnimalFunction = .feeding
     @State private var selectedAnswer = -1
     @State private var didCheckAnswer = false
+    @State private var optionOrder = QuizAnswerOrder(
+        optionCount: 3,
+        answerOriginalIndex: AnimalFunctionPractice.correctComparisonAnswer
+    )
+
+    private let answerOptionKeys = [
+        "lab.zoology.optionA",
+        "lab.zoology.optionB",
+        "lab.zoology.optionC"
+    ]
 
     var body: some View {
         LabCard {
@@ -4762,6 +4824,10 @@ private struct AnimalFunctionLab: View {
             .onChange(of: selectedFunction) { _ in
                 selectedAnswer = -1
                 didCheckAnswer = false
+                optionOrder = QuizAnswerOrder(
+                    optionCount: 3,
+                    answerOriginalIndex: AnimalFunctionPractice.correctComparisonAnswer
+                )
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -4785,9 +4851,9 @@ private struct AnimalFunctionLab: View {
             Text(L10n.text("lab.zoology.quiz", store.language))
                 .font(.callout.weight(.medium))
             Picker(L10n.text("lab.zoology.quiz", store.language), selection: $selectedAnswer) {
-                Text(L10n.text("lab.zoology.optionA", store.language)).tag(0)
-                Text(L10n.text("lab.zoology.optionB", store.language)).tag(1)
-                Text(L10n.text("lab.zoology.optionC", store.language)).tag(2)
+                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Text(L10n.text(answerOptionKeys[originalIndex], store.language)).tag(displayIndex)
+                }
             }
             .pickerStyle(.radioGroup)
             .onChange(of: selectedAnswer) { _ in didCheckAnswer = false }
@@ -4799,7 +4865,7 @@ private struct AnimalFunctionLab: View {
             .disabled(selectedAnswer < 0)
 
             if didCheckAnswer {
-                let correct = AnimalFunctionPractice.isCorrectComparisonAnswer(selectedAnswer)
+                let correct = optionOrder.isCorrect(displayedIndex: selectedAnswer)
                 Label(
                     L10n.text(correct ? "lab.zoology.correct" : "lab.zoology.review", store.language),
                     systemImage: correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"

@@ -19,6 +19,39 @@ struct SeededGenerator: RandomNumberGenerator {
 @main
 enum AnswerChoiceOrderVerification {
     static func main() {
+        for optionCount in [2, 3] {
+            for answerIndex in 0..<optionCount {
+                var correctPositionCounts = Array(repeating: 0, count: optionCount)
+                for seed in 0..<256 {
+                    var generator = SeededGenerator(seed: UInt64(seed))
+                    let quizOrder = QuizAnswerOrder(
+                        optionCount: optionCount,
+                        answerOriginalIndex: answerIndex,
+                        using: &generator
+                    )
+                    precondition(
+                        Set(quizOrder.displayedOriginalIndices) == Set(0..<optionCount),
+                        "Every quiz order must be a permutation. / Порядок вариантов должен быть перестановкой."
+                    )
+
+                    let correctDisplayIndex = quizOrder.displayedOriginalIndices.firstIndex(of: answerIndex)!
+                    correctPositionCounts[correctDisplayIndex] += 1
+                    for displayIndex in 0..<optionCount {
+                        precondition(
+                            quizOrder.isCorrect(displayedIndex: displayIndex)
+                                == (quizOrder.originalIndex(forDisplayedIndex: displayIndex) == answerIndex),
+                            "The quiz answer mapping must stay stable. / Сопоставление ответов не должно меняться."
+                        )
+                    }
+                }
+
+                precondition(
+                    correctPositionCounts.allSatisfy { $0 > 0 },
+                    "The correct answer must reach every quiz position. / Правильный ответ должен попадать в каждую позицию."
+                )
+            }
+        }
+
         for answerIndex in 0..<3 {
             var correctPositionCounts = Array(repeating: 0, count: 3)
             for seed in 0..<256 {
