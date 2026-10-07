@@ -364,6 +364,10 @@ def test_priority_curriculum_roadmaps_are_retrievable(
         "Physics/lessons/net_force_and_acceleration.md",
     ),
     (
+        "12.4 plus minus 0.2 centimetres exact conversion to metres relative measurement uncertainty",
+        "Physics/lessons/measurement_units_and_uncertainty.md",
+    ),
+    (
         "work-energy theorem net work changes kinetic energy mass speed joules",
         "Physics/lessons/work_and_kinetic_energy.md",
     ),
@@ -507,6 +511,23 @@ def test_bundled_photosynthesis_lesson_links_openstax_primary_material(tmp_path:
     assert "https://openstax.org/books/biology-2e/pages/8-1-overview-of-photosynthesis" in reference_urls
     assert "https://openstax.org/books/biology-2e/pages/8-2-the-light-dependent-reactions-of-photosynthesis" in reference_urls
     assert "https://openstax.org/books/biology-2e/pages/8-3-using-light-energy-to-make-organic-molecules" in reference_urls
+
+
+def test_physics_measurement_lesson_cites_conversion_and_uncertainty_sources(tmp_path: Path) -> None:
+    project = Path(__file__).resolve().parent.parent
+    index = KnowledgeIndex(project, tmp_path / "knowledge.sqlite3")
+
+    results = index.refresh_and_search("centimetres convert value uncertainty metres relative percent")
+    lesson = next(
+        source for source in results
+        if source["path"] == "02_Areas/Physics/lessons/measurement_units_and_uncertainty.md"
+    )
+
+    assert lesson["source_checked_at"] == "2026-10-07"
+    reference_urls = {reference["url"] for reference in lesson["official_references"]}
+    assert "https://openstax.org/books/university-physics-volume-1/pages/1-3-unit-conversion" in reference_urls
+    assert "https://openstax.org/books/university-physics-volume-1/pages/1-6-significant-figures" in reference_urls
+    assert lesson["source_review_status"] in {"due", "scheduled"}
 
 
 def test_bundled_cell_lesson_links_primary_eukaryotic_and_membrane_references(tmp_path: Path) -> None:
