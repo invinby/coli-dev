@@ -17,6 +17,14 @@ ColiDev объединяет последовательные курсы, сох
 This is the last published release preview. New pull-request builds are separate test artifacts and are not published releases.<br>
 Это последняя опубликованная предварительная сборка. Новые сборки из pull request публикуются отдельно как тестовые артефакты и не считаются релизами.
 
+## Latest macOS test build / Последняя тестовая сборка macOS
+
+GitHub Actions run [37695469167](https://github.com/invinby/coli-dev/actions/runs/37695469167) passed for app commit `0e13aed`: backend checks, the Swift verification steps, and app builds for Apple Silicon and Intel all succeeded. The run contains `ColiDev-macos-arm64` (21,962,955 bytes) and `ColiDev-macos-x86_64` (22,867,892 bytes) artifacts, available until 21 October 2026. Open the run page and download the artifact matching your Mac.<br>
+Сборка GitHub Actions [37695469167](https://github.com/invinby/coli-dev/actions/runs/37695469167) успешно прошла для коммита приложения `0e13aed`: backend-проверки, Swift-проверки и сборки приложения для Apple Silicon и Intel. В запуске доступны архивы `ColiDev-macos-arm64` (21 962 955 байт) и `ColiDev-macos-x86_64` (22 867 892 байта) до 21 октября 2026 года. Откройте страницу запуска и скачайте архив для своего Mac.<br>
+
+These CI artifacts are unsigned test builds, not a published release. CI verifies compilation and bundled-backend smoke checks; running the app and checking its real UI and model routes on a Mac still requires hands-on acceptance.<br>
+Это неподписанные тестовые архивы CI, а не опубликованный релиз. CI проверяет сборку и smoke-проверку встроенного backend; запуск приложения и проверка реального интерфейса и маршрутов моделей на Mac всё ещё требуют ручной приёмки.
+
 ## Product at a glance / Кратко о продукте
 
 | English | Русский |

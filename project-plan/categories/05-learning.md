@@ -25,6 +25,28 @@ Biology Foundations также включает связанные RU/EN уро�
 
 Для каждой темы фиксировать цели обучения, необходимые знания, ключевые понятия, типичные ошибки, источники, задания, интерактивный формат и проверяемый критерий освоения. Глубина и конкретный порядок должны проходить предметную редакторскую проверку.
 
+## Модель освоения и адаптивный учебный путь / Mastery model and adaptive learning path
+
+**RU:** В профиле ученика раздельно показывать завершение курса и подтверждённое освоение знаний. Завершение означает, что уроки отмечены как пройденные; освоение означает, что ученик продемонстрировал конкретные навыки. Не выводить высокий уровень из факта открытия страницы, одного правильного ответа, самооценки или затраченного времени.
+
+**EN:** Show course completion separately from demonstrated knowledge mastery in the learner profile. Completion means lessons are marked complete; mastery means the learner demonstrated specific skills. Do not infer a high level from opening a page, one correct answer, self-rating, or time spent alone.
+
+**RU:** Для значимых тем использовать понятные ступени доказанного понимания: (1) узнаёт термины и базовые факты; (2) объясняет идею своими словами; (3) применяет её в стандартной задаче; (4) переносит знание на новую ситуацию; (5) объясняет механизм, связи и ограничения; (6) справляется со сложными продвинутыми задачами; (7) при уместности работает с формальными моделями, доказательствами или научными данными. Научная ступень нужна не каждой теме и зависит от учебной цели.
+
+**EN:** Use clear levels of demonstrated understanding for important topics: (1) recognize terms and basic facts; (2) explain the idea in one's own words; (3) apply it to a standard task; (4) transfer the knowledge to a new situation; (5) explain mechanisms, connections, and limits; (6) handle advanced problems; and (7), where appropriate, work with formal models, proofs, or scientific evidence. Not every topic needs a scientific level; depth depends on the learning goal.
+
+**RU:** Рекомендации должны учитывать результаты разных заданий, повторные попытки и подсказки, типичные ошибки, необходимые предпосылки, самостоятельность, перенос знаний и отдельно заявленную учеником уверенность. Самооценку и скорость хранить как контекст, а не как доказательство мастерства. Если фундамент слабый — предложить конкретную предпосылку; если ученик уверенно решает разные типы задач — предложить более сложное применение или следующую тему. Объяснять кратко, почему выбран следующий шаг, и давать ученику возможность выбрать другой маршрут.
+
+**EN:** Recommendations should consider results from varied tasks, retries and hints, recurring errors, prerequisites, independence, transfer, and confidence reported separately by the learner. Treat self-ratings and speed as context, not proof of mastery. When a prerequisite is weak, recommend that specific prerequisite; when the learner independently succeeds across different task types, offer a harder application or next topic. Briefly explain why the next step was chosen and let the learner choose another route.
+
+**RU:** Один урок может собираться из подходящих блоков: диагностика, объяснение, пример, схема или график, управляемая симуляция/3D, видео с контекстом и вопросами, практика, разбор ошибки, повторение, источники. Это библиотека предметных форматов, а не обязательный одинаковый шаблон: математика опирается на доказательства и графики, физика — на модели и симуляции, биология/зоология — на строение и процессы, программирование — на код и отладку, языки — на чтение, аудирование, письмо и диалог.
+
+**EN:** Compose a lesson from suitable blocks: diagnosis, explanation, worked example, diagram or graph, controlled simulation or 3D, contextualized video with questions, practice, error analysis, review, and sources. This is a library of subject-appropriate formats, not one mandatory template: mathematics uses proofs and graphs; physics uses models and simulations; biology/zoology uses structures and processes; programming uses code and debugging; languages use reading, listening, writing, and conversation.
+
+**RU:** Каждая интерактивная модель должна показывать, что можно изменить, что именно наблюдать, какие предположения заложены и где модель перестаёт быть точной. Для урока должны оставаться текстовое объяснение, доступные подписи/управление и проверяемый учебный результат, чтобы 3D или видео не становились единственным способом понять материал.
+
+**EN:** Every interactive model must show what can be changed, what to observe, which assumptions it uses, and where it stops being accurate. Keep a text explanation, accessible labels and controls, and a checkable learning outcome so 3D or video is never the only way to understand the material.
+
 ## Уточнения после проверки прототипа — 2026-10-08
 
 - **EN:** Biology is already an existing subject. Keep it; do not create a duplicate. Add a clear “+” flow so learners can create their own subjects, topics, and subtopics, with stable saved IDs and a visible path into the course map. **RU:** Биология уже есть как отдельный предмет. Сохранить её и не создавать дубликат. Добавить понятное действие «+», чтобы ученик мог создавать собственные предметы, темы и подтемы; сохранять стабильные ID и показывать путь к ним в карте курса.

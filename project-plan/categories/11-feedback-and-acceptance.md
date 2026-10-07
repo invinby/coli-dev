@@ -40,3 +40,17 @@ This list records the team's feedback received on 8 October 2026. It sets the pr
 - **EN:** A Swift model check does not replace an Xcode build. An Xcode build does not replace hands-on Mac review of navigation, rendering, keyboard access, and VoiceOver.
 - **RU:** Ранний прототип не следует называть готовым продуктом до прохождения обязательных P0/P1-критериев и проверки на целевой macOS.
 - **EN:** Do not describe an early prototype as a finished product until mandatory P0/P1 criteria and target-macOS acceptance have passed.
+
+## Интерфейс и честные состояния продукта / Interface and truthful product states
+
+**RU:** Главный экран должен давать понятный вход в предметы, сохранять действие «Продолжить обучение», показывать прогресс завершения курса отдельно от уровня освоения знаний и предлагать следующий шаг с коротким объяснением. Если уровень освоения ещё не подтверждён достаточными заданиями, так и написать — не заменять его выдуманным процентом знаний.
+
+**EN:** The home screen should provide clear access to subjects, preserve the “Continue learning” action, show course-completion progress separately from knowledge mastery, and recommend the next step with a short reason. If mastery has not been established through enough evidence, say so instead of showing an invented knowledge percentage.
+
+**RU:** Переходы проверять целиком: предмет → карта тем → урок → упражнение/визуализация → обратная связь → сохранённый прогресс → следующий шаг. Проверить все встроенные предметы и пользовательские темы; если ресурс действительно отсутствует, показать понятное восстановимое состояние с названием предмета и доступным действием.
+
+**EN:** Check complete routes: subject → topic map → lesson → exercise or visualization → feedback → saved progress → next step. Cover every built-in subject and learner-created topic; if a resource is genuinely missing, show a useful recoverable state naming the subject and available next action.
+
+**RU:** В настройках раздельно показывать доступность локального backend, Ollama, установленной модели, выбранного маршрута и фактического ответа модели. Одно зелёное состояние не должно скрывать, что следующий уровень подключения не проверен. Любой новый учебный блок (симуляция, 3D, видео, RAG-источник или AI-инструмент) получает отдельные статусы готовности и ограничения.
+
+**EN:** Settings should report the local backend, Ollama, installed model, selected route, and an actual model reply as separate availability states. A green status must not hide that the next connection layer is unverified. Every new learning block (simulation, 3D, video, RAG source, or AI tool) needs its own readiness state and limitations.
