@@ -68,8 +68,11 @@ This is the last published release preview. New pull-request builds are separate
 
 ## What is still planned / Что ещё предстоит сделать
 
-Full course coverage and subject-editor review; learner-created subjects, topics, and subtopics; explanations for every exercise; a complete mastery model and adaptive study plan; broader randomized quiz coverage; richer subject-specific simulations, video, and 3D practice; broader source and license review; automatic editorial workflows; direct NotebookLM integration; and account-based cross-device sync are not complete.<br>
-Ещё не готовы: полное покрытие курсов и предметная редактура; создание учеником собственных предметов, тем и подтем; разбор каждого упражнения; полноценная модель освоения и адаптивный учебный план; перемешивание ответов во всех тестах; более развитые предметные симуляции, видео и 3D-практика; расширенная проверка источников и лицензий; автоматизированные редакторские процессы; прямое подключение NotebookLM; синхронизация между устройствами через аккаунт.
+Full course coverage and subject-editor review; explanations for every exercise; a complete mastery model and adaptive study plan; broader randomized quiz coverage; richer subject-specific simulations, video, and 3D practice; broader source and license review; automatic editorial workflows; direct NotebookLM integration; and account-based cross-device sync are not complete. Learner-created subjects and topics are being implemented on the current work branch; treat them as unreleased until CI and Mac acceptance pass.<br>
+Ещё не готовы: полное покрытие курсов и предметная редактура; разбор каждого упражнения; полноценная модель освоения и адаптивный учебный план; перемешивание ответов во всех тестах; более развитые предметные симуляции, видео и 3D-практика; расширенная проверка источников и лицензий; автоматизированные редакторские процессы; прямое подключение NotebookLM; синхронизация между устройствами через аккаунт. Создание учеником предметов и тем сейчас добавляется в рабочую ветку; считать функцию выпущенной можно только после успешного CI и приёмки на Mac.
+
+The 8 October team feedback and its P0–P3 acceptance order are tracked in the detailed plan.<br>
+Замечания команды от 8 октября и критерии приёмки P0–P3 записаны в подробном плане.
 
 An approved-source check is not a guarantee that all course information is current or correct. Provider free tiers, model availability, and quotas can change; the app does not promise unlimited free AI access.<br>
 Проверка одобренных источников не гарантирует, что вся информация в курсах актуальна или верна. Бесплатные тарифы, доступность моделей и квоты провайдеров могут меняться; приложение не обещает неограниченный бесплатный доступ к ИИ.
@@ -139,6 +142,7 @@ Automatic routing defaults to free-only routes. Potentially paid cloud models an
 ## Project documents / Документы проекта
 
 - [Detailed project plan / Подробный план проекта](project-plan/README.md)
+- [Feedback and acceptance criteria / Замечания и критерии приёмки](project-plan/categories/11-feedback-and-acceptance.md)
 - [macOS app notes / Заметки по приложению macOS](macOS/ColiDev/README.md)
 - [Backend notes / Заметки по backend](01_Projects/README.md)
 - [Course catalog / Каталог курсов](02_Areas/README.md)

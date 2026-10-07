@@ -10,6 +10,23 @@
 - Автосвежесть остаётся allowlist-based: до 80 разрешённых страниц за один проход, ротация предотвращает вечное исключение хвоста, но автоматическая проверка не переписывает локальные уроки и не подтверждает их факты. Текущий web-RAG разрешает лишь небольшие семейства официальных страниц с отдельно проверенными лицензиями и атрибуцией; большая часть мониторируемых ссылок остаётся metadata-only.
 - Целевые критерии macOS-прототипа ещё не закрыты: нужен ручной запуск на поддерживаемом Mac, RU/EN-проход по основным экранам, полный урок с практикой и сохранением прогресса, проверка доступности/клавиатуры/VoiceOver, а также проверка реальных Ollama, сетевых провайдеров, Obsidian и offline-поведения. Иконка пользователя ещё не получена.
 
+## Сверка замечаний команды — 2026-10-08 / Team feedback audit — 2026-10-08
+
+Эта сверка выполнена по исходникам рабочей ветки. Она не подтверждает поведение уже установленного приложения на Mac; для этого нужен запуск текущей сборки на целевой машине.
+
+This audit checked the current work-branch source. It does not confirm the behavior of the app already installed on the Mac; that requires running the current build on the target machine.
+
+- **EN:** A separate `Local models` pane exists in the Control Center source. It reports Ollama reachability, installed models, the local tutor route, and local model assignments, with a refresh action. This contradicts “no such screen in source” but does not prove that the user's installed build contains or exposes it.
+- **RU:** В исходниках Центра управления уже есть отдельная панель `Локальные модели`: она показывает доступность Ollama, установленные модели, локальный маршрут тьютора и назначения моделей ролям; список можно обновить. Значит, экран в коде есть, но это не доказывает, что он присутствует и доступен в установленной у команды сборке.
+- **EN:** The tutor uses the local `/chat/stream` endpoint; `/health` separately checks connectivity, Ollama, model readiness, and configured routes. Automated backend coverage is mocked, so a successful test run cannot prove a live answer from a provider. Mac-side local and online routes remain a P0 acceptance check.
+- **RU:** Тьютор обращается к локальному `/chat/stream`; `/health` отдельно проверяет сеть, Ollama, готовность модели и настроенные маршруты. Backend-тесты работают с заглушками, поэтому успешный набор тестов не доказывает, что реальный провайдер ответит. Проверка локальных и онлайн-маршрутов на Mac остаётся приёмкой P0.
+- **EN:** Built-in Biology data is present in `02_Areas/Biology/curriculum.md` and its lesson directory. The app resolves the roadmap and lesson files from the bundled `02_Areas/<Subject>/` folder. A route/resource verifier and packaged-resource check are required to distinguish a missing asset in a particular build from a UI navigation issue.
+- **RU:** Встроенная биология присутствует в `02_Areas/Biology/curriculum.md` и папке её уроков. Приложение ищет карту и уроки внутри упакованной папки `02_Areas/<Subject>/`. Проверка перехода и наличия ресурсов в сборке нужна, чтобы отличить пропавший файл от ошибки навигации в конкретной версии.
+- **EN:** The team report about quiz patterns is valid as a broad-coverage issue: randomized choice order is already used in several exercises, but not every quiz path is confirmed covered. Expand verification to all multiple-choice modules before marking this item done.
+- **RU:** Замечание о шаблонном положении ответов остаётся актуальным для полного набора: перемешивание уже используется в некоторых упражнениях, но не подтверждено для всех тестов. Перед закрытием пункта нужно проверить все модули с вариантами ответа.
+- **EN:** Content-source checks currently monitor an allowlist and display source metadata; they do not automatically refresh lesson wording or validate every claim. Scientific/editorial review and an approval step remain required.
+- **RU:** Проверки источников работают по разрешённому списку и показывают метаданные; они не обновляют автоматически текст урока и не подтверждают каждое утверждение. Нужны научная/редакторская проверка и утверждение перед публикацией.
+
 ## Исторический срез main — 2026-10-06
 
 - Commit `51f29fb` добавляет Programming Intermediate RU/EN модуль `search_and_complexity`: урок про линейный и бинарный поиск, ограничения сортированного входа и стоимость `bisect.insort`, плюс SwiftUI-тренажёр с выбором размера массива. Встроенный сценарий сравнивает worst-case число сравнений, а не обещает реальное время выполнения. Документация Python добавлена в проверку свежести и ограниченный RAG только после явной проверки лицензии PSF; сама страница остаётся мониторируемым официальным источником.

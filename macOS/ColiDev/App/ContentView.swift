@@ -42,6 +42,14 @@ struct ContentView: View {
                         Label { Text(subject.title(in: store.language)) } icon: { Image(systemName: subject.symbol) }
                             .tag(AppSection.subject(subject))
                     }
+                    ForEach(store.customCurriculum.subjects) { subject in
+                        Label {
+                            Text(subject.name.value(in: store.language.rawValue))
+                        } icon: {
+                            Image(systemName: "books.vertical.fill")
+                        }
+                        .tag(AppSection.customSubject(subject.id))
+                    }
                 } header: {
                     Text(L10n.text("nav.subjects", store.language))
                 }
@@ -61,15 +69,16 @@ struct ContentView: View {
             Group {
                 switch selection ?? .today {
                 case .today:
-                    TodayView(open: open, openDueReview: openDueReview)
+                    TodayView(open: open, openCustom: openCustom, openDueReview: openDueReview)
                 case .subjects:
-                    SubjectCatalogView(open: open)
+                    SubjectCatalogView(open: open, openCustom: openCustom)
                 case .subject(let subject):
                     SubjectOverviewView(
                         subject: subject,
                         openCourseLesson: { resource in
                             selection = .courseLesson(subject, resource)
-                        }
+                        },
+                        openCustomTopic: { selection = .builtInCustomTopic(subject, $0) }
                     ) {
                         selection = .lesson(subject)
                     }
@@ -79,6 +88,20 @@ struct ContentView: View {
                     }
                 case .courseLesson(let subject, let resource):
                     CurriculumModuleView(subject: subject, resource: resource)
+                case .customSubject(let subjectID):
+                    CustomSubjectDetailView(
+                        subjectID: subjectID,
+                        openTopic: { selection = .customTopic(subjectID, $0) },
+                        onDelete: { selection = .subjects }
+                    )
+                case .customTopic(let subjectID, let topicID):
+                    CustomTopicStudyView(subjectID: subjectID, topicID: topicID) {
+                        selection = .customSubject(subjectID)
+                    }
+                case .builtInCustomTopic(let subject, let topicID):
+                    BuiltInCustomTopicStudyView(subject: subject, topicID: topicID) {
+                        selection = .subject(subject)
+                    }
                 case .management:
                     ManagementView(openSettings: { selection = .settings })
                 case .settings:
@@ -113,6 +136,10 @@ struct ContentView: View {
         selection = .subject(subject)
     }
 
+    private func openCustom(_ subjectID: UUID) {
+        selection = .customSubject(subjectID)
+    }
+
     private func openDueReview(_ subject: Subject, lessonID: String) {
         if lessonID == subject.lessonID {
             selection = .lesson(subject)
@@ -127,6 +154,7 @@ struct ContentView: View {
 private struct TodayView: View {
     @EnvironmentObject private var store: LearningStore
     let open: (Subject) -> Void
+    let openCustom: (UUID) -> Void
     let openDueReview: (Subject, String) -> Void
 
     private let columns = [GridItem(.adaptive(minimum: 210), spacing: 16)]
@@ -162,6 +190,11 @@ private struct TodayView: View {
                         ForEach(Subject.allCases) { subject in
                             SubjectCard(subject: subject, complete: store.isComplete(subject)) {
                                 open(subject)
+                            }
+                        }
+                        ForEach(store.customCurriculum.subjects) { subject in
+                            CustomSubjectCard(subject: subject, language: store.language) {
+                                openCustom(subject.id)
                             }
                         }
                     }
@@ -233,13 +266,33 @@ private struct TodayView: View {
 private struct SubjectCatalogView: View {
     @EnvironmentObject private var store: LearningStore
     let open: (Subject) -> Void
+    let openCustom: (UUID) -> Void
+    @State private var showingSubjectEditor = false
     private let columns = [GridItem(.adaptive(minimum: 210), spacing: 16)]
 
     var body: some View {
         ScrollView {
-            LazyVGrid(columns: columns, alignment: .leading, spacing: 16) {
-                ForEach(Subject.allCases) { subject in
-                    SubjectCard(subject: subject, complete: store.isComplete(subject)) { open(subject) }
+            VStack(alignment: .leading, spacing: 22) {
+                HStack {
+                    Text(L10n.text("nav.subjects", store.language)).font(.title2.weight(.semibold))
+                    Spacer()
+                    Button { showingSubjectEditor = true } label: {
+                        Label(L10n.text("custom.addSubject", store.language), systemImage: "plus")
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                LazyVGrid(columns: columns, alignment: .leading, spacing: 16) {
+                    ForEach(Subject.allCases) { subject in
+                        SubjectCard(subject: subject, complete: store.isComplete(subject)) { open(subject) }
+                    }
+                }
+                if !store.customCurriculum.subjects.isEmpty {
+                    Text(L10n.text("custom.subjectsCount", store.language)).font(.title3.weight(.semibold))
+                    LazyVGrid(columns: columns, alignment: .leading, spacing: 16) {
+                        ForEach(store.customCurriculum.subjects) { subject in
+                            CustomSubjectCard(subject: subject, language: store.language) { openCustom(subject.id) }
+                        }
+                    }
                 }
             }
             .padding(28)
@@ -247,6 +300,10 @@ private struct SubjectCatalogView: View {
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .navigationTitle(Text(L10n.text("nav.subjects", store.language)))
+        .sheet(isPresented: $showingSubjectEditor) {
+            CustomSubjectEditor { openCustom($0) }
+                .environmentObject(store)
+        }
     }
 }
 

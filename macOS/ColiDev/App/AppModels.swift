@@ -173,6 +173,12 @@ final class LearningStore: ObservableObject {
     @Published private(set) var providerUsageUnavailable = false
     @Published private(set) var studyProgress: [String: StudyProgressRecord] = [:]
     @Published private(set) var dueReviewCount = 0
+    @Published private(set) var customCurriculum: CustomCurriculum {
+        didSet {
+            guard let data = try? JSONEncoder().encode(customCurriculum) else { return }
+            UserDefaults.standard.set(data, forKey: "colidev.customCurriculum")
+        }
+    }
     @Published private var pendingStudyReviews: [StudyReviewEvent] {
         didSet {
             guard let data = try? JSONEncoder().encode(pendingStudyReviews) else { return }
@@ -191,6 +197,12 @@ final class LearningStore: ObservableObject {
         let savedLanguage = UserDefaults.standard.string(forKey: "colidev.language")
         language = AppLanguage(rawValue: savedLanguage ?? "") ?? .ru
         completedLessonIDs = Set(UserDefaults.standard.stringArray(forKey: "colidev.completedLessons") ?? [])
+        if let data = UserDefaults.standard.data(forKey: "colidev.customCurriculum"),
+           let savedCurriculum = try? JSONDecoder().decode(CustomCurriculum.self, from: data) {
+            customCurriculum = savedCurriculum
+        } else {
+            customCurriculum = CustomCurriculum()
+        }
         let savedMode = UserDefaults.standard.string(forKey: "colidev.aiMode")
         aiMode = AIRoutingMode(rawValue: savedMode ?? "") ?? .automatic
         if let pending = UserDefaults.standard.data(forKey: "colidev.pendingStudyReviews"),
@@ -461,6 +473,82 @@ final class LearningStore: ObservableObject {
 
     var pendingStudyReviewCount: Int { pendingStudyReviews.count }
 
+    @discardableResult
+    func addCustomSubject(name: CustomCurriculumText, description: CustomCurriculumText) throws -> UUID {
+        var updated = customCurriculum
+        let reservedNames = Subject.allCases.map { subject in
+            CustomCurriculumText(
+                russian: subject.title(in: .ru),
+                english: subject.title(in: .en)
+            )
+        }
+        let id = try updated.addSubject(name: name, description: description, reservedNames: reservedNames)
+        customCurriculum = updated
+        return id
+    }
+
+    @discardableResult
+    func addCustomTopic(
+        subjectID: UUID,
+        parentTopicID: UUID?,
+        name: CustomCurriculumText,
+        learningOutcome: CustomCurriculumText,
+        notes: CustomCurriculumText,
+        level: Int
+    ) throws -> UUID {
+        var updated = customCurriculum
+        let id = try updated.addTopic(
+            subjectID: subjectID,
+            parentTopicID: parentTopicID,
+            name: name,
+            learningOutcome: learningOutcome,
+            notes: notes,
+            level: level
+        )
+        customCurriculum = updated
+        return id
+    }
+
+    @discardableResult
+    func addCustomTopic(
+        builtInSubject: Subject,
+        parentTopicID: UUID?,
+        name: CustomCurriculumText,
+        learningOutcome: CustomCurriculumText,
+        notes: CustomCurriculumText,
+        level: Int
+    ) throws -> UUID {
+        var updated = customCurriculum
+        let id = try updated.addTopic(
+            builtInSubjectID: builtInSubject.rawValue,
+            parentTopicID: parentTopicID,
+            name: name,
+            learningOutcome: learningOutcome,
+            notes: notes,
+            level: level
+        )
+        customCurriculum = updated
+        return id
+    }
+
+    func removeCustomSubject(id: UUID) {
+        var updated = customCurriculum
+        guard updated.removeSubject(id: id) else { return }
+        customCurriculum = updated
+    }
+
+    func removeCustomTopic(subjectID: UUID, topicID: UUID) {
+        var updated = customCurriculum
+        guard updated.removeTopic(subjectID: subjectID, topicID: topicID) else { return }
+        customCurriculum = updated
+    }
+
+    func removeCustomTopic(builtInSubject: Subject, topicID: UUID) {
+        var updated = customCurriculum
+        guard updated.removeTopic(builtInSubjectID: builtInSubject.rawValue, topicID: topicID) else { return }
+        customCurriculum = updated
+    }
+
     private func queueStudyReview(lessonID: String, quality: Int, reflection: String) {
         guard !hasPendingReview(lessonID: lessonID) else { return }
         pendingStudyReviews.append(StudyReviewEvent(
@@ -671,6 +759,7 @@ struct OrchestratorHealth: Decodable {
         guard let sessionCurrent, let sessionMax else { return true }
         return sessionCurrent < sessionMax
     }
+
     var hasCloudRoute: Bool { cloudRouteReady ?? false }
     var hasAutomaticRoute: Bool { automaticRouteReady ?? false }
 
@@ -1775,7 +1864,7 @@ enum OrchestratorClient {
         message: String,
         systemPrompt: String,
         retrievalQuery: String,
-        subject: Subject,
+        subjectID: String,
         language: AppLanguage,
         mode: AIRoutingMode,
         useWebSearch: Bool = false,
@@ -1795,7 +1884,7 @@ enum OrchestratorClient {
         request.httpBody = try JSONEncoder().encode(TutorRequest(
             message: message,
             systemPrompt: systemPrompt,
-            subject: subject.rawValue,
+            subject: subjectID,
             language: language.rawValue,
             mode: mode.rawValue,
             retrievalQuery: retrievalQuery,
@@ -1892,13 +1981,23 @@ final class TutorChatModel: ObservableObject {
     @Published private(set) var completionLabel: String?
     private var requestTask: Task<Void, Never>?
 
-    let subject: Subject
+    let subjectID: String
+    let subjectName: String
     let lesson: LessonContent
     let language: AppLanguage
     let mode: AIRoutingMode
 
     init(subject: Subject, lesson: LessonContent, language: AppLanguage, mode: AIRoutingMode) {
-        self.subject = subject
+        self.subjectID = subject.rawValue
+        self.subjectName = subject.title(in: language)
+        self.lesson = lesson
+        self.language = language
+        self.mode = mode
+    }
+
+    init(subjectID: String, subjectName: String, lesson: LessonContent, language: AppLanguage, mode: AIRoutingMode) {
+        self.subjectID = subjectID
+        self.subjectName = subjectName
         self.lesson = lesson
         self.language = language
         self.mode = mode
@@ -1920,7 +2019,6 @@ final class TutorChatModel: ObservableObject {
         messages.append(reply)
         isSending = true
 
-        let subjectName = subject.title(in: language)
         let systemPrompt: String
         if language == .ru {
             systemPrompt = """
@@ -1960,7 +2058,7 @@ final class TutorChatModel: ObservableObject {
                     message: requestMessage,
                     systemPrompt: systemPrompt,
                     retrievalQuery: "\(subjectName) \(lesson.title) \(question)",
-                    subject: subject,
+                    subjectID: subjectID,
                     language: language,
                     mode: mode,
                     useWebSearch: useWebSearch,
@@ -2017,6 +2115,9 @@ enum AppSection: Hashable {
     case subject(Subject)
     case lesson(Subject)
     case courseLesson(Subject, String)
+    case customSubject(UUID)
+    case customTopic(UUID, UUID)
+    case builtInCustomTopic(Subject, UUID)
     case management
     case settings
 }

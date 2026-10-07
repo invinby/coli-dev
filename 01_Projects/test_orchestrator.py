@@ -23,6 +23,7 @@ import psutil
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 from starlette.requests import Request
 
 # ─── Поднимаем проект в sys.path — он в подпапке ───
@@ -42,6 +43,21 @@ TEST_MSG = "Напиши hello world на Python"
 SYSTEM_PROMPT = "You are a test assistant."
 FAKE_ANSWER = "print('Hello, world!')"
 PROC = psutil.Process(os.getpid())
+
+
+def test_chat_request_accepts_a_user_created_subject_id():
+    request = orchestrator.ChatRequest(
+        message="Teach me this topic",
+        subject="custom-123e4567-e89b-12d3-a456-426614174000",
+    )
+
+    assert request.subject == "custom-123e4567-e89b-12d3-a456-426614174000"
+
+
+@pytest.mark.parametrize("subject", ["custom subject", "../etc", "UPPER", "x" * 65, "custom-not-a-uuid"])
+def test_chat_request_rejects_an_unsafe_custom_subject_id(subject):
+    with pytest.raises(ValidationError):
+        orchestrator.ChatRequest(message="Teach me this topic", subject=subject)
 
 
 def _mock_keyring(monkeypatch):

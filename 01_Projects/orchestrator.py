@@ -490,9 +490,15 @@ class ChatRequest(BaseModel):
     model: str | None = Field(default=None, max_length=128)
     language: Literal["ru", "en"] = "ru"
     mode: Literal["auto", "local"] = "auto"
-    subject: Literal[
-        "mathematics", "english", "physics", "biology", "zoology", "programming"
-    ] | None = None
+    subject: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=43,
+        pattern=(
+            r"^(?:mathematics|english|physics|biology|zoology|programming|"
+            r"custom-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$"
+        ),
+    )
     retrieval_query: str | None = Field(default=None, max_length=16_000)
     use_web_search: bool = False
     grounding_age_confirmed: bool = False

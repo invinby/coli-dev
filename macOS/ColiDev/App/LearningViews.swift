@@ -9,9 +9,14 @@ import UniformTypeIdentifiers
 struct SubjectOverviewView: View {
     @EnvironmentObject private var store: LearningStore
     @State private var levels: [CurriculumLevel] = []
+    @State private var showingCustomTopicEditor = false
+    @State private var customTopicParentID: UUID?
+    @State private var pendingCustomTopicID: UUID?
+    @State private var showingCustomTopicDelete = false
 
     let subject: Subject
     let openCourseLesson: (String) -> Void
+    let openCustomTopic: (UUID) -> Void
     let startLesson: () -> Void
 
     var body: some View {
@@ -98,6 +103,36 @@ struct SubjectOverviewView: View {
                         .background(subject.tint.opacity(0.07), in: RoundedRectangle(cornerRadius: 18))
                     }
                 }
+
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text(L10n.text("custom.myTopics", store.language)).font(.title2.weight(.semibold))
+                        Spacer()
+                        Button {
+                            customTopicParentID = nil
+                            showingCustomTopicEditor = true
+                        } label: {
+                            Label(L10n.text("custom.addTopic", store.language), systemImage: "plus")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    if store.customCurriculum.topics(builtInSubjectID: subject.rawValue).isEmpty {
+                        Text(L10n.text("custom.addToBuiltInHint", store.language))
+                            .font(.subheadline).foregroundStyle(.secondary)
+                    } else {
+                        ForEach(store.customCurriculum.topics(builtInSubjectID: subject.rawValue)) { topic in
+                            CustomTopicBranch(
+                                topic: topic,
+                                language: store.language,
+                                open: { openCustomTopic($0) },
+                                addChild: { customTopicParentID = $0; showingCustomTopicEditor = true },
+                                delete: { pendingCustomTopicID = $0; showingCustomTopicDelete = true }
+                            )
+                        }
+                    }
+                }
+                .padding(18)
+                .background(subject.tint.opacity(0.07), in: RoundedRectangle(cornerRadius: 18))
             }
             .padding(.horizontal, 30)
             .padding(.bottom, 32)
@@ -106,6 +141,25 @@ struct SubjectOverviewView: View {
         }
         .navigationTitle(Text(subject.title(in: store.language)))
         .onAppear { levels = CurriculumCatalog.roadmap(for: subject) }
+        .sheet(isPresented: $showingCustomTopicEditor) {
+            CustomTopicEditor(builtInSubject: subject, parentTopicID: customTopicParentID) {}
+                .environmentObject(store)
+        }
+        .confirmationDialog(
+            L10n.text("custom.deleteTopic", store.language),
+            isPresented: $showingCustomTopicDelete,
+            titleVisibility: .visible
+        ) {
+            Button(L10n.text("custom.deleteTopic", store.language), role: .destructive) {
+                if let pendingCustomTopicID {
+                    store.removeCustomTopic(builtInSubject: subject, topicID: pendingCustomTopicID)
+                }
+                pendingCustomTopicID = nil
+            }
+            Button(L10n.text("common.cancel", store.language), role: .cancel) { pendingCustomTopicID = nil }
+        } message: {
+            Text(L10n.text("custom.confirmDeleteTopic", store.language))
+        }
     }
 }
 
@@ -6514,7 +6568,7 @@ private struct CollectionsLoopsLab: View {
 }
 
 
-private struct TutorChatView: View {
+struct TutorChatView: View {
     @EnvironmentObject private var store: LearningStore
     @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
     @StateObject private var chat: TutorChatModel
@@ -6528,6 +6582,41 @@ private struct TutorChatView: View {
     init(subject: Subject, lesson: LessonContent, language: AppLanguage, mode: AIRoutingMode) {
         self.language = language
         _chat = StateObject(wrappedValue: TutorChatModel(subject: subject, lesson: lesson, language: language, mode: mode))
+    }
+
+    init(
+        customSubject: CustomLearningSubject,
+        topic: CustomLearningTopic,
+        language: AppLanguage,
+        mode: AIRoutingMode,
+        routeSubjectID: String? = nil
+    ) {
+        self.language = language
+        let topicName = topic.name.value(in: language.rawValue)
+        let subjectName = customSubject.name.value(in: language.rawValue)
+        let notes = topic.notes.value(in: language.rawValue)
+        let goal = topic.learningOutcome.value(in: language.rawValue)
+        let lesson = LessonContent(
+            title: topicName,
+            objective: goal.isEmpty ? topicName : goal,
+            explanation: notes,
+            mechanism: L10n.text("custom.learnPrompt", language),
+            example: notes,
+            limitations: language == .ru
+                ? "Это пользовательский материал. Не выдавай его за подтверждённый источник; отмечай, что требует проверки."
+                : "This is learner-provided material. Do not present it as a verified source; flag claims that need checking.",
+            question: "",
+            options: [],
+            answerIndex: 0,
+            feedback: ""
+        )
+        _chat = StateObject(wrappedValue: TutorChatModel(
+            subjectID: routeSubjectID ?? "custom-\(customSubject.id.uuidString.lowercased())",
+            subjectName: subjectName,
+            lesson: lesson,
+            language: language,
+            mode: mode
+        ))
     }
 
     var body: some View {

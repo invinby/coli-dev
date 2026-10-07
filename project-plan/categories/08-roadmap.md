@@ -2,6 +2,12 @@
 
 План предварительный; сроки определить после аудита. Все приоритетные направления и RU/EN предусмотрены с первого запуска. Полная траектория в каждом направлении должна вести от основ к углублённым темам; каталог можно расширять постепенно, показывая покрытие и пробелы, а не выдавая короткое введение за полный курс.
 
+**EN:** Follow the team's 8 October feedback order: first audit and fix P0 failures in tutor/model readiness and navigation/resource loading; next verify answer randomization, explanations, and source accuracy; then add adaptive plans and subject-specific visual learning; expand course coverage and distribution after core paths work. Do not spend the first iteration polishing low-impact decoration.
+
+**RU:** Соблюдать порядок замечаний команды от 8 октября: сначала провести аудит и устранить P0-сбои готовности тьютора/модели и навигации/загрузки уроков; затем проверить перемешивание ответов, объяснения и достоверность источников; после этого развивать адаптивные планы и предметную визуализацию; расширять покрытие курсов и распространение после исправления основных путей. Не тратить первую итерацию на косметику с низким влиянием.
+
+Подробные критерии приёмки и ограничения указаны в [категории 11](11-feedback-and-acceptance.md).
+
 ## Этап 0 — зафиксировать продукт
 
 - Уточнить аудиторию и карту всех важных направлений.

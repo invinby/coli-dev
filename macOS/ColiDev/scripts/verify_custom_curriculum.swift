@@ -37,6 +37,17 @@ enum CustomCurriculumVerification {
             learningOutcome: CustomCurriculumText(russian: "", english: ""),
             notes: CustomCurriculumText(russian: "Первый закон Кеплера", english: "Kepler's first law")
         )
+        let builtInBiologyTopic = try curriculum.addTopic(
+            builtInSubjectID: "biology",
+            parentTopicID: nil,
+            name: CustomCurriculumText(russian: "Моя тема по биологии", english: "My biology topic"),
+            learningOutcome: CustomCurriculumText(russian: "Связать строение и функцию", english: "Connect structure and function"),
+            notes: CustomCurriculumText(russian: "Мои заметки", english: "My notes"),
+            level: 4
+        )
+        precondition(curriculum.subject(id: astronomy)?.name.english == "Astronomy")
+        precondition(curriculum.topics(builtInSubjectID: "biology").count == 1)
+        precondition(curriculum.topic(builtInSubjectID: "biology", topicID: builtInBiologyTopic)?.level == 4)
 
         let duplicate = CustomCurriculumText(russian: "Путь по окружности", english: "orbits")
         do {
@@ -67,9 +78,14 @@ enum CustomCurriculumVerification {
         let restored = try JSONDecoder().decode(CustomCurriculum.self, from: encoded)
         precondition(restored == curriculum, "The locally saved curriculum must retain its stable IDs and hierarchy. / Локальное сохранение должно сохранять ID и вложенность.")
         precondition(restored.topic(subjectID: astronomy, topicID: ellipses)?.name.russian == "Эллиптические орбиты")
+        precondition(restored.topic(builtInSubjectID: "biology", topicID: builtInBiologyTopic)?.name.english == "My biology topic")
 
         precondition(curriculum.removeTopic(subjectID: astronomy, topicID: orbits))
         precondition(curriculum.subject(id: astronomy)?.topics.isEmpty == true)
+        precondition(curriculum.removeTopic(builtInSubjectID: "biology", topicID: builtInBiologyTopic))
+        precondition(curriculum.topics(builtInSubjectID: "biology").isEmpty)
+        let preexisting = try JSONDecoder().decode(CustomCurriculum.self, from: Data(#"{"subjects":[]}"#.utf8))
+        precondition(preexisting.subjects.isEmpty && preexisting.builtInTopics.isEmpty)
         print("Custom curriculum checks passed. / Проверки пользовательских курсов прошли.")
     }
 }
