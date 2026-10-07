@@ -22,7 +22,7 @@ enum L10n {
         "home.catalogHint": ("Шесть направлений. Начинаем с основ и будем расширять углублённые курсы.", "Six fields. Start with foundations and expand into advanced courses."),
         "home.start": ("Начать", "Start"),
         "home.resume": ("Открыть", "Open"),
-        "home.done": ("Завершено", "Completed"),
+        "home.introDone": ("Вводная пройдена", "Introduction complete"),
         "home.foundation": ("Первый урок", "First lesson"),
         "home.offline": ("Уроки доступны офлайн", "Lessons available offline"),
         "home.focus": ("Начни с любопытства", "Start with a question"),

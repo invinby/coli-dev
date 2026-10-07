@@ -390,7 +390,7 @@ private struct SubjectCard: View {
                         .foregroundStyle(.secondary)
                 }
                 HStack(spacing: 6) {
-                    Text(complete ? L10n.text("home.done", store.language) : L10n.text("home.foundation", store.language))
+                    Text(complete ? L10n.text("home.introDone", store.language) : L10n.text("home.foundation", store.language))
                     Image(systemName: "arrow.right")
                 }
                 .font(.caption.weight(.medium))
