@@ -16,31 +16,36 @@ struct SeededGenerator: RandomNumberGenerator {
     }
 }
 
-for answerIndex in 0..<3 {
-    var correctPositionCounts = Array(repeating: 0, count: 3)
-    for seed in 0..<256 {
-        var generator = SeededGenerator(seed: UInt64(seed))
-        let order = AnswerChoiceOrder(optionCount: 3, using: &generator)
-        precondition(
-            Set(order.displayedOriginalIndices) == Set(0..<3),
-            "The order must be a permutation. / Порядок должен быть перестановкой."
-        )
+@main
+enum AnswerChoiceOrderVerification {
+    static func main() {
+        for answerIndex in 0..<3 {
+            var correctPositionCounts = Array(repeating: 0, count: 3)
+            for seed in 0..<256 {
+                var generator = SeededGenerator(seed: UInt64(seed))
+                let order = AnswerChoiceOrder(optionCount: 3, using: &generator)
+                precondition(
+                    Set(order.displayedOriginalIndices) == Set(0..<3),
+                    "The order must be a permutation. / Порядок должен быть перестановкой."
+                )
 
-        let correctDisplayedIndex = order.displayedOriginalIndices.firstIndex(of: answerIndex)!
-        correctPositionCounts[correctDisplayedIndex] += 1
-        for displayedIndex in 0..<3 {
+                let correctDisplayedIndex = order.displayedOriginalIndices.firstIndex(of: answerIndex)!
+                correctPositionCounts[correctDisplayedIndex] += 1
+                for displayedIndex in 0..<3 {
+                    precondition(
+                        order.isCorrect(displayedIndex: displayedIndex, answerOriginalIndex: answerIndex)
+                            == (order.originalIndex(forDisplayedIndex: displayedIndex) == answerIndex),
+                        "Displayed answer mapping changed. / Сопоставление ответа изменилось."
+                    )
+                }
+            }
+
             precondition(
-                order.isCorrect(displayedIndex: displayedIndex, answerOriginalIndex: answerIndex)
-                    == (order.originalIndex(forDisplayedIndex: displayedIndex) == answerIndex),
-                "Displayed answer mapping changed. / Сопоставление ответа изменилось."
+                correctPositionCounts.allSatisfy { $0 > 0 },
+                "The correct answer must reach every position. / Правильный ответ должен попадать в каждую позицию."
             )
         }
+
+        print("Answer choice order checks passed. / Проверки порядка вариантов прошли.")
     }
-
-    precondition(
-        correctPositionCounts.allSatisfy { $0 > 0 },
-        "The correct answer must reach every position. / Правильный ответ должен попадать в каждую позицию."
-    )
 }
-
-print("Answer choice order checks passed. / Проверки порядка вариантов прошли.")
