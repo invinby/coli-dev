@@ -102,6 +102,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-answer-choice-order"
           "$RUNNER_TEMP/verify-answer-choice-order"
 
+      - name: Verify adaptive study recommendation / Проверка следующего шага обучения
+        run: |
+          swiftc macOS/ColiDev/scripts/verify_study_recommendation.swift \
+            -o "$RUNNER_TEMP/verify-study-recommendation"
+          "$RUNNER_TEMP/verify-study-recommendation"
+
       - name: Verify user-created curriculum / Проверка пользовательских курсов
         run: |
           swiftc -parse-as-library macOS/ColiDev/App/CustomCurriculum.swift macOS/ColiDev/scripts/verify_custom_curriculum.swift \
