@@ -1,104 +1,149 @@
 # ColiDev
 
-**A native macOS learning app with bilingual courses, interactive practice, and a local AI tutor.**<br>
-**Нативное учебное приложение для macOS с двуязычными курсами, интерактивной практикой и локальным ИИ-тьютором.**
+**A native macOS learning platform with bilingual courses, interactive practice, and an AI tutor.**<br>
+**Нативная учебная платформа для macOS с двуязычными курсами, интерактивной практикой и ИИ-тьютором.**
 
-ColiDev brings structured learning, a lesson-aware tutor, and local course search into one SwiftUI app backed by a Python service.<br>
-ColiDev объединяет последовательное обучение, ИИ-тьютора с контекстом урока и локальный поиск по курсам в одном приложении SwiftUI с сервером на Python.
+ColiDev combines structured courses, saved learning progress, subject-specific exercises, local course search, and configurable AI routes in one SwiftUI app with a local Python service.<br>
+ColiDev объединяет последовательные курсы, сохранение учебного прогресса, упражнения по предметам, локальный поиск по материалам и настраиваемые маршруты ИИ в одном приложении SwiftUI с локальным сервером на Python.
 
-The app is in active development. Current builds are team previews, not a finished or bug-free product.<br>
-Приложение активно разрабатывается. Текущие сборки предназначены для тестирования командой; это ещё не готовый продукт без ошибок.
+**Project status: early team prototype.** The app is not a finished, signed, or bug-free release. Feature status and known limits are described below and in the project plan.<br>
+**Статус проекта: ранний командный прототип.** Приложение ещё не является готовым, подписанным или полностью проверенным релизом. Статус функций и известные ограничения описаны ниже и в плане проекта.
 
-The interface and starter materials support Russian and English. The six priority subjects are mathematics, English, physics, biology, zoology, and programming.<br>
-Интерфейс и начальные учебные материалы доступны на русском и английском. Шесть приоритетных направлений: математика, английский язык, физика, биология, зоология и программирование.
+## Preview for macOS / Предварительная сборка для macOS
 
-## Try a macOS preview / Попробовать предварительную сборку macOS
+[Open the latest published preview / Открыть последнюю опубликованную сборку](https://github.com/invinby/coli-dev/releases/tag/preview-2026-10-07-measurement-lab). Download the archive for Apple Silicon or Intel, extract it, and open ColiDev.app. This preview is unsigned and not notarized, so macOS may ask you to confirm that you want to open it.<br>
+[Открыть последнюю опубликованную сборку](https://github.com/invinby/coli-dev/releases/tag/preview-2026-10-07-measurement-lab). Скачайте архив для Apple Silicon или Intel, распакуйте его и откройте ColiDev.app. Эта сборка не подписана и не нотариально заверена, поэтому macOS может попросить подтвердить запуск.
 
-[Download the latest unsigned preview / Скачать последнюю неподписанную сборку](https://github.com/invinby/coli-dev/releases/tag/preview-2026-10-07-measurement-lab). Choose the archive for Apple Silicon or Intel, extract it, and open `ColiDev.app`. macOS may ask you to confirm because the app is unsigned.<br>
-[Скачать последнюю неподписанную сборку](https://github.com/invinby/coli-dev/releases/tag/preview-2026-10-07-measurement-lab). Выберите архив для Apple Silicon или Intel, распакуйте его и откройте `ColiDev.app`. macOS может попросить подтвердить запуск, потому что приложение не подписано.
+This is the last published release preview. New pull-request builds are separate test artifacts and are not published releases.<br>
+Это последняя опубликованная предварительная сборка. Новые сборки из pull request публикуются отдельно как тестовые артефакты и не считаются релизами.
 
-The preview is for team testing. It is not notarized, and visual, keyboard, VoiceOver, and live-service checks on a physical Mac are still required.<br>
-Эта сборка предназначена для командного тестирования. Она не нотариально заверена; на реальном Mac ещё нужно проверить интерфейс, клавиатуру, VoiceOver и работу подключённых сервисов.
+## Product at a glance / Кратко о продукте
 
-## What works now / Что уже работает
+| English | Русский |
+|---|---|
+| **Platform:** native SwiftUI app for macOS 13 and later, with a local FastAPI service. | **Платформа:** нативное приложение SwiftUI для macOS 13 и новее с локальным сервером FastAPI. |
+| **Languages:** Russian and English interface strings and starter learning materials. | **Языки:** русский и английский в интерфейсе и начальных учебных материалах. |
+| **Priority subjects:** mathematics, English, physics, biology, zoology, and programming. | **Приоритетные направления:** математика, английский язык, физика, биология, зоология и программирование. |
+| **Learning loop:** explanation, examples, practice, feedback, self-check, and saved progress. | **Цикл обучения:** объяснение, примеры, практика, обратная связь, самопроверка и сохранение прогресса. |
+| **AI modes:** local Ollama and configured online providers, with a free-only default policy for automatic routing. | **Режимы ИИ:** локальная Ollama и настроенные онлайн-провайдеры; автоматическая маршрутизация по умолчанию ограничена бесплатными вариантами. |
+| **Knowledge:** local course search with source-aware tutor context; approved web-source checks do not rewrite lessons automatically. | **Материалы:** локальный поиск по курсам с передачей источников тьютору; проверки одобренных веб-источников сами по себе не переписывают уроки. |
 
-- A SwiftUI client for macOS 13 and later, with Russian and English interface strings, six subject areas, lesson pages, interactive exercises, and locally saved study progress.<br>
-  Клиент на SwiftUI для macOS 13 и новее: интерфейс на русском и английском, шесть предметных направлений, страницы уроков, интерактивные упражнения и локальное сохранение прогресса.
-- The repository contains 47 bilingual lesson files. They form a starter collection, not complete or academically reviewed courses.<br>
-  В репозитории 47 двуязычных файлов уроков. Это начальная подборка, а не полные курсы с академической проверкой.
-- Courses are planned from foundations through advanced topics. Each roadmap is an outline; its presence does not mean every topic has a finished lesson.<br>
-  Учебные маршруты идут от основ к углублённым темам. Каждый маршрут пока является планом: его наличие не означает, что для каждой темы уже готов урок.
-- A local FastAPI backend provides the tutor, study-progress storage, service settings, and Obsidian routes. The macOS app can start its packaged backend runtime.<br>
-  Локальный сервер FastAPI обслуживает тьютора, хранение прогресса, настройки сервисов и интеграцию с Obsidian. Приложение macOS умеет запускать встроенную сборку сервера.
-- Auto routing has a free-only default. It can use the exact OpenRouter `openrouter/free` route when configured and local Ollama for local agent roles and fallbacks. Paid cloud routes require an explicit cost-policy setting. Provider quotas and availability are not guaranteed.<br>
-  По умолчанию режим Auto использует только бесплатную маршрутизацию. При настройке он может обращаться к точному маршруту OpenRouter `openrouter/free`, а для локальных ролей и запасных ответов — к Ollama. Платные облачные маршруты требуют явного разрешения в настройках расходов. Лимиты и доступность у провайдеров приложение не гарантирует.
-- The Control Center can choose separate Ollama models for draft, critic, and verifier roles. It lists installed local model IDs and accepts a model ID entered by hand. These role preferences cannot silently switch to cloud providers.<br>
-  В Центре управления можно выбрать отдельные модели Ollama для черновика, критики и проверки. Он показывает установленные локальные модели и позволяет ввести идентификатор вручную. Эти настройки ролей не переключают их в облако автоматически.
-- Local RAG indexes Markdown course files and text cheat sheets in SQLite. It supports lexical search and optional Ollama embeddings; search results can include file paths and line ranges. Chat retrieval is capped at four sources.<br>
-  Локальный RAG индексирует учебные Markdown-файлы и текстовые шпаргалки в SQLite. Доступен обычный текстовый поиск и необязательные векторные представления через Ollama; в результатах могут быть пути к файлам и строки. В чат передаётся не более четырёх найденных источников.
-- The admin tools can inspect retrieved sources and show source dates, licenses, and attribution. The backend checks a fixed list of official-source URLs while it is running. A person can preview an approved page and record a review after its content fingerprint is checked again.<br>
-  Инструменты администратора позволяют просматривать найденные источники, их даты, лицензии и атрибуцию. Во время работы сервер проверяет ограниченный список URL официальных источников. Человек может открыть текст одобренной страницы и записать проверку только после повторной сверки отпечатка её содержимого.
-- **Lesson content does not update or get approved automatically.** Source checks do not rewrite lessons. A recorded review is an editorial note, not proof that a whole course is current or correct. Web-grounded retrieval covers only a small, explicitly approved source set.<br>
-  **Содержание уроков не обновляется и не утверждается автоматически.** Проверки источников не переписывают уроки. Запись о проверке — это заметка редактора, а не доказательство актуальности или правильности всего курса. Поиск по веб-источникам охватывает лишь небольшой явно одобренный набор материалов.
-- Optional Google Search grounding is blocked by default and requires a configured Gemini key plus explicit permission for potentially paid cloud calls. It can include local course or Obsidian excerpts only after a separate choice and warning. It may use quota or incur charges.<br>
-  Дополнительный поиск Google отключён по умолчанию: для него нужен ключ Gemini и явное разрешение на потенциально платные облачные запросы. Фрагменты курсов или Obsidian можно добавить только отдельным выбором после предупреждения. Такой поиск может расходовать квоту или привести к оплате.
-- The physics starter includes interactive motion and measurement exercises. One 3D prototype models one-dimensional motion under constant force; it does not model general rigid-body dynamics. Other starter visual exercises are 2D.<br>
-  В начальном курсе физики есть интерактивные задания по движению и измерениям. Один 3D-прототип моделирует одномерное движение под действием постоянной силы; он не моделирует динамику произвольных твёрдых тел. Остальные стартовые визуальные упражнения двумерные.
-- Obsidian search and saving lesson/session notes are optional and require its loopback Local REST API. NotebookLM support exports a lesson as a local Markdown file for the learner to import; direct NotebookLM API integration and synchronization are not implemented.<br>
-  Поиск в Obsidian и сохранение заметок урока или занятия доступны по желанию и требуют локального Local REST API. Для NotebookLM урок можно экспортировать в Markdown-файл и импортировать вручную; прямое подключение к API NotebookLM и синхронизация пока не реализованы.
+## What works in the prototype / Что работает в прототипе
 
-## Still in development / Что ещё разрабатывается
+- The macOS app contains six subject areas, lesson pages, interactive exercises, and locally saved study progress. The six directions are a starting catalog, not complete courses.<br>
+  Приложение macOS содержит шесть направлений, страницы уроков, интерактивные упражнения и локальное сохранение прогресса. Это начальный каталог, а не шесть завершённых курсов.
 
-Full course coverage and editorial review, automatic content updates, a complete video library, subject-specific 3D practice, broader license-reviewed source coverage, automatic editorial approval, NotebookLM synchronization, and account-based cross-device sync are not implemented. See the [project plan / план проекта](project-plan/README.md) for the detailed scope and status.<br>
-Полное покрытие курсов и редакторская проверка, автоматическое обновление учебных материалов, полноценная видеотека, 3D-тренажёры по всем направлениям, расширение набора источников с проверкой лицензий, автоматическое редакторское утверждение, синхронизация с NotebookLM и аккаунтная синхронизация между устройствами ещё не реализованы. Подробный объём и статус см. в [плане проекта](project-plan/README.md).
+- The repository contains 47 bilingual lesson files. They are a starter collection; coverage and academic review vary by subject and level.<br>
+  В репозитории есть 47 двуязычных файлов уроков. Это начальная подборка; полнота и академическая проверка различаются по предметам и уровням.
 
-## Run the backend / Запустить сервер
+- The course maps are planned from foundational material toward advanced topics. A topic listed in a roadmap does not necessarily have a finished lesson yet.<br>
+  Карты курсов ведут от основ к углублённым темам. Наличие темы в плане не означает, что готовый урок уже написан.
 
-From the repository root, create an environment, install the backend dependencies, copy the sample configuration, and start the API.<br>
-В корне репозитория создайте виртуальное окружение, установите зависимости сервера, скопируйте пример настроек и запустите API.
+- Lesson progress is saved locally and supports review scheduling. Course completion and actual mastery are separate product goals; the prototype does not yet provide a complete mastery model.<br>
+  Прогресс уроков сохраняется локально и используется для планирования повторений. Завершение курса и реальное освоение материала — разные цели; в прототипе пока нет полной модели оценки знаний.
 
-```bash
+- The local backend serves the tutor, course retrieval, progress synchronization, service settings, and the loopback Obsidian bridge. The app can package and launch that backend runtime.<br>
+  Локальный сервер обслуживает тьютора, поиск по курсам, синхронизацию прогресса, настройки сервисов и локальную интеграцию с Obsidian. Приложение умеет упаковывать и запускать этот сервер.
+
+- AI routes can be configured by role. The Control Center has a separate Local models screen for Ollama availability, installed models, and local role assignments. Paid cloud routes require a separate cost-policy setting; saving an API key does not enable them by itself.<br>
+  Маршруты ИИ можно настраивать отдельно для разных ролей. В Центре управления есть отдельный экран «Локальные модели» с доступностью Ollama, установленными моделями и назначениями локальных ролей. Для платных облачных маршрутов нужно отдельно разрешить расходы; одно сохранение ключа API само по себе их не включает.
+
+- Tutor readiness distinguishes a responding local backend from a configured model route. The app does not treat internet access or an unused session allowance as proof that a model is ready.<br>
+  Статус тьютора отдельно показывает, отвечает ли локальный сервер и настроен ли маршрут к модели. Наличие интернета или неиспользованной квоты сессии не считается подтверждением готовности модели.
+
+- The local RAG index searches course Markdown and text resources. It supports lexical search and optional Ollama embeddings; tutor retrieval is limited to a small number of sources for each answer.<br>
+  Локальный индекс RAG ищет по Markdown-урокам и текстовым материалам. Доступен обычный текстовый поиск и необязательные векторные представления через Ollama; для ответа тьютору передаётся ограниченное число источников.
+
+- Correct-answer positions are randomized in the six subject introductions and selected existing exercises. This is a staged change; remaining fixed-position exercises still need review.<br>
+  Позиции правильных ответов перемешиваются во вводных проверках шести направлений и в отдельных существующих упражнениях. Это поэтапное изменение; остальные задания с фиксированным порядком ещё нужно проверить.
+
+- Source tools display attribution and dates and can check a fixed allowlist of official URLs. These checks can identify changed or unavailable pages, but they do not automatically update or approve lesson text.<br>
+  Инструменты источников показывают атрибуцию и даты и проверяют ограниченный список официальных URL. Эти проверки могут выявить изменившиеся или недоступные страницы, но не обновляют и не утверждают текст урока автоматически.
+
+- Obsidian search and note saving are optional and require its local REST API. NotebookLM currently uses a manual workflow: export a lesson as Markdown and import it yourself; direct API integration and synchronization are not implemented.<br>
+  Поиск в Obsidian и сохранение заметок доступны по желанию и требуют локального REST API. Сейчас NotebookLM используется вручную: экспортируйте урок в Markdown и импортируйте его самостоятельно; прямое подключение к API и синхронизация не реализованы.
+
+- The physics starter includes interactive motion and measurement activities. One 3D prototype demonstrates one-dimensional motion under constant force; it is not a general-purpose physics simulator. Other starter visual exercises are 2D.<br>
+  В начальном курсе физики есть интерактивные задания по движению и измерениям. Один 3D-прототип показывает одномерное движение под постоянной силой и не является универсальным физическим симулятором. Остальные начальные визуальные упражнения двумерные.
+
+## What is still planned / Что ещё предстоит сделать
+
+Full course coverage and subject-editor review; learner-created subjects, topics, and subtopics; explanations for every exercise; a complete mastery model and adaptive study plan; broader randomized quiz coverage; richer subject-specific simulations, video, and 3D practice; broader source and license review; automatic editorial workflows; direct NotebookLM integration; and account-based cross-device sync are not complete.<br>
+Ещё не готовы: полное покрытие курсов и предметная редактура; создание учеником собственных предметов, тем и подтем; разбор каждого упражнения; полноценная модель освоения и адаптивный учебный план; перемешивание ответов во всех тестах; более развитые предметные симуляции, видео и 3D-практика; расширенная проверка источников и лицензий; автоматизированные редакторские процессы; прямое подключение NotebookLM; синхронизация между устройствами через аккаунт.
+
+An approved-source check is not a guarantee that all course information is current or correct. Provider free tiers, model availability, and quotas can change; the app does not promise unlimited free AI access.<br>
+Проверка одобренных источников не гарантирует, что вся информация в курсах актуальна или верна. Бесплатные тарифы, доступность моделей и квоты провайдеров могут меняться; приложение не обещает неограниченный бесплатный доступ к ИИ.
+
+## Architecture / Архитектура
+
+| Component | Компонент | Responsibility | Назначение |
+|---|---|---|---|
+| SwiftUI client | Клиент SwiftUI | macOS navigation, lessons, exercises, settings, and local progress. | Навигация macOS, уроки, упражнения, настройки и локальный прогресс. |
+| FastAPI service | Сервис FastAPI | Tutor API, agent routing, course search, source status, and progress endpoints. | API тьютора, маршрутизация агентов, поиск по курсам, состояние источников и работа с прогрессом. |
+| Local knowledge | Локальная база знаний | Course files and retrieval index stored on the learner’s device. | Файлы курсов и поисковый индекс на устройстве ученика. |
+| Model providers | Провайдеры моделей | Ollama on-device and explicitly configured compatible cloud APIs. | Локальная Ollama и явно настроенные совместимые облачные API. |
+| External learning tools | Внешние учебные инструменты | Optional Obsidian bridge and Markdown export for NotebookLM. | Необязательный мост к Obsidian и экспорт Markdown для NotebookLM. |
+
+## Try the tutor backend / Запустить сервер тьютора
+
+From the repository root, create a virtual environment, install the backend dependencies, copy the sample settings, and start the local API.<br>
+В корне репозитория создайте виртуальное окружение, установите зависимости сервера, скопируйте пример настроек и запустите локальный API.
+
+macOS and Linux / macOS и Linux:
+
+~~~sh
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements-orchestrator.txt
 cp .env.example .env
 python 01_Projects/orchestrator.py
-```
+~~~
 
-In Windows PowerShell, create the environment with `py -3 -m venv .venv`, activate it with `\.venv\Scripts\Activate.ps1`, and copy the configuration with `Copy-Item .env.example .env`.<br>
-В Windows PowerShell создайте окружение командой `py -3 -m venv .venv`, активируйте его через `\.venv\Scripts\Activate.ps1` и скопируйте настройки командой `Copy-Item .env.example .env`.
+Windows PowerShell / Windows PowerShell:
 
-The server listens on `127.0.0.1:8000` by default. A source build from Xcode needs the backend started separately unless you package it with `macOS/ColiDev/scripts/package_backend_runtime.sh`. The CI preview bundles a PyInstaller runtime.<br>
-По умолчанию сервер слушает `127.0.0.1:8000`. При сборке исходников через Xcode сервер нужно запускать отдельно, если не упаковать его скриптом `macOS/ColiDev/scripts/package_backend_runtime.sh`. В сборку из CI включён runtime PyInstaller.
+~~~powershell
+py -3 -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install -r requirements-orchestrator.txt
+Copy-Item .env.example .env
+python 01_Projects/orchestrator.py
+~~~
+
+The service listens on 127.0.0.1:8000 by default. Keep it bound to loopback for local development; the service does not provide user-account authentication.<br>
+По умолчанию сервер слушает 127.0.0.1:8000. При локальной разработке оставляйте его привязанным к loopback-адресу: сервер не использует авторизацию аккаунтов.
 
 ## Build and check / Собрать и проверить
 
-Open `macOS/ColiDev/ColiDev.xcodeproj` in Xcode, choose the `ColiDev` scheme, and run it. The [macOS notes / заметки по macOS](macOS/ColiDev/README.md) describe packaging the backend runtime.<br>
-Откройте `macOS/ColiDev/ColiDev.xcodeproj` в Xcode, выберите схему `ColiDev` и запустите приложение. В [заметках по macOS](macOS/ColiDev/README.md) описана упаковка серверного runtime.
+To build the macOS app from source, open macOS/ColiDev/ColiDev.xcodeproj on a Mac with Xcode, select the ColiDev scheme, and run it. Windows cannot build this native macOS target. The Windows app and downloadable installers are later product work.<br>
+Чтобы собрать приложение macOS из исходников, откройте macOS/ColiDev/ColiDev.xcodeproj на Mac с Xcode, выберите схему ColiDev и запустите её. Windows не может собрать эту нативную цель macOS. Windows-приложение и скачиваемые установщики — будущие этапы проекта.
 
-Run the backend checks with:<br>
-Запустить проверки сервера можно так:
+Run the backend test suite with:<br>
+Запустить проверки backend можно так:
 
-```bash
+~~~sh
 python -m pip install -r requirements-test.txt
 python -m pytest 01_Projects -q
-```
+~~~
 
-The test suite mocks provider requests. It does not spend API credits or verify live services. GitHub Actions also builds the app for Apple Silicon and Intel and checks the packaged backend; it does not replace hands-on Mac acceptance.<br>
-В тестах запросы к провайдерам заменены заглушками. Проверки не расходуют API-кредиты и не подтверждают работу настоящих сервисов. GitHub Actions также собирает приложение для Apple Silicon и Intel и проверяет упакованный сервер, но не заменяет ручную проверку на Mac.
+Automated tests use mocked providers and do not spend API credits or confirm live-provider access. GitHub Actions builds for Apple Silicon and Intel and smoke-checks the packaged backend, but it does not replace hands-on acceptance on a physical Mac.<br>
+В автоматических тестах используются заглушки провайдеров; они не расходуют API-кредиты и не подтверждают доступ к реальным моделям. GitHub Actions собирает приложение для Apple Silicon и Intel и проверяет упакованный сервер, но это не заменяет проверку на настоящем Mac.
 
-## Keys and local data / Ключи и локальные данные
+## Privacy and cost / Приватность и расходы
 
-On macOS, credentials saved in the Control Center are stored in Keychain; their values are not returned to the app client. The ignored `.env` file is a development fallback. Never commit real provider or Obsidian credentials.<br>
-В macOS ключи, сохранённые через Центр управления, хранятся в Keychain; приложение не возвращает их значения клиенту. Игнорируемый Git файл `.env` служит запасным вариантом для разработки. Никогда не добавляйте настоящие ключи провайдеров или Obsidian в репозиторий.
+On macOS, credentials saved through the app are stored in Keychain. The development .env file is ignored by Git. Never commit real provider or Obsidian credentials.<br>
+В macOS ключи, сохранённые через приложение, помещаются в Keychain. Файл .env для разработки исключён из Git. Никогда не добавляйте реальные ключи провайдеров или Obsidian в репозиторий.
 
-Course indexes, session state, study progress, and logs use per-user system data directories. The backend binds to loopback by default and does not provide user-account authentication. Keep it local unless network access is deliberately designed and protected.<br>
-Индексы курсов, состояние занятий, прогресс и журналы хранятся в системных каталогах текущего пользователя. По умолчанию сервер привязан к loopback-адресу и не использует авторизацию аккаунтов. Оставляйте его локальным, пока сетевой доступ отдельно не спроектирован и не защищён.
+Automatic routing defaults to free-only routes. Potentially paid cloud models and Google Search require an explicit cost-policy change. Cloud requests may include the learner’s question and selected course context; the app shows a warning before those routes are enabled.<br>
+Автоматическая маршрутизация по умолчанию ограничена бесплатными маршрутами. Потенциально платные облачные модели и Google Search требуют явного изменения политики расходов. Облачный запрос может содержать вопрос ученика и выбранный контекст курса; перед включением таких маршрутов приложение показывает предупреждение.
 
-The global cost policy gates potentially paid model routes and Google Search on the backend. Saving credentials alone does not enable these routes.<br>
-Общая политика расходов блокирует потенциально платные маршруты моделей и Google Search на стороне сервера. Одно лишь сохранение ключей эти маршруты не включает.
+## Project documents / Документы проекта
 
----
+- [Detailed project plan / Подробный план проекта](project-plan/README.md)
+- [macOS app notes / Заметки по приложению macOS](macOS/ColiDev/README.md)
+- [Backend notes / Заметки по backend](01_Projects/README.md)
+- [Course catalog / Каталог курсов](02_Areas/README.md)
+- [Current pull request / Текущий pull request](https://github.com/invinby/coli-dev/pull/4)
+- [Project repository / Репозиторий проекта](https://github.com/invinby/coli-dev)
 
-**Project repository / Репозиторий проекта:** [github.com/invinby/coli-dev](https://github.com/invinby/coli-dev)<br>
-**Current preview / Текущая сборка для тестирования:** [macOS preview / сборка macOS](https://github.com/invinby/coli-dev/releases/tag/preview-2026-10-07-measurement-lab)
+Every English description in this profile is followed immediately by its complete Russian version. Product identifiers, filenames, commands, model IDs, and API names are kept unchanged so they can be copied and searched.<br>
+После каждого английского описания в этом профиле сразу приведён полный перевод на русский. Названия продукта, файлов, команд, моделей и API оставлены без изменений, чтобы их можно было копировать и искать.
