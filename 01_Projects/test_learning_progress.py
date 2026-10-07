@@ -93,6 +93,61 @@ def test_learning_reflection_is_normalized_persisted_and_bound_to_idempotent_eve
         )
 
 
+def test_explicit_completion_is_independent_of_recall_quality(tmp_path: Path) -> None:
+    store = StudyProgressStore(tmp_path / "progress.sqlite3")
+    store.initialize()
+
+    completed = store.record_review(
+        "f47ac10b-58cc-4372-a567-0e02b2c3d481",
+        "physics.motion",
+        2,
+        complete_lesson=True,
+    )
+    not_completed = store.record_review(
+        "f47ac10b-58cc-4372-a567-0e02b2c3d482",
+        "biology.osmosis",
+        5,
+        complete_lesson=False,
+    )
+
+    assert completed["completed"] is True
+    assert completed["repetitions"] == 0
+    assert completed["interval_days"] == 1
+    assert not_completed["completed"] is False
+    assert not_completed["repetitions"] == 1
+    assert not_completed["interval_days"] == 1
+
+
+def test_explicit_completion_intent_is_part_of_idempotent_event_payload(
+    tmp_path: Path,
+) -> None:
+    store = StudyProgressStore(tmp_path / "progress.sqlite3")
+    store.initialize()
+    event_id = "f47ac10b-58cc-4372-a567-0e02b2c3d483"
+
+    original = store.record_review(
+        event_id, "physics.motion", 2, complete_lesson=True
+    )
+    assert store.record_review(
+        event_id, "physics.motion", 2, complete_lesson=True
+    ) == original
+    with pytest.raises(ValueError, match="different review"):
+        store.record_review(event_id, "physics.motion", 2, complete_lesson=False)
+
+
+def test_explicit_completion_intent_must_be_a_boolean_or_null(tmp_path: Path) -> None:
+    store = StudyProgressStore(tmp_path / "progress.sqlite3")
+    store.initialize()
+
+    with pytest.raises(ValueError, match="boolean or null"):
+        store.record_review(
+            "f47ac10b-58cc-4372-a567-0e02b2c3d485",
+            "physics.motion",
+            4,
+            complete_lesson=1,
+        )
+
+
 def test_reflection_columns_migrate_existing_progress_database(tmp_path: Path) -> None:
     import sqlite3
 
@@ -112,6 +167,11 @@ def test_reflection_columns_migrate_existing_progress_database(tmp_path: Path) -
             );
             INSERT INTO lesson_progress (lesson_id, completed, updated_at)
             VALUES ('intro.math', 1, '2026-10-05T00:00:00Z');
+            INSERT INTO review_events (event_id, lesson_id, quality, created_at)
+            VALUES (
+                'f47ac10b-58cc-4372-a567-0e02b2c3d484',
+                'intro.math', 4, '2026-10-05T00:00:00Z'
+            );
             """
         )
 
@@ -119,6 +179,9 @@ def test_reflection_columns_migrate_existing_progress_database(tmp_path: Path) -
     store.initialize()
 
     assert store.get_progress()["records"][0]["reflection"] == ""
+    assert store.record_review(
+        "f47ac10b-58cc-4372-a567-0e02b2c3d484", "intro.math", 4
+    )["review_count"] == 0
     saved = store.record_review(
         "f47ac10b-58cc-4372-a567-0e02b2c3d479", "intro.math", 4, "Понял область значений"
     )

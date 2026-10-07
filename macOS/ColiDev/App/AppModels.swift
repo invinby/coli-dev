@@ -89,6 +89,7 @@ struct StudyReviewEvent: Codable, Identifiable {
     let lessonID: String
     let quality: Int
     let reflection: String?
+    let completeLesson: Bool?
 
     var eventID: String { id }
 
@@ -97,6 +98,7 @@ struct StudyReviewEvent: Codable, Identifiable {
         case lessonID = "lesson_id"
         case quality
         case reflection
+        case completeLesson = "complete_lesson"
     }
 }
 
@@ -404,7 +406,12 @@ final class LearningStore: ObservableObject {
 
     func markComplete(lessonID: String, quality: Int, reflection: String = "") {
         completedLessonIDs.insert(lessonID)
-        queueStudyReview(lessonID: lessonID, quality: quality, reflection: reflection)
+        queueStudyReview(
+            lessonID: lessonID,
+            quality: quality,
+            reflection: reflection,
+            completeLesson: true
+        )
     }
 
     func recordReview(for subject: Subject, reflection: String = "") {
@@ -412,7 +419,12 @@ final class LearningStore: ObservableObject {
     }
 
     func recordReview(lessonID: String, quality: Int, reflection: String = "") {
-        queueStudyReview(lessonID: lessonID, quality: quality, reflection: reflection)
+        queueStudyReview(
+            lessonID: lessonID,
+            quality: quality,
+            reflection: reflection,
+            completeLesson: false
+        )
     }
 
     func isReviewDue(_ subject: Subject) -> Bool {
@@ -565,13 +577,19 @@ final class LearningStore: ObservableObject {
         customCurriculum = updated
     }
 
-    private func queueStudyReview(lessonID: String, quality: Int, reflection: String) {
+    private func queueStudyReview(
+        lessonID: String,
+        quality: Int,
+        reflection: String,
+        completeLesson: Bool?
+    ) {
         guard !hasPendingReview(lessonID: lessonID) else { return }
         pendingStudyReviews.append(StudyReviewEvent(
             id: UUID().uuidString.lowercased(),
             lessonID: lessonID,
             quality: quality,
-            reflection: String(reflection.trimmingCharacters(in: .whitespacesAndNewlines).prefix(500))
+            reflection: String(reflection.trimmingCharacters(in: .whitespacesAndNewlines).prefix(500)),
+            completeLesson: completeLesson
         ))
         Task { await syncStudyProgress() }
     }

@@ -90,6 +90,7 @@ class StudyProgressStore:
                     lesson_id TEXT NOT NULL,
                     quality INTEGER NOT NULL CHECK (quality BETWEEN 0 AND 5),
                     reflection TEXT NOT NULL DEFAULT '',
+                    complete_lesson INTEGER,
                     created_at TEXT NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS lesson_progress_due_idx
@@ -105,6 +106,14 @@ class StudyProgressStore:
                     connection.execute(
                         f"ALTER TABLE {table} ADD COLUMN reflection TEXT NOT NULL DEFAULT ''"
                     )
+            review_columns = {
+                str(row["name"])
+                for row in connection.execute("PRAGMA table_info(review_events)").fetchall()
+            }
+            if "complete_lesson" not in review_columns:
+                connection.execute(
+                    "ALTER TABLE review_events ADD COLUMN complete_lesson INTEGER"
+                )
 
     @staticmethod
     def _row(row: sqlite3.Row) -> dict[str, Any]:
@@ -150,7 +159,12 @@ class StudyProgressStore:
         return repetitions, interval_days, ease_factor
 
     def record_review(
-        self, event_id: str, lesson_id: str, quality: int, reflection: str = ""
+        self,
+        event_id: str,
+        lesson_id: str,
+        quality: int,
+        reflection: str = "",
+        complete_lesson: bool | None = None,
     ) -> dict[str, Any]:
         try:
             normalized_event_id = str(uuid.UUID(event_id))
@@ -162,6 +176,8 @@ class StudyProgressStore:
             raise ValueError("quality must be an integer between 0 and 5")
         if not isinstance(reflection, str) or len(reflection) > 500:
             raise ValueError("reflection must be text no longer than 500 characters")
+        if complete_lesson is not None and not isinstance(complete_lesson, bool):
+            raise ValueError("complete_lesson must be a boolean or null")
         normalized_reflection = " ".join(reflection.split())
 
         now = self._clock().astimezone(timezone.utc).replace(microsecond=0)
@@ -169,7 +185,8 @@ class StudyProgressStore:
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             prior_event = connection.execute(
-                "SELECT lesson_id, quality, reflection FROM review_events WHERE event_id = ?",
+                "SELECT lesson_id, quality, reflection, complete_lesson "
+                "FROM review_events WHERE event_id = ?",
                 (normalized_event_id,),
             ).fetchone()
             if prior_event is not None:
@@ -177,6 +194,12 @@ class StudyProgressStore:
                     prior_event["lesson_id"] != lesson_id
                     or int(prior_event["quality"]) != quality
                     or str(prior_event["reflection"] or "") != normalized_reflection
+                    or (
+                        bool(prior_event["complete_lesson"])
+                        if prior_event["complete_lesson"] is not None
+                        else None
+                    )
+                    != complete_lesson
                 ):
                     raise ValueError("event_id was already used for a different review")
                 row = connection.execute(
@@ -199,7 +222,10 @@ class StudyProgressStore:
                 repetitions, interval_days, ease_factor, quality
             )
             due_text = _timestamp(now + timedelta(days=interval_days))
-            completed = was_completed or quality >= 3
+            completion_requested = (
+                quality >= 3 if complete_lesson is None else complete_lesson
+            )
+            completed = was_completed or completion_requested
             connection.execute(
                 """INSERT INTO lesson_progress (
                        lesson_id, completed, repetitions, interval_days, ease_factor,
@@ -229,8 +255,17 @@ class StudyProgressStore:
                 ),
             )
             connection.execute(
-                "INSERT INTO review_events (event_id, lesson_id, quality, reflection, created_at) VALUES (?, ?, ?, ?, ?)",
-                (normalized_event_id, lesson_id, quality, normalized_reflection, now_text),
+                "INSERT INTO review_events "
+                "(event_id, lesson_id, quality, reflection, complete_lesson, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    normalized_event_id,
+                    lesson_id,
+                    quality,
+                    normalized_reflection,
+                    None if complete_lesson is None else int(complete_lesson),
+                    now_text,
+                ),
             )
             row = connection.execute(
                 "SELECT * FROM lesson_progress WHERE lesson_id = ?", (lesson_id,)

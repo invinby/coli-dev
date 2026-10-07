@@ -25,7 +25,7 @@ GitHub Actions run [37697472171](https://github.com/invinby/coli-dev/actions/run
 These CI artifacts are unsigned test builds, not a published release. CI verifies compilation and bundled-backend smoke checks; running the app and checking its real UI and model routes on a Mac still requires hands-on acceptance.<br>
 Это неподписанные тестовые архивы CI, а не опубликованный релиз. CI проверяет сборку и smoke-проверку встроенного backend; запуск приложения и проверка реального интерфейса и маршрутов моделей на Mac всё ещё требуют ручной приёмки.
 
-## Product at a glance / Кратко о продукте
+## Project profile / Профиль проекта
 
 | English | Русский |
 |---|---|
@@ -35,6 +35,14 @@ These CI artifacts are unsigned test builds, not a published release. CI verifie
 | **Learning loop:** explanation, examples, practice, feedback, self-check, and saved progress. | **Цикл обучения:** объяснение, примеры, практика, обратная связь, самопроверка и сохранение прогресса. |
 | **AI modes:** local Ollama and configured online providers, with a free-only default policy for automatic routing. | **Режимы ИИ:** локальная Ollama и настроенные онлайн-провайдеры; автоматическая маршрутизация по умолчанию ограничена бесплатными вариантами. |
 | **Knowledge:** local course search with source-aware tutor context; approved web-source checks do not rewrite lessons automatically. | **Материалы:** локальный поиск по курсам с передачей источников тьютору; проверки одобренных веб-источников сами по себе не переписывают уроки. |
+| **Product goal:** help learners move from foundations to advanced understanding across major disciplines, while keeping lesson completion separate from demonstrated mastery. | **Цель продукта:** помогать переходить от основ к углублённому пониманию разных важных дисциплин, отдельно показывая завершение уроков и подтверждённое освоение знаний. |
+| **Adaptive learning:** recommend prerequisites, practice, review, or a harder next step from observed learner results; avoid one fixed template for every subject. | **Адаптивное обучение:** по результатам ученика предлагать нужные основы, практику, повторение или более сложный следующий шаг; не применять один шаблон ко всем предметам. |
+| **Visual learning:** use interactive diagrams, simulations, video, or manipulable 3D when they explain a concept; describe each model’s assumptions and limits. | **Наглядное обучение:** использовать интерактивные схемы, симуляции, видео или управляемые 3D-модели, когда они помогают понять тему; указывать предпосылки и ограничения каждой модели. |
+| **Learner-created curriculum:** let learners add their own subjects and topics without duplicating the built-in catalog; Biology is already a built-in subject. | **Пользовательская программа:** дать ученику возможность добавлять свои предметы и темы, не дублируя встроенный каталог; биология уже входит в стандартный список предметов. |
+| **Evidence and accuracy:** prefer current official or primary sources, show attribution and review dates, and mark uncertainty instead of inventing evidence. | **Источники и точность:** отдавать предпочтение актуальным официальным или первичным источникам, показывать атрибуцию и даты проверки, а при неопределённости сообщать об этом вместо выдуманных подтверждений. |
+
+The rows marked as product goals describe the intended direction; they are not claims that every adaptive, visual, or mastery feature is already complete.<br>
+Строки с целями продукта описывают направление развития и не означают, что все функции адаптации, визуализации и оценки освоения уже готовы.
 
 ## What works in the prototype / Что работает в прототипе
 

@@ -292,6 +292,54 @@ class TestAPIEndpoints:
         assert module_review.json()["lesson_id"] == module_lesson_id
         assert module_review.json()["completed"] is True
 
+    def test_learning_review_accepts_explicit_completion_separate_from_quality(self, client):
+        completed = client.post(
+            "/learning/reviews",
+            json={
+                "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d481",
+                "lesson_id": "physics.motion",
+                "quality": 2,
+                "complete_lesson": True,
+            },
+        )
+        assert completed.status_code == 200
+        assert completed.json()["completed"] is True
+        assert completed.json()["interval_days"] == 1
+
+        review_only = client.post(
+            "/learning/reviews",
+            json={
+                "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d482",
+                "lesson_id": "biology.osmosis",
+                "quality": 5,
+                "complete_lesson": False,
+            },
+        )
+        assert review_only.status_code == 200
+        assert review_only.json()["completed"] is False
+
+        conflicting_replay = client.post(
+            "/learning/reviews",
+            json={
+                "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d481",
+                "lesson_id": "physics.motion",
+                "quality": 2,
+                "complete_lesson": False,
+            },
+        )
+        assert conflicting_replay.status_code == 409
+
+        invalid_intent = client.post(
+            "/learning/reviews",
+            json={
+                "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d486",
+                "lesson_id": "physics.motion",
+                "quality": 4,
+                "complete_lesson": 1,
+            },
+        )
+        assert invalid_intent.status_code == 422
+
     def test_learning_progress_backup_api_exports_and_merges_local_progress(self, client):
         event = {
             "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",

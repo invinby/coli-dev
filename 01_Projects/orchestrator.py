@@ -538,6 +538,7 @@ class StudyReviewRequest(BaseModel):
     )
     quality: int = Field(strict=True, ge=0, le=5)
     reflection: str = Field(default="", max_length=500)
+    complete_lesson: bool | None = Field(default=None, strict=True)
 
 
 class StudyProgressBackupRequest(BaseModel):
@@ -4577,6 +4578,7 @@ async def record_learning_review(payload: StudyReviewRequest, request: Request):
             payload.lesson_id,
             payload.quality,
             payload.reflection,
+            payload.complete_lesson,
         )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from None
