@@ -1105,6 +1105,8 @@ private struct PracticeLab: View {
             FoodWebLab()
         } else if subject == .physics, moduleResource == "work_and_kinetic_energy" {
             KineticEnergyLab()
+        } else if subject == .physics, moduleResource == "measurement_units_and_uncertainty" {
+            LengthMeasurementLab()
         } else if subject == .physics, moduleResource == "static_and_kinetic_friction" {
             FrictionLab()
         } else if subject == .physics, moduleResource == "impulse_and_momentum" {
@@ -3266,6 +3268,89 @@ private struct ForceLab: View {
             }
             Slider(value: value, in: range, step: 1)
                 .accessibilityLabel(Text(title))
+        }
+    }
+}
+
+private struct LengthMeasurementLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var length = 12.4
+    @State private var uncertainty = 0.2
+
+    private let scaleCentimetres = 32.0
+
+    private var measurement: LengthMeasurement {
+        LengthMeasurement(centimetres: length, uncertaintyCentimetres: uncertainty)
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.measurementTitle", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.measurementHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            GeometryReader { geometry in
+                let trackWidth = max(geometry.size.width - 12, 0)
+                let lowerX = measurement.lowerCentimetres / scaleCentimetres * trackWidth
+                let centreX = measurement.centimetres / scaleCentimetres * trackWidth
+                let bandWidth = 2 * uncertainty / scaleCentimetres * trackWidth
+                ZStack(alignment: .topLeading) {
+                    Capsule()
+                        .fill(.secondary.opacity(0.5))
+                        .frame(width: trackWidth, height: 3)
+                        .offset(x: 6, y: 25)
+                    Capsule()
+                        .fill(Color.accentColor.opacity(0.35))
+                        .frame(width: bandWidth, height: 18)
+                        .offset(x: 6 + lowerX, y: 17)
+                    Circle()
+                        .fill(Color.accentColor)
+                        .frame(width: 10, height: 10)
+                        .offset(x: 1 + centreX, y: 21)
+                }
+            }
+            .frame(height: 54)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(L10n.text("lab.measurementBand", store.language)))
+            .accessibilityValue(Text(String(format: "%.1f–%.1f cm",
+                                                measurement.lowerCentimetres,
+                                                measurement.upperCentimetres)))
+
+            HStack {
+                Text("0 cm")
+                Spacer()
+                Text("32 cm")
+            }
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(.secondary)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(L10n.text("lab.measurementLength", store.language))
+                Slider(value: $length, in: 3...30, step: 0.1)
+                    .accessibilityLabel(Text(L10n.text("lab.measurementLength", store.language)))
+                    .accessibilityValue(Text(String(format: "%.1f cm", length)))
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(L10n.text("lab.measurementUncertainty", store.language))
+                Slider(value: $uncertainty, in: 0.1...2, step: 0.1)
+                    .accessibilityLabel(Text(L10n.text("lab.measurementUncertainty", store.language)))
+                    .accessibilityValue(Text(String(format: "%.1f cm", uncertainty)))
+            }
+
+            Text(String(format: "%.1f ± %.1f cm = %.3f ± %.3f m",
+                        length, uncertainty, measurement.metres, measurement.uncertaintyMetres))
+                .font(.headline.monospacedDigit())
+                .textSelection(.enabled)
+            Text(String(format: "%@: %.1f%%",
+                        L10n.text("lab.measurementRelative", store.language),
+                        measurement.relativeUncertaintyPercent))
+                .font(.callout.monospacedDigit())
+            Text(L10n.text("lab.measurementLimits", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }

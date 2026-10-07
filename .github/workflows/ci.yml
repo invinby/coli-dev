@@ -71,6 +71,9 @@ jobs:
           swiftc macOS/ColiDev/App/ForceMotion.swift macOS/ColiDev/scripts/verify_friction_motion.swift \
             -o "$RUNNER_TEMP/verify-friction-motion"
           "$RUNNER_TEMP/verify-friction-motion"
+          swiftc macOS/ColiDev/App/LengthMeasurement.swift macOS/ColiDev/scripts/verify_length_measurement.swift \
+            -o "$RUNNER_TEMP/verify-length-measurement"
+          "$RUNNER_TEMP/verify-length-measurement"
 
       - name: Verify shared linear equation model
         run: |
@@ -208,6 +211,7 @@ jobs:
           English:zero_first_second_conditionals
           Physics:net_force_and_acceleration
           Physics:static_and_kinetic_friction
+          Physics:measurement_units_and_uncertainty
           Physics:motion_with_constant_acceleration
           Physics:projectile_motion
           Physics:work_and_kinetic_energy
