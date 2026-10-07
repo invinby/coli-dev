@@ -50,6 +50,9 @@ These CI artifacts are unsigned test builds, not a published release. CI verifie
 - Lesson progress is saved locally and supports review scheduling. Course completion and actual mastery are separate product goals; the prototype does not yet provide a complete mastery model.<br>
   Прогресс уроков сохраняется локально и используется для планирования повторений. Завершение курса и реальное освоение материала — разные цели; в прототипе пока нет полной модели оценки знаний.
 
+- The home screen counts completed lessons linked in the built-in roadmaps, rather than counting the six subject introductions. It explicitly says that subject-level mastery is not assessed yet.<br>
+  Главный экран считает завершённые уроки, связанные со встроенными дорожными картами, а не шесть вводных карточек предметов. Он прямо сообщает, что общее освоение предметов пока не оценивается.
+
 - The current draft branch adds a progress-aware Continue action: due reviews come first, then the last opened unfinished lesson, then the next lesson in the least-completed built-in subject. This is a completion-based heuristic, not mastery-based personalization.<br>
   Текущая рабочая ветка добавляет кнопку «Продолжить» с учётом прогресса: сначала предлагается просроченное повторение, затем последний открытый незавершённый урок, а после — следующий урок в наименее пройденном встроенном предмете. Это эвристика по завершённым урокам, а не персонализация по реальному освоению.
 

@@ -20,6 +20,24 @@ struct StudyRoadmap: Equatable {
     }
 }
 
+struct StudyCourseProgress: Equatable {
+    let completedCount: Int
+    let totalCount: Int
+
+    var fractionCompleted: Double {
+        guard totalCount > 0 else { return 0 }
+        return Double(completedCount) / Double(totalCount)
+    }
+
+    init(roadmaps: [StudyRoadmap], completedLessonIDs: Set<String>) {
+        let lessonIDs = Set(roadmaps.flatMap { roadmap in
+            roadmap.lessonResources.map { "\(roadmap.subjectID).\($0)" }
+        })
+        totalCount = lessonIDs.count
+        completedCount = lessonIDs.intersection(completedLessonIDs).count
+    }
+}
+
 enum StudyRecommendationSelector {
     static func nextLesson(
         roadmaps: [StudyRoadmap],

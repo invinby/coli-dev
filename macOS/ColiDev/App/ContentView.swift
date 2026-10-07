@@ -175,6 +175,13 @@ private struct TodayView: View {
 
     private let columns = [GridItem(.adaptive(minimum: 210), spacing: 16)]
 
+    private var courseProgress: StudyCourseProgress {
+        StudyCourseProgress(
+            roadmaps: CurriculumCatalog.studyRoadmaps(),
+            completedLessonIDs: store.completedLessonIDs
+        )
+    }
+
     private var nextLessonRoute: StudyLessonRoute? {
         StudyRecommendationSelector.nextLesson(
             roadmaps: CurriculumCatalog.studyRoadmaps(),
@@ -245,10 +252,12 @@ private struct TodayView: View {
             ZStack {
                 Circle().stroke(.quaternary, lineWidth: 8)
                 Circle()
-                    .trim(from: 0, to: CGFloat(store.completedSubjectCount) / CGFloat(Subject.allCases.count))
+                    .trim(from: 0, to: CGFloat(courseProgress.fractionCompleted))
                     .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 8, lineCap: .round))
                     .rotationEffect(.degrees(-90))
-                Text("\(store.completedSubjectCount)/6")
+                Text(courseProgress.totalCount > 0
+                    ? "\(courseProgress.completedCount)/\(courseProgress.totalCount)"
+                    : "—")
                     .font(.headline.monospacedDigit())
             }
             .frame(width: 64, height: 64)
@@ -257,10 +266,19 @@ private struct TodayView: View {
                     .font(.caption.weight(.semibold))
                     .tracking(1.1)
                     .foregroundStyle(.secondary)
-                Text("\(store.completedSubjectCount) \(L10n.text("home.completed", store.language))")
-                    .font(.headline)
-                Text(L10n.text("home.subjectCount", store.language))
-                    .font(.subheadline)
+                if courseProgress.totalCount > 0 {
+                    Text(String(
+                        format: L10n.text("home.lessonCompletion", store.language),
+                        courseProgress.completedCount,
+                        courseProgress.totalCount
+                    ))
+                        .font(.headline)
+                } else {
+                    Text(L10n.text("home.roadmapUnavailable", store.language))
+                        .font(.headline)
+                }
+                Text(L10n.text("home.masteryNotTracked", store.language))
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                 if store.dueReviewCount > 0 {
                     Text(L10n.text("home.dueReviews", store.language)

@@ -487,10 +487,6 @@ final class LearningStore: ObservableObject {
         }
     }
 
-    var completedSubjectCount: Int {
-        Subject.allCases.filter(isComplete).count
-    }
-
     var pendingStudyReviewCount: Int { pendingStudyReviews.count }
 
     @discardableResult
