@@ -3252,6 +3252,51 @@ class TestConsiliumEngine:
         assert sources == []
         mock_obsidian.search.assert_not_awaited()
 
+    def test_obsidian_retrieval_adds_note_modification_metadata(self, monkeypatch):
+        mock_obsidian = MagicMock()
+        mock_obsidian.configured = True
+        mock_obsidian.base_url = "http://127.0.0.1:27123"
+        mock_obsidian.search = AsyncMock(return_value=[{
+            "filename": "Courses/Physics.md",
+            "matches": [{"context": "Force changes an object's motion."}],
+        }])
+        mock_obsidian.note_metadata = AsyncMock(return_value={
+            "modified_at": "2026-10-07T18:30:00Z",
+            "size_bytes": 128,
+        })
+        monkeypatch.setattr(orchestrator.state, "obsidian", mock_obsidian)
+
+        sources = asyncio.run(orchestrator._retrieve_obsidian_sources("force and motion"))
+
+        assert len(sources) == 1
+        assert {key: value for key, value in sources[0].items() if key != "retrieved_at"} == {
+            "id": "",
+            "title": "Courses/Physics.md",
+            "excerpt": "Force changes an object's motion.",
+            "modified_at": "2026-10-07T18:30:00Z",
+            "path": "Courses/Physics.md",
+            "source_type": "obsidian",
+        }
+        mock_obsidian.note_metadata.assert_awaited_once_with("Courses/Physics.md")
+
+    def test_obsidian_retrieval_keeps_excerpt_when_note_metadata_is_unavailable(self, monkeypatch):
+        mock_obsidian = MagicMock()
+        mock_obsidian.configured = True
+        mock_obsidian.base_url = "http://127.0.0.1:27123"
+        mock_obsidian.search = AsyncMock(return_value=[{
+            "filename": "Courses/Physics.md",
+            "matches": [{"context": "Force changes an object's motion."}],
+        }])
+        mock_obsidian.note_metadata = AsyncMock(side_effect=ConnectionError("unsupported metadata"))
+        monkeypatch.setattr(orchestrator.state, "obsidian", mock_obsidian)
+
+        sources = asyncio.run(orchestrator._retrieve_obsidian_sources("force and motion"))
+
+        assert len(sources) == 1
+        assert sources[0]["excerpt"] == "Force changes an object's motion."
+        assert "modified_at" not in sources[0]
+        mock_obsidian.note_metadata.assert_awaited_once_with("Courses/Physics.md")
+
     def test_google_grounding_keeps_only_public_http_sources_and_cites_them(self):
         candidate = {
             "groundingMetadata": {

@@ -2,9 +2,14 @@
 
 ## Obsidian — обязательная интеграция по пожеланию пользователя
 
-В ColiDev уже есть worker, API-маршруты и поиск Obsidian для retrieval-augmented tutor: подходящие фрагменты передаются модели, а приложение показывает источники. Backend также поддерживает самостоятельный офлайн SQLite-индекс курсов из разрешённых папок проекта. Курсные результаты показывают путь, строки, время получения и файловую дату изменения; эта дата не подтверждает публикацию или точность содержимого. Текущий Obsidian search не возвращает надёжную дату изменения заметки. Дальше нужно определить роль vault: личная база знаний, полный источник RAG, экспорт конспектов, резервная копия или сочетание сценариев с приоритетом источника истины.
+В ColiDev уже есть worker, API-маршруты и поиск Obsidian для retrieval-augmented tutor: подходящие фрагменты передаются модели, а приложение показывает источники. Backend также поддерживает самостоятельный офлайн SQLite-индекс курсов из разрешённых папок проекта. Курсные результаты показывают путь, строки, время получения и файловую дату изменения; эта дата не подтверждает публикацию или точность содержимого. Сам поисковый ответ Obsidian надёжную дату не возвращает; отдельное получение доступных файловых метаданных описано ниже. Дальше нужно определить роль vault: личная база знаний, полный источник RAG, экспорт конспектов, резервная копия или сочетание сценариев с приоритетом источника истины.
 
 Задачи: поиск заметок, ссылки на первоисточники, чтение/запись по явным правилам, безопасные пути, разрешение конфликтов, синхронизация и понятная индикация свежести индекса.
+
+### Дата изменения заметки Obsidian в цитатах / Obsidian note modification time in citations — 2026-10-08
+
+- **RU:** Backend после полнотекстового поиска получает файловый `stat.mtime` до четырёх найденных заметок через `Accept: application/vnd.olrapi.note+json`, когда установленный Local REST API поддерживает этот формат. Дата передаётся в метаданные цитаты и показывается рядом с фрагментом. Если плагин не поддерживает формат или запрос не проходит, поиск сохраняет найденный фрагмент и не указывает дату. Время `mtime` — файловая метаинформация, а не дата редакции знаний или проверка фактов. Формат и поле `stat.mtime` описаны в [официальной схеме API плагина](https://github.com/coddingtonbear/obsidian-local-rest-api/blob/main/docs/openapi.yaml).
+- **EN:** After full-text search, the backend obtains the filesystem `stat.mtime` for up to four matched notes through `Accept: application/vnd.olrapi.note+json` when the installed Local REST API supports that format. The time is attached to citation metadata and displayed beside the excerpt. If the plugin does not support the format or the request fails, retrieval keeps the excerpt and omits the date. `mtime` is filesystem metadata, not a knowledge-publication date or a factual review. The API format and `stat.mtime` field are documented in the [plugin's official API schema](https://github.com/coddingtonbear/obsidian-local-rest-api/blob/main/docs/openapi.yaml).
 
 ## NotebookLM — интеграция по пожеланию пользователя
 

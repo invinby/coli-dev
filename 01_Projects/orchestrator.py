@@ -3698,7 +3698,7 @@ async def _retrieve_obsidian_sources(query: str) -> list[dict[str, str]]:
         return []
 
     retrieved_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    sources: list[dict[str, str]] = []
+    candidates: list[tuple[str, str]] = []
     seen_paths: set[str] = set()
     for result in matches:
         if not isinstance(result, dict):
@@ -3720,16 +3720,39 @@ async def _retrieve_obsidian_sources(query: str) -> list[dict[str, str]]:
             continue
 
         seen_paths.add(filename)
-        sources.append({
+        candidates.append((filename, excerpt))
+        if len(candidates) == 4:
+            break
+
+    async def note_metadata(filename: str) -> dict[str, Any]:
+        try:
+            return await state.obsidian.note_metadata(filename)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.debug(
+                "Obsidian note metadata unavailable",
+                extra={"error_type": type(exc).__name__},
+            )
+            return {}
+
+    metadata = await asyncio.gather(
+        *(note_metadata(filename) for filename, _ in candidates)
+    )
+    sources: list[dict[str, str]] = []
+    for (filename, excerpt), note_info in zip(candidates, metadata, strict=True):
+        source = {
             "id": "",
             "title": filename[:240],
             "excerpt": excerpt,
             "retrieved_at": retrieved_at,
             "path": filename[:240],
             "source_type": "obsidian",
-        })
-        if len(sources) == 4:
-            break
+        }
+        modified_at = note_info.get("modified_at") if isinstance(note_info, dict) else None
+        if isinstance(modified_at, str) and modified_at.strip():
+            source["modified_at"] = modified_at[:64]
+        sources.append(source)
     return sources
 
 
