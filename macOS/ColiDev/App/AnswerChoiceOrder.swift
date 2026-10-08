@@ -151,12 +151,27 @@ struct QuizAnswerOrder: Equatable {
     }
 }
 
+enum StudyErrorCategory: String, CaseIterable, Codable, Equatable, Identifiable {
+    case understanding
+    case memory
+    case application
+    case attention
+    case logic
+    case foundation
+    case method
+
+    var id: String { rawValue }
+    var titleKey: String { "module.errorCategory.\(rawValue)" }
+    var guidanceKey: String { "module.errorGuidance.\(rawValue)" }
+}
+
 struct CurriculumCheckAttempt: Equatable {
     let answerOriginalIndex: Int
     private(set) var choiceOrder: AnswerChoiceOrder
     private(set) var selectedOriginalIndex: Int?
     private(set) var attemptCount: Int
     private(set) var firstTryCorrect: Bool?
+    private(set) var reportedErrorCategories: [StudyErrorCategory]
 
     var isCorrect: Bool { selectedOriginalIndex == answerOriginalIndex }
     var canComplete: Bool { isCorrect }
@@ -168,7 +183,8 @@ struct CurriculumCheckAttempt: Equatable {
             taskType: "knowledge_check",
             attempts: attemptCount,
             firstTryCorrect: firstTryCorrect,
-            hintsUsed: 0
+            hintsUsed: 0,
+            errorCategories: reportedErrorCategories.isEmpty ? nil : reportedErrorCategories
         )
     }
 
@@ -188,6 +204,7 @@ struct CurriculumCheckAttempt: Equatable {
         selectedOriginalIndex = nil
         attemptCount = 0
         firstTryCorrect = nil
+        reportedErrorCategories = []
     }
 
     mutating func select(displayedIndex: Int) {
@@ -200,13 +217,19 @@ struct CurriculumCheckAttempt: Equatable {
         }
     }
 
-    mutating func retry() {
+    mutating func retry(errorCategory: StudyErrorCategory? = nil) {
         var generator = SystemRandomNumberGenerator()
-        retry(using: &generator)
+        retry(errorCategory: errorCategory, using: &generator)
     }
 
-    mutating func retry<Generator: RandomNumberGenerator>(using generator: inout Generator) {
+    mutating func retry<Generator: RandomNumberGenerator>(
+        errorCategory: StudyErrorCategory? = nil,
+        using generator: inout Generator
+    ) {
         guard canRetry else { return }
+        if let errorCategory {
+            reportedErrorCategories.append(errorCategory)
+        }
         choiceOrder = AnswerChoiceOrder(optionCount: choiceOrder.displayedOriginalIndices.count, using: &generator)
         selectedOriginalIndex = nil
     }
@@ -217,12 +240,28 @@ struct StudyAssessmentEvidence: Codable, Equatable {
     let attempts: Int
     let firstTryCorrect: Bool
     let hintsUsed: Int
+    let errorCategories: [StudyErrorCategory]?
+
+    init(
+        taskType: String,
+        attempts: Int,
+        firstTryCorrect: Bool,
+        hintsUsed: Int,
+        errorCategories: [StudyErrorCategory]? = nil
+    ) {
+        self.taskType = taskType
+        self.attempts = attempts
+        self.firstTryCorrect = firstTryCorrect
+        self.hintsUsed = hintsUsed
+        self.errorCategories = errorCategories
+    }
 
     enum CodingKeys: String, CodingKey {
         case taskType = "task_type"
         case attempts
         case firstTryCorrect = "first_try_correct"
         case hintsUsed = "hints_used"
+        case errorCategories = "error_categories"
     }
 }
 

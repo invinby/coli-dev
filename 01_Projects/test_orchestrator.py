@@ -307,6 +307,44 @@ class TestAPIEndpoints:
         }
         assert module_review.json()["assessment_count"] == 1
 
+        classified_review = client.post(
+            "/learning/reviews",
+            json={
+                "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d500",
+                "lesson_id": "physics.motion",
+                "quality": 3,
+                "assessment": {
+                    "task_type": "knowledge_check",
+                    "attempts": 3,
+                    "first_try_correct": False,
+                    "hints_used": 0,
+                    "error_categories": ["application", "foundation"],
+                },
+            },
+        )
+        assert classified_review.status_code == 200
+        assert classified_review.json()["assessment"]["error_categories"] == [
+            "application",
+            "foundation",
+        ]
+
+        invalid_error_category = client.post(
+            "/learning/reviews",
+            json={
+                "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d501",
+                "lesson_id": "physics.motion",
+                "quality": 3,
+                "assessment": {
+                    "task_type": "knowledge_check",
+                    "attempts": 2,
+                    "first_try_correct": False,
+                    "hints_used": 0,
+                    "error_categories": ["made_up"],
+                },
+            },
+        )
+        assert invalid_error_category.status_code == 422
+
         invalid_assessment = client.post(
             "/learning/reviews",
             json={

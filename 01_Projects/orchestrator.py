@@ -535,6 +535,9 @@ class StudyAssessmentEvidenceRequest(BaseModel):
     attempts: int = Field(strict=True, ge=1, le=1_000)
     first_try_correct: bool = Field(strict=True)
     hints_used: int = Field(strict=True, ge=0, le=1_000)
+    error_categories: list[
+        Literal["understanding", "memory", "application", "attention", "logic", "foundation", "method"]
+    ] = Field(default_factory=list, max_length=999)
 
 
 class InteractiveAssessmentEvidenceRequest(BaseModel):

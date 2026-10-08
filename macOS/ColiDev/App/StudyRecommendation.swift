@@ -165,6 +165,7 @@ struct StudyKnowledgeEvidenceCoverage: Equatable {
     let totalTopicCount: Int
     let topicsWithChecks: Int
     let topicsNeedingPractice: Int
+    let reportedErrorTopicCounts: [StudyErrorCategory: Int]
 
     init(
         roadmaps: [StudyRoadmap],
@@ -190,6 +191,7 @@ struct StudyKnowledgeEvidenceCoverage: Equatable {
 
         var checkedTopicIDs = Set<String>()
         var practiceTopicIDs = Set<String>()
+        var errorTopicIDsByCategory: [StudyErrorCategory: Set<String>] = [:]
         for record in recordsByLesson.values where topicIDs.contains(record.lessonID) {
             let hasRecordedCheck = (record.assessmentCount ?? 0) > 0
                 || record.latestAssessment != nil
@@ -200,9 +202,13 @@ struct StudyKnowledgeEvidenceCoverage: Equatable {
                assessment.attempts > 1 || !assessment.firstTryCorrect {
                 practiceTopicIDs.insert(record.lessonID)
             }
+            for category in record.latestAssessment?.errorCategories ?? [] {
+                errorTopicIDsByCategory[category, default: []].insert(record.lessonID)
+            }
         }
         topicsWithChecks = checkedTopicIDs.count
         topicsNeedingPractice = practiceTopicIDs.count
+        reportedErrorTopicCounts = errorTopicIDsByCategory.mapValues(\.count)
     }
 }
 

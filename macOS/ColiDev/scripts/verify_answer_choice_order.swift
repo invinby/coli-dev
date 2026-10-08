@@ -180,7 +180,7 @@ enum AnswerChoiceOrderVerification {
         )
 
         var retryGenerator = SeededGenerator(seed: 241)
-        attempt.retry(using: &retryGenerator)
+        attempt.retry(errorCategory: .understanding, using: &retryGenerator)
         precondition(attempt.selectedOriginalIndex == nil && !attempt.canComplete && !attempt.canRetry)
         precondition(
             attempt.attemptCount == 1 && attempt.firstTryCorrect == false,
@@ -196,9 +196,24 @@ enum AnswerChoiceOrderVerification {
                 taskType: "knowledge_check",
                 attempts: 2,
                 firstTryCorrect: false,
-                hintsUsed: 0
+                hintsUsed: 0,
+                errorCategories: [.understanding]
             ),
             "A completed check must expose its attempt evidence without changing the answer result. / Завершённая проверка должна передавать число попыток, не меняя правильность ответа."
+        )
+        let legacyAssessmentJSON = Data(
+            #"{"task_type":"knowledge_check","attempts":1,"first_try_correct":true,"hints_used":0}"#.utf8
+        )
+        let legacyAssessment = try! JSONDecoder().decode(StudyAssessmentEvidence.self, from: legacyAssessmentJSON)
+        precondition(
+            legacyAssessment.errorCategories == nil,
+            "Older progress without error categories must continue to decode. / Старый прогресс без категорий ошибок должен продолжать читаться."
+        )
+        let savedAssessmentData = try! JSONEncoder().encode(attempt.assessmentEvidence!)
+        let restoredAssessment = try! JSONDecoder().decode(StudyAssessmentEvidence.self, from: savedAssessmentData)
+        precondition(
+            restoredAssessment == attempt.assessmentEvidence,
+            "Self-reported categories must survive local progress encoding. / Самооценка категорий ошибок должна сохраняться в локальном прогрессе."
         )
 
         var firstTryGenerator = SeededGenerator(seed: 99)

@@ -175,7 +175,8 @@ class StudyProgressStore:
                 "assessment must be an object or null / "
                 "параметр assessment должен быть объектом или null"
             )
-        if set(value) != {"task_type", "attempts", "first_try_correct", "hints_used"}:
+        required_fields = {"task_type", "attempts", "first_try_correct", "hints_used"}
+        if not required_fields.issubset(value) or set(value) - required_fields - {"error_categories"}:
             raise ValueError(
                 "assessment must contain task_type, attempts, first_try_correct, and hints_used / "
                 "в assessment должны быть поля task_type, attempts, first_try_correct и hints_used"
@@ -203,12 +204,31 @@ class StudyProgressStore:
                 "assessment first_try_correct must match the successful attempt count / "
                 "first_try_correct должен соответствовать числу попыток до правильного ответа"
             )
+        error_categories = value.get("error_categories", [])
+        supported_error_categories = {
+            "understanding", "memory", "application", "attention", "logic", "foundation", "method"
+        }
+        if (
+            not isinstance(error_categories, list)
+            or len(error_categories) > attempts - 1
+            or any(
+                not isinstance(category, str) or category not in supported_error_categories
+                for category in error_categories
+            )
+        ):
+            raise ValueError(
+                "assessment error_categories must contain supported self-reported categories "
+                "for incorrect attempts / error_categories должны содержать допустимые категории "
+                "самооценки для ошибочных попыток"
+            )
         normalized = {
             "task_type": "knowledge_check",
             "attempts": attempts,
             "first_try_correct": first_try_correct,
             "hints_used": hints_used,
         }
+        if error_categories:
+            normalized["error_categories"] = error_categories
         encoded = json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return normalized, encoded
 

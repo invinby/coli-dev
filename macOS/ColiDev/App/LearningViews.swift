@@ -353,6 +353,7 @@ struct CurriculumModuleView: View {
     @State private var reflection = ""
     @State private var recallQuality = 4
     @State private var checkAttempt: CurriculumCheckAttempt?
+    @State private var selectedErrorCategory = ""
     @State private var sourceInventory: TrustedSourceInventory?
     @State private var sourceInventoryUnavailable = false
     @State private var isLoadingSourceInventory = false
@@ -453,6 +454,22 @@ struct CurriculumModuleView: View {
                                             document.checkOptions[checkAttempt.answerOriginalIndex]
                                         ))
                                             .font(.callout.weight(.medium))
+
+                                        Text(L10n.text("module.errorCategoryPrompt", store.language))
+                                            .font(.callout.weight(.medium))
+                                        Picker(L10n.text("module.errorCategoryLabel", store.language), selection: $selectedErrorCategory) {
+                                            Text(L10n.text("module.errorCategorySkip", store.language)).tag("")
+                                            ForEach(StudyErrorCategory.allCases) { category in
+                                                Text(L10n.text(category.titleKey, store.language)).tag(category.rawValue)
+                                            }
+                                        }
+                                        .pickerStyle(.menu)
+
+                                        if let category = StudyErrorCategory(rawValue: selectedErrorCategory) {
+                                            Text(L10n.text(category.guidanceKey, store.language))
+                                                .font(.callout)
+                                                .foregroundStyle(.secondary)
+                                        }
                                     }
 
                                     if !document.answer.isEmpty {
@@ -673,6 +690,7 @@ struct CurriculumModuleView: View {
     private func loadDocument() {
         let loadedDocument = CurriculumLessonDocument.load(subject: subject, resource: resource, language: store.language)
         document = loadedDocument
+        selectedErrorCategory = ""
         checkAttempt = loadedDocument.flatMap { lesson in
             guard let answerIndex = lesson.checkAnswerIndex else { return nil }
             return CurriculumCheckAttempt(optionCount: lesson.checkOptions.count, answerOriginalIndex: answerIndex)
@@ -691,8 +709,9 @@ struct CurriculumModuleView: View {
 
     private func retryKnowledgeCheck() {
         guard var attempt = checkAttempt else { return }
-        attempt.retry()
+        attempt.retry(errorCategory: StudyErrorCategory(rawValue: selectedErrorCategory))
         checkAttempt = attempt
+        selectedErrorCategory = ""
     }
 
     @MainActor

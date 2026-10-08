@@ -382,6 +382,21 @@ private struct TodayView: View {
                             .font(.caption.weight(.medium))
                             .foregroundStyle(Color.accentColor)
                     }
+                    let reportedDifficulties = StudyErrorCategory.allCases.filter {
+                        (knowledgeEvidenceCoverage.reportedErrorTopicCounts[$0] ?? 0) > 0
+                    }
+                    if !reportedDifficulties.isEmpty {
+                        Text(L10n.text("home.reportedDifficulties", store.language))
+                            .font(.caption.weight(.medium))
+                        ForEach(reportedDifficulties) { category in
+                            Text("\(L10n.text(category.titleKey, store.language)) · \(knowledgeEvidenceCoverage.reportedErrorTopicCounts[category] ?? 0)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Text(L10n.text("home.reportedDifficultiesCaveat", store.language))
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
                 } else {
                     Text(L10n.text("home.knowledgeChecksUnavailable", store.language))
                         .font(.caption)

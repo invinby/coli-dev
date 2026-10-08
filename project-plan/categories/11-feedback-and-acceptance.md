@@ -16,6 +16,12 @@ This list records the team's feedback received on 8 October 2026. It sets the pr
 
 **EN:** The long prompt in the team transcript is a specification for designing and building the educational application itself: its interface, architecture, learning paths, personalization, sources, visualizations, and verifiable navigation. It is not a system prompt for a standalone AI tutor. The tutor is one component of the product. Add further elements incrementally according to their learning value; fix P0 failures first and do not present planned features as complete.
 
+## Самооценка типа ошибки / Learner-reported error type
+
+**RU:** После неправильного ответа ученик может по желанию отметить, что именно ему помешало: понимание, память, применение, внимание к условию, логика, базовые знания или выбор метода. Перед повторной попыткой приложение предлагает короткую стратегию для выбранного типа. Отметка сохраняется с локальным прогрессом и показывается как самооценка по последним проверкам; она не является автоматическим диагнозом и сама по себе не доказывает освоение темы. Пропуск доступен всегда. Следующий этап — связать накопленные сигналы с конкретными предпосылками и учебными заданиями, не делая выводов из одной ошибки.
+
+**EN:** After a wrong answer, learners may optionally report what got in the way: understanding, memory, application, attention to the prompt, reasoning, prerequisite knowledge, or method choice. Before retrying, the app offers a short strategy for the selected category. The report is stored with local progress and shown as self-reported difficulty from recent checks; it is not an automated diagnosis and does not by itself prove mastery. Skipping is always allowed. The next step is to connect accumulated signals to explicit prerequisites and learning activities without drawing conclusions from one mistake.
+
 ## Аудит прототипа по обратной связи / Prototype audit against feedback — 2026-10-08
 
 **RU:** Аудит выполнен по текущему коду SwiftUI и FastAPI, каталогу уроков, проверкам CI и сообщённым командой проблемам. Это проверка исходников и статуса сборки, а не ручная приёмка приложения на Mac. Реальный ответ установленной модели и поведение интерфейса на устройстве ученика здесь не подтверждались.

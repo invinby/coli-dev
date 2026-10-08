@@ -179,6 +179,50 @@ def test_assessment_evidence_persists_attempts_and_is_part_of_idempotent_review(
     assert StudyProgressStore(store.path).get_progress()["records"][0] == second
 
 
+def test_learner_reported_error_categories_are_validated_and_persisted(tmp_path: Path) -> None:
+    store = StudyProgressStore(tmp_path / "progress.sqlite3")
+    store.initialize()
+    event_id = "f47ac10b-58cc-4372-a567-0e02b2c3d497"
+    evidence = {
+        "task_type": "knowledge_check",
+        "attempts": 3,
+        "first_try_correct": False,
+        "hints_used": 0,
+        "error_categories": ["application", "foundation"],
+    }
+
+    saved = store.record_review(
+        event_id, "physics.motion", 3, assessment=evidence
+    )
+    assert saved["assessment"] == evidence
+    assert store.get_progress()["records"][0]["assessment"]["error_categories"] == [
+        "application",
+        "foundation",
+    ]
+    restored = StudyProgressStore(tmp_path / "restored.sqlite3")
+    restored.initialize()
+    restored.restore_backup(store.export_backup())
+    assert restored.get_progress()["records"][0]["assessment"]["error_categories"] == [
+        "application",
+        "foundation",
+    ]
+
+    with pytest.raises(ValueError, match="error_categories"):
+        store.record_review(
+            "f47ac10b-58cc-4372-a567-0e02b2c3d498",
+            "physics.motion",
+            3,
+            assessment={**evidence, "error_categories": ["invented"]},
+        )
+    with pytest.raises(ValueError, match="error_categories"):
+        store.record_review(
+            "f47ac10b-58cc-4372-a567-0e02b2c3d499",
+            "physics.motion",
+            3,
+            assessment={**evidence, "attempts": 2},
+        )
+
+
 def test_interactive_assessments_are_idempotent_and_do_not_change_review_schedule(
     tmp_path: Path,
 ) -> None:

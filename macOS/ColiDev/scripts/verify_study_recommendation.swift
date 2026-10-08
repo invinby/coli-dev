@@ -36,7 +36,8 @@ enum StudyRecommendationVerification {
                         taskType: "knowledge_check",
                         attempts: 2,
                         firstTryCorrect: false,
-                        hintsUsed: 0
+                        hintsUsed: 0,
+                        errorCategories: [.application, .foundation]
                     )
                 ),
                 StudyAssessmentProgressRecord(
@@ -84,7 +85,9 @@ enum StudyRecommendationVerification {
         precondition(
             checkCoverage.totalTopicCount == 7
                 && checkCoverage.topicsWithChecks == 3
-                && checkCoverage.topicsNeedingPractice == 1,
+                && checkCoverage.topicsNeedingPractice == 1
+                && checkCoverage.reportedErrorTopicCounts[.application] == 1
+                && checkCoverage.reportedErrorTopicCounts[.foundation] == 1,
             "Knowledge evidence must count only addressable roadmap topics and flag the latest check when it needed retries. / Свидетельства понимания должны учитывать только доступные темы плана и отмечать темы, где последняя проверка потребовала повторов."
         )
         let interactiveEvidence = StudyAssessmentEvidenceSummary(
