@@ -313,6 +313,42 @@ struct InteractivePredictionAttempt: Equatable {
     }
 }
 
+enum OsmosisWaterFlow: Equatable {
+    case waterEntersCell
+    case waterLeavesCell
+    case dynamicEquilibrium
+
+    var answerOriginalIndex: Int {
+        switch self {
+        case .waterEntersCell: return 0
+        case .waterLeavesCell: return 1
+        case .dynamicEquilibrium: return 2
+        }
+    }
+
+    var explanationKey: String {
+        switch self {
+        case .waterEntersCell: return "lab.osmosisWaterEnters"
+        case .waterLeavesCell: return "lab.osmosisWaterLeaves"
+        case .dynamicEquilibrium: return "lab.osmosisBalanced"
+        }
+    }
+
+    var arrowSymbol: String {
+        switch self {
+        case .waterEntersCell: return "arrow.right"
+        case .waterLeavesCell: return "arrow.left"
+        case .dynamicEquilibrium: return "arrow.left.and.right"
+        }
+    }
+
+    static func predict(insideSolute: Int, outsideSolute: Int) -> Self {
+        if outsideSolute > insideSolute { return .waterEntersCell }
+        if insideSolute > outsideSolute { return .waterLeavesCell }
+        return .dynamicEquilibrium
+    }
+}
+
 struct StudyAssessmentEvidence: Codable, Equatable {
     let taskType: String
     let attempts: Int

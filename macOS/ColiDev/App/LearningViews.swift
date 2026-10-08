@@ -3025,11 +3025,24 @@ private struct OsmosisLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var insideConcentration = 4.0
     @State private var outsideConcentration = 6.0
+    @State private var prediction: InteractivePredictionAttempt
+    @State private var selectedDisplayIndex = -1
 
-    private var netFlowKey: String {
-        if outsideConcentration > insideConcentration { return "lab.osmosisWaterEnters" }
-        if insideConcentration > outsideConcentration { return "lab.osmosisWaterLeaves" }
-        return "lab.osmosisBalanced"
+    private let predictionOptionKeys = [
+        "lab.osmosisOptionEnters",
+        "lab.osmosisOptionLeaves",
+        "lab.osmosisOptionBalanced"
+    ]
+
+    init() {
+        _prediction = State(initialValue: Self.makePrediction(insideSolute: 4, outsideSolute: 6))
+    }
+
+    private var flow: OsmosisWaterFlow {
+        OsmosisWaterFlow.predict(
+            insideSolute: Int(insideConcentration.rounded()),
+            outsideSolute: Int(outsideConcentration.rounded())
+        )
     }
 
     var body: some View {
@@ -3043,12 +3056,13 @@ private struct OsmosisLab: View {
                     title: L10n.text("lab.osmosisOutside", store.language),
                     value: outsideConcentration
                 )
-                Image(systemName: outsideConcentration == insideConcentration
-                    ? "arrow.left.and.right"
-                    : (outsideConcentration > insideConcentration ? "arrow.right" : "arrow.left"))
+                Image(systemName: prediction.hasAnswered && prediction.isCorrect ? flow.arrowSymbol : "questionmark.circle")
                     .font(.title2.weight(.semibold))
                     .foregroundStyle(.blue)
-                    .accessibilityHidden(true)
+                    .accessibilityLabel(Text(L10n.text(
+                        prediction.hasAnswered && prediction.isCorrect ? flow.explanationKey : "lab.osmosisArrowHidden",
+                        store.language
+                    )))
                 ZStack {
                     Circle()
                         .fill(Color.cyan.opacity(0.12))
@@ -3070,15 +3084,77 @@ private struct OsmosisLab: View {
             .frame(maxWidth: .infinity)
 
             concentrationSlider(title: L10n.text("lab.osmosisOutside", store.language), value: $outsideConcentration)
+                .onChange(of: outsideConcentration) { _ in startNewPrediction() }
             concentrationSlider(title: L10n.text("lab.osmosisInside", store.language), value: $insideConcentration)
+                .onChange(of: insideConcentration) { _ in startNewPrediction() }
 
-            Label(L10n.text(netFlowKey, store.language), systemImage: "drop.fill")
-                .font(.callout.weight(.semibold))
-                .foregroundStyle(.blue)
-                .padding(10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+            Text(L10n.text("lab.osmosisPredictionPrompt", store.language))
+                .font(.callout.weight(.medium))
+                .fixedSize(horizontal: false, vertical: true)
+
+            Picker(L10n.text("lab.osmosisPredictionPrompt", store.language), selection: $selectedDisplayIndex) {
+                ForEach(Array(prediction.choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Text(L10n.text(predictionOptionKeys[originalIndex], store.language)).tag(displayIndex)
+                }
+            }
+            .pickerStyle(.segmented)
+            .disabled(prediction.hasAnswered)
+
+            Button(L10n.text("lab.osmosisCheckPrediction", store.language)) {
+                prediction.select(displayedIndex: selectedDisplayIndex)
+                guard let evidence = prediction.currentAnswerEventEvidence() else { return }
+                store.recordStudyAssessment(lessonID: "biology.passive_transport_osmosis", evidence: evidence)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(prediction.hasAnswered || selectedDisplayIndex < 0)
+
+            if prediction.hasAnswered {
+                if prediction.isCorrect {
+                    Label(L10n.text("lab.osmosisCorrect", store.language), systemImage: "checkmark.circle.fill")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.green)
+                    Label(L10n.text(flow.explanationKey, store.language), systemImage: flow.arrowSymbol)
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.blue)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(L10n.text("lab.osmosisNewPrediction", store.language)) {
+                        startNewPrediction()
+                    }
+                    .buttonStyle(.link)
+                } else {
+                    Label(L10n.text("lab.osmosisIncorrect", store.language), systemImage: "arrow.uturn.backward.circle")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.orange)
+                    Text(L10n.text("lab.osmosisHintAfterWrong", store.language))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(L10n.text("lab.osmosisRetry", store.language)) {
+                        prediction.retry()
+                        selectedDisplayIndex = -1
+                    }
+                    .buttonStyle(.link)
+                }
+            }
         }
+    }
+
+    private static func makePrediction(insideSolute: Int, outsideSolute: Int) -> InteractivePredictionAttempt {
+        guard let attempt = InteractivePredictionAttempt(
+            optionCount: 3,
+            answerOriginalIndex: OsmosisWaterFlow.predict(insideSolute: insideSolute, outsideSolute: outsideSolute).answerOriginalIndex
+        ) else {
+            preconditionFailure("An osmosis prediction must have one valid answer.")
+        }
+        return attempt
+    }
+
+    private func startNewPrediction() {
+        prediction = Self.makePrediction(
+            insideSolute: Int(insideConcentration.rounded()),
+            outsideSolute: Int(outsideConcentration.rounded())
+        )
+        selectedDisplayIndex = -1
     }
 
     private func concentrationDisplay(title: String, value: Double) -> some View {
