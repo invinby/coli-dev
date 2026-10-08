@@ -98,8 +98,17 @@ class StudyProgressStore:
                     assessment_json TEXT NOT NULL DEFAULT '',
                     created_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS assessment_events (
+                    event_id TEXT PRIMARY KEY,
+                    lesson_id TEXT NOT NULL,
+                    task_type TEXT NOT NULL,
+                    assessment_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
                 CREATE INDEX IF NOT EXISTS lesson_progress_due_idx
                     ON lesson_progress (due_at);
+                CREATE INDEX IF NOT EXISTS assessment_events_lesson_idx
+                    ON assessment_events (lesson_id, created_at);
                 """
             )
             for table in ("lesson_progress", "review_events"):
@@ -202,6 +211,121 @@ class StudyProgressStore:
         }
         encoded = json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return normalized, encoded
+
+    @staticmethod
+    def _assessment_event(value: Any) -> tuple[dict[str, Any], str]:
+        if not isinstance(value, Mapping):
+            raise ValueError("assessment must be an object")
+        if set(value) != {"task_type", "attempts", "first_try_correct", "hints_used"}:
+            raise ValueError("assessment must contain exactly the supported evidence fields")
+        if value["task_type"] != "interactive_prediction":
+            raise ValueError("assessment task_type must be interactive_prediction")
+        attempts = value["attempts"]
+        hints_used = value["hints_used"]
+        first_try_correct = value["first_try_correct"]
+        if isinstance(attempts, bool) or not isinstance(attempts, int) or not 1 <= attempts <= 1_000:
+            raise ValueError("assessment attempts must be an integer between 1 and 1000")
+        if isinstance(hints_used, bool) or not isinstance(hints_used, int) or not 0 <= hints_used <= 1_000:
+            raise ValueError("assessment hints_used must be an integer between 0 and 1000")
+        if not isinstance(first_try_correct, bool):
+            raise ValueError("assessment first_try_correct must be a boolean")
+        normalized = {
+            "task_type": "interactive_prediction",
+            "attempts": attempts,
+            "first_try_correct": first_try_correct,
+            "hints_used": hints_used,
+        }
+        encoded = json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        return normalized, encoded
+
+    @staticmethod
+    def _assessment_event_row(row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "event_id": str(row["event_id"]),
+            "lesson_id": str(row["lesson_id"]),
+            "assessment": json.loads(str(row["assessment_json"])),
+            "created_at": str(row["created_at"]),
+        }
+
+    def record_assessment_event(
+        self, event_id: str, lesson_id: str, assessment: Mapping[str, Any]
+    ) -> dict[str, Any]:
+        """Store interactive evidence without changing lesson completion or review scheduling."""
+        try:
+            normalized_event_id = str(uuid.UUID(event_id))
+        except (ValueError, TypeError, AttributeError):
+            raise ValueError("event_id must be a UUID") from None
+        if not isinstance(lesson_id, str) or not re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9._:-]{0,119}", lesson_id
+        ):
+            raise ValueError("lesson_id must be a safe identifier between 1 and 120 characters")
+        normalized_assessment, assessment_json = self._assessment_event(assessment)
+        now_text = _timestamp(self._clock())
+
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            prior = connection.execute(
+                "SELECT * FROM assessment_events WHERE event_id = ?",
+                (normalized_event_id,),
+            ).fetchone()
+            if prior is not None:
+                if (
+                    str(prior["lesson_id"]) != lesson_id
+                    or str(prior["assessment_json"]) != assessment_json
+                ):
+                    raise ValueError("event_id was already used for a different assessment")
+                return self._assessment_event_row(prior)
+
+            connection.execute(
+                "INSERT INTO assessment_events "
+                "(event_id, lesson_id, task_type, assessment_json, created_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (
+                    normalized_event_id,
+                    lesson_id,
+                    normalized_assessment["task_type"],
+                    assessment_json,
+                    now_text,
+                ),
+            )
+            row = connection.execute(
+                "SELECT * FROM assessment_events WHERE event_id = ?",
+                (normalized_event_id,),
+            ).fetchone()
+            return self._assessment_event_row(row)
+
+    @staticmethod
+    def _assessment_event_backup(record: Any) -> dict[str, Any]:
+        if not isinstance(record, dict):
+            raise ValueError("Each assessment backup entry must be an object")
+        try:
+            event_id = str(uuid.UUID(record.get("event_id")))
+        except (ValueError, TypeError, AttributeError):
+            raise ValueError("Assessment backup contains an invalid event_id") from None
+        lesson_id = record.get("lesson_id")
+        if not isinstance(lesson_id, str) or not re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9._:-]{0,119}", lesson_id
+        ):
+            raise ValueError("Assessment backup contains an invalid lesson_id")
+        assessment, assessment_json = StudyProgressStore._assessment_event(
+            record.get("assessment")
+        )
+        created_at = record.get("created_at")
+        if not isinstance(created_at, str):
+            raise ValueError("Assessment backup contains an invalid created_at")
+        try:
+            parsed = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+        except ValueError:
+            raise ValueError("Assessment backup contains an invalid created_at") from None
+        if parsed.tzinfo is None:
+            raise ValueError("Assessment backup contains an invalid created_at")
+        return {
+            "event_id": event_id,
+            "lesson_id": lesson_id,
+            "task_type": assessment["task_type"],
+            "assessment_json": assessment_json,
+            "created_at": _timestamp(parsed),
+        }
 
     @staticmethod
     def _calculate_schedule(
@@ -365,26 +489,62 @@ class StudyProgressStore:
             rows = connection.execute(
                 "SELECT * FROM lesson_progress ORDER BY due_at IS NULL, due_at, lesson_id"
             ).fetchall()
+            event_groups = connection.execute(
+                """SELECT lesson_id, task_type, COUNT(*) AS task_count
+                   FROM assessment_events GROUP BY lesson_id, task_type
+                   ORDER BY lesson_id, task_type"""
+            ).fetchall()
+            latest_events = {
+                lesson_id: connection.execute(
+                    "SELECT * FROM assessment_events WHERE lesson_id = ? "
+                    "ORDER BY created_at DESC, rowid DESC LIMIT 1",
+                    (lesson_id,),
+                ).fetchone()
+                for lesson_id in {str(row["lesson_id"]) for row in event_groups}
+            }
         records = [self._row(row) for row in rows]
+        task_counts: dict[str, dict[str, int]] = {}
+        totals: dict[str, int] = {}
+        for row in event_groups:
+            lesson_id = str(row["lesson_id"])
+            task_type = str(row["task_type"])
+            task_count = int(row["task_count"])
+            task_counts.setdefault(lesson_id, {})[task_type] = task_count
+            totals[lesson_id] = totals.get(lesson_id, 0) + task_count
+        assessment_evidence = [
+            {
+                "lesson_id": lesson_id,
+                "assessment_count": totals[lesson_id],
+                "task_type_counts": task_counts[lesson_id],
+                "latest_assessment": self._assessment_event_row(latest_events[lesson_id])["assessment"],
+                "latest_at": self._assessment_event_row(latest_events[lesson_id])["created_at"],
+            }
+            for lesson_id in sorted(latest_events)
+        ]
         due = [record for record in records if record["due_at"] and _parse_timestamp(record["due_at"]) <= now]
         next_due = min((record["due_at"] for record in records if record["due_at"]), default=None)
         return {
             "records": records,
+            "assessment_evidence": assessment_evidence,
             "due_count": len(due),
             "next_due_at": next_due,
             "generated_at": now_text,
         }
 
     def export_backup(self) -> dict[str, Any]:
-        """Export portable current lesson state without private review-event history."""
+        """Export portable lesson state and typed assessment evidence."""
         with self._connect() as connection:
             rows = connection.execute(
                 "SELECT * FROM lesson_progress ORDER BY lesson_id"
             ).fetchall()
+            assessment_rows = connection.execute(
+                "SELECT * FROM assessment_events ORDER BY created_at, rowid"
+            ).fetchall()
         return {
             "format": "colidev-learning-progress",
-            "version": 1,
+            "version": 2,
             "records": [self._row(row) for row in rows],
+            "assessment_events": [self._assessment_event_row(row) for row in assessment_rows],
         }
 
     @staticmethod
@@ -464,7 +624,8 @@ class StudyProgressStore:
         """Merge validated records, choosing the newer state for each lesson."""
         if not isinstance(payload, dict) or payload.get("format") != "colidev-learning-progress":
             raise ValueError("Unsupported learning progress backup")
-        if type(payload.get("version")) is not int or payload["version"] != 1:
+        version = payload.get("version")
+        if type(version) is not int or version not in {1, 2}:
             raise ValueError("Unsupported learning progress backup version")
         records = payload.get("records")
         if not isinstance(records, list) or len(records) > 500:
@@ -473,9 +634,21 @@ class StudyProgressStore:
         lesson_ids = [record["lesson_id"] for record in normalized]
         if len(lesson_ids) != len(set(lesson_ids)):
             raise ValueError("Backup contains duplicate lesson identifiers")
+        assessment_events_payload = payload.get("assessment_events", [])
+        if version == 1 and assessment_events_payload:
+            raise ValueError("Version 1 backup cannot contain assessment events")
+        if not isinstance(assessment_events_payload, list) or len(assessment_events_payload) > 5_000:
+            raise ValueError("Backup must contain no more than 5000 assessment events")
+        normalized_assessment_events = [
+            self._assessment_event_backup(record) for record in assessment_events_payload
+        ]
+        event_ids = [record["event_id"] for record in normalized_assessment_events]
+        if len(event_ids) != len(set(event_ids)):
+            raise ValueError("Backup contains duplicate assessment event identifiers")
 
         restored = 0
         unchanged = 0
+        assessments_restored = 0
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             for record in normalized:
@@ -522,4 +695,33 @@ class StudyProgressStore:
                     ),
                 )
                 restored += 1
-        return {"restored": restored, "unchanged": unchanged}
+            for event in normalized_assessment_events:
+                existing = connection.execute(
+                    "SELECT * FROM assessment_events WHERE event_id = ?",
+                    (event["event_id"],),
+                ).fetchone()
+                if existing is not None:
+                    if (
+                        str(existing["lesson_id"]) != event["lesson_id"]
+                        or str(existing["assessment_json"]) != event["assessment_json"]
+                        or str(existing["created_at"]) != event["created_at"]
+                    ):
+                        raise ValueError("Assessment event ID conflicts with existing local evidence")
+                    continue
+                connection.execute(
+                    "INSERT INTO assessment_events "
+                    "(event_id, lesson_id, task_type, assessment_json, created_at) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (
+                        event["event_id"],
+                        event["lesson_id"],
+                        event["task_type"],
+                        event["assessment_json"],
+                        event["created_at"],
+                    ),
+                )
+                assessments_restored += 1
+        result = {"restored": restored, "unchanged": unchanged}
+        if assessments_restored:
+            result["assessments_restored"] = assessments_restored
+        return result

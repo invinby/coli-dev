@@ -116,6 +116,37 @@ struct StudyAssessmentProgressRecord: Equatable {
     let lessonID: String
     let assessmentCount: Int?
     let latestAssessment: StudyAssessmentEvidence?
+    let latestAssessmentAt: String?
+
+    init(
+        lessonID: String,
+        assessmentCount: Int?,
+        latestAssessment: StudyAssessmentEvidence?,
+        latestAssessmentAt: String? = nil
+    ) {
+        self.lessonID = lessonID
+        self.assessmentCount = assessmentCount
+        self.latestAssessment = latestAssessment
+        self.latestAssessmentAt = latestAssessmentAt
+    }
+}
+
+struct StudyAssessmentEvidenceSummary: Decodable, Equatable, Identifiable {
+    let lessonID: String
+    let assessmentCount: Int
+    let taskTypeCounts: [String: Int]
+    let latestAssessment: StudyAssessmentEvidence
+    let latestAt: String
+
+    var id: String { lessonID }
+
+    enum CodingKeys: String, CodingKey {
+        case lessonID = "lesson_id"
+        case assessmentCount = "assessment_count"
+        case taskTypeCounts = "task_type_counts"
+        case latestAssessment = "latest_assessment"
+        case latestAt = "latest_at"
+    }
 }
 
 struct StudyKnowledgeEvidenceCoverage: Equatable {
@@ -123,15 +154,31 @@ struct StudyKnowledgeEvidenceCoverage: Equatable {
     let topicsWithChecks: Int
     let topicsNeedingPractice: Int
 
-    init(roadmaps: [StudyRoadmap], records: [StudyAssessmentProgressRecord]) {
+    init(
+        roadmaps: [StudyRoadmap],
+        records: [StudyAssessmentProgressRecord],
+        additionalEvidence: [StudyAssessmentEvidenceSummary] = []
+    ) {
         let topicIDs = Set(roadmaps.flatMap { roadmap in
             roadmap.lessonResources.map { "\(roadmap.subjectID).\($0)" }
         })
         totalTopicCount = topicIDs.count
 
+        var recordsByLesson = Dictionary(uniqueKeysWithValues: records.map { ($0.lessonID, $0) })
+        for summary in additionalEvidence {
+            let previous = recordsByLesson[summary.lessonID]
+            let summaryIsNewer = previous?.latestAssessmentAt.map { summary.latestAt > $0 } ?? true
+            recordsByLesson[summary.lessonID] = StudyAssessmentProgressRecord(
+                lessonID: summary.lessonID,
+                assessmentCount: (previous?.assessmentCount ?? 0) + summary.assessmentCount,
+                latestAssessment: summaryIsNewer ? summary.latestAssessment : previous?.latestAssessment,
+                latestAssessmentAt: summaryIsNewer ? summary.latestAt : previous?.latestAssessmentAt
+            )
+        }
+
         var checkedTopicIDs = Set<String>()
         var practiceTopicIDs = Set<String>()
-        for record in records where topicIDs.contains(record.lessonID) {
+        for record in recordsByLesson.values where topicIDs.contains(record.lessonID) {
             let hasRecordedCheck = (record.assessmentCount ?? 0) > 0
                 || record.latestAssessment != nil
             guard hasRecordedCheck else { continue }
@@ -182,7 +229,8 @@ enum StudyRecommendationSelector {
         roadmaps: [StudyRoadmap],
         completedLessonIDs: Set<String>,
         resume: StudyLessonRoute?,
-        recallEvidence: [String: StudyRecallEvidence] = [:]
+        recallEvidence: [String: StudyRecallEvidence] = [:],
+        assessmentEvidence: [String: StudyAssessmentEvidenceSummary] = [:]
     ) -> StudyRecommendation? {
         if let resume,
            let roadmap = roadmaps.first(where: { $0.subjectID == resume.subjectID }),
@@ -194,13 +242,26 @@ enum StudyRecommendationSelector {
         let practiceCandidates = roadmaps.flatMap { roadmap in
             roadmap.lessonResources.compactMap { resource -> PracticeCandidate? in
                 let route = StudyLessonRoute(subjectID: roadmap.subjectID, resource: resource)
-                guard completedLessonIDs.contains(route.lessonID),
-                      let assessment = recallEvidence[route.lessonID]?.assessment,
+                let recall = recallEvidence[route.lessonID]
+                let interactive = assessmentEvidence[route.lessonID]
+                let useInteractive: Bool
+                if let interactive {
+                    useInteractive = recall?.reviewedAt.map { interactive.latestAt > $0 } ?? true
+                } else {
+                    useInteractive = false
+                }
+                let assessment = useInteractive
+                    ? interactive?.latestAssessment
+                    : recall?.assessment ?? interactive?.latestAssessment
+                let evidenceDate = useInteractive
+                    ? interactive?.latestAt
+                    : recall?.reviewedAt ?? interactive?.latestAt
+                guard let assessment,
                       assessment.attempts > 1 || !assessment.firstTryCorrect else { return nil }
                 return PracticeCandidate(
                     route: route,
                     attempts: assessment.attempts,
-                    reviewedAt: recallEvidence[route.lessonID]?.reviewedAt ?? ""
+                    reviewedAt: evidenceDate ?? ""
                 )
             }
         }

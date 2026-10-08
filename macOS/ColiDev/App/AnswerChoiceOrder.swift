@@ -138,6 +138,18 @@ struct StudyAssessmentEvidence: Codable, Equatable {
     }
 }
 
+struct StudyAssessmentEvent: Codable, Identifiable {
+    let id: String
+    let lessonID: String
+    let assessment: StudyAssessmentEvidence
+
+    enum CodingKeys: String, CodingKey {
+        case id = "event_id"
+        case lessonID = "lesson_id"
+        case assessment
+    }
+}
+
 struct LessonAnswerFeedback: Equatable {
     let statusMessage: String
     let explanation: String?

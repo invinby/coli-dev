@@ -537,6 +537,23 @@ class StudyAssessmentEvidenceRequest(BaseModel):
     hints_used: int = Field(strict=True, ge=0, le=1_000)
 
 
+class InteractiveAssessmentEvidenceRequest(BaseModel):
+    task_type: Literal["interactive_prediction"]
+    attempts: int = Field(strict=True, ge=1, le=1_000)
+    first_try_correct: bool = Field(strict=True)
+    hints_used: int = Field(strict=True, ge=0, le=1_000)
+
+
+class StudyAssessmentEventRequest(BaseModel):
+    event_id: uuid.UUID
+    lesson_id: str = Field(
+        min_length=1,
+        max_length=120,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+    )
+    assessment: InteractiveAssessmentEvidenceRequest
+
+
 class StudyReviewRequest(BaseModel):
     event_id: uuid.UUID
     lesson_id: str = Field(
@@ -552,8 +569,9 @@ class StudyReviewRequest(BaseModel):
 
 class StudyProgressBackupRequest(BaseModel):
     format: Literal["colidev-learning-progress"]
-    version: int = Field(strict=True, ge=1, le=1)
+    version: int = Field(strict=True, ge=1, le=2)
     records: list[dict[str, Any]] = Field(max_length=500)
+    assessment_events: list[dict[str, Any]] = Field(default_factory=list, max_length=5_000)
 
 
 class TrustedSourcePreviewRequest(BaseModel):
@@ -4634,6 +4652,21 @@ async def record_learning_review(payload: StudyReviewRequest, request: Request):
             payload.reflection,
             payload.complete_lesson,
             payload.assessment.model_dump() if payload.assessment is not None else None,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
+
+
+@app.post("/learning/assessments")
+async def record_learning_assessment(payload: StudyAssessmentEventRequest, request: Request):
+    """Record typed practice evidence without changing spaced-repetition state."""
+    _require_local_settings_request(request)
+    try:
+        return await asyncio.to_thread(
+            study_progress_store.record_assessment_event,
+            str(payload.event_id),
+            payload.lesson_id,
+            payload.assessment.model_dump(),
         )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from None

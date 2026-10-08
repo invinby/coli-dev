@@ -4932,6 +4932,9 @@ private struct ThermoregulationLab: View {
     @State private var selectedRangeID = ThermoregulationPractice.operativeTemperatureRange.id
     @State private var selectedAnswer = -1
     @State private var didCheckAnswer = false
+    @State private var attemptCount = 0
+    @State private var firstTryCorrect: Bool?
+    @State private var answerSolved = false
     @State private var optionOrder = QuizAnswerOrder(
         optionCount: 3,
         answerOriginalIndex: ThermoregulationPractice.correctThresholdInterpretationAnswer
@@ -5067,13 +5070,27 @@ private struct ThermoregulationLab: View {
                 }
             }
             .pickerStyle(.radioGroup)
+            .disabled(answerSolved)
             .onChange(of: selectedAnswer) { _ in didCheckAnswer = false }
 
             Button(L10n.text("lab.zoology.thermo.check", store.language)) {
+                let correct = optionOrder.isCorrect(displayedIndex: selectedAnswer)
+                attemptCount += 1
+                if firstTryCorrect == nil { firstTryCorrect = correct }
+                store.recordStudyAssessment(
+                    lessonID: "zoology.comparative_thermoregulation_and_heat_stress",
+                    evidence: StudyAssessmentEvidence(
+                        taskType: "interactive_prediction",
+                        attempts: attemptCount,
+                        firstTryCorrect: firstTryCorrect ?? correct,
+                        hintsUsed: 0
+                    )
+                )
                 didCheckAnswer = true
+                answerSolved = correct
             }
             .buttonStyle(.borderedProminent)
-            .disabled(selectedAnswer < 0)
+            .disabled(selectedAnswer < 0 || didCheckAnswer || answerSolved)
 
             if didCheckAnswer {
                 let correct = optionOrder.isCorrect(displayedIndex: selectedAnswer)

@@ -143,12 +143,14 @@ struct StudyProgressRecord: Decodable, Identifiable {
 
 struct StudyProgressSnapshot: Decodable {
     let records: [StudyProgressRecord]
+    let assessmentEvidence: [StudyAssessmentEvidenceSummary]?
     let dueCount: Int
     let nextDueAt: String?
     let generatedAt: String
 
     enum CodingKeys: String, CodingKey {
         case records
+        case assessmentEvidence = "assessment_evidence"
         case dueCount = "due_count"
         case nextDueAt = "next_due_at"
         case generatedAt = "generated_at"
@@ -192,6 +194,7 @@ final class LearningStore: ObservableObject {
     @Published private(set) var isRefreshingProviderUsage = false
     @Published private(set) var providerUsageUnavailable = false
     @Published private(set) var studyProgress: [String: StudyProgressRecord] = [:]
+    @Published private(set) var studyAssessmentEvidence: [String: StudyAssessmentEvidenceSummary] = [:]
     @Published private(set) var dueReviewCount = 0
     @Published private(set) var customCurriculum: CustomCurriculum {
         didSet {
@@ -203,6 +206,12 @@ final class LearningStore: ObservableObject {
         didSet {
             guard let data = try? JSONEncoder().encode(pendingStudyReviews) else { return }
             UserDefaults.standard.set(data, forKey: "colidev.pendingStudyReviews")
+        }
+    }
+    @Published private var pendingStudyAssessments: [StudyAssessmentEvent] {
+        didSet {
+            guard let data = try? JSONEncoder().encode(pendingStudyAssessments) else { return }
+            UserDefaults.standard.set(data, forKey: "colidev.pendingStudyAssessments")
         }
     }
     private var isSyncingStudyProgress = false
@@ -236,6 +245,12 @@ final class LearningStore: ObservableObject {
             pendingStudyReviews = events
         } else {
             pendingStudyReviews = []
+        }
+        if let pending = UserDefaults.standard.data(forKey: "colidev.pendingStudyAssessments"),
+           let events = try? JSONDecoder().decode([StudyAssessmentEvent].self, from: pending) {
+            pendingStudyAssessments = events
+        } else {
+            pendingStudyAssessments = []
         }
     }
 
@@ -509,9 +524,21 @@ final class LearningStore: ObservableObject {
             }
         }
 
+        while let event = pendingStudyAssessments.first {
+            do {
+                try await OrchestratorClient.recordStudyAssessment(event)
+                pendingStudyAssessments.removeAll(where: { $0.id == event.id })
+            } catch {
+                return
+            }
+        }
+
         do {
             let snapshot = try await OrchestratorClient.studyProgress()
             studyProgress = Dictionary(uniqueKeysWithValues: snapshot.records.map { ($0.lessonID, $0) })
+            studyAssessmentEvidence = Dictionary(
+                uniqueKeysWithValues: (snapshot.assessmentEvidence ?? []).map { ($0.lessonID, $0) }
+            )
             dueReviewCount = snapshot.records.filter { record in
                 (record.dueDate ?? .distantFuture) <= Date()
             }.count
@@ -524,6 +551,7 @@ final class LearningStore: ObservableObject {
     }
 
     var pendingStudyReviewCount: Int { pendingStudyReviews.count }
+    var pendingStudyAssessmentCount: Int { pendingStudyAssessments.count }
 
     @discardableResult
     func addCustomSubject(name: CustomCurriculumText, description: CustomCurriculumText) throws -> UUID {
@@ -599,6 +627,15 @@ final class LearningStore: ObservableObject {
         var updated = customCurriculum
         guard updated.removeTopic(builtInSubjectID: builtInSubject.rawValue, topicID: topicID) else { return }
         customCurriculum = updated
+    }
+
+    func recordStudyAssessment(lessonID: String, evidence: StudyAssessmentEvidence) {
+        pendingStudyAssessments.append(StudyAssessmentEvent(
+            id: UUID().uuidString.lowercased(),
+            lessonID: lessonID,
+            assessment: evidence
+        ))
+        Task { await syncStudyProgress() }
     }
 
     private func queueStudyReview(
@@ -1657,6 +1694,21 @@ enum OrchestratorClient {
             throw ClientError.unavailable
         }
         return try JSONDecoder().decode(StudyProgressRecord.self, from: data)
+    }
+
+    static func recordStudyAssessment(_ event: StudyAssessmentEvent) async throws {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/learning/assessments") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 8
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(event)
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
     }
 
     static func providerSecretStatuses() async throws -> [ProviderSecretStatus] {

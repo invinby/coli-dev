@@ -371,6 +371,50 @@ class TestAPIEndpoints:
         )
         assert invalid_intent.status_code == 422
 
+    def test_interactive_assessment_endpoint_is_separate_from_review_events(self, client):
+        event = {
+            "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d495",
+            "lesson_id": "zoology.comparative_thermoregulation_and_heat_stress",
+            "assessment": {
+                "task_type": "interactive_prediction",
+                "attempts": 1,
+                "first_try_correct": False,
+                "hints_used": 0,
+            },
+        }
+
+        saved = client.post("/learning/assessments", json=event)
+        assert saved.status_code == 200
+        assert saved.json()["assessment"] == event["assessment"]
+        assert saved.json()["lesson_id"] == event["lesson_id"]
+        assert client.post("/learning/assessments", json=event).json() == saved.json()
+
+        conflicting = client.post(
+            "/learning/assessments",
+            json={
+                **event,
+                "assessment": {**event["assessment"], "attempts": 2},
+            },
+        )
+        assert conflicting.status_code == 409
+        assert client.get("/learning/progress").json()["records"] == []
+        assert client.get("/learning/progress").json()["assessment_evidence"] == [{
+            "lesson_id": event["lesson_id"],
+            "assessment_count": 1,
+            "task_type_counts": {"interactive_prediction": 1},
+            "latest_assessment": event["assessment"],
+            "latest_at": saved.json()["created_at"],
+        }]
+        invalid = client.post(
+            "/learning/assessments",
+            json={
+                **event,
+                "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d497",
+                "assessment": {**event["assessment"], "task_type": "knowledge_check"},
+            },
+        )
+        assert invalid.status_code == 422
+
     def test_learning_progress_backup_api_exports_and_merges_local_progress(self, client):
         event = {
             "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",

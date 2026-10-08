@@ -252,9 +252,11 @@ private struct TodayView: View {
                 StudyAssessmentProgressRecord(
                     lessonID: record.lessonID,
                     assessmentCount: record.assessmentCount,
-                    latestAssessment: record.assessment
+                    latestAssessment: record.assessment,
+                    latestAssessmentAt: record.assessment == nil ? nil : record.lastReviewedAt
                 )
-            }
+            },
+            additionalEvidence: Array(store.studyAssessmentEvidence.values)
         )
     }
 
@@ -263,7 +265,8 @@ private struct TodayView: View {
             roadmaps: recommendationRoadmaps,
             completedLessonIDs: store.completedLessonIDs,
             resume: store.lastOpenedCourseRoute,
-            recallEvidence: recallEvidence
+            recallEvidence: recallEvidence,
+            assessmentEvidence: store.studyAssessmentEvidence
         )
     }
 

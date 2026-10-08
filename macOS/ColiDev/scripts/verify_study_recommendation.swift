@@ -87,6 +87,41 @@ enum StudyRecommendationVerification {
                 && checkCoverage.topicsNeedingPractice == 1,
             "Knowledge evidence must count only addressable roadmap topics and flag the latest check when it needed retries. / Свидетельства понимания должны учитывать только доступные темы плана и отмечать темы, где последняя проверка потребовала повторов."
         )
+        let interactiveEvidence = StudyAssessmentEvidenceSummary(
+            lessonID: "zoology.thermoregulation",
+            assessmentCount: 2,
+            taskTypeCounts: ["interactive_prediction": 2],
+            latestAssessment: StudyAssessmentEvidence(
+                taskType: "interactive_prediction",
+                attempts: 2,
+                firstTryCorrect: false,
+                hintsUsed: 0
+            ),
+            latestAt: "2026-10-08T12:00:00Z"
+        )
+        let interactiveCoverage = StudyKnowledgeEvidenceCoverage(
+            roadmaps: [StudyRoadmap(subjectID: "zoology", lessonResources: ["thermoregulation"])],
+            records: [],
+            additionalEvidence: [interactiveEvidence]
+        )
+        precondition(
+            interactiveCoverage.topicsWithChecks == 1
+                && interactiveCoverage.topicsNeedingPractice == 1,
+            "Interactive assessment events must count as evidence coverage and flag retries without claiming mastery. / Интерактивные проверки должны учитываться как свидетельства и отмечать повторные попытки, не выдавая их за освоение темы."
+        )
+        let interactivePractice = StudyRecommendationSelector.recommendation(
+            roadmaps: [StudyRoadmap(subjectID: "zoology", lessonResources: ["thermoregulation"])],
+            completedLessonIDs: [],
+            resume: nil,
+            assessmentEvidence: [interactiveEvidence.lessonID: interactiveEvidence]
+        )
+        precondition(
+            interactivePractice == StudyRecommendation(
+                route: StudyLessonRoute(subjectID: "zoology", resource: "thermoregulation"),
+                reason: .practiceReview
+            ),
+            "An unsuccessful interactive prediction must recommend its own topic even before lesson completion. / Неудачный интерактивный прогноз должен рекомендовать повторить именно эту тему, даже если урок ещё не отмечен пройденным."
+        )
         let emptyCoverage = StudyKnowledgeEvidenceCoverage(roadmaps: [], records: [])
         precondition(
             emptyCoverage.totalTopicCount == 0

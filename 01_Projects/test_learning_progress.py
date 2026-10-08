@@ -179,6 +179,98 @@ def test_assessment_evidence_persists_attempts_and_is_part_of_idempotent_review(
     assert StudyProgressStore(store.path).get_progress()["records"][0] == second
 
 
+def test_interactive_assessments_are_idempotent_and_do_not_change_review_schedule(
+    tmp_path: Path,
+) -> None:
+    now = [datetime(2026, 10, 8, 12, tzinfo=timezone.utc)]
+    store = StudyProgressStore(tmp_path / "progress.sqlite3", clock=lambda: now[0])
+    store.initialize()
+    lesson_id = "zoology.comparative_thermoregulation_and_heat_stress"
+    review = store.record_review(
+        "f47ac10b-58cc-4372-a567-0e02b2c3d491", lesson_id, 5
+    )
+    evidence = {
+        "task_type": "interactive_prediction",
+        "attempts": 2,
+        "first_try_correct": False,
+        "hints_used": 0,
+    }
+
+    saved = store.record_assessment_event(
+        "f47ac10b-58cc-4372-a567-0e02b2c3d492", lesson_id, evidence
+    )
+    assert saved["assessment"] == evidence
+    assert store.record_assessment_event(
+        "f47ac10b-58cc-4372-a567-0e02b2c3d492", lesson_id, evidence
+    ) == saved
+    now[0] += timedelta(minutes=1)
+    second_evidence = {**evidence, "attempts": 3}
+    store.record_assessment_event(
+        "f47ac10b-58cc-4372-a567-0e02b2c3d496", lesson_id, second_evidence
+    )
+    with pytest.raises(ValueError, match="different assessment"):
+        store.record_assessment_event(
+            "f47ac10b-58cc-4372-a567-0e02b2c3d492",
+            lesson_id,
+            {**evidence, "attempts": 3},
+        )
+
+    progress = store.get_progress()
+    assert progress["records"] == [review]
+    assert progress["assessment_evidence"] == [{
+        "lesson_id": lesson_id,
+        "assessment_count": 2,
+        "task_type_counts": {"interactive_prediction": 2},
+        "latest_assessment": second_evidence,
+        "latest_at": "2026-10-08T12:01:00Z",
+    }]
+    now[0] += timedelta(days=1)
+    assert store.get_progress()["records"][0] == review
+
+
+def test_interactive_assessment_can_record_an_incorrect_first_attempt(tmp_path: Path) -> None:
+    store = StudyProgressStore(tmp_path / "progress.sqlite3")
+    store.initialize()
+
+    saved = store.record_assessment_event(
+        "f47ac10b-58cc-4372-a567-0e02b2c3d493",
+        "biology.photosynthesis_energy_and_carbon",
+        {
+            "task_type": "interactive_prediction",
+            "attempts": 1,
+            "first_try_correct": False,
+            "hints_used": 0,
+        },
+    )
+
+    assert saved["assessment"]["first_try_correct"] is False
+    assert store.get_progress()["records"] == []
+
+
+def test_learning_backup_round_trips_interactive_assessment_events(tmp_path: Path) -> None:
+    original = StudyProgressStore(tmp_path / "original.sqlite3")
+    original.initialize()
+    original.record_assessment_event(
+        "f47ac10b-58cc-4372-a567-0e02b2c3d494",
+        "zoology.thermoregulation",
+        {
+            "task_type": "interactive_prediction",
+            "attempts": 1,
+            "first_try_correct": True,
+            "hints_used": 0,
+        },
+    )
+
+    backup = original.export_backup()
+    assert backup["version"] == 2
+    assert len(backup["assessment_events"]) == 1
+
+    restored = StudyProgressStore(tmp_path / "restored.sqlite3")
+    restored.initialize()
+    assert restored.restore_backup(backup) == {"restored": 0, "unchanged": 0, "assessments_restored": 1}
+    assert restored.get_progress()["assessment_evidence"] == original.get_progress()["assessment_evidence"]
+
+
 @pytest.mark.parametrize(
     "assessment",
     [
@@ -279,7 +371,8 @@ def test_progress_backup_roundtrips_current_state_and_keeps_newer_local_records(
     )
     backup = original.export_backup()
     assert backup["format"] == "colidev-learning-progress"
-    assert backup["version"] == 1
+    assert backup["version"] == 2
+    assert backup["assessment_events"] == []
     assert len(backup["records"]) == 1
     assert backup["records"][0]["assessment"]["first_try_correct"] is True
     assert backup["records"][0]["assessment_count"] == 1
