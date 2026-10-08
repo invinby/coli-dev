@@ -81,14 +81,14 @@ enum CustomCurriculumVerification {
         precondition(restored.topic(builtInSubjectID: "biology", topicID: builtInBiologyTopic)?.name.english == "My biology topic")
 
         let russianOutlineRequest = CustomTopicStudyPrompt.outlineDraft(languageCode: "ru")
-        for requiredIdea in ["черновик", "предпосыл", "подтем", "упражнен", "визуал", "источник", "не сохраняй"] {
+        for requiredIdea in ["черновик", "предпосыл", "подтем", "упражнен", "визуал", "источник", "не сохраняй", "неподтверж"] {
             precondition(
                 russianOutlineRequest.localizedCaseInsensitiveContains(requiredIdea),
                 "The Russian study-plan draft must request a sourced, structured outline without saving it automatically. Missing: \(requiredIdea)"
             )
         }
         let englishOutlineRequest = CustomTopicStudyPrompt.outlineDraft(languageCode: "en")
-        for requiredIdea in ["draft", "prerequisite", "subtopic", "exercise", "visual", "source", "do not save"] {
+        for requiredIdea in ["draft", "prerequisite", "subtopic", "practice", "visual", "source", "do not save", "unsupported"] {
             precondition(
                 englishOutlineRequest.localizedCaseInsensitiveContains(requiredIdea),
                 "The English study-plan draft must request a sourced, structured outline without saving it automatically. Missing: \(requiredIdea)"

@@ -321,3 +321,13 @@ struct CustomCurriculum: Codable, Equatable {
         return false
     }
 }
+
+enum CustomTopicStudyPrompt {
+    static func outlineDraft(languageCode: String) -> String {
+        if languageCode == "ru" {
+            return "Составь черновик учебного плана для этой темы по её названию, цели и заметкам выше. Начни с нужных предпосылок; выстрой подтемы от базового уровня к углублённому. Для каждой подтемы укажи цель, пример практики и подходящий визуальный формат. Укажи, какие сведения подтверждены источниками в текущем контексте, приведи доступные ссылки или цитаты; не выдумывай источники, а неподтверждённое пометь для проверки. Не объявляй план проверенным или тему освоенной. Не сохраняй и не меняй мою программу: это только черновик для моего просмотра."
+        }
+
+        return "Draft a study plan for this topic using its title, goal, and notes above. Start with prerequisites; order subtopics from foundational to advanced. For each subtopic, give a learning goal, a practice example, and a suitable visual format. Identify claims supported by sources in the current context and cite available links; do not invent sources, and mark unsupported claims for review. Do not call the plan verified or the topic mastered. Do not save or change my curriculum; this is a draft for my review."
+    }
+}

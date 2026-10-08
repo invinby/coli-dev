@@ -7128,9 +7128,11 @@ struct TutorChatView: View {
     @State private var hasConfirmedGoogleSearchAge = false
     @State private var showGoogleSearchAgeConfirmation = false
     let language: AppLanguage
+    private let outlineDraftPrompt: String?
 
     init(subject: Subject, lesson: LessonContent, language: AppLanguage, mode: AIRoutingMode) {
         self.language = language
+        outlineDraftPrompt = nil
         _chat = StateObject(wrappedValue: TutorChatModel(subject: subject, lesson: lesson, language: language, mode: mode))
     }
 
@@ -7142,6 +7144,7 @@ struct TutorChatView: View {
         routeSubjectID: String? = nil
     ) {
         self.language = language
+        outlineDraftPrompt = CustomTopicStudyPrompt.outlineDraft(languageCode: language.rawValue)
         let topicName = topic.name.value(in: language.rawValue)
         let subjectName = customSubject.name.value(in: language.rawValue)
         let notes = topic.notes.value(in: language.rawValue)
@@ -7200,9 +7203,26 @@ struct TutorChatView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 12) {
                         if chat.messages.isEmpty {
-                            Text(L10n.text("tutor.empty", language))
-                                .foregroundStyle(.secondary)
-                                .frame(maxWidth: .infinity, minHeight: 220)
+                            VStack(spacing: 12) {
+                                Text(L10n.text("tutor.empty", language))
+                                    .foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity, minHeight: outlineDraftPrompt == nil ? 220 : 140)
+                                if outlineDraftPrompt != nil {
+                                    Button {
+                                        if let outlineDraftPrompt { draft = outlineDraftPrompt }
+                                    } label: {
+                                        Label(L10n.text("custom.outlineDraftAction", language), systemImage: "list.bullet.rectangle")
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .disabled(chat.isSending || !canSend)
+                                    Text(L10n.text("custom.outlineDraftHint", language))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .multilineTextAlignment(.center)
+                                        .frame(maxWidth: 520)
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
                         }
                         ForEach(chat.messages) { message in
                             messageBubble(message)

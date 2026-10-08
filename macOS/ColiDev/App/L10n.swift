@@ -76,6 +76,8 @@ enum L10n {
         "custom.subjectMissing": ("Предмет не найден. Вернись в каталог и открой его снова.", "Subject not found. Return to the catalog and open it again."),
         "custom.parentMissing": ("Родительская тема больше не найдена. Обнови страницу и попробуй снова.", "The parent topic could not be found. Refresh the page and try again."),
         "custom.learnPrompt": ("Опирайся на цель и заметки ученика. Отделяй проверенные факты от предположений, задавай вопросы и адаптируй глубину темы.", "Use the learner's stated goal and notes. Separate established facts from assumptions, ask questions, and adapt the depth."),
+        "custom.outlineDraftAction": ("Составить черновик учебного плана", "Draft a study plan"),
+        "custom.outlineDraftHint": ("Запрос появится в поле ввода, но не отправится сам. Проверь его и выбранный маршрут; ответ тьютора будет черновиком для проверки.", "The request is placed in the composer but is not sent automatically. Review it and the selected route; the tutor's reply is a draft to check."),
         "custom.emptyTitle": ("Начни с первой темы", "Start with the first topic"),
         "custom.subjectMissingTitle": ("Не удалось открыть предмет", "Could not open this subject"),
         "custom.topicMissingTitle": ("Не удалось открыть тему", "Could not open this topic"),
