@@ -6959,8 +6959,13 @@ private struct DebuggingLab: View {
 private struct LinearSystemLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var scenarioID = LinearSystemPractice.scenarios[0].id
-    @State private var prediction = -1
-    @State private var hasChecked = false
+    @State private var selectedDisplayIndex = -1
+    @State private var prediction: InteractivePredictionAttempt
+    private let predictionOptionKeys = ["lab.linearSystemOne", "lab.linearSystemNone", "lab.linearSystemInfinite"]
+
+    init() {
+        _prediction = State(initialValue: Self.makePrediction(for: LinearSystemPractice.scenarios[0]))
+    }
 
     private var scenario: LinearSystemScenario {
         LinearSystemPractice.scenario(id: scenarioID)
@@ -6987,9 +6992,10 @@ private struct LinearSystemLab: View {
                 Text(L10n.text("lab.linearSystemSameLine", store.language)).tag("same-line")
             }
             .pickerStyle(.segmented)
-            .onChange(of: scenarioID) { _ in
-                prediction = -1
-                hasChecked = false
+            .disabled(prediction.hasAnswered)
+            .onChange(of: scenarioID) { newScenarioID in
+                selectedDisplayIndex = -1
+                prediction = Self.makePrediction(for: LinearSystemPractice.scenario(id: newScenarioID))
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -7005,37 +7011,59 @@ private struct LinearSystemLab: View {
                 .font(.title3.monospaced())
                 .accessibilityLabel(L10n.text("lab.linearSystemReduction", store.language))
 
-            Picker(L10n.text("lab.linearSystemPredict", store.language), selection: $prediction) {
-                Text(L10n.text("lab.linearSystemOne", store.language)).tag(0)
-                Text(L10n.text("lab.linearSystemNone", store.language)).tag(1)
-                Text(L10n.text("lab.linearSystemInfinite", store.language)).tag(2)
+            Picker(L10n.text("lab.linearSystemPredict", store.language), selection: $selectedDisplayIndex) {
+                ForEach(Array(prediction.choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Text(L10n.text(predictionOptionKeys[originalIndex], store.language)).tag(displayIndex)
+                }
             }
             .pickerStyle(.segmented)
+            .disabled(prediction.hasAnswered)
 
             Button(L10n.text("lab.linearSystemCheck", store.language)) {
-                hasChecked = true
+                prediction.select(displayedIndex: selectedDisplayIndex)
+                guard let evidence = prediction.currentAnswerEventEvidence() else { return }
+                store.recordStudyAssessment(lessonID: "mathematics.systems_of_linear_equations", evidence: evidence)
             }
             .buttonStyle(.borderedProminent)
-            .disabled(prediction < 0)
+            .disabled(prediction.hasAnswered || selectedDisplayIndex < 0)
 
-            if hasChecked {
-                let correct = LinearSystemPractice.isCorrectPrediction(prediction, for: scenario)
-                Label(
-                    L10n.text(correct ? "lab.linearSystemCorrect" : "lab.linearSystemReview", store.language),
-                    systemImage: correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
-                )
-                .font(.callout.weight(.medium))
-                .foregroundStyle(correct ? .green : .orange)
-                .fixedSize(horizontal: false, vertical: true)
-            }
-
-            if hasChecked {
-                Text(outcomeDescription)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+            if prediction.hasAnswered {
+                if prediction.isCorrect {
+                    Label(L10n.text("lab.linearSystemCorrect", store.language), systemImage: "checkmark.circle.fill")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.green)
+                    Text(outcomeDescription)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(L10n.text("lab.linearSystemNew", store.language)) {
+                        prediction = Self.makePrediction(for: scenario)
+                        selectedDisplayIndex = -1
+                    }
+                    .buttonStyle(.link)
+                } else {
+                    Label(L10n.text("lab.linearSystemReview", store.language), systemImage: "arrow.uturn.backward.circle")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(L10n.text("lab.linearSystemRetry", store.language)) {
+                        prediction.retry()
+                        selectedDisplayIndex = -1
+                    }
+                    .buttonStyle(.link)
+                }
             }
         }
+    }
+
+    private static func makePrediction(for scenario: LinearSystemScenario) -> InteractivePredictionAttempt {
+        guard let attempt = InteractivePredictionAttempt(
+            optionCount: 3,
+            answerOriginalIndex: LinearSystemPractice.correctPredictionIndex(for: scenario)
+        ) else {
+            preconditionFailure("A linear-system prediction must have one valid answer.")
+        }
+        return attempt
     }
 
     private var outcomeDescription: String {
