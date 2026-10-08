@@ -10,6 +10,12 @@ This list records the team's feedback received on 8 October 2026. It sets the pr
 
 **EN:** The team's latest clarification supersedes the earlier interpretation that Biology should be created again or added as a new built-in subject. Biology is already in the standard catalog. The requirement is to let learners create new subjects and add topics and subtopics to both custom and existing subjects. General navigation checks for built-in lessons still apply, but do not treat a Biology-specific opening bug as confirmed unless it is reproduced.
 
+## Уточнение о продуктовом промпте / Clarification about the product prompt
+
+**RU:** Большой промпт из командной записи — техническое задание на проектирование и разработку самого образовательного приложения: его интерфейса, архитектуры, учебных маршрутов, персонализации, источников, визуализаций и проверяемых переходов. Это не системная инструкция для отдельного AI-тьютора. Тьютор — один из компонентов продукта. Новые элементы добавлять поэтапно, исходя из пользы для обучения; сначала исправлять P0, а не выдавать запланированные функции за готовые.
+
+**EN:** The long prompt in the team transcript is a specification for designing and building the educational application itself: its interface, architecture, learning paths, personalization, sources, visualizations, and verifiable navigation. It is not a system prompt for a standalone AI tutor. The tutor is one component of the product. Add further elements incrementally according to their learning value; fix P0 failures first and do not present planned features as complete.
+
 ## Аудит прототипа по обратной связи / Prototype audit against feedback — 2026-10-08
 
 **RU:** Аудит выполнен по текущему коду SwiftUI и FastAPI, каталогу уроков, проверкам CI и сообщённым командой проблемам. Это проверка исходников и статуса сборки, а не ручная приёмка приложения на Mac. Реальный ответ установленной модели и поведение интерфейса на устройстве ученика здесь не подтверждались.

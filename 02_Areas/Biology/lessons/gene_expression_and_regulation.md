@@ -3,7 +3,7 @@ subject: biology
 lesson_id: biology.gene_expression_and_regulation
 level: intermediate
 languages: ru, en
-source_checked: 2026-10-06
+source_checked: 2026-10-08
 source_review_interval_days: 180
 ---
 
@@ -91,6 +91,7 @@ The example uses one short sequence and recognizes only `AUG`, `CCU`, and stop c
 
 ## Sources
 
-- MedlinePlus Genetics, [How do genes direct the production of proteins?](https://medlineplus.gov/genetics/understanding/howgeneswork/makingprotein/) — consulted 2026-10-06.
-- NHGRI, [Gene Expression](https://www.genome.gov/genetics-glossary/Gene-Expression), [Gene Regulation](https://www.genome.gov/genetics-glossary/Gene-Regulation), and [Promoter](https://www.genome.gov/genetics-glossary/Promoter) — consulted 2026-10-06.
+- MedlinePlus Genetics, [How do genes direct the production of proteins? / «Как гены направляют производство белков?»](https://medlineplus.gov/genetics/understanding/howgeneswork/makingprotein/) — consulted / проверено 2026-10-08.
+- NHGRI, [Gene Expression / «Экспрессия генов»](https://www.genome.gov/genetics-glossary/Gene-Expression), [Gene Regulation / «Регуляция генов»](https://www.genome.gov/genetics-glossary/Gene-Regulation), and [Promoter / «Промотор»](https://www.genome.gov/genetics-glossary/Promoter) — consulted / проверено 2026-10-08.
+- NCBI Bookshelf, [Expression of Genetic Information / «Экспрессия генетической информации»](https://www.ncbi.nlm.nih.gov/books/NBK9842/) — таблица кодонов стандартного генетического кода подтверждает значения `AUG`, `CCU` и `UGA` / the standard genetic-code table documents `AUG`, `CCU`, and `UGA`; consulted / проверено 2026-10-08.
 - These pages are monitored for metadata and change signals only; their text is not cached for ColiDev web RAG. This original lesson summarizes the cited concepts and does not reuse source page text.

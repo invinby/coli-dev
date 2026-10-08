@@ -3,7 +3,7 @@ subject: biology
 lesson_id: biology.passive_transport_osmosis
 level: foundations
 languages: ru, en
-source_checked: 2026-10-05
+source_checked: 2026-10-08
 source_review_interval_days: 180
 ---
 
@@ -17,7 +17,7 @@ source_review_interval_days: 180
 
 ### Идея и механизм
 
-Клеточная мембрана избирательно пропускает разные частицы. При простой диффузии частицы в среднем перемещаются из области большей концентрации в область меньшей из-за случайного теплового движения; без постоянного источника энергии чистый поток со временем уменьшается по мере выравнивания градиента. Некоторые полярные или заряженные вещества проходят по градиенту через транспортные белки — это облегчённая диффузия.
+Клеточная мембрана избирательно пропускает разные частицы. Частицы постоянно и случайно движутся в результате тепловой энергии. Если есть градиент концентрации, в среднем больше частиц перемещается из области большей концентрации в область меньшей, чем в обратную сторону, поэтому возникает чистый поток. По мере уменьшения градиента чистый поток замедляется, а при динамическом равновесии становится нулевым; случайное движение при этом продолжается. Для простой диффузии клетка не расходует АТФ. Некоторые полярные или заряженные вещества проходят по градиенту через транспортные белки — это облегчённая диффузия.
 
 Осмос — чистое движение воды через мембрану, которая в данном случае пропускает воду лучше, чем важный для вопроса растворённый компонент. Вода в среднем движется в сторону большей концентрации непроникающих растворённых частиц. Молекулы движутся в обе стороны; важно направление суммарного потока, а не идея, будто вода «хочет» что-то выровнять.
 
@@ -59,7 +59,7 @@ Explain how materials cross a membrane, distinguish diffusion from osmosis, and 
 
 ### Idea and mechanism
 
-A cell membrane is selectively permeable. In simple diffusion, particles move on average from a region of higher concentration to lower concentration because of random thermal motion; without a continuing energy source, the net flow decreases as the gradient becomes smaller. Some polar or charged substances move down their gradient through transport proteins; this is facilitated diffusion.
+A cell membrane is selectively permeable. Particles are in continual random motion because of thermal energy. When a concentration gradient exists, more particles move on average from higher to lower concentration than in the reverse direction, creating a net flow. As the gradient becomes smaller, the net flow slows and reaches zero at dynamic equilibrium; random motion continues. The cell does not spend ATP to drive simple diffusion. Some polar or charged substances move down their gradient through transport proteins; this is facilitated diffusion.
 
 Osmosis is the net movement of water across a membrane that, for this question, lets water cross more readily than an important dissolved solute. Water moves on average toward the side with more non-penetrating solute particles. Molecules move both ways; what matters is the net flow, not the idea that water “wants” to equalize anything.
 
@@ -95,5 +95,5 @@ Tonicity depends on which solutes can cross the particular membrane. “Equalizi
 
 ## Sources
 
-- OpenStax, *Biology 2e*, “Passive Transport”: <https://openstax.org/books/biology-2e/pages/5-2-passive-transport>
-- OpenStax, *Biology 2e*, “Osmoregulation and Osmotic Balance”: <https://openstax.org/books/biology-2e/pages/41-1-osmoregulation-and-osmotic-balance>
+- OpenStax, *Biology 2e*, [5.2 Passive Transport / 5.2 «Пассивный перенос»](https://openstax.org/books/biology-2e/pages/5-2-passive-transport) — тепловое движение, градиент и динамическое равновесие / thermal motion, gradients, and dynamic equilibrium; checked / проверено 2026-10-08.
+- OpenStax, *Biology 2e*, [41.1 Osmoregulation and Osmotic Balance / 41.1 «Осморегуляция и осмотический баланс»](https://openstax.org/books/biology-2e/pages/41-1-osmoregulation-and-osmotic-balance) — осмос и водный баланс / osmosis and water balance; checked / проверено 2026-10-08.

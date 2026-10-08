@@ -34,7 +34,7 @@ _MARKDOWN_LINK_RE = re.compile(r"\[([^\]]{1,200})\]\(\s*(https://[^)\s]+)\s*\)",
 _TRAILING_PUNCTUATION = ".,;:!?"
 _MAX_LESSON_FILES = 200
 _MAX_LESSON_FILE_BYTES = 256 * 1024
-_MAX_SOURCES = 80
+_MAX_SOURCES = 96
 _MAX_CONCURRENT_REQUESTS = 5
 _MAX_TITLE_LENGTH = 200
 _MAX_PAGE_DESCRIPTION_LENGTH = 500
@@ -59,6 +59,7 @@ _TRUSTED_HOSTS = frozenset(
         "raw.githubusercontent.com",
         "www.nist.gov",
         "www.genome.gov",
+        "www.ncbi.nlm.nih.gov",
         "www.sqlite.org",
         "openstax.org",
     }
@@ -79,6 +80,9 @@ _ALLOWED_PATHS = {
     ),
     "www.genome.gov": re.compile(
         r"^/genetics-glossary/(?:Gene-Expression|Gene-Regulation|Promoter|Chromatid)$"
+    ),
+    "www.ncbi.nlm.nih.gov": re.compile(
+        r"^/books/(?:NBK26854|NBK550206|NBK9842)/?$"
     ),
     "www.nist.gov": re.compile(
         r"^/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b9$"

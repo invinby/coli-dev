@@ -7,7 +7,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from trusted_sources import TrustedSourceMonitor
+from trusted_sources import TrustedSourceMonitor, _MAX_SOURCES
 
 
 def _write_lesson(root: Path, body: str) -> None:
@@ -133,6 +133,28 @@ def test_cell_cycle_sources_are_monitored_metadata_only(tmp_path: Path) -> None:
         "https://www.genome.gov/genetics-glossary/Chromatid",
     }
     rejected = "https://www.genome.gov/genetics-glossary/Unapproved-Term"
+    _write_lesson(
+        tmp_path,
+        "\n".join(f"[Official source]({url})" for url in sorted(urls | {rejected})),
+    )
+    monitor = _monitor(tmp_path, tmp_path)
+
+    references, unsupported_count, omitted_count = monitor._references()
+
+    assert {reference.url for reference in references} == urls
+    assert unsupported_count == 1
+    assert omitted_count == 0
+    assert all(monitor._rag_policy(url) is None for url in urls)
+    assert all(not monitor._has_rag_snapshot(url) for url in urls)
+
+
+def test_ncbi_sources_are_exact_path_monitored_metadata_only(tmp_path: Path) -> None:
+    urls = {
+        "https://www.ncbi.nlm.nih.gov/books/NBK26854/",
+        "https://www.ncbi.nlm.nih.gov/books/NBK550206/",
+        "https://www.ncbi.nlm.nih.gov/books/NBK9842/",
+    }
+    rejected = "https://www.ncbi.nlm.nih.gov/books/NBK999999/"
     _write_lesson(
         tmp_path,
         "\n".join(f"[Official source]({url})" for url in sorted(urls | {rejected})),
@@ -501,13 +523,13 @@ def test_reference_policy_accepts_official_british_council_b1_b2_lesson() -> Non
 def test_reference_scan_reports_links_omitted_by_the_request_cap(tmp_path: Path) -> None:
     urls = [
         f"https://openstax.org/books/biology-2e/pages/chapter-{index}"
-        for index in range(85)
+        for index in range(_MAX_SOURCES + 5)
     ]
     _write_lesson(tmp_path, "\n".join(f"[Source]({url})" for url in urls))
 
     references, unsupported_count, omitted_count = _monitor(tmp_path, tmp_path)._references()
 
-    assert len(references) == 80
+    assert len(references) == _MAX_SOURCES
     assert omitted_count == 5
     assert unsupported_count == 0
 
@@ -517,7 +539,7 @@ def test_reference_scan_rotates_past_the_batch_cap_instead_of_starving_tail(
 ) -> None:
     urls = {
         f"https://openstax.org/books/biology-2e/pages/chapter-{index}"
-        for index in range(85)
+        for index in range(_MAX_SOURCES + 5)
     }
     _write_lesson(tmp_path, "\n".join(f"[Source]({url})" for url in sorted(urls)))
     monitor = _monitor(tmp_path, tmp_path)

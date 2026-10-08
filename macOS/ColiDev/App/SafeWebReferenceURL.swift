@@ -9,6 +9,7 @@ enum SafeWebReferenceURL {
         "medlineplus.gov",
         "openstax.org",
         "www.genome.gov",
+        "www.ncbi.nlm.nih.gov",
         "www.nist.gov",
         "www.sqlite.org",
     ]

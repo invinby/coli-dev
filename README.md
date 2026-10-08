@@ -37,8 +37,8 @@ Help learners understand a subject from its foundations through advanced topics.
 
 ### Learning experience / Учебный процесс
 
-Courses should combine clear explanations, worked examples, practice, feedback, self-checks, and scheduled review. Recommend the next step from learner results instead of forcing every subject into one fixed lesson template. Track course completion separately from demonstrated understanding.<br>
-Курсы должны объединять понятные объяснения, разобранные примеры, практику, обратную связь, самопроверку и запланированное повторение. Следующий шаг нужно выбирать по результатам ученика, а не загонять все предметы в один шаблон урока. Завершение курса следует показывать отдельно от подтверждённого понимания материала.
+Each study session should adapt to its subject and the learner: set a short goal, check prerequisites where useful, explain the idea, let the learner work with it, give specific feedback, and choose a suitable next step or review. Recommend progression from evidence across varied tasks; course completion, self-rating, and a single correct answer are not proof of mastery. Move from foundations toward advanced and scientific depth when the learner and subject are ready.<br>
+Каждое занятие должно учитывать предмет и ученика: задавать короткую цель, при необходимости проверять необходимые знания, объяснять идею, давать с ней поработать, возвращать конкретную обратную связь и предлагать подходящий следующий шаг или повторение. Переход к новым темам нужно рекомендовать по результатам разных заданий; завершение курса, самооценка и один правильный ответ не доказывают освоение. От основ следует переходить к продвинутому и научному уровню, когда к этому готовы ученик и предмет.
 
 ### Priority fields and languages / Приоритетные предметы и языки
 
@@ -48,13 +48,28 @@ The first subject set is mathematics, English, physics, biology, zoology, and pr
 Russian and English are product languages for the interface and learning materials. English examples used to teach English remain in English, with a complete Russian explanation or equivalent alongside them.<br>
 Русский и английский — языки интерфейса и учебных материалов. Примеры на английском, которые нужны для изучения английского языка, остаются на английском; рядом приводится полный перевод или пояснение на русском.
 
+### Learner-created curriculum / Предметы и темы, созданные учеником
+
+Keep the built-in subject catalog, including Biology, and let each learner add their own subjects, topics, and subtopics with a clear `+` action. They should also be able to add topics inside a built-in subject. The tutor may help organize learner notes, while generated material must remain distinguishable from source-reviewed course content.<br>
+Сохранять встроенный каталог предметов, включая биологию, и дать каждому ученику возможность создавать собственные предметы, темы и подтемы через понятное действие `+`. Темы также можно добавлять во встроенные предметы. ИИ-тьютор может помочь упорядочить заметки ученика, при этом созданные материалы должны быть явно отделены от курсов, прошедших проверку источников.
+
 ### AI, sources, and visual tools / ИИ, источники и наглядные материалы
 
 The tutor should use the active subject, lesson, learner progress, and retrieved sources as context. The intended architecture combines local Ollama models with explicitly configured compatible cloud providers. Automatic routing defaults to free-only routes; a provider’s free quota or continued availability is never guaranteed.<br>
 Тьютор должен учитывать выбранный предмет, урок, прогресс ученика и найденные источники. Целевая архитектура объединяет локальные модели Ollama с явно настроенными совместимыми облачными провайдерами. Автоматическая маршрутизация по умолчанию использует только бесплатные маршруты; бесплатная квота и постоянная доступность провайдера не гарантируются.
 
-Use current official or primary sources where suitable. Show attribution and review dates, and send changed material through editorial review before revising a lesson. Choose diagrams, simulations, video, or manipulable 3D when they make a concept easier to understand; state each model’s assumptions and limits.<br>
-Когда это уместно, использовать актуальные официальные или первичные источники. Показывать атрибуцию и даты проверки, а изменившиеся материалы отправлять на редакторскую проверку до обновления урока. Выбирать схемы, симуляции, видео или управляемые 3D-модели, если они помогают понять понятие; указывать предпосылки и ограничения каждой модели.
+Use current official or primary sources where suitable. Show attribution and review dates, and send changed material through editorial review before revising a lesson. Do not treat source monitoring or RAG as automatic fact-checking or automatic course updates.<br>
+Когда это уместно, использовать актуальные официальные или первичные источники. Показывать атрибуцию и даты проверки, а изменившиеся материалы отправлять на редакторскую проверку до обновления урока. Мониторинг источников и RAG не считать автоматической проверкой фактов или автоматическим обновлением курсов.
+
+### Visual and hands-on learning / Наглядное обучение и практика
+
+Choose diagrams, graphs, animations, interactive simulations, contextualized video, or manipulable 3D according to the topic. Let learners rotate, zoom, reveal, compare, or change parameters when those actions help explain a mechanism. State each model’s assumptions and limits, and provide a clear explanation and checkable learning task alongside it.<br>
+Подбирать схемы, графики, анимации, интерактивные симуляции, видео с контекстом или управляемые 3D-модели под конкретную тему. Если это помогает объяснить механизм, ученик должен уметь вращать модель, менять масштаб, показывать детали, сравнивать объекты или менять параметры. Для каждой модели указывать предпосылки и ограничения, дополнять её понятным объяснением и заданием, которое проверяет понимание.
+
+### Native macOS experience / Нативный интерфейс macOS
+
+Use a focused learning dashboard with clear subject navigation, current progress, a useful next action, and truthful service and content states. Follow native macOS interaction patterns and Apple Human Interface Guidelines, with accessible controls, keyboard navigation, and recoverable error states. A missing lesson or unavailable model must lead to a clear explanation and next action.<br>
+Сделать главным рабочим пространством учебную панель с понятной навигацией по предметам, текущим прогрессом, полезным следующим действием и достоверными статусами сервисов и материалов. Следовать нативным паттернам macOS и рекомендациям Apple Human Interface Guidelines; предусмотреть доступные элементы управления, навигацию с клавиатуры и восстановление после ошибок. Если урок отсутствует или модель недоступна, интерфейс должен ясно объяснить причину и предложить следующий шаг.
 
 ### Platform and integrations / Платформа и интеграции
 
