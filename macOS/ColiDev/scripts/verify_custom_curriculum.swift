@@ -95,6 +95,95 @@ enum CustomCurriculumVerification {
             )
         }
 
+        let outlineJSON = #"""
+        {
+          "type": "colidev.topic-outline.v1",
+          "version": 1,
+          "topics": [
+            {
+              "name": {"russian": "Основы", "english": "Foundations"},
+              "learningOutcome": {"russian": "Понимать основы", "english": "Understand the foundations"},
+              "notes": {"russian": "Практика: сравнить примеры. Визуализация: схема.", "english": "Practice: compare examples. Visual: a diagram."},
+              "level": 1,
+              "subtopics": [
+                {
+                  "name": {"russian": "Первые понятия", "english": "First concepts"},
+                  "learningOutcome": {"russian": "Объяснить понятия", "english": "Explain the concepts"},
+                  "notes": {"russian": "Источник требует проверки.", "english": "Source needs review."},
+                  "level": 2,
+                  "subtopics": []
+                }
+              ]
+            },
+            {
+              "name": {"russian": "Практика", "english": "Practice"},
+              "learningOutcome": {"russian": "Применить знания", "english": "Apply the knowledge"},
+              "notes": {"russian": "Решить новую задачу.", "english": "Solve a new problem."},
+              "level": 2,
+              "subtopics": []
+            }
+          ]
+        }
+        """#
+        let outline = try CustomTopicOutlineProposal.parse(outlineJSON)
+        precondition(outline.topics.count == 2)
+        precondition(outline.topics[0].name.russian == "Основы")
+        precondition(outline.topics[0].subtopics.first?.name.english == "First concepts")
+        let fencedOutline = try CustomTopicOutlineProposal.parse("```json\n\(outlineJSON)\n```")
+        precondition(fencedOutline.topics.first?.learningOutcome.english == "Understand the foundations")
+
+        do {
+            _ = try CustomTopicOutlineProposal.parse(outlineJSON.replacingOccurrences(of: "\"version\": 1", with: "\"version\": 2"))
+            preconditionFailure("An unsupported outline schema version must be rejected. / Нужно отклонять неподдерживаемую версию схемы плана.")
+        } catch CustomTopicOutlineError.unsupportedVersion {
+        }
+
+        do {
+            _ = try CustomTopicOutlineProposal.parse(outlineJSON.replacingOccurrences(of: "\"english\": \"Foundations\"", with: "\"english\": \"\""))
+            preconditionFailure("A topic without a complete English title must not be importable. / Нельзя импортировать тему без английского названия.")
+        } catch CustomTopicOutlineError.invalidBilingualContent {
+        }
+
+        var targetCurriculum = CustomCurriculum()
+        let targetSubject = try targetCurriculum.addSubject(
+            name: CustomCurriculumText(russian: "Астрономия", english: "Astronomy"),
+            description: CustomCurriculumText(russian: "", english: ""),
+            reservedNames: [biology]
+        )
+        let targetParent = try targetCurriculum.addTopic(
+            subjectID: targetSubject,
+            parentTopicID: nil,
+            name: CustomCurriculumText(russian: "Моя тема", english: "My topic"),
+            learningOutcome: CustomCurriculumText(russian: "", english: ""),
+            notes: CustomCurriculumText(russian: "", english: "")
+        )
+        _ = try targetCurriculum.addTopic(
+            subjectID: targetSubject,
+            parentTopicID: targetParent,
+            name: CustomCurriculumText(russian: "Практика", english: "Practice"),
+            learningOutcome: CustomCurriculumText(russian: "", english: ""),
+            notes: CustomCurriculumText(russian: "", english: "")
+        )
+        let beforeRejectedOutline = targetCurriculum
+        do {
+            _ = try targetCurriculum.addOutline(
+                outline.topics,
+                to: .learnerSubject(subjectID: targetSubject),
+                parentTopicID: targetParent
+            )
+            preconditionFailure("A conflicting outline must be rejected without saving any earlier outline topics. / Конфликтующий план нужно отклонить целиком без частичного сохранения.")
+        } catch CustomCurriculumError.duplicateTopicName {
+        }
+        precondition(targetCurriculum == beforeRejectedOutline, "Outline import must be atomic. / Импорт плана должен быть атомарным.")
+
+        let savedIDs = try targetCurriculum.addOutline(
+            outline.topics,
+            to: .builtInSubject(subjectID: "biology"),
+            parentTopicID: builtInBiologyTopic
+        )
+        precondition(savedIDs.count == 3)
+        precondition(targetCurriculum.topic(builtInSubjectID: "biology", topicID: savedIDs[0])?.subtopics.first?.name.russian == "Первые понятия")
+
         precondition(curriculum.removeTopic(subjectID: astronomy, topicID: orbits))
         precondition(curriculum.subject(id: astronomy)?.topics.isEmpty == true)
         precondition(curriculum.removeTopic(builtInSubjectID: "biology", topicID: builtInBiologyTopic))
