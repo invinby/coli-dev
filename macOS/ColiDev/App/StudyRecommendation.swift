@@ -267,7 +267,7 @@ struct StudyProgressionEvidence: Equatable {
 
         var checkedLessonIDs = Set(recallEvidence.compactMap { lessonID, evidence in
             evidence.assessment?.taskType == "knowledge_check"
-                && evidence.assessment?.passed != false ? lessonID : nil
+                && evidence.assessment?.passed == true ? lessonID : nil
         })
         checkedLessonIDs.formUnion(assessmentEvidence.values.compactMap { summary in
             (summary.passedTaskTypeCounts?["knowledge_check"] ?? 0) > 0 ? summary.lessonID : nil
