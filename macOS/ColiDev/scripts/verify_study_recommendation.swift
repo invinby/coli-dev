@@ -357,6 +357,51 @@ enum StudyRecommendationVerification {
             subjectID: "biology",
             topicID: builtInCustomTopicID
         )
+        let repeatedFoundationOnSubtopic = StudyAssessmentEvidenceSummary(
+            lessonID: userSubtopicRoute.lessonID,
+            assessmentCount: 2,
+            taskTypeCounts: ["knowledge_check": 2],
+            passedTaskTypeCounts: [:],
+            errorCategoryCounts: [StudyErrorCategory.foundation.rawValue: 2],
+            latestAssessment: StudyAssessmentEvidence(
+                taskType: "knowledge_check",
+                attempts: 2,
+                firstTryCorrect: false,
+                hintsUsed: 0,
+                errorCategories: [.foundation],
+                passed: false
+            ),
+            latestAt: "2026-10-08T15:00:00Z"
+        )
+        let failedParentFoundation = StudyAssessmentEvidenceSummary(
+            lessonID: userTopicRoute.lessonID,
+            assessmentCount: 1,
+            taskTypeCounts: ["knowledge_check": 1],
+            passedTaskTypeCounts: [:],
+            errorCategoryCounts: [StudyErrorCategory.foundation.rawValue: 1],
+            latestAssessment: StudyAssessmentEvidence(
+                taskType: "knowledge_check",
+                attempts: 1,
+                firstTryCorrect: false,
+                hintsUsed: 0,
+                errorCategories: [.foundation],
+                passed: false
+            ),
+            latestAt: "2026-10-08T14:00:00Z"
+        )
+        let reportedFoundationPrerequisite = StudyRecommendationSelector.recommendation(
+            roadmaps: customRoadmaps,
+            completedLessonIDs: [],
+            resume: nil,
+            assessmentEvidence: [
+                repeatedFoundationOnSubtopic.lessonID: repeatedFoundationOnSubtopic,
+                failedParentFoundation.lessonID: failedParentFoundation,
+            ]
+        )
+        precondition(
+            reportedFoundationPrerequisite?.route == userTopicRoute,
+            "A repeated foundation difficulty on a subtopic should point to its parent only when that parent also has a matching failed check. / Повторная отметка о нехватке основы должна вести к родительской теме только при собственной непройденной проверке с таким же сигналом."
+        )
         precondition(
             customRoadmaps.count == 2
                 && customRoadmaps[0].lessonResources == [customTopicID.uuidString.lowercased(), customSubtopicID.uuidString.lowercased()]
