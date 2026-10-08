@@ -354,6 +354,7 @@ struct CurriculumModuleView: View {
     @State private var recallQuality = 4
     @State private var checkAttempt: CurriculumCheckAttempt?
     @State private var selectedErrorCategory = ""
+    @State private var isCheckExplanationRevealed = false
     @State private var sourceInventory: TrustedSourceInventory?
     @State private var sourceInventoryUnavailable = false
     @State private var isLoadingSourceInventory = false
@@ -442,19 +443,20 @@ struct CurriculumModuleView: View {
 
                                 if checkAttempt.hasAnswered {
                                     let isCorrect = checkAttempt.isCorrect
+                                    let feedback = LessonAnswerFeedback.presentation(
+                                        isCorrect: isCorrect,
+                                        explanationRevealed: isCheckExplanationRevealed,
+                                        explanation: document.answer,
+                                        correctPrompt: L10n.text("module.correct", store.language),
+                                        retryPrompt: L10n.text("module.incorrect", store.language)
+                                    )
                                     Label(
-                                        L10n.text(isCorrect ? "module.correct" : "module.incorrect", store.language),
+                                        feedback.statusMessage,
                                         systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
                                     )
                                     .foregroundStyle(isCorrect ? Color.green : Color.orange)
 
                                     if !isCorrect {
-                                        Text(String(
-                                            format: L10n.text("module.correctOption", store.language),
-                                            document.checkOptions[checkAttempt.answerOriginalIndex]
-                                        ))
-                                            .font(.callout.weight(.medium))
-
                                         Text(L10n.text("module.errorCategoryPrompt", store.language))
                                             .font(.callout.weight(.medium))
                                         Picker(L10n.text("module.errorCategoryLabel", store.language), selection: $selectedErrorCategory) {
@@ -470,16 +472,33 @@ struct CurriculumModuleView: View {
                                                 .font(.callout)
                                                 .foregroundStyle(.secondary)
                                         }
+
+                                        Button {
+                                            isCheckExplanationRevealed = true
+                                        } label: {
+                                            Label(L10n.text("module.showAnswer", store.language), systemImage: "eye")
+                                        }
+                                        .buttonStyle(.borderless)
                                     }
 
-                                    if !document.answer.isEmpty {
-                                        Text((try? AttributedString(markdown: document.answer)) ?? AttributedString(document.answer))
-                                            .textSelection(.enabled)
-                                            .padding(.top, 2)
-                                    } else {
-                                        Text(L10n.text("module.explanationUnavailable", store.language))
-                                            .font(.callout)
-                                            .foregroundStyle(.orange)
+                                    if isCorrect || isCheckExplanationRevealed {
+                                        if !isCorrect {
+                                            Text(String(
+                                                format: L10n.text("module.correctOption", store.language),
+                                                document.checkOptions[checkAttempt.answerOriginalIndex]
+                                            ))
+                                                .font(.callout.weight(.medium))
+                                        }
+
+                                        if let explanation = feedback.explanation {
+                                            Text((try? AttributedString(markdown: explanation)) ?? AttributedString(explanation))
+                                                .textSelection(.enabled)
+                                                .padding(.top, 2)
+                                        } else {
+                                            Text(L10n.text("module.explanationUnavailable", store.language))
+                                                .font(.callout)
+                                                .foregroundStyle(.orange)
+                                        }
                                     }
 
                                     if checkAttempt.canRetry {
@@ -691,6 +710,7 @@ struct CurriculumModuleView: View {
         let loadedDocument = CurriculumLessonDocument.load(subject: subject, resource: resource, language: store.language)
         document = loadedDocument
         selectedErrorCategory = ""
+        isCheckExplanationRevealed = false
         checkAttempt = loadedDocument.flatMap { lesson in
             guard let answerIndex = lesson.checkAnswerIndex else { return nil }
             return CurriculumCheckAttempt(optionCount: lesson.checkOptions.count, answerOriginalIndex: answerIndex)
@@ -720,6 +740,7 @@ struct CurriculumModuleView: View {
         attempt.retry(errorCategory: errorCategory)
         checkAttempt = attempt
         selectedErrorCategory = ""
+        isCheckExplanationRevealed = false
     }
 
     @MainActor
@@ -980,6 +1001,7 @@ struct LessonSessionView: View {
 
     @State private var selectedAnswer: Int?
     @State private var optionOrder = AnswerChoiceOrder(optionCount: 3)
+    @State private var isLessonFeedbackRevealed = false
     @State private var learnerConfirmed = false
     @State private var reflection = ""
     @State private var showingTutor = false
@@ -1151,11 +1173,14 @@ struct LessonSessionView: View {
                     .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.quaternary, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
+                .disabled(selectedAnswer != nil)
             }
             if selectedAnswer != nil {
                 let feedback = LessonAnswerFeedback.presentation(
                     isCorrect: answerIsCorrect,
-                    correctFeedback: content.feedback,
+                    explanationRevealed: isLessonFeedbackRevealed,
+                    explanation: content.feedback,
+                    correctPrompt: L10n.text("session.right", store.language),
                     retryPrompt: L10n.text("session.wrong", store.language)
                 )
                 Label {
@@ -1166,6 +1191,14 @@ struct LessonSessionView: View {
                 .font(.callout)
                 .foregroundStyle(answerIsCorrect ? Color.green : Color.orange)
                 .padding(.top, 4)
+                if feedback.canRevealExplanation {
+                    Button {
+                        isLessonFeedbackRevealed = true
+                    } label: {
+                        Label(L10n.text("module.showAnswer", store.language), systemImage: "eye")
+                    }
+                    .buttonStyle(.borderless)
+                }
                 if let explanation = feedback.explanation {
                     Text((try? AttributedString(markdown: explanation)) ?? AttributedString(explanation))
                         .font(.callout)
@@ -1175,6 +1208,7 @@ struct LessonSessionView: View {
                 if !answerIsCorrect {
                     Button {
                         self.selectedAnswer = nil
+                        self.isLessonFeedbackRevealed = false
                         self.optionOrder.reshuffle()
                     } label: {
                         Text(L10n.text("session.retry", store.language))

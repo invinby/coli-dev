@@ -296,19 +296,30 @@ struct StudyAssessmentEvent: Codable, Identifiable {
 struct LessonAnswerFeedback: Equatable {
     let statusMessage: String
     let explanation: String?
+    let canRevealExplanation: Bool
 
     static func presentation(
         isCorrect: Bool,
-        correctFeedback: String,
+        explanationRevealed: Bool = false,
+        explanation: String,
+        correctPrompt: String,
         retryPrompt: String
     ) -> LessonAnswerFeedback {
-        guard !isCorrect else {
-            return LessonAnswerFeedback(statusMessage: correctFeedback, explanation: nil)
+        let cleanedExplanation = explanation.trimmingCharacters(in: .whitespacesAndNewlines)
+        let availableExplanation = cleanedExplanation.isEmpty ? nil : cleanedExplanation
+
+        if isCorrect {
+            return LessonAnswerFeedback(
+                statusMessage: correctPrompt,
+                explanation: availableExplanation,
+                canRevealExplanation: false
+            )
         }
 
-        let explanation = correctFeedback.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ? nil
-            : correctFeedback
-        return LessonAnswerFeedback(statusMessage: retryPrompt, explanation: explanation)
+        return LessonAnswerFeedback(
+            statusMessage: retryPrompt,
+            explanation: explanationRevealed ? availableExplanation : nil,
+            canRevealExplanation: !explanationRevealed && availableExplanation != nil
+        )
     }
 }
