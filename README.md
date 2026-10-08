@@ -19,11 +19,11 @@ This is the last published release preview. New pull-request builds are separate
 
 ## Latest macOS test build / Последняя тестовая сборка macOS
 
-GitHub Actions run [37723708692](https://github.com/invinby/coli-dev/actions/runs/37723708692) passed for app commit `c2b690d`: the backend suite, all Swift verifiers, Apple Silicon and Intel app builds, bundled-backend smoke checks, and bundled-curriculum checks succeeded. It produced `ColiDev-macos-arm64` (22,167,102 bytes) and `ColiDev-macos-x86_64` (23,072,394 bytes), available until 22 October 2026. Open the run page and download the artifact matching your Mac.<br>
-Запуск GitHub Actions [37723708692](https://github.com/invinby/coli-dev/actions/runs/37723708692) успешно прошёл для коммита приложения `c2b690d`: backend-набор, все Swift-verifier, сборки приложения для Apple Silicon и Intel, smoke-проверки встроенного backend и проверка ресурсов курсов завершились успешно. Созданы `ColiDev-macos-arm64` (22 167 102 байта) и `ColiDev-macos-x86_64` (23 072 394 байта), доступные до 22 октября 2026 года. Откройте страницу запуска и скачайте архив для своего Mac.<br>
+GitHub Actions run [37726334617](https://github.com/invinby/coli-dev/actions/runs/37726334617) passed for app commit `d0c8458`: the backend test suite, all Swift verifiers, Apple Silicon and Intel app builds, bundled-backend smoke checks, and bundled-curriculum checks succeeded. It produced `ColiDev-macos-arm64` (22,237,292 bytes) and `ColiDev-macos-x86_64` (23,143,729 bytes), available until 22 October 2026. Open the run page and download the artifact matching your Mac.<br>
+Запуск GitHub Actions [37726334617](https://github.com/invinby/coli-dev/actions/runs/37726334617) успешно завершился для коммита приложения `d0c8458`: прошли полный набор тестов серверной части, все проверяющие сценарии на Swift, сборки приложения для Apple Silicon и Intel, проверка запуска встроенного сервера и проверка встроенных учебных планов. Созданы `ColiDev-macos-arm64` (22 237 292 байта) и `ColiDev-macos-x86_64` (23 143 729 байт); архивы доступны до 22 октября 2026 года. Откройте страницу запуска и скачайте архив для своего Mac.<br>
 
 These CI artifacts are unsigned test builds, not a published release. CI verifies compilation and bundled-backend smoke checks; running the app and checking its real UI and model routes on a Mac still requires hands-on acceptance.<br>
-Это неподписанные тестовые архивы CI, а не опубликованный релиз. CI проверяет сборку и smoke-проверку встроенного backend; запуск приложения и проверка реального интерфейса и маршрутов моделей на Mac всё ещё требуют ручной приёмки.
+Эти тестовые архивы CI не подписаны и не являются опубликованным релизом. CI проверяет компиляцию и запуск встроенного сервера, но само приложение, его интерфейс и реальные ответы моделей всё ещё нужно вручную проверить на Mac.
 
 ## Project profile / Профиль проекта
 
