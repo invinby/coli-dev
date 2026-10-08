@@ -19,6 +19,22 @@ struct SeededGenerator: RandomNumberGenerator {
 @main
 enum AnswerChoiceOrderVerification {
     static func main() {
+        let osmosisScenarios: [(inside: Int, outside: Int, expected: OsmosisWaterFlow, optionIndex: Int)] = [
+            (inside: 4, outside: 6, expected: .waterEntersCell, optionIndex: 0),
+            (inside: 6, outside: 4, expected: .waterLeavesCell, optionIndex: 1),
+            (inside: 4, outside: 4, expected: .dynamicEquilibrium, optionIndex: 2)
+        ]
+        for scenario in osmosisScenarios {
+            let prediction = OsmosisWaterFlow.predict(
+                insideSolute: scenario.inside,
+                outsideSolute: scenario.outside
+            )
+            precondition(
+                prediction == scenario.expected && prediction.answerOriginalIndex == scenario.optionIndex,
+                "Osmosis predictions must match the three learner-facing options. / Прогноз осмоса должен соответствовать трём вариантам ответа ученика."
+            )
+        }
+
         for optionCount in [2, 3] {
             let correctOriginalIndices = [1, 1, 2, 2, 1, 0, 2, 1, 0, 0, 2, 1, 2, 0, 1, 1, 2]
                 .map { $0 % optionCount }
