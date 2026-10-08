@@ -553,20 +553,26 @@ struct CurriculumModuleView: View {
                             store.recordReview(
                                 lessonID: lessonID,
                                 quality: recallQuality,
-                                reflection: reflection
+                                reflection: reflection,
+                                assessment: checkAttempt?.assessmentEvidence
                             )
                         } else {
                             store.markComplete(
                                 lessonID: lessonID,
                                 quality: recallQuality,
-                                reflection: reflection
+                                reflection: reflection,
+                                assessment: checkAttempt?.assessmentEvidence
                             )
                         }
                     } label: {
                         let title = hasPendingReview
                             ? "session.reviewSaved"
                             : (isComplete
-                                ? (isReviewDue ? "session.recordReview" : "session.completed")
+                                ? (isReviewDue
+                                    ? "session.recordReview"
+                                    : (checkAttempt?.assessmentEvidence != nil
+                                        ? "session.recordPractice"
+                                        : "session.completed"))
                                 : "session.complete")
                         Label(L10n.text(title, store.language), systemImage: isComplete ? "checkmark.circle.fill" : "checkmark")
                     }
@@ -575,7 +581,11 @@ struct CurriculumModuleView: View {
                         !learnerConfirmed
                             || checkAttempt?.canComplete != true
                             || hasPendingReview
-                            || (isComplete && !isReviewDue)
+                            || !StudyReviewActionPolicy.canRecord(
+                                isComplete: isComplete,
+                                isReviewDue: isReviewDue,
+                                hasAssessment: checkAttempt?.assessmentEvidence != nil
+                            )
                     )
                     .padding(.bottom, 32)
                 } else {

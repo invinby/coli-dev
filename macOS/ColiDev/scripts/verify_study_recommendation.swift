@@ -26,6 +26,13 @@ enum StudyRecommendationVerification {
             emptyProgress.totalCount == 0 && emptyProgress.fractionCompleted == 0,
             "An empty curriculum must report zero completion without division errors. / Для пустого учебного плана нужно показывать нулевой прогресс без ошибки деления."
         )
+        precondition(
+            !StudyReviewActionPolicy.canRecord(isComplete: true, isReviewDue: false, hasAssessment: false)
+                && StudyReviewActionPolicy.canRecord(isComplete: true, isReviewDue: false, hasAssessment: true)
+                && StudyReviewActionPolicy.canRecord(isComplete: true, isReviewDue: true, hasAssessment: false)
+                && StudyReviewActionPolicy.canRecord(isComplete: false, isReviewDue: false, hasAssessment: false),
+            "A completed lesson can save early practice only after a new checked answer; due reviews and first completions stay available. / Пройденный урок можно досрочно записать как тренировку только после нового проверенного ответа; просроченный повтор и первое прохождение остаются доступны."
+        )
 
         let next = StudyRecommendationSelector.nextLesson(
             roadmaps: roadmaps,
@@ -56,6 +63,31 @@ enum StudyRecommendationVerification {
             "A completed lesson with difficult self-rated recall must be recommended before a new topic. / После сложной самооценки воспоминания нужно рекомендовать повторить пройденную тему до перехода к новой."
         )
 
+        let practiceReview = StudyRecommendationSelector.recommendation(
+            roadmaps: roadmaps,
+            completedLessonIDs: completed,
+            resume: nil,
+            recallEvidence: [
+                "mathematics.fractions": StudyRecallEvidence(
+                    quality: 5,
+                    reviewedAt: "2026-10-08T10:00:00Z",
+                    assessment: StudyAssessmentEvidence(
+                        taskType: "knowledge_check",
+                        attempts: 2,
+                        firstTryCorrect: false,
+                        hintsUsed: 0
+                    )
+                ),
+            ]
+        )
+        precondition(
+            practiceReview == StudyRecommendation(
+                route: StudyLessonRoute(subjectID: "mathematics", resource: "fractions"),
+                reason: .practiceReview
+            ),
+            "A checked topic solved after retries must be recommended for practice even when self-rated recall is high. / Тему, проверочный вопрос которой решён после повторов, нужно предложить закрепить даже при высокой самооценке воспоминания."
+        )
+
         let confidentRecall = StudyRecommendationSelector.recommendation(
             roadmaps: roadmaps,
             completedLessonIDs: completed,
@@ -63,7 +95,13 @@ enum StudyRecommendationVerification {
             recallEvidence: [
                 "mathematics.fractions": StudyRecallEvidence(
                     quality: 5,
-                    reviewedAt: "2026-10-08T10:00:00Z"
+                    reviewedAt: "2026-10-08T10:00:00Z",
+                    assessment: StudyAssessmentEvidence(
+                        taskType: "knowledge_check",
+                        attempts: 1,
+                        firstTryCorrect: true,
+                        hintsUsed: 0
+                    )
                 ),
             ]
         )

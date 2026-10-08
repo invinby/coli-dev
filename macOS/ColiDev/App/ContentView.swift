@@ -238,7 +238,8 @@ private struct TodayView: View {
             guard let quality = record.lastQuality else { continue }
             evidence[record.lessonID] = StudyRecallEvidence(
                 quality: quality,
-                reviewedAt: record.lastReviewedAt
+                reviewedAt: record.lastReviewedAt,
+                assessment: record.assessment
             )
         }
         return evidence
@@ -345,6 +346,12 @@ private struct TodayView: View {
                 Text(L10n.text("home.masteryNotTracked", store.language))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if !hasAddressableDueReview, studyRecommendation?.reason == .practiceReview {
+                    Text(L10n.text("home.quizNeedsPractice", store.language))
+                        .font(.caption)
+                        .foregroundStyle(Color.accentColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 if !hasAddressableDueReview, studyRecommendation?.reason == .recallReview {
                     Text(L10n.text("home.recallNeedsPractice", store.language))
                         .font(.caption)

@@ -67,11 +67,22 @@ struct CurriculumCheckAttempt: Equatable {
     let answerOriginalIndex: Int
     private(set) var choiceOrder: AnswerChoiceOrder
     private(set) var selectedOriginalIndex: Int?
+    private(set) var attemptCount: Int
+    private(set) var firstTryCorrect: Bool?
 
     var isCorrect: Bool { selectedOriginalIndex == answerOriginalIndex }
     var canComplete: Bool { isCorrect }
     var canRetry: Bool { selectedOriginalIndex != nil && !isCorrect }
     var hasAnswered: Bool { selectedOriginalIndex != nil }
+    var assessmentEvidence: StudyAssessmentEvidence? {
+        guard canComplete, attemptCount > 0, let firstTryCorrect else { return nil }
+        return StudyAssessmentEvidence(
+            taskType: "knowledge_check",
+            attempts: attemptCount,
+            firstTryCorrect: firstTryCorrect,
+            hintsUsed: 0
+        )
+    }
 
     init?(optionCount: Int, answerOriginalIndex: Int) {
         var generator = SystemRandomNumberGenerator()
@@ -87,12 +98,18 @@ struct CurriculumCheckAttempt: Equatable {
         self.answerOriginalIndex = answerOriginalIndex
         choiceOrder = AnswerChoiceOrder(optionCount: optionCount, using: &generator)
         selectedOriginalIndex = nil
+        attemptCount = 0
+        firstTryCorrect = nil
     }
 
     mutating func select(displayedIndex: Int) {
         guard !hasAnswered,
               let originalIndex = choiceOrder.originalIndex(forDisplayedIndex: displayedIndex) else { return }
         selectedOriginalIndex = originalIndex
+        attemptCount += 1
+        if firstTryCorrect == nil {
+            firstTryCorrect = originalIndex == answerOriginalIndex
+        }
     }
 
     mutating func retry() {
@@ -104,5 +121,19 @@ struct CurriculumCheckAttempt: Equatable {
         guard canRetry else { return }
         choiceOrder = AnswerChoiceOrder(optionCount: choiceOrder.displayedOriginalIndices.count, using: &generator)
         selectedOriginalIndex = nil
+    }
+}
+
+struct StudyAssessmentEvidence: Codable, Equatable {
+    let taskType: String
+    let attempts: Int
+    let firstTryCorrect: Bool
+    let hintsUsed: Int
+
+    enum CodingKeys: String, CodingKey {
+        case taskType = "task_type"
+        case attempts
+        case firstTryCorrect = "first_try_correct"
+        case hintsUsed = "hints_used"
     }
 }

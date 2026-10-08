@@ -90,6 +90,7 @@ struct StudyReviewEvent: Codable, Identifiable {
     let quality: Int
     let reflection: String?
     let completeLesson: Bool?
+    let assessment: StudyAssessmentEvidence?
 
     var eventID: String { id }
 
@@ -99,6 +100,7 @@ struct StudyReviewEvent: Codable, Identifiable {
         case quality
         case reflection
         case completeLesson = "complete_lesson"
+        case assessment
     }
 }
 
@@ -113,6 +115,8 @@ struct StudyProgressRecord: Decodable, Identifiable {
     let dueAt: String?
     let lastReviewedAt: String?
     let reflection: String?
+    let assessment: StudyAssessmentEvidence?
+    let assessmentCount: Int?
     let updatedAt: String
 
     var id: String { lessonID }
@@ -131,6 +135,8 @@ struct StudyProgressRecord: Decodable, Identifiable {
         case dueAt = "due_at"
         case lastReviewedAt = "last_reviewed_at"
         case reflection
+        case assessment
+        case assessmentCount = "assessment_count"
         case updatedAt = "updated_at"
     }
 }
@@ -410,13 +416,19 @@ final class LearningStore: ObservableObject {
         markComplete(lessonID: subject.lessonID, quality: 4, reflection: reflection)
     }
 
-    func markComplete(lessonID: String, quality: Int, reflection: String = "") {
+    func markComplete(
+        lessonID: String,
+        quality: Int,
+        reflection: String = "",
+        assessment: StudyAssessmentEvidence? = nil
+    ) {
         completedLessonIDs.insert(lessonID)
         queueStudyReview(
             lessonID: lessonID,
             quality: quality,
             reflection: reflection,
-            completeLesson: true
+            completeLesson: true,
+            assessment: assessment
         )
     }
 
@@ -424,12 +436,18 @@ final class LearningStore: ObservableObject {
         recordReview(lessonID: subject.lessonID, quality: 4, reflection: reflection)
     }
 
-    func recordReview(lessonID: String, quality: Int, reflection: String = "") {
+    func recordReview(
+        lessonID: String,
+        quality: Int,
+        reflection: String = "",
+        assessment: StudyAssessmentEvidence? = nil
+    ) {
         queueStudyReview(
             lessonID: lessonID,
             quality: quality,
             reflection: reflection,
-            completeLesson: false
+            completeLesson: false,
+            assessment: assessment
         )
     }
 
@@ -587,7 +605,8 @@ final class LearningStore: ObservableObject {
         lessonID: String,
         quality: Int,
         reflection: String,
-        completeLesson: Bool?
+        completeLesson: Bool?,
+        assessment: StudyAssessmentEvidence? = nil
     ) {
         guard !hasPendingReview(lessonID: lessonID) else { return }
         pendingStudyReviews.append(StudyReviewEvent(
@@ -595,7 +614,8 @@ final class LearningStore: ObservableObject {
             lessonID: lessonID,
             quality: quality,
             reflection: String(reflection.trimmingCharacters(in: .whitespacesAndNewlines).prefix(500)),
-            completeLesson: completeLesson
+            completeLesson: completeLesson,
+            assessment: assessment
         ))
         Task { await syncStudyProgress() }
     }

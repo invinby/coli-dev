@@ -137,6 +137,72 @@ def test_explicit_completion_intent_is_part_of_idempotent_event_payload(
         store.record_review(event_id, "physics.motion", 2, complete_lesson=False)
 
 
+def test_assessment_evidence_persists_attempts_and_is_part_of_idempotent_review(
+    tmp_path: Path,
+) -> None:
+    store = StudyProgressStore(tmp_path / "progress.sqlite3")
+    store.initialize()
+    event_id = "f47ac10b-58cc-4372-a567-0e02b2c3d486"
+    evidence = {
+        "task_type": "knowledge_check",
+        "attempts": 2,
+        "first_try_correct": False,
+        "hints_used": 0,
+    }
+
+    recorded = store.record_review(
+        event_id, "mathematics.quadratics", 4, assessment=evidence
+    )
+    assert recorded["assessment"] == evidence
+    assert recorded["assessment_count"] == 1
+    assert store.record_review(
+        event_id, "mathematics.quadratics", 4, assessment=evidence
+    ) == recorded
+
+    with pytest.raises(ValueError, match="different review"):
+        store.record_review(
+            event_id,
+            "mathematics.quadratics",
+            4,
+            assessment={**evidence, "attempts": 1, "first_try_correct": True},
+        )
+
+    second = store.record_review(
+        "f47ac10b-58cc-4372-a567-0e02b2c3d487",
+        "mathematics.quadratics",
+        5,
+        assessment={**evidence, "attempts": 1, "first_try_correct": True},
+    )
+    assert second["assessment"]["attempts"] == 1
+    assert second["assessment"]["first_try_correct"] is True
+    assert second["assessment_count"] == 2
+    assert StudyProgressStore(store.path).get_progress()["records"][0] == second
+
+
+@pytest.mark.parametrize(
+    "assessment",
+    [
+        {"task_type": "guessing", "attempts": 1, "first_try_correct": True, "hints_used": 0},
+        {"task_type": "knowledge_check", "attempts": True, "first_try_correct": True, "hints_used": 0},
+        {"task_type": "knowledge_check", "attempts": 1_001, "first_try_correct": False, "hints_used": 0},
+        {"task_type": "knowledge_check", "attempts": 1, "first_try_correct": False, "hints_used": 0},
+        {"task_type": "knowledge_check", "attempts": 1, "first_try_correct": True, "hints_used": -1},
+    ],
+)
+def test_invalid_assessment_evidence_is_rejected(tmp_path: Path, assessment: dict[str, object]) -> None:
+    store = StudyProgressStore(tmp_path / "progress.sqlite3")
+    store.initialize()
+
+    with pytest.raises(ValueError, match="assessment"):
+        store.record_review(
+            "f47ac10b-58cc-4372-a567-0e02b2c3d489",
+            "mathematics.quadratics",
+            4,
+            assessment=assessment,
+        )
+    assert store.get_progress()["records"] == []
+
+
 def test_explicit_completion_intent_must_be_a_boolean_or_null(tmp_path: Path) -> None:
     store = StudyProgressStore(tmp_path / "progress.sqlite3")
     store.initialize()
@@ -182,6 +248,8 @@ def test_reflection_columns_migrate_existing_progress_database(tmp_path: Path) -
 
     assert store.get_progress()["records"][0]["reflection"] == ""
     assert store.get_progress()["records"][0]["last_quality"] is None
+    assert store.get_progress()["records"][0]["assessment"] is None
+    assert store.get_progress()["records"][0]["assessment_count"] == 0
     assert store.record_review(
         "f47ac10b-58cc-4372-a567-0e02b2c3d484", "intro.math", 4
     )["review_count"] == 0
@@ -198,12 +266,23 @@ def test_progress_backup_roundtrips_current_state_and_keeps_newer_local_records(
     original = StudyProgressStore(tmp_path / "original.sqlite3", clock=lambda: original_time)
     original.initialize()
     original.record_review(
-        "f47ac10b-58cc-4372-a567-0e02b2c3d479", "physics.motion", 4, "I understand acceleration"
+        "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+        "physics.motion",
+        4,
+        "I understand acceleration",
+        assessment={
+            "task_type": "knowledge_check",
+            "attempts": 1,
+            "first_try_correct": True,
+            "hints_used": 0,
+        },
     )
     backup = original.export_backup()
     assert backup["format"] == "colidev-learning-progress"
     assert backup["version"] == 1
     assert len(backup["records"]) == 1
+    assert backup["records"][0]["assessment"]["first_try_correct"] is True
+    assert backup["records"][0]["assessment_count"] == 1
 
     restored_time = [original_time]
     restored = StudyProgressStore(
@@ -220,6 +299,8 @@ def test_progress_backup_roundtrips_current_state_and_keeps_newer_local_records(
     )
     newer = restored.export_backup()
     assert newer["records"][0]["updated_at"] > backup["records"][0]["updated_at"]
+    assert newer["records"][0]["assessment"] == backup["records"][0]["assessment"]
+    assert newer["records"][0]["assessment_count"] == 1
     assert original.restore_backup(newer) == {"restored": 1, "unchanged": 0}
     assert original.export_backup() == newer
 

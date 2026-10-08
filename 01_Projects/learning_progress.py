@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 import os
 import re
@@ -84,6 +85,8 @@ class StudyProgressStore:
                     due_at TEXT,
                     last_reviewed_at TEXT,
                     reflection TEXT NOT NULL DEFAULT '',
+                    assessment_json TEXT NOT NULL DEFAULT '',
+                    assessment_count INTEGER NOT NULL DEFAULT 0,
                     updated_at TEXT NOT NULL
                 );
                 CREATE TABLE IF NOT EXISTS review_events (
@@ -92,6 +95,7 @@ class StudyProgressStore:
                     quality INTEGER NOT NULL CHECK (quality BETWEEN 0 AND 5),
                     reflection TEXT NOT NULL DEFAULT '',
                     complete_lesson INTEGER,
+                    assessment_json TEXT NOT NULL DEFAULT '',
                     created_at TEXT NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS lesson_progress_due_idx
@@ -121,9 +125,22 @@ class StudyProgressStore:
                 connection.execute(
                     "ALTER TABLE review_events ADD COLUMN complete_lesson INTEGER"
                 )
+            for column, declaration in (
+                ("assessment_json", "TEXT NOT NULL DEFAULT ''"),
+                ("assessment_count", "INTEGER NOT NULL DEFAULT 0"),
+            ):
+                if column not in progress_columns:
+                    connection.execute(
+                        f"ALTER TABLE lesson_progress ADD COLUMN {column} {declaration}"
+                    )
+            if "assessment_json" not in review_columns:
+                connection.execute(
+                    "ALTER TABLE review_events ADD COLUMN assessment_json TEXT NOT NULL DEFAULT ''"
+                )
 
     @staticmethod
     def _row(row: sqlite3.Row) -> dict[str, Any]:
+        assessment_json = str(row["assessment_json"] or "")
         return {
             "lesson_id": row["lesson_id"],
             "completed": bool(row["completed"]),
@@ -135,8 +152,56 @@ class StudyProgressStore:
             "due_at": row["due_at"],
             "last_reviewed_at": row["last_reviewed_at"],
             "reflection": str(row["reflection"] or ""),
+            "assessment": json.loads(assessment_json) if assessment_json else None,
+            "assessment_count": int(row["assessment_count"]),
             "updated_at": row["updated_at"],
         }
+
+    @staticmethod
+    def _assessment(value: Any) -> tuple[dict[str, Any] | None, str]:
+        if value is None:
+            return None, ""
+        if not isinstance(value, Mapping):
+            raise ValueError(
+                "assessment must be an object or null / "
+                "параметр assessment должен быть объектом или null"
+            )
+        if set(value) != {"task_type", "attempts", "first_try_correct", "hints_used"}:
+            raise ValueError(
+                "assessment must contain task_type, attempts, first_try_correct, and hints_used / "
+                "в assessment должны быть поля task_type, attempts, first_try_correct и hints_used"
+            )
+        if value["task_type"] != "knowledge_check":
+            raise ValueError(
+                "assessment task_type must be knowledge_check / "
+                "поле task_type должно иметь значение knowledge_check"
+            )
+        attempts = value["attempts"]
+        hints_used = value["hints_used"]
+        first_try_correct = value["first_try_correct"]
+        if isinstance(attempts, bool) or not isinstance(attempts, int) or not 1 <= attempts <= 1_000:
+            raise ValueError(
+                "assessment attempts must be an integer between 1 and 1000 / "
+                "attempts должен быть целым числом от 1 до 1000"
+            )
+        if isinstance(hints_used, bool) or not isinstance(hints_used, int) or not 0 <= hints_used <= 1_000:
+            raise ValueError(
+                "assessment hints_used must be an integer between 0 and 1000 / "
+                "hints_used должен быть целым числом от 0 до 1000"
+            )
+        if not isinstance(first_try_correct, bool) or first_try_correct != (attempts == 1):
+            raise ValueError(
+                "assessment first_try_correct must match the successful attempt count / "
+                "first_try_correct должен соответствовать числу попыток до правильного ответа"
+            )
+        normalized = {
+            "task_type": "knowledge_check",
+            "attempts": attempts,
+            "first_try_correct": first_try_correct,
+            "hints_used": hints_used,
+        }
+        encoded = json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        return normalized, encoded
 
     @staticmethod
     def _calculate_schedule(
@@ -173,6 +238,7 @@ class StudyProgressStore:
         quality: int,
         reflection: str = "",
         complete_lesson: bool | None = None,
+        assessment: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         try:
             normalized_event_id = str(uuid.UUID(event_id))
@@ -187,13 +253,14 @@ class StudyProgressStore:
         if complete_lesson is not None and not isinstance(complete_lesson, bool):
             raise ValueError("complete_lesson must be a boolean or null")
         normalized_reflection = " ".join(reflection.split())
+        normalized_assessment, assessment_json = self._assessment(assessment)
 
         now = self._clock().astimezone(timezone.utc).replace(microsecond=0)
         now_text = _timestamp(now)
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             prior_event = connection.execute(
-                "SELECT lesson_id, quality, reflection, complete_lesson "
+                "SELECT lesson_id, quality, reflection, complete_lesson, assessment_json "
                 "FROM review_events WHERE event_id = ?",
                 (normalized_event_id,),
             ).fetchone()
@@ -208,6 +275,7 @@ class StudyProgressStore:
                         else None
                     )
                     != complete_lesson
+                    or str(prior_event["assessment_json"] or "") != assessment_json
                 ):
                     raise ValueError("event_id was already used for a different review")
                 row = connection.execute(
@@ -237,8 +305,9 @@ class StudyProgressStore:
             connection.execute(
                 """INSERT INTO lesson_progress (
                        lesson_id, completed, repetitions, interval_days, ease_factor,
-                       review_count, last_quality, due_at, last_reviewed_at, reflection, updated_at
-                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                       review_count, last_quality, due_at, last_reviewed_at, reflection,
+                       assessment_json, assessment_count, updated_at
+                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(lesson_id) DO UPDATE SET
                        completed = excluded.completed,
                        repetitions = excluded.repetitions,
@@ -249,6 +318,10 @@ class StudyProgressStore:
                        due_at = excluded.due_at,
                        last_reviewed_at = excluded.last_reviewed_at,
                        reflection = excluded.reflection,
+                       assessment_json = CASE WHEN excluded.assessment_json = ''
+                           THEN lesson_progress.assessment_json ELSE excluded.assessment_json END,
+                       assessment_count = lesson_progress.assessment_count +
+                           CASE WHEN excluded.assessment_json = '' THEN 0 ELSE 1 END,
                        updated_at = excluded.updated_at""",
                 (
                     lesson_id,
@@ -261,19 +334,22 @@ class StudyProgressStore:
                     due_text,
                     now_text,
                     normalized_reflection,
+                    assessment_json,
+                    int(normalized_assessment is not None),
                     now_text,
                 ),
             )
             connection.execute(
                 "INSERT INTO review_events "
-                "(event_id, lesson_id, quality, reflection, complete_lesson, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
+                "(event_id, lesson_id, quality, reflection, complete_lesson, assessment_json, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (
                     normalized_event_id,
                     lesson_id,
                     quality,
                     normalized_reflection,
                     None if complete_lesson is None else int(complete_lesson),
+                    assessment_json,
                     now_text,
                 ),
             )
@@ -362,6 +438,10 @@ class StudyProgressStore:
             or not 0 <= last_quality <= 5
         ):
             raise ValueError("Backup contains an invalid last_quality")
+        assessment, assessment_json = StudyProgressStore._assessment(record.get("assessment"))
+        assessment_count = integer("assessment_count") if "assessment_count" in record else 0
+        if assessment is not None and assessment_count == 0:
+            raise ValueError("Backup contains an invalid assessment_count")
 
         return {
             "lesson_id": lesson_id,
@@ -374,6 +454,9 @@ class StudyProgressStore:
             "due_at": timestamp("due_at", optional=True),
             "last_reviewed_at": timestamp("last_reviewed_at", optional=True),
             "reflection": " ".join(reflection.split()),
+            "assessment": assessment,
+            "assessment_json": assessment_json,
+            "assessment_count": assessment_count,
             "updated_at": timestamp("updated_at"),
         }
 
@@ -406,8 +489,9 @@ class StudyProgressStore:
                 connection.execute(
                     """INSERT INTO lesson_progress (
                            lesson_id, completed, repetitions, interval_days, ease_factor,
-                           review_count, last_quality, due_at, last_reviewed_at, reflection, updated_at
-                       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                           review_count, last_quality, due_at, last_reviewed_at, reflection,
+                           assessment_json, assessment_count, updated_at
+                       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                        ON CONFLICT(lesson_id) DO UPDATE SET
                            completed = excluded.completed,
                            repetitions = excluded.repetitions,
@@ -418,6 +502,8 @@ class StudyProgressStore:
                            due_at = excluded.due_at,
                            last_reviewed_at = excluded.last_reviewed_at,
                            reflection = excluded.reflection,
+                           assessment_json = excluded.assessment_json,
+                           assessment_count = excluded.assessment_count,
                            updated_at = excluded.updated_at""",
                     (
                         record["lesson_id"],
@@ -430,6 +516,8 @@ class StudyProgressStore:
                         record["due_at"],
                         record["last_reviewed_at"],
                         record["reflection"],
+                        record["assessment_json"],
+                        record["assessment_count"],
                         record["updated_at"],
                     ),
                 )

@@ -47,6 +47,16 @@ Biology Foundations также включает связанные RU/EN уро�
 
 **EN:** Every interactive model must show what can be changed, what to observe, which assumptions it uses, and where it stops being accurate. Keep a text explanation, accessible labels and controls, and a checkable learning outcome so 3D or video is never the only way to understand the material.
 
+## Реализованный фрагмент учебных доказательств / Implemented learning-evidence slice
+
+**RU:** Полный учебный модуль передаёт в прогресс результат одного проверочного вопроса: тип `knowledge_check`, число попыток до первого правильного ответа, правильность первой попытки и число подсказок. Сейчас подсказок в этой проверке нет, поэтому сохраняется ноль. Backend хранит последнюю такую оценку и количество оценок; резервная копия и очередь офлайн-событий сохраняют эти поля. Если понадобилось больше одной попытки, «Продолжить» может сначала рекомендовать эту тему, даже если субъективная оценка памяти высокая. Событие записывается после явного подтверждения ученика.
+
+**EN:** A full curriculum lesson sends one knowledge-check result with learner progress: task type `knowledge_check`, attempts before the first correct answer, whether the first attempt was correct, and hints used. This check currently has no hints, so the recorded count is zero. The backend stores the latest assessment and the number of assessments; progress backups and the offline event queue retain these fields. If the learner needed more than one attempt, Continue can recommend the same topic before a new one even when self-rated recall is high. The event is recorded after the learner explicitly confirms completion or review.
+
+**RU:** Это только свидетельство по одному вопросу с выбором ответа, а не уровень освоения темы. Оно пока не охватывает тесты вводных карточек, объяснение своими словами, применение в открытой задаче, перенос знаний, подсказки из других тренажёров и связанные предпосылки. Следующее расширение модели должно собирать эти виды результатов раздельно и не объединять их в процент знаний без обоснованного критерия.
+
+**EN:** This is evidence from one multiple-choice question, not a topic mastery level. It does not yet cover subject-introduction quizzes, explanations in the learner’s own words, open-ended application, knowledge transfer, hints from other practice modules, or linked prerequisites. The next mastery-model increment should collect these outcomes separately and avoid collapsing them into a knowledge percentage without a validated criterion.
+
 ## Уточнения после проверки прототипа — 2026-10-08
 
 - **EN:** Biology is already an existing subject. Keep it; do not create a duplicate. Add a clear “+” flow so learners can create their own subjects, topics, and subtopics, with stable saved IDs and a visible path into the course map. **RU:** Биология уже есть как отдельный предмет. Сохранить её и не создавать дубликат. Добавить понятное действие «+», чтобы ученик мог создавать собственные предметы, темы и подтемы; сохранять стабильные ID и показывать путь к ним в карте курса.

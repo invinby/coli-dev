@@ -114,6 +114,7 @@ struct StudyCourseProgress: Equatable {
 
 enum StudyRecommendationReason: Equatable {
     case resume
+    case practiceReview
     case recallReview
     case nextLesson
 }
@@ -123,9 +124,22 @@ struct StudyRecommendation: Equatable {
     let reason: StudyRecommendationReason
 }
 
+enum StudyReviewActionPolicy {
+    static func canRecord(isComplete: Bool, isReviewDue: Bool, hasAssessment: Bool) -> Bool {
+        !isComplete || isReviewDue || hasAssessment
+    }
+}
+
 struct StudyRecallEvidence: Equatable {
     let quality: Int
     let reviewedAt: String?
+    let assessment: StudyAssessmentEvidence?
+
+    init(quality: Int, reviewedAt: String?, assessment: StudyAssessmentEvidence? = nil) {
+        self.quality = quality
+        self.reviewedAt = reviewedAt
+        self.assessment = assessment
+    }
 }
 
 enum StudyRecommendationSelector {
@@ -140,6 +154,27 @@ enum StudyRecommendationSelector {
            roadmap.lessonResources.contains(resume.resource),
            !completedLessonIDs.contains(resume.lessonID) {
             return StudyRecommendation(route: resume, reason: .resume)
+        }
+
+        let practiceCandidates = roadmaps.flatMap { roadmap in
+            roadmap.lessonResources.compactMap { resource -> PracticeCandidate? in
+                let route = StudyLessonRoute(subjectID: roadmap.subjectID, resource: resource)
+                guard completedLessonIDs.contains(route.lessonID),
+                      let assessment = recallEvidence[route.lessonID]?.assessment,
+                      assessment.attempts > 1 || !assessment.firstTryCorrect else { return nil }
+                return PracticeCandidate(
+                    route: route,
+                    attempts: assessment.attempts,
+                    reviewedAt: recallEvidence[route.lessonID]?.reviewedAt ?? ""
+                )
+            }
+        }
+        if let needsPractice = practiceCandidates.min(by: { lhs, rhs in
+            if lhs.attempts != rhs.attempts { return lhs.attempts > rhs.attempts }
+            if lhs.reviewedAt != rhs.reviewedAt { return lhs.reviewedAt < rhs.reviewedAt }
+            return lhs.route.lessonID < rhs.route.lessonID
+        }) {
+            return StudyRecommendation(route: needsPractice.route, reason: .practiceReview)
         }
 
         let weakRecallCandidates = roadmaps.flatMap { roadmap in
@@ -213,6 +248,12 @@ enum StudyRecommendationSelector {
     private struct RecallCandidate {
         let route: StudyLessonRoute
         let quality: Int
+        let reviewedAt: String
+    }
+
+    private struct PracticeCandidate {
+        let route: StudyLessonRoute
+        let attempts: Int
         let reviewedAt: String
     }
 }

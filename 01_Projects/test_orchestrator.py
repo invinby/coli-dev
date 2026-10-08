@@ -288,11 +288,40 @@ class TestAPIEndpoints:
                 "lesson_id": module_lesson_id,
                 "quality": 5,
                 "reflection": "I can convert a part between fraction and percent.",
+                "assessment": {
+                    "task_type": "knowledge_check",
+                    "attempts": 2,
+                    "first_try_correct": False,
+                    "hints_used": 0,
+                },
             },
         )
         assert module_review.status_code == 200
         assert module_review.json()["lesson_id"] == module_lesson_id
         assert module_review.json()["completed"] is True
+        assert module_review.json()["assessment"] == {
+            "task_type": "knowledge_check",
+            "attempts": 2,
+            "first_try_correct": False,
+            "hints_used": 0,
+        }
+        assert module_review.json()["assessment_count"] == 1
+
+        invalid_assessment = client.post(
+            "/learning/reviews",
+            json={
+                "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d488",
+                "lesson_id": "mathematics.quadratics",
+                "quality": 4,
+                "assessment": {
+                    "task_type": "knowledge_check",
+                    "attempts": 1_001,
+                    "first_try_correct": False,
+                    "hints_used": 0,
+                },
+            },
+        )
+        assert invalid_assessment.status_code == 422
 
     def test_learning_review_accepts_explicit_completion_separate_from_quality(self, client):
         completed = client.post(

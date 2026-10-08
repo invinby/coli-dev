@@ -530,6 +530,13 @@ class AutoCostPolicyRequest(BaseModel):
     allow_paid_routes: bool = False
 
 
+class StudyAssessmentEvidenceRequest(BaseModel):
+    task_type: Literal["knowledge_check"]
+    attempts: int = Field(strict=True, ge=1, le=1_000)
+    first_try_correct: bool = Field(strict=True)
+    hints_used: int = Field(strict=True, ge=0, le=1_000)
+
+
 class StudyReviewRequest(BaseModel):
     event_id: uuid.UUID
     lesson_id: str = Field(
@@ -540,6 +547,7 @@ class StudyReviewRequest(BaseModel):
     quality: int = Field(strict=True, ge=0, le=5)
     reflection: str = Field(default="", max_length=500)
     complete_lesson: bool | None = Field(default=None, strict=True)
+    assessment: StudyAssessmentEvidenceRequest | None = None
 
 
 class StudyProgressBackupRequest(BaseModel):
@@ -4602,6 +4610,7 @@ async def record_learning_review(payload: StudyReviewRequest, request: Request):
             payload.quality,
             payload.reflection,
             payload.complete_lesson,
+            payload.assessment.model_dump() if payload.assessment is not None else None,
         )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from None
