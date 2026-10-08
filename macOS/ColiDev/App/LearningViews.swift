@@ -1094,10 +1094,25 @@ struct LessonSessionView: View {
                 .buttonStyle(.plain)
             }
             if selectedAnswer != nil {
-                Label { Text(answerIsCorrect ? content.feedback : L10n.text("session.wrong", store.language)) } icon: { Image(systemName: answerIsCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle") }
+                let feedback = LessonAnswerFeedback.presentation(
+                    isCorrect: answerIsCorrect,
+                    correctFeedback: content.feedback,
+                    retryPrompt: L10n.text("session.wrong", store.language)
+                )
+                Label {
+                    Text(feedback.statusMessage)
+                } icon: {
+                    Image(systemName: answerIsCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle")
+                }
                 .font(.callout)
                 .foregroundStyle(answerIsCorrect ? Color.green : Color.orange)
                 .padding(.top, 4)
+                if let explanation = feedback.explanation {
+                    Text((try? AttributedString(markdown: explanation)) ?? AttributedString(explanation))
+                        .font(.callout)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 if !answerIsCorrect {
                     Button {
                         self.selectedAnswer = nil

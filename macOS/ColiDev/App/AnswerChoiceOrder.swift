@@ -137,3 +137,23 @@ struct StudyAssessmentEvidence: Codable, Equatable {
         case hintsUsed = "hints_used"
     }
 }
+
+struct LessonAnswerFeedback: Equatable {
+    let statusMessage: String
+    let explanation: String?
+
+    static func presentation(
+        isCorrect: Bool,
+        correctFeedback: String,
+        retryPrompt: String
+    ) -> LessonAnswerFeedback {
+        guard !isCorrect else {
+            return LessonAnswerFeedback(statusMessage: correctFeedback, explanation: nil)
+        }
+
+        let explanation = correctFeedback.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? nil
+            : correctFeedback
+        return LessonAnswerFeedback(statusMessage: retryPrompt, explanation: explanation)
+    }
+}

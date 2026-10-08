@@ -28,6 +28,17 @@ enum LessonAnswerFeedbackVerification {
             "A correct answer must keep its explanation without showing retry guidance. / После правильного ответа нужно показать объяснение без подсказки для повтора."
         )
 
+        let missingExplanation = LessonAnswerFeedback.presentation(
+            isCorrect: false,
+            correctFeedback: " \n ",
+            retryPrompt: retryPrompt
+        )
+        precondition(
+            missingExplanation.statusMessage == retryPrompt
+                && missingExplanation.explanation == nil,
+            "Whitespace-only content must not create an empty explanation card. / Одни пробелы не должны создавать пустой блок разбора."
+        )
+
         print("Learner-facing lesson feedback checks passed. / Проверки обратной связи для ученика прошли.")
     }
 }
