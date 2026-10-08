@@ -62,6 +62,8 @@ _TRUSTED_HOSTS = frozenset(
         "www.ncbi.nlm.nih.gov",
         "www.sqlite.org",
         "openstax.org",
+        "www.sciencedirect.com",
+        "pubmed.ncbi.nlm.nih.gov",
     }
 )
 _ALLOWED_PATHS = {
@@ -89,6 +91,8 @@ _ALLOWED_PATHS = {
     ),
     "www.sqlite.org": re.compile(r"^/lang_transaction\.html$"),
     "openstax.org": re.compile(r"^/books/[a-z0-9-]+/pages/[a-z0-9-]+/?$"),
+    "www.sciencedirect.com": re.compile(r"^/science/article/pii/S1095643325000789$"),
+    "pubmed.ncbi.nlm.nih.gov": re.compile(r"^/40393560/$"),
     "raw.githubusercontent.com": re.compile(
         r"^/elifesciences/elife-article-xml/master/articles/elife-81613-v1\.xml$"
     ),

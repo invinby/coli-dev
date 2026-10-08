@@ -1227,6 +1227,8 @@ private struct PracticeLab: View {
             NaturalSelectionLab()
         } else if subject == .zoology, moduleResource == "animal_function_and_environment" {
             AnimalFunctionLab()
+        } else if subject == .zoology, moduleResource == "comparative_thermoregulation_and_heat_stress" {
+            ThermoregulationLab()
         } else if subject == .biology, moduleResource == "cell_cycle_and_differentiation" {
             CellCycleLab()
         } else if subject == .biology, moduleResource == "ecosystem_energy_flow" {
@@ -4907,6 +4909,279 @@ private struct AnimalFunctionLab: View {
         case .movement: return "figure.walk"
         case .reproduction: return "leaf"
         }
+    }
+}
+
+private struct ThermoregulationLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var selectedRangeID = ThermoregulationPractice.operativeTemperatureRange.id
+    @State private var selectedAnswer = -1
+    @State private var didCheckAnswer = false
+    @State private var optionOrder = QuizAnswerOrder(
+        optionCount: 3,
+        answerOriginalIndex: ThermoregulationPractice.correctThresholdInterpretationAnswer
+    )
+
+    private let answerOptionKeys = [
+        "lab.zoology.thermo.optionA",
+        "lab.zoology.thermo.optionB",
+        "lab.zoology.thermo.optionC",
+    ]
+
+    private var selectedRange: ThermalExposureRange {
+        selectedRangeID == ThermoregulationPractice.ambientAirRange.id
+            ? ThermoregulationPractice.ambientAirRange
+            : ThermoregulationPractice.operativeTemperatureRange
+    }
+
+    private var selectedRangeNameKey: String {
+        selectedRangeID == ThermoregulationPractice.ambientAirRange.id
+            ? "lab.zoology.thermo.air"
+            : "lab.zoology.thermo.operative"
+    }
+
+    private var selectedRangeValueKey: String {
+        selectedRangeID == ThermoregulationPractice.ambientAirRange.id
+            ? "lab.zoology.thermo.airRange"
+            : "lab.zoology.thermo.operativeRange"
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.zoology.thermo.intro", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(alignment: .top, spacing: 16) {
+                ThermalProxyBirdVisualization()
+                    .frame(width: 220, height: 190)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .accessibilityLabel(L10n.text("lab.zoology.thermo.modelAccessibility", store.language))
+                    .accessibilityHint(L10n.text("lab.zoology.thermo.rotate", store.language))
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Label(L10n.text("lab.zoology.thermo.rotate", store.language), systemImage: "rotate.right")
+                        .font(.callout.weight(.medium))
+                    Text(L10n.text("lab.zoology.thermo.modelLimits", store.language))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 4)
+            }
+
+            HStack(alignment: .top, spacing: 12) {
+                ForEach([ThermoregulationPractice.ambientAirRange, ThermoregulationPractice.operativeTemperatureRange]) { range in
+                    let isAir = range.id == ThermoregulationPractice.ambientAirRange.id
+                    let isSelected = range.id == selectedRangeID
+                    let nameKey = isAir ? "lab.zoology.thermo.air" : "lab.zoology.thermo.operative"
+                    let valueKey = isAir ? "lab.zoology.thermo.airRange" : "lab.zoology.thermo.operativeRange"
+                    Button {
+                        selectedRangeID = range.id
+                    } label: {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label(
+                                L10n.text(nameKey, store.language),
+                                systemImage: isSelected ? "checkmark.circle.fill" : "circle"
+                            )
+                            .font(.subheadline.weight(.semibold))
+                            Text(L10n.text(valueKey, store.language))
+                                .font(.title3.monospacedDigit().weight(.semibold))
+                            ThermalRangeBar(range: range, color: isAir ? .blue : .orange)
+                                .frame(height: 12)
+                            HStack {
+                                Text(L10n.text("lab.zoology.thermo.axisMinimum", store.language))
+                                Spacer()
+                                Text(L10n.text("lab.zoology.thermo.axisMaximum", store.language))
+                            }
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.tertiary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .background(
+                            isSelected ? Color.teal.opacity(0.12) : Color.secondary.opacity(0.07),
+                            in: RoundedRectangle(cornerRadius: 12)
+                        )
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 12)
+                                .strokeBorder(isSelected ? Color.teal.opacity(0.65) : Color.clear, lineWidth: 1)
+                        }
+                        .contentShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(L10n.text(isAir ? "lab.zoology.thermo.airAccessibility" : "lab.zoology.thermo.operativeAccessibility", store.language))
+                }
+            }
+
+            HStack(spacing: 10) {
+                Image(systemName: "thermometer.high")
+                    .foregroundStyle(selectedRangeID == ThermoregulationPractice.ambientAirRange.id ? Color.blue : Color.orange)
+                Text(L10n.text(selectedRangeNameKey, store.language))
+                    .font(.callout.weight(.medium))
+                Spacer(minLength: 8)
+                Text(L10n.text(selectedRangeValueKey, store.language))
+                    .font(.title3.monospacedDigit().weight(.semibold))
+            }
+            Text(L10n.text("lab.zoology.thermo.rangeMeaning", store.language))
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Label(L10n.text("lab.zoology.thermo.threshold", store.language), systemImage: "thermometer.sun.fill")
+                    .font(.callout.weight(.medium))
+                ProgressView(value: Double(ThermoregulationPractice.heatStressDayPercentage), total: 100)
+                    .tint(.orange)
+                Text(L10n.text("lab.zoology.thermo.stressDays", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(12)
+            .background(Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+
+            Divider()
+
+            Text(L10n.text("lab.zoology.thermo.question", store.language))
+                .font(.callout.weight(.medium))
+            Picker(L10n.text("lab.zoology.thermo.question", store.language), selection: $selectedAnswer) {
+                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Text(L10n.text(answerOptionKeys[originalIndex], store.language)).tag(displayIndex)
+                }
+            }
+            .pickerStyle(.radioGroup)
+            .onChange(of: selectedAnswer) { _ in didCheckAnswer = false }
+
+            Button(L10n.text("lab.zoology.thermo.check", store.language)) {
+                didCheckAnswer = true
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(selectedAnswer < 0)
+
+            if didCheckAnswer {
+                let correct = optionOrder.isCorrect(displayedIndex: selectedAnswer)
+                Label(
+                    L10n.text(correct ? "lab.zoology.thermo.correct" : "lab.zoology.thermo.review", store.language),
+                    systemImage: correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
+                )
+                .font(.callout.weight(.medium))
+                .foregroundStyle(correct ? .green : .orange)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+}
+
+private struct ThermalRangeBar: View {
+    let range: ThermalExposureRange
+    let color: Color
+
+    var body: some View {
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            let minimum = width * CGFloat(range.minimumCelsius / ThermoregulationPractice.chartMaximumCelsius)
+            let maximum = width * CGFloat(range.maximumCelsius / ThermoregulationPractice.chartMaximumCelsius)
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.secondary.opacity(0.14))
+                Capsule()
+                    .fill(color)
+                    .frame(width: max(4, maximum - minimum))
+                    .offset(x: minimum)
+            }
+            .clipShape(Capsule())
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+private struct ThermalProxyBirdVisualization: NSViewRepresentable {
+    func makeNSView(context: Context) -> SCNView {
+        let view = SCNView()
+        view.scene = Self.makeScene()
+        view.allowsCameraControl = true
+        view.autoenablesDefaultLighting = true
+        view.backgroundColor = .controlBackgroundColor
+        return view
+    }
+
+    func updateNSView(_ view: SCNView, context: Context) {}
+
+    private static func makeScene() -> SCNScene {
+        let scene = SCNScene()
+        scene.background.contents = NSColor.controlBackgroundColor
+        let bodyMaterial = material(color: .darkGray, roughness: 0.8)
+        let wingMaterial = material(color: .gray, roughness: 0.82)
+        let beakMaterial = material(color: .systemOrange, roughness: 0.62)
+        let footMaterial = material(color: .systemOrange, roughness: 0.75)
+        let eyeMaterial = material(color: .black, roughness: 0.35)
+        let bird = SCNNode()
+
+        let body = SCNNode(geometry: SCNSphere(radius: 1))
+        body.scale = SCNVector3(0.59, 0.62, 1.05)
+        body.position = SCNVector3(0, 0.02, -0.08)
+        body.geometry?.firstMaterial = bodyMaterial
+        bird.addChildNode(body)
+
+        let head = SCNNode(geometry: SCNSphere(radius: 0.39))
+        head.position = SCNVector3(0, 0.67, 0.54)
+        head.geometry?.firstMaterial = bodyMaterial
+        bird.addChildNode(head)
+
+        let beak = SCNNode(geometry: SCNCone(topRadius: 0.015, bottomRadius: 0.12, height: 0.34))
+        beak.position = SCNVector3(0, 0.57, 0.91)
+        beak.eulerAngles.x = .pi / 2
+        beak.geometry?.firstMaterial = beakMaterial
+        bird.addChildNode(beak)
+
+        for side in [Float(-1), Float(1)] {
+            let wing = SCNNode(geometry: SCNSphere(radius: 0.58))
+            wing.scale = SCNVector3(0.77, 0.14, 0.75)
+            wing.position = SCNVector3(side * 0.46, 0.02, -0.06)
+            wing.geometry?.firstMaterial = wingMaterial
+            bird.addChildNode(wing)
+
+            let eye = SCNNode(geometry: SCNSphere(radius: 0.038))
+            eye.position = SCNVector3(side * 0.25, 0.73, 0.87)
+            eye.geometry?.firstMaterial = eyeMaterial
+            bird.addChildNode(eye)
+
+            let foot = SCNNode(geometry: SCNCylinder(radius: 0.035, height: 0.45))
+            foot.position = SCNVector3(side * 0.21, -0.66, 0.03)
+            foot.geometry?.firstMaterial = footMaterial
+            bird.addChildNode(foot)
+        }
+
+        let tail = SCNNode(geometry: SCNSphere(radius: 0.3))
+        tail.scale = SCNVector3(0.34, 0.24, 0.68)
+        tail.position = SCNVector3(0, -0.05, -0.94)
+        tail.geometry?.firstMaterial = wingMaterial
+        bird.addChildNode(tail)
+        scene.rootNode.addChildNode(bird)
+
+        let camera = SCNCamera()
+        camera.fieldOfView = 46
+        let cameraNode = SCNNode()
+        cameraNode.camera = camera
+        cameraNode.position = SCNVector3(0, 0.1, 4.5)
+        scene.rootNode.addChildNode(cameraNode)
+
+        let light = SCNLight()
+        light.type = .omni
+        light.intensity = 650
+        let lightNode = SCNNode()
+        lightNode.light = light
+        lightNode.position = SCNVector3(-2, 3, 4)
+        scene.rootNode.addChildNode(lightNode)
+        return scene
+    }
+
+    private static func material(color: NSColor, roughness: CGFloat) -> SCNMaterial {
+        let material = SCNMaterial()
+        material.diffuse.contents = color
+        material.roughness.contents = roughness
+        return material
     }
 }
 

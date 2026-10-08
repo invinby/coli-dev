@@ -170,6 +170,28 @@ def test_ncbi_sources_are_exact_path_monitored_metadata_only(tmp_path: Path) -> 
     assert all(not monitor._has_rag_snapshot(url) for url in urls)
 
 
+def test_current_murre_study_sources_are_exact_path_metadata_only(tmp_path: Path) -> None:
+    publisher_url = "https://www.sciencedirect.com/science/article/pii/S1095643325000789"
+    pubmed_url = "https://pubmed.ncbi.nlm.nih.gov/40393560/"
+    rejected = [
+        "https://www.sciencedirect.com/science/article/pii/S0000000000000000",
+        "https://pubmed.ncbi.nlm.nih.gov/40393561/",
+    ]
+    _write_lesson(
+        tmp_path,
+        "\n".join([f"[Publisher]({publisher_url})", f"[PubMed]({pubmed_url})"] + rejected),
+    )
+    monitor = _monitor(tmp_path, tmp_path)
+
+    references, unsupported_count, omitted_count = monitor._references()
+
+    assert {reference.url for reference in references} == {publisher_url, pubmed_url}
+    assert unsupported_count == 2
+    assert omitted_count == 0
+    assert all(monitor._rag_policy(url) is None for url in (publisher_url, pubmed_url))
+    assert all(not monitor._has_rag_snapshot(url) for url in (publisher_url, pubmed_url))
+
+
 def test_zoology_function_sources_are_monitored_metadata_only(tmp_path: Path) -> None:
     urls = {
         "https://openstax.org/books/biology-2e/pages/33-1-animal-form-and-function",
