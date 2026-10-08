@@ -51,7 +51,7 @@ struct QuadraticFunctionLab: View {
     }
 
     var body: some View {
-        LabCard {
+        QuadraticLabCard {
             Text(L10n.text("lab.quadratic.prompt", store.language))
                 .font(.headline)
                 .fixedSize(horizontal: false, vertical: true)
@@ -78,8 +78,8 @@ struct QuadraticFunctionLab: View {
                 }
             }
 
-            if let selectedAnswer {
-                let isCorrect = answerOrder.isCorrect(displayedIndex: selectedAnswer)
+            if let selectedIndex = selectedAnswer {
+                let isCorrect = answerOrder.isCorrect(displayedIndex: selectedIndex)
                 Label(
                     L10n.text(isCorrect ? "lab.quadratic.correct" : "lab.quadratic.incorrect", store.language),
                     systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
@@ -179,6 +179,23 @@ struct QuadraticFunctionLab: View {
     }
 }
 
+private struct QuadraticLabCard<Content: View>: View {
+    let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            content
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+    }
+}
+
 private struct QuadraticFunctionPlot: View {
     let function: QuadraticFunctionPractice
     let language: AppLanguage
@@ -190,7 +207,9 @@ private struct QuadraticFunctionPlot: View {
         Canvas { context, size in
             let plot = CGRect(x: 30, y: 10, width: max(0, size.width - 42), height: max(0, size.height - 24))
             guard plot.width > 0, plot.height > 0 else { return }
-            context.clip(to: plot)
+            var clipPath = Path()
+            clipPath.addRect(plot)
+            context.clip(to: clipPath)
 
             var grid = Path()
             for tick in -5...5 {
