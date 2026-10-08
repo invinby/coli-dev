@@ -7404,7 +7404,20 @@ struct TutorChatView: View {
             VStack(alignment: .leading, spacing: 5) {
                 Text(L10n.text(message.role == .learner ? "tutor.learner" : "tutor.assistant", language))
                     .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                if message.isGoogleGrounded {
+                if message.role == .tutor, message.id == outlineResponseMessageID {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label(L10n.text("custom.outlineDraftReady", language), systemImage: "list.bullet.rectangle")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                        DisclosureGroup(L10n.text("custom.outlineShowRaw", language)) {
+                            Text(message.text.isEmpty && chat.isSending ? "…" : message.text)
+                                .textSelection(.enabled)
+                                .font(.caption.monospaced())
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .font(.caption)
+                    }
+                } else if message.isGoogleGrounded {
                     Text((try? AttributedString(markdown: message.text)) ?? AttributedString(message.text))
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)

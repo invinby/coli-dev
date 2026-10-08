@@ -79,6 +79,8 @@ enum L10n {
         "custom.outlineDraftAction": ("Составить черновик учебного плана", "Draft a study plan"),
         "custom.outlineDraftHint": ("Запрос появится в поле ввода, но не отправится сам. Проверь его и выбранный маршрут; ответ тьютора будет черновиком для проверки.", "The request is placed in the composer but is not sent automatically. Review it and the selected route; the tutor's reply is a draft to check."),
         "custom.outlineReviewAction": ("Проверить и добавить подтемы", "Review and add subtopics"),
+        "custom.outlineDraftReady": ("ИИ подготовил черновик. Проверь структуру и источники перед добавлением.", "The AI prepared a draft. Review the structure and sources before adding it."),
+        "custom.outlineShowRaw": ("Показать исходный ответ ИИ", "Show the raw AI reply"),
         "custom.outlineReviewTitle": ("Черновик учебного плана", "Study plan draft"),
         "custom.outlineReviewWarning": ("Источники, цитаты и научные утверждения ИИ автоматически не проверяются. Открой и проверь каждую ссылку.", "AI sources, quotations, and scientific claims are not verified automatically. Open and check every link."),
         "custom.outlineReviewInstructions": ("Отредактируй названия и цели на обоих языках, убери лишние пункты и проверь практику, визуализацию и источники в заметках. Ничего не сохранится, пока ты не нажмёшь кнопку добавления.", "Edit names and outcomes in both languages, remove irrelevant items, and check the practice, visual format, and sources in the notes. Nothing is saved until you choose Add."),
