@@ -107,6 +107,16 @@ Biology Foundations также включает связанные RU/EN уро�
 
 **EN — Verification:** GitHub Actions [37792914666](https://github.com/invinby/coli-dev/actions/runs/37792914666) passed: backend tests, all Swift verifiers, Apple Silicon and Intel builds and packaging, smoke checks, and all 50 routes. The app still needs to be opened on a Mac to review navigation and the new lab's rendering.
 
+## Биология: прогноз для модели осмоса / Biology: prediction for the osmosis model — 2026-10-09
+
+**RU:** В `biology.passive_transport_osmosis` ученик регулирует концентрации по обе стороны мембраны и сначала выбирает направление чистого потока воды. До правильного ответа стрелка и объяснение скрыты. После ошибки показывается правило модели и доступна повторная попытка с перемешанными вариантами; изменение ползунка начинает новый прогноз. `OsmosisWaterFlow` различает вход воды в клетку, выход и динамическое равновесие, где чистый поток равен нулю. Модель явно предполагает, что вода проходит через мембрану, а выбранное растворённое вещество — нет. Каждая отправленная попытка сохраняется как `interactive_prediction` по правильному ID урока; событие не завершает урок и не меняет интервальное повторение.
+
+**EN:** In `biology.passive_transport_osmosis`, the learner adjusts concentrations on both sides of a membrane and first predicts the direction of net water flow. The arrow and explanation stay hidden until the learner answers correctly. An incorrect answer reveals the model's rule and allows a retry with reshuffled choices; moving either slider starts a new prediction. `OsmosisWaterFlow` distinguishes water entering the cell, water leaving, and dynamic equilibrium with zero net flow. The model explicitly assumes that water crosses the membrane while the selected solute does not. Each submitted attempt is saved as `interactive_prediction` against the correct lesson ID; it does not complete the lesson or change spaced review.
+
+**RU — Проверка:** GitHub Actions [37829756103](https://github.com/invinby/coli-dev/actions/runs/37829756103) прошёл: backend-проверки, все Swift-verifier, сборки и упаковка для Apple Silicon/Intel, smoke-проверка backend внутри `.app` и все 50 маршрутов. Ручная проверка отображения, управления ползунками и сохранённого результата на Mac всё ещё нужна.
+
+**EN — Verification:** GitHub Actions [37829756103](https://github.com/invinby/coli-dev/actions/runs/37829756103) passed: backend checks, all Swift verifiers, Apple Silicon and Intel builds and packaging, the bundled-backend smoke check, and all 50 routes. Hands-on review of rendering, slider interaction, and saved evidence on a Mac is still required.
+
 ## Уточнения после проверки прототипа — 2026-10-08
 
 - **EN:** Biology is already an existing subject. Keep it; do not create a duplicate. Add a clear “+” flow so learners can create their own subjects, topics, and subtopics, with stable saved IDs and a visible path into the course map. **RU:** Биология уже есть как отдельный предмет. Сохранить её и не создавать дубликат. Добавить понятное действие «+», чтобы ученик мог создавать собственные предметы, темы и подтемы; сохранять стабильные ID и показывать путь к ним в карте курса.
