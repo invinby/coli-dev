@@ -79,6 +79,35 @@ enum AnswerChoiceOrderVerification {
             )
         }
 
+        for answerIndex in 0..<3 {
+            var retryPositionCounts = Array(repeating: 0, count: 3)
+            for seed in 0..<256 {
+                var initialGenerator = SeededGenerator(seed: UInt64(seed))
+                var order = AnswerChoiceOrder(optionCount: 3, using: &initialGenerator)
+                var retryGenerator = SeededGenerator(seed: UInt64(seed + 10_000))
+                order.reshuffle(using: &retryGenerator)
+                precondition(
+                    Set(order.displayedOriginalIndices) == Set(0..<3),
+                    "Retry must keep every answer exactly once. / При повторе каждый ответ должен встречаться ровно один раз."
+                )
+
+                let correctDisplayedIndex = order.displayedOriginalIndices.firstIndex(of: answerIndex)!
+                retryPositionCounts[correctDisplayedIndex] += 1
+                for displayIndex in 0..<3 {
+                    precondition(
+                        order.isCorrect(displayedIndex: displayIndex, answerOriginalIndex: answerIndex)
+                            == (order.originalIndex(forDisplayedIndex: displayIndex) == answerIndex),
+                        "Retry must preserve the original answer mapping. / При повторе должно сохраняться соответствие исходному ответу."
+                    )
+                }
+            }
+
+            precondition(
+                retryPositionCounts.allSatisfy { $0 > 0 },
+                "A fresh attempt must be able to place the correct answer in every position. / В новой попытке правильный ответ должен попадать в каждую позицию."
+            )
+        }
+
         var attemptGenerator = SeededGenerator(seed: 19)
         guard var attempt = CurriculumCheckAttempt(
             optionCount: 3,
