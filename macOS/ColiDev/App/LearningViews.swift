@@ -2578,7 +2578,8 @@ private struct ConstrainedOptimizationLab: View {
                     }
                     context.stroke(circle, with: .color(.indigo), lineWidth: 3)
 
-                    for degrees in [45.0, 135, 225, 315] {
+                    let stationaryAngles: [Double] = [45, 135, 225, 315]
+                    for degrees in stationaryAngles {
                         let theta = degrees * Double.pi / 180
                         let p = location(cos(theta), sin(theta))
                         let marker = CGRect(x: p.x - 4, y: p.y - 4, width: 8, height: 8)
