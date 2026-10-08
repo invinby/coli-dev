@@ -2342,7 +2342,7 @@ def _parse_sse(text: str) -> list[dict]:
 class TestStreamingChat:
     """Проверка SSE-стриминга через /chat/stream."""
 
-    def test_chat_stream_enforces_its_rate_limit(self, client, monkeypatch):
+    def test_chat_stream_enforces_its_rate_limit(self, monkeypatch):
         monkeypatch.setattr(orchestrator.limiter, "enabled", True)
 
         async def capture_local_request(req, system_prompt, sources, learner_message=None):
@@ -2353,13 +2353,14 @@ class TestStreamingChat:
 
         monkeypatch.setattr(orchestrator, "_handle_local_or_error_stream", capture_local_request)
 
-        responses = [
-            client.post(
-                "/chat/stream",
-                json={"message": "Rate-limit check", "mode": "local", "skip_retrieval": True},
-            )
-            for _ in range(31)
-        ]
+        with TestClient(app, client=("127.0.0.42", 50001)) as rate_client:
+            responses = [
+                rate_client.post(
+                    "/chat/stream",
+                    json={"message": "Rate-limit check", "mode": "local", "skip_retrieval": True},
+                )
+                for _ in range(31)
+            ]
 
         assert [response.status_code for response in responses[:30]] == [200] * 30
         assert responses[30].status_code == 429
