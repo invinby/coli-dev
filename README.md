@@ -19,8 +19,8 @@ This is the last published release preview. New pull-request builds are separate
 
 ## Latest macOS test build / Последняя тестовая сборка macOS
 
-GitHub Actions run [37715007577](https://github.com/invinby/coli-dev/actions/runs/37715007577) passed for app commit `787e8f6`: backend checks, Swift verifiers including official citation links, Apple Silicon and Intel app builds, bundled-backend smoke checks, and course-roadmap checks all succeeded. It contains `ColiDev-macos-arm64` (22,041,130 bytes) and `ColiDev-macos-x86_64` (22,949,523 bytes) test artifacts, available until 22 October 2026. Open the run page and download the artifact matching your Mac.<br>
-Запуск GitHub Actions [37715007577](https://github.com/invinby/coli-dev/actions/runs/37715007577) успешно прошёл для коммита приложения `787e8f6`: backend-проверки, Swift-verifier, включая безопасные ссылки на официальные источники, сборки приложения для Apple Silicon и Intel, smoke-проверки встроенного backend и проверка учебных маршрутов прошли. В нём доступны тестовые архивы `ColiDev-macos-arm64` (22 041 130 байт) и `ColiDev-macos-x86_64` (22 949 523 байта) до 22 октября 2026 года. Откройте страницу запуска и скачайте архив для своего Mac.<br>
+GitHub Actions run [37721833606](https://github.com/invinby/coli-dev/actions/runs/37721833606) passed for app commit `66ed7ce`: backend tests, all Swift verifiers, Apple Silicon and Intel app builds, bundled-backend smoke checks, and bundled-curriculum checks succeeded. It produced `ColiDev-macos-arm64` (22,143,225 bytes) and `ColiDev-macos-x86_64` (23,049,233 bytes), available until 22 October 2026. Open the run page and download the artifact matching your Mac.<br>
+Запуск GitHub Actions [37721833606](https://github.com/invinby/coli-dev/actions/runs/37721833606) успешно прошёл для коммита приложения `66ed7ce`: backend-тесты, все Swift-verifier, сборки приложения для Apple Silicon и Intel, smoke-проверки встроенного backend и проверка ресурсов курсов прошли. Созданы `ColiDev-macos-arm64` (22 143 225 байт) и `ColiDev-macos-x86_64` (23 049 233 байта), доступные до 22 октября 2026 года. Откройте страницу запуска и скачайте архив для своего Mac.<br>
 
 These CI artifacts are unsigned test builds, not a published release. CI verifies compilation and bundled-backend smoke checks; running the app and checking its real UI and model routes on a Mac still requires hands-on acceptance.<br>
 Это неподписанные тестовые архивы CI, а не опубликованный релиз. CI проверяет сборку и smoke-проверку встроенного backend; запуск приложения и проверка реального интерфейса и маршрутов моделей на Mac всё ещё требуют ручной приёмки.
@@ -89,8 +89,11 @@ ColiDev — ранний командный прототип, а не готов
 - The macOS app contains six subject areas, lesson pages, interactive exercises, and locally saved study progress. The six directions are a starting catalog, not complete courses.<br>
   Приложение macOS содержит шесть направлений, страницы уроков, интерактивные упражнения и локальное сохранение прогресса. Это начальный каталог, а не шесть завершённых курсов.
 
-- The repository contains 47 bilingual lesson files. They are a starter collection; coverage and academic review vary by subject and level.<br>
-  В репозитории есть 47 двуязычных файлов уроков. Это начальная подборка; полнота и академическая проверка различаются по предметам и уровням.
+- The repository contains 48 bilingual lesson files. They are a starter collection; coverage and academic review vary by subject and level.<br>
+  В репозитории есть 48 двуязычных файлов уроков. Это начальная подборка; полнота и академическая проверка различаются по предметам и уровням.
+
+- The mathematics starter includes a sourced RU/EN lesson and an interactive graph lab for quadratic functions. Learners predict a transformation, adjust `a`, `h`, and `k`, and inspect the graph, vertex, axis of symmetry, and real roots. The CI build and bundled lesson route passed; hands-on visual review on a Mac remains to be done.<br>
+  В начальном курсе математики есть двуязычный урок с источником и интерактивная лаборатория графиков квадратичной функции. Ученик сначала предсказывает преобразование, затем меняет `a`, `h` и `k` и исследует график, вершину, ось симметрии и действительные корни. Сборка CI и проверка наличия урока в bundle прошли; вручную оценить отображение на Mac ещё предстоит.
 
 - The course maps are planned from foundational material toward advanced topics. A topic listed in a roadmap does not necessarily have a finished lesson yet.<br>
   Карты курсов ведут от основ к углублённым темам. Наличие темы в плане не означает, что готовый урок уже написан.
