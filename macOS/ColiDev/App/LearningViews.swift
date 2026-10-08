@@ -5111,7 +5111,7 @@ private struct CellCycleLab: View {
     @State private var selectedStage: CellCycleStage = .g1
     @State private var selectedAnswer = -1
     @State private var didCheckAnswer = false
-    @State private var optionOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: 0)
+    @State private var prediction = CellCyclePractice.makeKnowledgeCheckAttempt()
 
     private let answerOptionKeys = [
         "lab.cellCycle.optionS",
@@ -5132,11 +5132,6 @@ private struct CellCycleLab: View {
                 }
             }
             .pickerStyle(.menu)
-            .onChange(of: selectedStage) { _ in
-                selectedAnswer = -1
-                didCheckAnswer = false
-                optionOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: 0)
-            }
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(L10n.text(selectedStage.localizationKey, store.language))
@@ -5174,28 +5169,45 @@ private struct CellCycleLab: View {
             Text(L10n.text("lab.cellCycle.quiz", store.language))
                 .font(.callout.weight(.medium))
             Picker(L10n.text("lab.cellCycle.quiz", store.language), selection: $selectedAnswer) {
-                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                ForEach(Array(prediction.choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Text(L10n.text(answerOptionKeys[originalIndex], store.language)).tag(displayIndex)
                 }
             }
             .pickerStyle(.radioGroup)
+            .disabled(prediction.hasAnswered)
             .onChange(of: selectedAnswer) { _ in didCheckAnswer = false }
 
             Button(L10n.text("lab.cellCycle.check", store.language)) {
+                prediction.select(displayedIndex: selectedAnswer)
                 didCheckAnswer = true
+                if let evidence = prediction.currentAnswerEventEvidence() {
+                    store.recordStudyAssessment(
+                        lessonID: "biology.cell_cycle_and_differentiation",
+                        evidence: evidence
+                    )
+                }
             }
             .buttonStyle(.borderedProminent)
-            .disabled(selectedAnswer < 0)
+            .disabled(selectedAnswer < 0 || prediction.hasAnswered)
 
             if didCheckAnswer {
-                let correct = optionOrder.isCorrect(displayedIndex: selectedAnswer)
-                Label(
-                    L10n.text(correct ? "lab.cellCycle.correct" : "lab.cellCycle.review", store.language),
-                    systemImage: correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
-                )
-                .font(.callout.weight(.medium))
-                .foregroundStyle(correct ? .green : .orange)
-                .fixedSize(horizontal: false, vertical: true)
+                if prediction.isCorrect {
+                    Label(L10n.text("lab.cellCycle.correct", store.language), systemImage: "checkmark.circle.fill")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.green)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Label(L10n.text("lab.cellCycle.review", store.language), systemImage: "arrow.uturn.backward.circle")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(L10n.text("lab.cellCycle.retry", store.language)) {
+                        prediction.retry()
+                        selectedAnswer = -1
+                        didCheckAnswer = false
+                    }
+                    .buttonStyle(.link)
+                }
             }
 
             Text(L10n.text("lab.cellCycle.limit", store.language))

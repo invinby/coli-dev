@@ -563,6 +563,7 @@ enum L10n {
         "lab.cellCycle.check": ("Проверить ответ", "Check answer"),
         "lab.cellCycle.correct": ("Верно: в S-фазе копируется ДНК.", "Correct: DNA is copied during S phase."),
         "lab.cellCycle.review": ("Разделение хроматид и цитоплазмы происходит позже, на других этапах.", "Chromatid and cytoplasm division happen later, in different stages."),
+        "lab.cellCycle.retry": ("Перемешать варианты и попробовать ещё раз", "Shuffle the options and try again"),
         "lab.cellCycle.limit": ("Схема показывает стандартную последовательность, а не точное время или все варианты деления клеток.", "This is a standard sequence, not a timing model or a guide to every type of cell division."),
         "lab.zoology.hint": ("Выбери функцию и свяжи пример цепочкой: среда → задача → строение → ограничение.", "Choose a function and connect the example: environment → task → structure → constraint."),
         "lab.zoology.chooseFunction": ("Функция животного", "Animal function"),

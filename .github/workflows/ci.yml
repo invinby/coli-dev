@@ -162,9 +162,9 @@ jobs:
             -o "$RUNNER_TEMP/verify-gene-expression"
           "$RUNNER_TEMP/verify-gene-expression"
 
-      - name: Verify cell-cycle practice model
+      - name: Verify cell-cycle practice model / Проверка тренажёра клеточного цикла
         run: |
-          swiftc macOS/ColiDev/App/CellCyclePractice.swift macOS/ColiDev/scripts/verify_cell_cycle_practice.swift \
+          swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/CellCyclePractice.swift macOS/ColiDev/scripts/verify_cell_cycle_practice.swift \
             -o "$RUNNER_TEMP/verify-cell-cycle-practice"
           "$RUNNER_TEMP/verify-cell-cycle-practice"
 
