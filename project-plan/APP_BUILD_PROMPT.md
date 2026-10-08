@@ -1,8 +1,7 @@
 # Промпт разработки ColiDev / ColiDev application development prompt
 
-Скопируй промпт ниже в ИИ, который будет разбирать и развивать репозиторий. Это задание на разработку всего приложения и его архитектуры, а не системная инструкция для персонажа ИИ-тьютора.
-
 Copy the prompt below into an AI that will inspect and develop the repository. It specifies the architecture and development of the complete application; it is not a system prompt for the AI tutor's persona.
+Скопируй промпт ниже в ИИ, который будет разбирать и развивать репозиторий. Это задание на разработку всего приложения и его архитектуры, а не системная инструкция для персонажа ИИ-тьютора.
 
 ---
 
