@@ -20,6 +20,45 @@ struct SeededGenerator: RandomNumberGenerator {
 enum AnswerChoiceOrderVerification {
     static func main() {
         for optionCount in [2, 3] {
+            let correctOriginalIndices = [1, 1, 2, 2, 1, 0, 2, 1, 0, 0, 2, 1, 2, 0, 1, 1, 2]
+                .map { $0 % optionCount }
+
+            for seed in 0..<64 {
+                var generator = SeededGenerator(seed: UInt64(seed))
+                let sequence = QuizAnswerOrder.balancedSequence(
+                    optionCount: optionCount,
+                    answerOriginalIndices: correctOriginalIndices,
+                    using: &generator
+                )
+                let correctPositions = sequence.map(\.correctDisplayedIndex)
+                let positionCounts = (0..<optionCount).map { position in
+                    correctPositions.filter { $0 == position }.count
+                }
+
+                precondition(
+                    zip(correctPositions, correctPositions.dropFirst()).allSatisfy { $0.0 != $0.1 },
+                    "Correct answer positions must not repeat consecutively. / Позиция правильного ответа не должна повторяться подряд."
+                )
+                precondition(
+                    positionCounts.max()! - positionCounts.min()! <= 1,
+                    "Correct answer positions must stay balanced within a question sequence. / Позиции правильных ответов должны равномерно распределяться в серии вопросов."
+                )
+
+                for (order, answerIndex) in zip(sequence, correctOriginalIndices) {
+                    precondition(
+                        Set(order.displayedOriginalIndices) == Set(0..<optionCount),
+                        "Every balanced quiz must keep all options exactly once. / В каждом тесте все варианты должны встретиться ровно один раз."
+                    )
+                    precondition(
+                        order.isCorrect(displayedIndex: order.correctDisplayedIndex)
+                            && order.displayedOriginalIndices[order.correctDisplayedIndex] == answerIndex,
+                        "Balancing must preserve the original correct answer. / Балансировка должна сохранять исходный правильный ответ."
+                    )
+                }
+            }
+        }
+
+        for optionCount in [2, 3] {
             for answerIndex in 0..<optionCount {
                 var correctPositionCounts = Array(repeating: 0, count: optionCount)
                 for seed in 0..<256 {
