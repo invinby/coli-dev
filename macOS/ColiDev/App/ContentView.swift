@@ -154,6 +154,12 @@ struct ContentView: View {
     }
 
     private func openCourseLesson(subject: Subject, resource: String) {
+        let route = StudyLessonRoute(subjectID: subject.rawValue, resource: resource)
+        if let roadmap = CurriculumCatalog.studyRoadmaps().first(where: { $0.subjectID == subject.rawValue }),
+           !StudyProgressionPolicy.isAvailable(route, in: roadmap, evidence: store.studyProgressionEvidence) {
+            selection = .subject(subject)
+            return
+        }
         store.rememberCourseLesson(subject: subject, resource: resource)
         selection = .courseLesson(subject, resource)
     }
@@ -223,6 +229,16 @@ private struct TodayView: View {
                 return leftDate == rightDate ? $0.lessonID < $1.lessonID : leftDate < rightDate
             }
             .compactMap { addressableRoutesByLessonID[$0.lessonID] }
+            .filter { route in
+                guard let roadmap = recommendationRoadmaps.first(where: { $0.subjectID == route.subjectID }) else {
+                    return true
+                }
+                return StudyProgressionPolicy.isAvailable(
+                    route,
+                    in: roadmap,
+                    evidence: store.studyProgressionEvidence
+                )
+            }
     }
 
     private var courseProgress: StudyCourseProgress {
@@ -233,16 +249,7 @@ private struct TodayView: View {
     }
 
     private var recallEvidence: [String: StudyRecallEvidence] {
-        var evidence: [String: StudyRecallEvidence] = [:]
-        for record in store.studyProgress.values {
-            guard let quality = record.lastQuality else { continue }
-            evidence[record.lessonID] = StudyRecallEvidence(
-                quality: quality,
-                reviewedAt: record.lastReviewedAt,
-                assessment: record.assessment
-            )
-        }
-        return evidence
+        store.studyRecallEvidence
     }
 
     private var knowledgeEvidenceCoverage: StudyKnowledgeEvidenceCoverage {
@@ -383,6 +390,12 @@ private struct TodayView: View {
                 Text(L10n.text("home.knowledgeEvidenceLimit", store.language))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if !hasAddressableDueReview, studyRecommendation?.reason == .prerequisiteCheck {
+                    Text(L10n.text("home.prerequisiteCheck", store.language))
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Color.accentColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 if !hasAddressableDueReview, studyRecommendation?.reason == .practiceReview {
                     Text(L10n.text("home.quizNeedsPractice", store.language))
                         .font(.caption)

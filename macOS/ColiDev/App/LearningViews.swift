@@ -19,6 +19,23 @@ struct SubjectOverviewView: View {
     let openCustomTopic: (UUID) -> Void
     let startLesson: () -> Void
 
+    private var studyRoadmap: StudyRoadmap {
+        let progressionLevels = levels.map { $0.topics.compactMap(\.lessonResource) }
+        return StudyRoadmap(
+            subjectID: subject.rawValue,
+            lessonResources: progressionLevels.flatMap { $0 },
+            progressionLevels: progressionLevels
+        )
+    }
+
+    private func isCourseLessonAvailable(_ resource: String) -> Bool {
+        StudyProgressionPolicy.isAvailable(
+            StudyLessonRoute(subjectID: subject.rawValue, resource: resource),
+            in: studyRoadmap,
+            evidence: store.studyProgressionEvidence
+        )
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
@@ -72,6 +89,17 @@ struct SubjectOverviewView: View {
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
+                            if level.topics.contains(where: { topic in
+                                guard let resource = topic.lessonResource else { return false }
+                                return !isCourseLessonAvailable(resource)
+                            }) {
+                                Label(
+                                    L10n.text("roadmap.prerequisiteCheck", store.language),
+                                    systemImage: "lock.fill"
+                                )
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            }
                             ForEach(level.topics) { topic in
                                 VStack(alignment: .leading, spacing: 5) {
                                     Text(topic.name.value(in: store.language))
@@ -81,15 +109,19 @@ struct SubjectOverviewView: View {
                                         .foregroundStyle(.secondary)
                                         .fixedSize(horizontal: false, vertical: true)
                                     if let lessonResource = topic.lessonResource {
+                                        let isAvailable = isCourseLessonAvailable(lessonResource)
                                         Button { openCourseLesson(lessonResource) } label: {
                                             Label(
                                                 L10n.text("roadmap.openFullLesson", store.language),
-                                                systemImage: store.isComplete(lessonID: "\(subject.rawValue).\(lessonResource)")
-                                                    ? "checkmark.circle.fill"
-                                                    : "book.closed"
+                                                systemImage: isAvailable
+                                                    ? (store.isComplete(lessonID: "\(subject.rawValue).\(lessonResource)")
+                                                        ? "checkmark.circle.fill"
+                                                        : "book.closed")
+                                                    : "lock.fill"
                                             )
                                         }
                                         .buttonStyle(.borderless)
+                                        .disabled(!isAvailable)
                                         .padding(.top, 3)
                                     }
                                 }

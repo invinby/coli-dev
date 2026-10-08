@@ -196,6 +196,26 @@ final class LearningStore: ObservableObject {
     @Published private(set) var studyProgress: [String: StudyProgressRecord] = [:]
     @Published private(set) var studyAssessmentEvidence: [String: StudyAssessmentEvidenceSummary] = [:]
     @Published private(set) var dueReviewCount = 0
+
+    var studyRecallEvidence: [String: StudyRecallEvidence] {
+        studyProgress.values.reduce(into: [:]) { evidence, record in
+            guard let quality = record.lastQuality else { return }
+            evidence[record.lessonID] = StudyRecallEvidence(
+                quality: quality,
+                reviewedAt: record.lastReviewedAt,
+                assessment: record.assessment
+            )
+        }
+    }
+
+    var studyProgressionEvidence: StudyProgressionEvidence {
+        StudyProgressionEvidence(
+            completedLessonIDs: completedLessonIDs,
+            recallEvidence: studyRecallEvidence,
+            assessmentEvidence: studyAssessmentEvidence
+        )
+    }
+
     @Published private(set) var customCurriculum: CustomCurriculum {
         didSet {
             guard let data = try? JSONEncoder().encode(customCurriculum) else { return }

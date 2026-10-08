@@ -106,10 +106,14 @@ enum CurriculumCatalog {
 
     static func studyRoadmaps() -> [StudyRoadmap] {
         Subject.allCases.map { subject in
-            let resources = roadmap(for: subject)
-                .flatMap(\.topics)
-                .compactMap(\.lessonResource)
-            return StudyRoadmap(subjectID: subject.rawValue, lessonResources: resources)
+            let progressionLevels = roadmap(for: subject).map { level in
+                level.topics.compactMap(\.lessonResource)
+            }
+            return StudyRoadmap(
+                subjectID: subject.rawValue,
+                lessonResources: progressionLevels.flatMap { $0 },
+                progressionLevels: progressionLevels
+            )
         }
     }
 

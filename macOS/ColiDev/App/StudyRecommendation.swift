@@ -10,13 +10,25 @@ struct StudyLessonRoute: Codable, Equatable {
 struct StudyRoadmap: Equatable {
     let subjectID: String
     let lessonResources: [String]
+    let progressionLevels: [[String]]
 
-    init(subjectID: String, lessonResources: [String]) {
+    init(
+        subjectID: String,
+        lessonResources: [String],
+        progressionLevels: [[String]] = []
+    ) {
         self.subjectID = subjectID
         var seen = Set<String>()
         self.lessonResources = lessonResources.filter { resource in
             !resource.isEmpty && seen.insert(resource).inserted
         }
+        let availableResources = Set(self.lessonResources)
+        var assignedResources = Set<String>()
+        self.progressionLevels = progressionLevels.map { level in
+            level.filter { resource in
+                availableResources.contains(resource) && assignedResources.insert(resource).inserted
+            }
+        }.filter { !$0.isEmpty }
     }
 }
 
@@ -198,6 +210,7 @@ enum StudyRecommendationReason: Equatable {
     case resume
     case practiceReview
     case recallReview
+    case prerequisiteCheck
     case nextLesson
 }
 
@@ -224,6 +237,71 @@ struct StudyRecallEvidence: Equatable {
     }
 }
 
+struct StudyProgressionEvidence: Equatable {
+    let completedLessonIDs: Set<String>
+    let successfulKnowledgeCheckLessonIDs: Set<String>
+
+    init(
+        completedLessonIDs: Set<String>,
+        recallEvidence: [String: StudyRecallEvidence],
+        assessmentEvidence: [String: StudyAssessmentEvidenceSummary]
+    ) {
+        self.completedLessonIDs = completedLessonIDs
+
+        var checkedLessonIDs = Set(recallEvidence.compactMap { lessonID, evidence in
+            evidence.assessment?.taskType == "knowledge_check" ? lessonID : nil
+        })
+        checkedLessonIDs.formUnion(assessmentEvidence.values.compactMap { summary in
+            (summary.taskTypeCounts["knowledge_check"] ?? 0) > 0 ? summary.lessonID : nil
+        })
+        successfulKnowledgeCheckLessonIDs = checkedLessonIDs
+    }
+}
+
+enum StudyProgressionPolicy {
+    static func prerequisiteRecommendation(
+        for resource: String,
+        in roadmap: StudyRoadmap,
+        evidence: StudyProgressionEvidence
+    ) -> StudyRecommendation? {
+        guard let levelIndex = roadmap.progressionLevels.firstIndex(where: { $0.contains(resource) }) else {
+            return nil
+        }
+
+        let prerequisiteResources = roadmap.progressionLevels.prefix(levelIndex).flatMap { $0 }
+        guard !prerequisiteResources.isEmpty else { return nil }
+
+        if let unfinishedResource = prerequisiteResources.first(where: {
+            !evidence.completedLessonIDs.contains("\(roadmap.subjectID).\($0)")
+        }) {
+            return StudyRecommendation(
+                route: StudyLessonRoute(subjectID: roadmap.subjectID, resource: unfinishedResource),
+                reason: .nextLesson
+            )
+        }
+
+        if let uncheckedResource = prerequisiteResources.first(where: {
+            !evidence.successfulKnowledgeCheckLessonIDs.contains("\(roadmap.subjectID).\($0)")
+        }) {
+            return StudyRecommendation(
+                route: StudyLessonRoute(subjectID: roadmap.subjectID, resource: uncheckedResource),
+                reason: .prerequisiteCheck
+            )
+        }
+        return nil
+    }
+
+    static func isAvailable(
+        _ route: StudyLessonRoute,
+        in roadmap: StudyRoadmap,
+        evidence: StudyProgressionEvidence
+    ) -> Bool {
+        guard route.subjectID == roadmap.subjectID,
+              roadmap.lessonResources.contains(route.resource) else { return true }
+        return prerequisiteRecommendation(for: route.resource, in: roadmap, evidence: evidence) == nil
+    }
+}
+
 enum StudyRecommendationSelector {
     static func recommendation(
         roadmaps: [StudyRoadmap],
@@ -232,16 +310,30 @@ enum StudyRecommendationSelector {
         recallEvidence: [String: StudyRecallEvidence] = [:],
         assessmentEvidence: [String: StudyAssessmentEvidenceSummary] = [:]
     ) -> StudyRecommendation? {
+        let progressionEvidence = StudyProgressionEvidence(
+            completedLessonIDs: completedLessonIDs,
+            recallEvidence: recallEvidence,
+            assessmentEvidence: assessmentEvidence
+        )
+
         if let resume,
            let roadmap = roadmaps.first(where: { $0.subjectID == resume.subjectID }),
            roadmap.lessonResources.contains(resume.resource),
            !completedLessonIDs.contains(resume.lessonID) {
-            return StudyRecommendation(route: resume, reason: .resume)
+            let prerequisite = StudyProgressionPolicy.prerequisiteRecommendation(
+                for: resume.resource,
+                in: roadmap,
+                evidence: progressionEvidence
+            )
+            return prerequisite ?? StudyRecommendation(route: resume, reason: .resume)
         }
 
         let practiceCandidates = roadmaps.flatMap { roadmap in
             roadmap.lessonResources.compactMap { resource -> PracticeCandidate? in
                 let route = StudyLessonRoute(subjectID: roadmap.subjectID, resource: resource)
+                guard StudyProgressionPolicy.isAvailable(route, in: roadmap, evidence: progressionEvidence) else {
+                    return nil
+                }
                 let recall = recallEvidence[route.lessonID]
                 let interactive = assessmentEvidence[route.lessonID]
                 let useInteractive: Bool
@@ -276,7 +368,8 @@ enum StudyRecommendationSelector {
         let weakRecallCandidates = roadmaps.flatMap { roadmap in
             roadmap.lessonResources.enumerated().compactMap { _, resource -> RecallCandidate? in
                 let route = StudyLessonRoute(subjectID: roadmap.subjectID, resource: resource)
-                guard completedLessonIDs.contains(route.lessonID),
+                guard StudyProgressionPolicy.isAvailable(route, in: roadmap, evidence: progressionEvidence),
+                      completedLessonIDs.contains(route.lessonID),
                       let evidence = recallEvidence[route.lessonID],
                       evidence.quality < 3 else { return nil }
                 return RecallCandidate(
@@ -304,20 +397,55 @@ enum StudyRecommendationSelector {
                     count += 1
                 }
             }
+            let route = StudyLessonRoute(subjectID: roadmap.subjectID, resource: firstUnfinished)
+            let requirement = StudyProgressionPolicy.prerequisiteRecommendation(
+                for: firstUnfinished,
+                in: roadmap,
+                evidence: progressionEvidence
+            )
             return Candidate(
                 index: index,
-                route: StudyLessonRoute(subjectID: roadmap.subjectID, resource: firstUnfinished),
+                route: requirement?.route ?? route,
+                reason: requirement?.reason ?? .nextLesson,
                 completedCount: completedCount,
                 totalCount: roadmap.lessonResources.count
             )
         }
 
-        guard let next = candidates.min(by: { lhs, rhs in
+        let completedStageCheckCandidates = roadmaps.enumerated().compactMap { index, roadmap -> Candidate? in
+            guard !roadmap.lessonResources.isEmpty else { return nil }
+            let completedCount = roadmap.lessonResources.reduce(into: 0) { count, resource in
+                if completedLessonIDs.contains("\(roadmap.subjectID).\(resource)") {
+                    count += 1
+                }
+            }
+            guard completedCount == roadmap.lessonResources.count,
+                  let requirement = roadmap.progressionLevels.dropFirst()
+                    .flatMap({ $0 })
+                    .compactMap({ resource in
+                        StudyProgressionPolicy.prerequisiteRecommendation(
+                            for: resource,
+                            in: roadmap,
+                            evidence: progressionEvidence
+                        )
+                    })
+                    .first(where: { $0.reason == .prerequisiteCheck }) else { return nil }
+            return Candidate(
+                index: index,
+                route: requirement.route,
+                reason: requirement.reason,
+                completedCount: completedCount,
+                totalCount: roadmap.lessonResources.count
+            )
+        }
+
+        let nextCandidates = candidates.isEmpty ? completedStageCheckCandidates : candidates
+        guard let next = nextCandidates.min(by: { lhs, rhs in
             let leftCoverage = lhs.completedCount * rhs.totalCount
             let rightCoverage = rhs.completedCount * lhs.totalCount
             return leftCoverage == rightCoverage ? lhs.index < rhs.index : leftCoverage < rightCoverage
-        })?.route else { return nil }
-        return StudyRecommendation(route: next, reason: .nextLesson)
+        }) else { return nil }
+        return StudyRecommendation(route: next.route, reason: next.reason)
     }
 
     static func nextLesson(
@@ -337,6 +465,7 @@ enum StudyRecommendationSelector {
     private struct Candidate {
         let index: Int
         let route: StudyLessonRoute
+        let reason: StudyRecommendationReason
         let completedCount: Int
         let totalCount: Int
     }

@@ -365,6 +365,25 @@ enum StudyRecommendationVerification {
             ),
             "Completed legacy lessons without a saved knowledge check must offer a reachable check before the next level. / Для завершённого старого урока без сохранённой проверки нужно предложить доступное перепрохождение проверки перед следующим уровнем."
         )
+        let lockedResume = StudyRecommendationSelector.recommendation(
+            roadmaps: [stagedRoadmap],
+            completedLessonIDs: passedCells,
+            resume: StudyLessonRoute(subjectID: "biology", resource: "gene_expression"),
+            recallEvidence: [
+                "biology.cells": StudyRecallEvidence(
+                    quality: 5,
+                    reviewedAt: "2026-10-08T10:00:00Z",
+                    assessment: successfulCellCheck
+                ),
+            ]
+        )
+        precondition(
+            lockedResume == StudyRecommendation(
+                route: StudyLessonRoute(subjectID: "biology", resource: "cell_cycle"),
+                reason: .prerequisiteCheck
+            ),
+            "A remembered advanced route must not bypass an unverified foundation. / Сохранённый маршрут к углублённой теме не должен обходить непроверенную основу."
+        )
         precondition(
             !StudyProgressionPolicy.isAvailable(
                 StudyLessonRoute(subjectID: "biology", resource: "gene_expression"),
@@ -404,6 +423,32 @@ enum StudyRecommendationVerification {
                 evidence: predictionDoesNotUnlock
             ),
             "An interactive prediction must not substitute for a knowledge check when unlocking an advanced level. / Интерактивный прогноз не должен заменять проверку знаний при открытии углублённого уровня."
+        )
+        let successfulSyncedCheck = StudyAssessmentEvidenceSummary(
+            lessonID: "biology.cell_cycle",
+            assessmentCount: 1,
+            taskTypeCounts: ["knowledge_check": 1],
+            latestAssessment: successfulCellCheck,
+            latestAt: "2026-10-08T11:00:00Z"
+        )
+        let syncedFoundation = StudyProgressionEvidence(
+            completedLessonIDs: passedCells,
+            recallEvidence: [
+                "biology.cells": StudyRecallEvidence(
+                    quality: 5,
+                    reviewedAt: "2026-10-08T10:00:00Z",
+                    assessment: successfulCellCheck
+                ),
+            ],
+            assessmentEvidence: ["biology.cell_cycle": successfulSyncedCheck]
+        )
+        precondition(
+            StudyProgressionPolicy.isAvailable(
+                StudyLessonRoute(subjectID: "biology", resource: "gene_expression"),
+                in: stagedRoadmap,
+                evidence: syncedFoundation
+            ),
+            "A synchronized successful knowledge check must unlock the next level. / Синхронизированная успешная проверка знаний должна открывать следующий уровень."
         )
 
         let passedFoundation = StudyProgressionEvidence(
@@ -449,6 +494,28 @@ enum StudyRecommendationVerification {
                 reason: .nextLesson
             ),
             "Passing every foundation check must unlock and recommend the next level. / Успешные проверки всех уроков базы должны открыть и рекомендовать следующий уровень."
+        )
+        let fullyCompletedStages = Set([
+            "biology.cells", "biology.cell_cycle", "biology.gene_expression",
+        ])
+        let completedLegacyStage = StudyRecommendationSelector.recommendation(
+            roadmaps: [stagedRoadmap],
+            completedLessonIDs: fullyCompletedStages,
+            resume: nil,
+            recallEvidence: [
+                "biology.cells": StudyRecallEvidence(
+                    quality: 5,
+                    reviewedAt: "2026-10-08T10:00:00Z",
+                    assessment: successfulCellCheck
+                ),
+            ]
+        )
+        precondition(
+            completedLegacyStage == StudyRecommendation(
+                route: StudyLessonRoute(subjectID: "biology", resource: "cell_cycle"),
+                reason: .prerequisiteCheck
+            ),
+            "A fully completed legacy roadmap with locked levels must still recommend the missing prerequisite check. / Полностью пройденная старая карта с закрытым уровнем всё равно должна предлагать недостающую проверку предпосылки."
         )
 
         let allCompleted = Set([
