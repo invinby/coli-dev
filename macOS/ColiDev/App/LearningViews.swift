@@ -2626,7 +2626,7 @@ private struct ConstrainedOptimizationLab: View {
                 Label(L10n.text("lab.optimization.candidates", store.language), systemImage: "line.diagonal")
                     .foregroundStyle(.orange)
                 Label(L10n.text("lab.optimization.selected", store.language), systemImage: "smallcircle.filled.circle")
-                    .foregroundStyle(.accentColor)
+                    .foregroundStyle(Color.accentColor)
             }
             .font(.caption)
             .labelStyle(.titleAndIcon)
