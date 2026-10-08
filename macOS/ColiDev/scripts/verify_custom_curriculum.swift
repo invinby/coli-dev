@@ -81,14 +81,14 @@ enum CustomCurriculumVerification {
         precondition(restored.topic(builtInSubjectID: "biology", topicID: builtInBiologyTopic)?.name.english == "My biology topic")
 
         let russianOutlineRequest = CustomTopicStudyPrompt.outlineDraft(languageCode: "ru")
-        for requiredIdea in ["черновик", "предпосыл", "подтем", "практик", "визуал", "источник", "не сохраняй", "неподтверж"] {
+        for requiredIdea in ["черновик", "предпосыл", "подтем", "практик", "визуал", "источник", "не сохраняй", "неподтверж", "colidev.topic-outline.v1", "только json", "английское"] {
             precondition(
                 russianOutlineRequest.localizedCaseInsensitiveContains(requiredIdea),
                 "The Russian study-plan draft must request a sourced, structured outline without saving it automatically. Missing: \(requiredIdea)"
             )
         }
         let englishOutlineRequest = CustomTopicStudyPrompt.outlineDraft(languageCode: "en")
-        for requiredIdea in ["draft", "prerequisite", "subtopic", "practice", "visual", "source", "do not save", "unsupported"] {
+        for requiredIdea in ["draft", "prerequisite", "subtopic", "practice", "visual", "source", "do not save", "unsupported", "colidev.topic-outline.v1", "only json", "russian and english"] {
             precondition(
                 englishOutlineRequest.localizedCaseInsensitiveContains(requiredIdea),
                 "The English study-plan draft must request a sourced, structured outline without saving it automatically. Missing: \(requiredIdea)"
@@ -142,6 +142,42 @@ enum CustomCurriculumVerification {
             _ = try CustomTopicOutlineProposal.parse(outlineJSON.replacingOccurrences(of: "\"english\": \"Foundations\"", with: "\"english\": \"\""))
             preconditionFailure("A topic without a complete English title must not be importable. / Нельзя импортировать тему без английского названия.")
         } catch CustomTopicOutlineError.invalidBilingualContent {
+        }
+
+        do {
+            _ = try CustomTopicOutlineProposal.parse(outlineJSON.replacingOccurrences(
+                of: "\"english\": \"Practice: compare examples. Visual: a diagram.\"",
+                with: "\"english\": \"\""
+            ))
+            preconditionFailure("Notes must have a full Russian and English version. / Заметки должны содержать полный текст на русском и английском.")
+        } catch CustomTopicOutlineError.invalidBilingualContent {
+        }
+
+        do {
+            _ = try CustomTopicOutlineProposal.parse(outlineJSON.replacingOccurrences(of: "\"level\": 1", with: "\"level\": 8"))
+            preconditionFailure("An outline level outside the supported range must be rejected. / Уровень вне допустимого диапазона нужно отклонять.")
+        } catch CustomTopicOutlineError.invalidLevel {
+        }
+
+        do {
+            _ = try CustomTopicOutlineProposal.parse(outlineJSON.replacingOccurrences(
+                of: "\"name\": {\"russian\": \"Практика\", \"english\": \"Practice\"}",
+                with: "\"name\": {\"russian\": \"Практика\", \"english\": \"Foundations\"}"
+            ))
+            preconditionFailure("Sibling names must be unique across both languages. / Названия соседних тем не должны повторяться ни на одном языке.")
+        } catch CustomTopicOutlineError.duplicateSiblingName {
+        }
+
+        do {
+            _ = try CustomTopicOutlineProposal.parse("Plan draft:\n\(outlineJSON)")
+            preconditionFailure("Prose around an outline must not be parsed as structured curriculum data. / Пояснительный текст вокруг плана нельзя импортировать как структуру курса.")
+        } catch CustomTopicOutlineError.malformedJSON {
+        }
+
+        do {
+            _ = try CustomTopicOutlineProposal.parse(String(repeating: "x", count: 65 * 1024))
+            preconditionFailure("Oversized model output must be rejected before decoding. / Слишком большой ответ модели нужно отклонять до разбора.")
+        } catch CustomTopicOutlineError.oversizedResponse {
         }
 
         var targetCurriculum = CustomCurriculum()

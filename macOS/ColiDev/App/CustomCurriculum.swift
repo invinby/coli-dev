@@ -122,7 +122,162 @@ enum CustomCurriculumError: Error, Equatable {
     case parentTopicNotFound
 }
 
+enum CustomTopicOutlineError: Error, Equatable {
+    case malformedJSON
+    case unsupportedSchema
+    case unsupportedVersion
+    case invalidBilingualContent
+    case invalidLevel
+    case duplicateSiblingName
+    case emptyTopics
+    case tooManyTopics
+    case tooDeep
+    case oversizedResponse
+}
+
+enum CustomTopicOutlineDestination: Equatable {
+    case learnerSubject(subjectID: UUID)
+    case builtInSubject(subjectID: String)
+}
+
+struct CustomTopicOutlineProposal: Equatable {
+    let topics: [CustomTopicOutlineItem]
+
+    static func parse(_ response: String) throws -> CustomTopicOutlineProposal {
+        guard response.utf8.count <= 64 * 1024 else {
+            throw CustomTopicOutlineError.oversizedResponse
+        }
+
+        let json = try extractJSON(from: response)
+        guard let data = json.data(using: .utf8) else {
+            throw CustomTopicOutlineError.malformedJSON
+        }
+        let envelope: Envelope
+        do {
+            envelope = try JSONDecoder().decode(Envelope.self, from: data)
+        } catch {
+            throw CustomTopicOutlineError.malformedJSON
+        }
+        guard envelope.type == "colidev.topic-outline.v1" else {
+            throw CustomTopicOutlineError.unsupportedSchema
+        }
+        guard envelope.version == 1 else {
+            throw CustomTopicOutlineError.unsupportedVersion
+        }
+        let proposal = CustomTopicOutlineProposal(topics: envelope.topics)
+        try proposal.validate()
+        return proposal
+    }
+
+    func validate() throws {
+        guard !topics.isEmpty else {
+            throw CustomTopicOutlineError.emptyTopics
+        }
+        guard topics.count <= 8 else {
+            throw CustomTopicOutlineError.tooManyTopics
+        }
+
+        var itemCount = 0
+        try Self.validate(topics, depth: 1, parentLevel: nil, itemCount: &itemCount)
+    }
+
+    private struct Envelope: Decodable {
+        let type: String
+        let version: Int
+        let topics: [CustomTopicOutlineItem]
+    }
+
+    private static func extractJSON(from response: String) throws -> String {
+        let trimmed = response.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("{") && trimmed.hasSuffix("}") {
+            return trimmed
+        }
+
+        let lowercased = trimmed.lowercased()
+        guard lowercased.hasPrefix("```json"), trimmed.hasSuffix("```") else {
+            throw CustomTopicOutlineError.malformedJSON
+        }
+        let openingLength = "```json".count
+        let body = String(trimmed.dropFirst(openingLength).dropLast(3))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard body.hasPrefix("{") && body.hasSuffix("}") else {
+            throw CustomTopicOutlineError.malformedJSON
+        }
+        return body
+    }
+
+    private static func validate(
+        _ topics: [CustomTopicOutlineItem],
+        depth: Int,
+        parentLevel: Int?,
+        itemCount: inout Int
+    ) throws {
+        guard !topics.isEmpty else { return }
+        guard depth <= 4 else { throw CustomTopicOutlineError.tooDeep }
+
+        var siblingNames = Set<String>()
+        for topic in topics {
+            itemCount += 1
+            guard itemCount <= 32 else { throw CustomTopicOutlineError.tooManyTopics }
+            guard topic.name.hasBothLanguages,
+                  topic.learningOutcome.hasBothLanguages,
+                  topic.notes.hasBothLanguages,
+                  topic.name.russian.count <= 120,
+                  topic.name.english.count <= 120,
+                  topic.learningOutcome.russian.count <= 500,
+                  topic.learningOutcome.english.count <= 500,
+                  topic.notes.russian.count <= 2_500,
+                  topic.notes.english.count <= 2_500 else {
+                throw CustomTopicOutlineError.invalidBilingualContent
+            }
+            guard (1...7).contains(topic.level) else {
+                throw CustomTopicOutlineError.invalidLevel
+            }
+            if let parentLevel, topic.level < parentLevel {
+                throw CustomTopicOutlineError.invalidLevel
+            }
+            for normalizedName in topic.name.normalizedValues {
+                guard siblingNames.insert(normalizedName).inserted else {
+                    throw CustomTopicOutlineError.duplicateSiblingName
+                }
+            }
+            try validate(topic.subtopics, depth: depth + 1, parentLevel: topic.level, itemCount: &itemCount)
+        }
+    }
+}
+
+struct CustomTopicOutlineItem: Decodable, Identifiable, Equatable {
+    let id: UUID
+    var name: CustomCurriculumText
+    var learningOutcome: CustomCurriculumText
+    var notes: CustomCurriculumText
+    var level: Int
+    var subtopics: [CustomTopicOutlineItem]
+
+    var totalTopicCount: Int {
+        1 + subtopics.reduce(0) { $0 + $1.totalTopicCount }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case name, learningOutcome, notes, level, subtopics
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = UUID()
+        name = try container.decode(CustomCurriculumText.self, forKey: .name)
+        learningOutcome = try container.decode(CustomCurriculumText.self, forKey: .learningOutcome)
+        notes = try container.decode(CustomCurriculumText.self, forKey: .notes)
+        level = try container.decode(Int.self, forKey: .level)
+        subtopics = try container.decode([CustomTopicOutlineItem].self, forKey: .subtopics)
+    }
+}
+
 struct CustomCurriculum: Codable, Equatable {
+    private static let builtInSubjectIDs: Set<String> = [
+        "mathematics", "english", "physics", "biology", "zoology", "programming"
+    ]
+
     var subjects: [CustomLearningSubject] = []
     var builtInTopics: [String: [CustomLearningTopic]] = [:]
 
@@ -195,8 +350,7 @@ struct CustomCurriculum: Codable, Equatable {
         notes: CustomCurriculumText,
         level: Int = 1
     ) throws -> UUID {
-        let availableSubjects: Set<String> = ["mathematics", "english", "physics", "biology", "zoology", "programming"]
-        guard availableSubjects.contains(builtInSubjectID) else { throw CustomCurriculumError.subjectNotFound }
+        guard Self.builtInSubjectIDs.contains(builtInSubjectID) else { throw CustomCurriculumError.subjectNotFound }
         var topics = builtInTopics[builtInSubjectID] ?? []
         let id = try Self.insertTopic(
             name: name,
@@ -208,6 +362,63 @@ struct CustomCurriculum: Codable, Equatable {
         )
         builtInTopics[builtInSubjectID] = topics
         return id
+    }
+
+    @discardableResult
+    mutating func addOutline(
+        _ items: [CustomTopicOutlineItem],
+        to destination: CustomTopicOutlineDestination,
+        parentTopicID: UUID
+    ) throws -> [UUID] {
+        try CustomTopicOutlineProposal(topics: items).validate()
+
+        switch destination {
+        case .learnerSubject(let subjectID):
+            guard subject(id: subjectID) != nil else { throw CustomCurriculumError.subjectNotFound }
+            guard topic(subjectID: subjectID, topicID: parentTopicID) != nil else {
+                throw CustomCurriculumError.parentTopicNotFound
+            }
+        case .builtInSubject(let subjectID):
+            guard Self.builtInSubjectIDs.contains(subjectID) else { throw CustomCurriculumError.subjectNotFound }
+            guard topic(builtInSubjectID: subjectID, topicID: parentTopicID) != nil else {
+                throw CustomCurriculumError.parentTopicNotFound
+            }
+        }
+
+        var updated = self
+        var insertedIDs: [UUID] = []
+
+        func insert(_ topics: [CustomTopicOutlineItem], under parentID: UUID) throws {
+            for item in topics {
+                let id: UUID
+                switch destination {
+                case .learnerSubject(let subjectID):
+                    id = try updated.addTopic(
+                        subjectID: subjectID,
+                        parentTopicID: parentID,
+                        name: item.name,
+                        learningOutcome: item.learningOutcome,
+                        notes: item.notes,
+                        level: item.level
+                    )
+                case .builtInSubject(let subjectID):
+                    id = try updated.addTopic(
+                        builtInSubjectID: subjectID,
+                        parentTopicID: parentID,
+                        name: item.name,
+                        learningOutcome: item.learningOutcome,
+                        notes: item.notes,
+                        level: item.level
+                    )
+                }
+                insertedIDs.append(id)
+                try insert(item.subtopics, under: id)
+            }
+        }
+
+        try insert(items, under: parentTopicID)
+        self = updated
+        return insertedIDs
     }
 
     func topic(subjectID: UUID, topicID: UUID) -> CustomLearningTopic? {
@@ -325,9 +536,9 @@ struct CustomCurriculum: Codable, Equatable {
 enum CustomTopicStudyPrompt {
     static func outlineDraft(languageCode: String) -> String {
         if languageCode == "ru" {
-            return "Составь черновик учебного плана для этой темы по её названию, цели и заметкам выше. Начни с нужных предпосылок; выстрой подтемы от базового уровня к углублённому. Для каждой подтемы укажи цель, пример практики и подходящий визуальный формат. Укажи, какие сведения подтверждены источниками в текущем контексте, приведи доступные ссылки или цитаты; не выдумывай источники, а неподтверждённое пометь для проверки. Не объявляй план проверенным или тему освоенной. Не сохраняй и не меняй мою программу: это только черновик для моего просмотра."
+            return "Составь черновик структуры подтем для текущего предмета и темы по её названию, цели, заметкам и доступным источникам. Начни с необходимых предпосылок и располагай материал от базового к углублённому. Верни только JSON по схеме colidev.topic-outline.v1 версии 1, без поясняющего текста и без Markdown-ограждений. Формат: {\"type\":\"colidev.topic-outline.v1\",\"version\":1,\"topics\":[{\"name\":{\"russian\":\"...\",\"english\":\"...\"},\"learningOutcome\":{\"russian\":\"...\",\"english\":\"...\"},\"notes\":{\"russian\":\"Практика: ...; Визуализация: ...; Источники: ...; Что требует проверки: ...\",\"english\":\"Practice: ...; Visual: ...; Sources: ...; Needs review: ...\"},\"level\":1,\"subtopics\":[]}]. У каждой темы и подтемы обязательны русское и английское название, цель, заметки и уровень от 1 до 7. В заметках для каждой темы укажи подходящий пример практики, полезный визуальный формат и только реальные источники из текущего контекста; если источник недоступен, прямо напиши, что его нужно проверить. Не выдумывай ссылки, цитаты или научные факты. Включи предпосылки первыми, затем основы и постепенное углубление. Не отмечай тему освоенной и ничего не сохраняй: результат должен быть черновиком для проверки учеником."
         }
 
-        return "Draft a study plan for this topic using its title, goal, and notes above. Start with prerequisites; order subtopics from foundational to advanced. For each subtopic, give a learning goal, a practice example, and a suitable visual format. Identify claims supported by sources in the current context and cite available links; do not invent sources, and mark unsupported claims for review. Do not call the plan verified or the topic mastered. Do not save or change my curriculum; this is a draft for my review."
+        return "Draft a subtopic structure for the current subject and topic using its title, goal, notes, and available sources. Start with necessary prerequisites and order the material from foundational to advanced. Return only JSON using schema colidev.topic-outline.v1 version 1, with no explanatory prose and no Markdown fences. Format: {\"type\":\"colidev.topic-outline.v1\",\"version\":1,\"topics\":[{\"name\":{\"russian\":\"...\",\"english\":\"...\"},\"learningOutcome\":{\"russian\":\"...\",\"english\":\"...\"},\"notes\":{\"russian\":\"Практика: ...; Визуализация: ...; Источники: ...; Что требует проверки: ...\",\"english\":\"Practice: ...; Visual: ...; Sources: ...; Needs review: ...\"},\"level\":1,\"subtopics\":[]}]. Every topic and subtopic must include Russian and English names, learning outcomes, notes, and a level from 1 to 7. In its notes, include an appropriate practice example, useful visual format, and only real sources from the current context; if a source is unavailable, state that it needs review. Do not invent links, quotations, or scientific facts. Put prerequisites first, then foundations and progressively advanced work. Do not mark the topic mastered or save anything; the response is a draft for the learner to review."
     }
 }

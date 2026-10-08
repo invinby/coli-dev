@@ -631,6 +631,22 @@ final class LearningStore: ObservableObject {
         return id
     }
 
+    @discardableResult
+    func addCustomTopicOutline(
+        _ proposal: CustomTopicOutlineProposal,
+        to destination: CustomTopicOutlineDestination,
+        parentTopicID: UUID
+    ) throws -> [UUID] {
+        var updated = customCurriculum
+        let ids = try updated.addOutline(
+            proposal.topics,
+            to: destination,
+            parentTopicID: parentTopicID
+        )
+        customCurriculum = updated
+        return ids
+    }
+
     func removeCustomSubject(id: UUID) {
         var updated = customCurriculum
         guard updated.removeSubject(id: id) else { return }

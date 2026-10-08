@@ -494,7 +494,14 @@ struct CustomTopicStudyView: View {
                         lessonID: CustomTopicStudyRoute.userTopic(subjectID: subjectID, topicID: topicID).lessonID
                     )
                     Divider()
-                    TutorChatView(customSubject: subject, topic: topic, language: store.language, mode: store.aiMode)
+                    TutorChatView(
+                        customSubject: subject,
+                        topic: topic,
+                        language: store.language,
+                        mode: store.aiMode,
+                        outlineDestination: .learnerSubject(subjectID: subjectID),
+                        outlineParentTopicID: topicID
+                    )
                 }
                 .padding(24)
                 .navigationTitle(topic.name.value(in: store.language.rawValue))
@@ -561,7 +568,9 @@ struct BuiltInCustomTopicStudyView: View {
                         topic: topic,
                         language: store.language,
                         mode: store.aiMode,
-                        routeSubjectID: subject.rawValue
+                        routeSubjectID: subject.rawValue,
+                        outlineDestination: .builtInSubject(subjectID: subject.rawValue),
+                        outlineParentTopicID: topicID
                     )
                 }
                 .padding(24)
@@ -576,6 +585,179 @@ struct BuiltInCustomTopicStudyView: View {
                     Text(L10n.text("custom.parentMissing", store.language)).foregroundStyle(.secondary)
                 }
             }
+        }
+    }
+}
+
+struct CustomTopicOutlineReviewView: View {
+    @EnvironmentObject private var store: LearningStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var proposal: CustomTopicOutlineProposal
+    @State private var errorMessage: String?
+
+    let destination: CustomTopicOutlineDestination
+    let parentTopicID: UUID
+    let onSaved: (Int) -> Void
+
+    init(
+        proposal: CustomTopicOutlineProposal,
+        destination: CustomTopicOutlineDestination,
+        parentTopicID: UUID,
+        onSaved: @escaping (Int) -> Void
+    ) {
+        _proposal = State(initialValue: proposal)
+        self.destination = destination
+        self.parentTopicID = parentTopicID
+        self.onSaved = onSaved
+    }
+
+    private var topicCount: Int {
+        proposal.topics.reduce(0) { $0 + $1.totalTopicCount }
+    }
+
+    private var isValid: Bool {
+        (try? proposal.validate()) != nil
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(L10n.text("custom.outlineReviewTitle", store.language))
+                .font(.title2.weight(.semibold))
+
+            Label(
+                L10n.text("custom.outlineReviewWarning", store.language),
+                systemImage: "exclamationmark.triangle"
+            )
+            .font(.callout)
+            .foregroundStyle(.orange)
+            .fixedSize(horizontal: false, vertical: true)
+
+            Text(L10n.text("custom.outlineReviewInstructions", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach($proposal.topics) { topic in
+                        CustomTopicOutlineItemEditor(
+                            item: topic,
+                            depth: 0,
+                            language: store.language
+                        ) {
+                            let id = topic.wrappedValue.id
+                            proposal.topics.removeAll { $0.id == id }
+                        }
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+
+            if !isValid {
+                Label(
+                    L10n.text("custom.outlineReviewInvalid", store.language),
+                    systemImage: "exclamationmark.circle"
+                )
+                .font(.caption)
+                .foregroundStyle(.orange)
+            }
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.callout)
+                    .foregroundStyle(.red)
+            }
+
+            HStack {
+                Spacer()
+                Button(L10n.text("common.cancel", store.language), role: .cancel) {
+                    dismiss()
+                }
+                Button(
+                    String(
+                        format: L10n.text("custom.outlineSaveCount", store.language),
+                        topicCount
+                    ),
+                    action: save
+                )
+                .buttonStyle(.borderedProminent)
+                .disabled(!isValid)
+            }
+        }
+        .padding(24)
+        .frame(minWidth: 620, idealWidth: 760, minHeight: 600)
+    }
+
+    private func save() {
+        do {
+            let ids = try store.addCustomTopicOutline(
+                proposal,
+                to: destination,
+                parentTopicID: parentTopicID
+            )
+            onSaved(ids.count)
+            dismiss()
+        } catch CustomCurriculumError.duplicateTopicName {
+            errorMessage = L10n.text("custom.duplicateTopic", store.language)
+        } catch CustomCurriculumError.parentTopicNotFound {
+            errorMessage = L10n.text("custom.parentMissing", store.language)
+        } catch {
+            errorMessage = L10n.text("custom.outlineSaveFailed", store.language)
+        }
+    }
+}
+
+private struct CustomTopicOutlineItemEditor: View {
+    @Binding var item: CustomTopicOutlineItem
+    let depth: Int
+    let language: AppLanguage
+    let onRemove: () -> Void
+
+    var body: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text(L10n.text("custom.outlineItemTitle", language))
+                        .font(.headline)
+                    Spacer()
+                    Button(role: .destructive, action: onRemove) {
+                        Label(L10n.text("custom.outlineRemoveItem", language), systemImage: "minus.circle")
+                    }
+                    .buttonStyle(.borderless)
+                }
+
+                TextField(L10n.text("custom.topicNameRu", language), text: $item.name.russian)
+                TextField(L10n.text("custom.topicNameEn", language), text: $item.name.english)
+                TextField(L10n.text("custom.outcomeRu", language), text: $item.learningOutcome.russian, axis: .vertical)
+                    .lineLimit(2...3)
+                TextField(L10n.text("custom.outcomeEn", language), text: $item.learningOutcome.english, axis: .vertical)
+                    .lineLimit(2...3)
+                TextField(L10n.text("custom.notesRu", language), text: $item.notes.russian, axis: .vertical)
+                    .lineLimit(3...6)
+                TextField(L10n.text("custom.notesEn", language), text: $item.notes.english, axis: .vertical)
+                    .lineLimit(3...6)
+
+                Stepper(
+                    L10n.text("custom.level", language).replacingOccurrences(of: "%@", with: "\(item.level)"),
+                    value: $item.level,
+                    in: 1...7
+                )
+
+                if !item.subtopics.isEmpty {
+                    Divider()
+                    ForEach($item.subtopics) { subtopic in
+                        CustomTopicOutlineItemEditor(
+                            item: subtopic,
+                            depth: depth + 1,
+                            language: language
+                        ) {
+                            let id = subtopic.wrappedValue.id
+                            item.subtopics.removeAll { $0.id == id }
+                        }
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.leading, min(depth, 3) * 12)
         }
     }
 }

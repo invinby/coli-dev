@@ -7118,6 +7118,13 @@ private struct CollectionsLoopsLab: View {
 }
 
 
+private struct PendingCustomTopicOutlineReview: Identifiable {
+    let messageID: UUID
+    let proposal: CustomTopicOutlineProposal
+
+    var id: UUID { messageID }
+}
+
 struct TutorChatView: View {
     @EnvironmentObject private var store: LearningStore
     @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
@@ -7127,12 +7134,23 @@ struct TutorChatView: View {
     @State private var includeLocalSourcesInWebSearch = false
     @State private var hasConfirmedGoogleSearchAge = false
     @State private var showGoogleSearchAgeConfirmation = false
+    @State private var outlinePromptPrepared = false
+    @State private var outlineResponseMessageID: UUID?
+    @State private var pendingOutlineReview: PendingCustomTopicOutlineReview?
+    @State private var importedOutlineMessageIDs = Set<UUID>()
+    @State private var outlineErrorMessageID: UUID?
+    @State private var outlineImportError: String?
+    @State private var outlineImportSuccess: String?
     let language: AppLanguage
     private let outlineDraftPrompt: String?
+    private let outlineDestination: CustomTopicOutlineDestination?
+    private let outlineParentTopicID: UUID?
 
     init(subject: Subject, lesson: LessonContent, language: AppLanguage, mode: AIRoutingMode) {
         self.language = language
         outlineDraftPrompt = nil
+        outlineDestination = nil
+        outlineParentTopicID = nil
         _chat = StateObject(wrappedValue: TutorChatModel(subject: subject, lesson: lesson, language: language, mode: mode))
     }
 
@@ -7141,10 +7159,16 @@ struct TutorChatView: View {
         topic: CustomLearningTopic,
         language: AppLanguage,
         mode: AIRoutingMode,
-        routeSubjectID: String? = nil
+        routeSubjectID: String? = nil,
+        outlineDestination: CustomTopicOutlineDestination? = nil,
+        outlineParentTopicID: UUID? = nil
     ) {
         self.language = language
-        outlineDraftPrompt = CustomTopicStudyPrompt.outlineDraft(languageCode: language.rawValue)
+        self.outlineDestination = outlineDestination
+        self.outlineParentTopicID = outlineParentTopicID
+        outlineDraftPrompt = outlineDestination != nil && outlineParentTopicID != nil
+            ? CustomTopicStudyPrompt.outlineDraft(languageCode: language.rawValue)
+            : nil
         let topicName = topic.name.value(in: language.rawValue)
         let subjectName = customSubject.name.value(in: language.rawValue)
         let notes = topic.notes.value(in: language.rawValue)
@@ -7209,7 +7233,11 @@ struct TutorChatView: View {
                                     .frame(maxWidth: .infinity, minHeight: outlineDraftPrompt == nil ? 220 : 140)
                                 if outlineDraftPrompt != nil {
                                     Button {
-                                        if let outlineDraftPrompt { draft = outlineDraftPrompt }
+                                        if let outlineDraftPrompt {
+                                            draft = outlineDraftPrompt
+                                            outlinePromptPrepared = true
+                                            outlineImportSuccess = nil
+                                        }
                                     } label: {
                                         Label(L10n.text("custom.outlineDraftAction", language), systemImage: "list.bullet.rectangle")
                                     }
@@ -7246,6 +7274,11 @@ struct TutorChatView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text(L10n.text(chat.mode == .localOnly ? "tutor.localPrivacy" : "tutor.privacy", language))
                     .font(.caption).foregroundStyle(.secondary)
+                if let outlineImportSuccess {
+                    Label(outlineImportSuccess, systemImage: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                }
                 if chat.mode == .automatic {
                     if let policy = store.autoCostPolicy, !policy.allowPaidRoutes {
                         Label(L10n.text("tutor.webSearchCostBlocked", language), systemImage: "lock.fill")
@@ -7340,6 +7373,23 @@ struct TutorChatView: View {
             .padding(16)
             .background(Color(nsColor: .windowBackgroundColor))
         }
+        .sheet(item: $pendingOutlineReview) { pending in
+            if let outlineDestination, let outlineParentTopicID {
+                CustomTopicOutlineReviewView(
+                    proposal: pending.proposal,
+                    destination: outlineDestination,
+                    parentTopicID: outlineParentTopicID
+                ) { count in
+                    importedOutlineMessageIDs.insert(pending.messageID)
+                    outlineImportSuccess = String(
+                        format: L10n.text("custom.outlineSaved", language),
+                        "\(count)"
+                    )
+                    outlineErrorMessageID = nil
+                    outlineImportError = nil
+                }
+            }
+        }
         .task {
             guard await backendSupervisor.ensureRunning() else { return }
             await store.refreshAIStatus()
@@ -7362,6 +7412,25 @@ struct TutorChatView: View {
                     Text(message.text.isEmpty && chat.isSending ? "…" : message.text)
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if message.role == .tutor, message.id == outlineResponseMessageID, !message.text.isEmpty {
+                    if importedOutlineMessageIDs.contains(message.id) {
+                        Label(L10n.text("custom.outlineImported", language), systemImage: "checkmark.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.green)
+                    } else if !chat.isSending {
+                        Button {
+                            reviewOutline(message)
+                        } label: {
+                            Label(L10n.text("custom.outlineReviewAction", language), systemImage: "list.bullet.rectangle")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    if outlineErrorMessageID == message.id, let outlineImportError {
+                        Text(outlineImportError)
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
                 }
                 if message.role == .tutor, !message.isGoogleGrounded,
                    let label = chat.completionLabel, message.id == chat.messages.last?.id {
@@ -7531,6 +7600,7 @@ struct TutorChatView: View {
     private func send() {
         guard canSend, !chat.isSending else { return }
         let message = draft
+        let isOutlineDraft = outlinePromptPrepared
         Task {
             guard await backendSupervisor.ensureRunning() else { return }
             await store.refreshAIStatus()
@@ -7543,7 +7613,57 @@ struct TutorChatView: View {
                 groundingAgeConfirmed: hasConfirmedGoogleSearchAge,
                 includeLocalSourcesInWebSearch: includeLocalSourcesInWebSearch
             )
+            if isOutlineDraft {
+                outlineResponseMessageID = chat.messages.last?.id
+                outlineImportError = nil
+                outlineImportSuccess = nil
+            }
+            outlinePromptPrepared = false
         }
+    }
+
+    private func reviewOutline(_ message: TutorMessage) {
+        guard outlineDestination != nil, outlineParentTopicID != nil else { return }
+        do {
+            let proposal = try CustomTopicOutlineProposal.parse(message.text)
+            pendingOutlineReview = PendingCustomTopicOutlineReview(
+                messageID: message.id,
+                proposal: proposal
+            )
+            outlineErrorMessage = nil
+            outlineErrorMessageID = nil
+        } catch let error as CustomTopicOutlineError {
+            outlineErrorMessage = outlineErrorText(error)
+            outlineErrorMessageID = message.id
+        } catch {
+            outlineErrorMessage = L10n.text("custom.outlineParseMalformed", language)
+            outlineErrorMessageID = message.id
+        }
+    }
+
+    private func outlineErrorText(_ error: CustomTopicOutlineError) -> String {
+        let key: String
+        switch error {
+        case .malformedJSON:
+            key = "custom.outlineParseMalformed"
+        case .unsupportedSchema, .unsupportedVersion:
+            key = "custom.outlineParseUnsupported"
+        case .invalidBilingualContent:
+            key = "custom.outlineParseIncomplete"
+        case .invalidLevel:
+            key = "custom.outlineParseLevel"
+        case .duplicateSiblingName:
+            key = "custom.outlineParseDuplicates"
+        case .emptyTopics:
+            key = "custom.outlineParseEmpty"
+        case .tooManyTopics:
+            key = "custom.outlineParseTooMany"
+        case .tooDeep:
+            key = "custom.outlineParseTooDeep"
+        case .oversizedResponse:
+            key = "custom.outlineParseTooLarge"
+        }
+        return L10n.text(key, language)
     }
 }
 
