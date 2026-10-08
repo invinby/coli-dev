@@ -114,6 +114,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-tutor-route-probe-state"
           "$RUNNER_TEMP/verify-tutor-route-probe-state"
 
+      - name: Verify tutor composer readiness / Проверка готовности поля тьютора
+        run: |
+          swiftc macOS/ColiDev/App/TutorComposerReadiness.swift macOS/ColiDev/scripts/verify_tutor_composer_readiness.swift \
+            -o "$RUNNER_TEMP/verify-tutor-composer-readiness"
+          "$RUNNER_TEMP/verify-tutor-composer-readiness"
+
       - name: Verify adaptive study recommendation / Проверка следующего шага обучения
         run: |
           swiftc -parse-as-library macOS/ColiDev/App/StudyRecommendation.swift macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/CustomCurriculum.swift macOS/ColiDev/scripts/verify_study_recommendation.swift \
