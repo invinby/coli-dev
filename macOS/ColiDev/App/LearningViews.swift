@@ -1684,6 +1684,12 @@ private struct AnimalGroupLab: View {
             }
         }
     }
+    private static func makeOptionOrders() -> [[Int]] {
+        QuizAnswerOrder.balancedSequence(
+            optionCount: 3,
+            answerOriginalIndices: questionSet.map(\.answerIndex)
+        ).map(\.displayedOriginalIndices)
+    }
 }
 
 private struct AnimalLineageLab: View {
