@@ -323,6 +323,134 @@ enum StudyRecommendationVerification {
             "Low recall on a user-created topic must recommend revisiting that topic. / Низкая самооценка пользовательской темы должна рекомендовать повторить именно её."
         )
 
+        let stagedRoadmap = StudyRoadmap(
+            subjectID: "biology",
+            lessonResources: ["cells", "cell_cycle", "gene_expression"],
+            progressionLevels: [["cells", "cell_cycle"], ["gene_expression"]]
+        )
+        let successfulCellCheck = StudyAssessmentEvidence(
+            taskType: "knowledge_check",
+            attempts: 1,
+            firstTryCorrect: true,
+            hintsUsed: 0
+        )
+        let passedCells = Set(["biology.cells", "biology.cell_cycle"])
+        let oldSavedProgress = StudyProgressionEvidence(
+            completedLessonIDs: passedCells,
+            recallEvidence: [
+                "biology.cells": StudyRecallEvidence(
+                    quality: 5,
+                    reviewedAt: "2026-10-08T10:00:00Z",
+                    assessment: successfulCellCheck
+                ),
+            ],
+            assessmentEvidence: [:]
+        )
+        let missingLegacyCheck = StudyRecommendationSelector.recommendation(
+            roadmaps: [stagedRoadmap],
+            completedLessonIDs: passedCells,
+            resume: nil,
+            recallEvidence: [
+                "biology.cells": StudyRecallEvidence(
+                    quality: 5,
+                    reviewedAt: "2026-10-08T10:00:00Z",
+                    assessment: successfulCellCheck
+                ),
+            ]
+        )
+        precondition(
+            missingLegacyCheck == StudyRecommendation(
+                route: StudyLessonRoute(subjectID: "biology", resource: "cell_cycle"),
+                reason: .prerequisiteCheck
+            ),
+            "Completed legacy lessons without a saved knowledge check must offer a reachable check before the next level. / Для завершённого старого урока без сохранённой проверки нужно предложить доступное перепрохождение проверки перед следующим уровнем."
+        )
+        precondition(
+            !StudyProgressionPolicy.isAvailable(
+                StudyLessonRoute(subjectID: "biology", resource: "gene_expression"),
+                in: stagedRoadmap,
+                evidence: oldSavedProgress
+            ),
+            "An advanced module must remain locked until every linked prerequisite has a successful knowledge check. / Продвинутый модуль должен оставаться закрытым, пока по каждой связанной предпосылке нет успешной проверки знаний."
+        )
+
+        let interactivePredictionOnly = StudyAssessmentEvidenceSummary(
+            lessonID: "biology.cell_cycle",
+            assessmentCount: 1,
+            taskTypeCounts: ["interactive_prediction": 1],
+            latestAssessment: StudyAssessmentEvidence(
+                taskType: "interactive_prediction",
+                attempts: 1,
+                firstTryCorrect: true,
+                hintsUsed: 0
+            ),
+            latestAt: "2026-10-08T11:00:00Z"
+        )
+        let predictionDoesNotUnlock = StudyProgressionEvidence(
+            completedLessonIDs: passedCells,
+            recallEvidence: [
+                "biology.cells": StudyRecallEvidence(
+                    quality: 5,
+                    reviewedAt: "2026-10-08T10:00:00Z",
+                    assessment: successfulCellCheck
+                ),
+            ],
+            assessmentEvidence: ["biology.cell_cycle": interactivePredictionOnly]
+        )
+        precondition(
+            !StudyProgressionPolicy.isAvailable(
+                StudyLessonRoute(subjectID: "biology", resource: "gene_expression"),
+                in: stagedRoadmap,
+                evidence: predictionDoesNotUnlock
+            ),
+            "An interactive prediction must not substitute for a knowledge check when unlocking an advanced level. / Интерактивный прогноз не должен заменять проверку знаний при открытии углублённого уровня."
+        )
+
+        let passedFoundation = StudyProgressionEvidence(
+            completedLessonIDs: passedCells,
+            recallEvidence: [
+                "biology.cells": StudyRecallEvidence(
+                    quality: 5,
+                    reviewedAt: "2026-10-08T10:00:00Z",
+                    assessment: successfulCellCheck
+                ),
+                "biology.cell_cycle": StudyRecallEvidence(
+                    quality: 5,
+                    reviewedAt: "2026-10-08T11:00:00Z",
+                    assessment: successfulCellCheck
+                ),
+            ],
+            assessmentEvidence: [:]
+        )
+        let advancedRecommendation = StudyRecommendationSelector.recommendation(
+            roadmaps: [stagedRoadmap],
+            completedLessonIDs: passedCells,
+            resume: nil,
+            recallEvidence: [
+                "biology.cells": StudyRecallEvidence(
+                    quality: 5,
+                    reviewedAt: "2026-10-08T10:00:00Z",
+                    assessment: successfulCellCheck
+                ),
+                "biology.cell_cycle": StudyRecallEvidence(
+                    quality: 5,
+                    reviewedAt: "2026-10-08T11:00:00Z",
+                    assessment: successfulCellCheck
+                ),
+            ]
+        )
+        precondition(
+            StudyProgressionPolicy.isAvailable(
+                StudyLessonRoute(subjectID: "biology", resource: "gene_expression"),
+                in: stagedRoadmap,
+                evidence: passedFoundation
+            ) && advancedRecommendation == StudyRecommendation(
+                route: StudyLessonRoute(subjectID: "biology", resource: "gene_expression"),
+                reason: .nextLesson
+            ),
+            "Passing every foundation check must unlock and recommend the next level. / Успешные проверки всех уроков базы должны открыть и рекомендовать следующий уровень."
+        )
+
         let allCompleted = Set([
             "mathematics.fractions", "mathematics.geometry", "mathematics.algebra",
             "english.verbs", "english.conditionals", "biology.cells", "biology.genes",
