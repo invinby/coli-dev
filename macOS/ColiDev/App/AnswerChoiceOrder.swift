@@ -247,6 +247,72 @@ struct CurriculumCheckAttempt: Equatable {
     }
 }
 
+struct InteractivePredictionAttempt: Equatable {
+    let answerOriginalIndex: Int
+    private(set) var choiceOrder: AnswerChoiceOrder
+    private(set) var selectedOriginalIndex: Int?
+    private(set) var attemptCount: Int
+    private(set) var firstTryCorrect: Bool?
+    private(set) var hintsUsed: Int
+
+    var hasAnswered: Bool { selectedOriginalIndex != nil }
+    var isCorrect: Bool { selectedOriginalIndex == answerOriginalIndex }
+    var canRetry: Bool { hasAnswered && !isCorrect }
+
+    init?(optionCount: Int, answerOriginalIndex: Int) {
+        var generator = SystemRandomNumberGenerator()
+        self.init(optionCount: optionCount, answerOriginalIndex: answerOriginalIndex, using: &generator)
+    }
+
+    init?<Generator: RandomNumberGenerator>(
+        optionCount: Int,
+        answerOriginalIndex: Int,
+        using generator: inout Generator
+    ) {
+        guard optionCount > 0, (0..<optionCount).contains(answerOriginalIndex) else { return nil }
+        self.answerOriginalIndex = answerOriginalIndex
+        choiceOrder = AnswerChoiceOrder(optionCount: optionCount, using: &generator)
+        selectedOriginalIndex = nil
+        attemptCount = 0
+        firstTryCorrect = nil
+        hintsUsed = 0
+    }
+
+    mutating func select(displayedIndex: Int) {
+        guard !hasAnswered,
+              let originalIndex = choiceOrder.originalIndex(forDisplayedIndex: displayedIndex) else { return }
+        selectedOriginalIndex = originalIndex
+        attemptCount += 1
+        if firstTryCorrect == nil {
+            firstTryCorrect = originalIndex == answerOriginalIndex
+        }
+        if originalIndex != answerOriginalIndex {
+            hintsUsed += 1
+        }
+    }
+
+    mutating func retry() {
+        var generator = SystemRandomNumberGenerator()
+        retry(using: &generator)
+    }
+
+    mutating func retry<Generator: RandomNumberGenerator>(using generator: inout Generator) {
+        guard canRetry else { return }
+        choiceOrder = AnswerChoiceOrder(optionCount: choiceOrder.displayedOriginalIndices.count, using: &generator)
+        selectedOriginalIndex = nil
+    }
+
+    func currentAnswerEventEvidence() -> StudyAssessmentEvidence? {
+        guard hasAnswered, let firstTryCorrect else { return nil }
+        return StudyAssessmentEvidence(
+            taskType: "interactive_prediction",
+            attempts: attemptCount,
+            firstTryCorrect: firstTryCorrect,
+            hintsUsed: hintsUsed
+        )
+    }
+}
+
 struct StudyAssessmentEvidence: Codable, Equatable {
     let taskType: String
     let attempts: Int

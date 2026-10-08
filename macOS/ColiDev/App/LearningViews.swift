@@ -1357,6 +1357,8 @@ private struct PracticeLab: View {
             MomentumCollisionLab(initialMode: .elastic)
         } else if subject == .physics, moduleResource == "projectile_motion" {
             ProjectileMotionLab()
+        } else if subject == .physics, moduleResource == "net_force_and_acceleration" {
+            ForceLab(lessonID: "physics.net_force_and_acceleration")
         } else if subject == .programming, moduleResource == "collections_and_loops" {
             CollectionsLoopsLab()
         } else if subject == .programming, moduleResource == "conditions_loops_functions" {
@@ -3599,6 +3601,8 @@ private struct SentenceLab: View {
 }
 
 private struct ForceLab: View {
+    let lessonID: String?
+
     @EnvironmentObject private var store: LearningStore
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -3607,13 +3611,22 @@ private struct ForceLab: View {
     @State private var elapsed = 0.0
     @State private var elapsedAtStart = 0.0
     @State private var startedAt: ContinuousClock.Instant?
+    @State private var prediction: InteractivePredictionAttempt
     private let timer = Timer.publish(every: 1.0 / 30, on: .main, in: .common).autoconnect()
+
+    init(lessonID: String? = nil) {
+        self.lessonID = lessonID
+        _prediction = State(initialValue: Self.makePrediction())
+    }
 
     private var motion: ForceMotion { ForceMotion(force: force, mass: mass, time: elapsed) }
     private var isRunning: Bool { startedAt != nil }
 
     var body: some View {
         LabCard {
+            if lessonID != nil {
+                predictionView
+            }
             Force3DVisualization(force: force, mass: mass, displacement: motion.displacement)
                 .frame(height: 240)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
@@ -3665,6 +3678,75 @@ private struct ForceLab: View {
         .onChange(of: scenePhase) { phase in if phase != .active { pause() } }
         .onChange(of: reduceMotion) { enabled in if enabled { pause() } }
         .onDisappear(perform: pause)
+    }
+
+    private var predictionView: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(L10n.text("lab.forcePredictionPrompt", store.language))
+                .font(.headline)
+                .fixedSize(horizontal: false, vertical: true)
+            ForEach(0..<prediction.choiceOrder.displayedOriginalIndices.count, id: \.self) { displayedIndex in
+                let optionIndex = prediction.choiceOrder.originalIndex(forDisplayedIndex: displayedIndex) ?? displayedIndex
+                Button {
+                    submitPrediction(displayedIndex: displayedIndex)
+                } label: {
+                    HStack {
+                        if prediction.selectedOriginalIndex == optionIndex {
+                            Image(systemName: prediction.isCorrect ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        }
+                        Text(L10n.text("lab.forcePredictionOption.\(optionIndex)", store.language))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .buttonStyle(.bordered)
+                .disabled(prediction.hasAnswered)
+            }
+            if prediction.hasAnswered {
+                if prediction.isCorrect {
+                    Label(L10n.text("lab.forcePredictionCorrect", store.language), systemImage: "checkmark.circle.fill")
+                        .font(.callout)
+                        .foregroundStyle(.green)
+                    Button(L10n.text("lab.forcePredictionNew", store.language), action: startNewPrediction)
+                        .buttonStyle(.link)
+                } else {
+                    Label(L10n.text("lab.forcePredictionWrong", store.language), systemImage: "arrow.counterclockwise.circle")
+                        .font(.callout)
+                        .foregroundStyle(.orange)
+                    Text(L10n.text("lab.forcePredictionHint", store.language))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(L10n.text("lab.forcePredictionRetry", store.language), action: retryPrediction)
+                        .buttonStyle(.link)
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.secondary.opacity(0.055), in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func submitPrediction(displayedIndex: Int) {
+        prediction.select(displayedIndex: displayedIndex)
+        guard let lessonID,
+              let evidence = prediction.currentAnswerEventEvidence() else { return }
+        store.recordStudyAssessment(lessonID: lessonID, evidence: evidence)
+    }
+
+    private func retryPrediction() {
+        prediction.retry()
+    }
+
+    private func startNewPrediction() {
+        prediction = Self.makePrediction()
+        reset()
+    }
+
+    private static func makePrediction() -> InteractivePredictionAttempt {
+        guard let attempt = InteractivePredictionAttempt(optionCount: 3, answerOriginalIndex: 2) else {
+            preconditionFailure("The force-law prediction must have a valid correct option.")
+        }
+        return attempt
     }
 
     private func reading(_ key: String, value: Double, unit: String) -> some View {
