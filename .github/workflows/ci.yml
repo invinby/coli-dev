@@ -234,54 +234,7 @@ jobs:
         run: |
           resources="$RUNNER_TEMP/ColiDevDerivedData/Build/Products/Debug/ColiDev.app/Contents/Resources/02_Areas"
           test -x "$RUNNER_TEMP/ColiDevDerivedData/Build/Products/Debug/ColiDev.app/Contents/Resources/ColiDevBackend/ColiDevBackend"
-          for subject in Mathematics English Physics Biology Zoology Programming; do
-            test -s "$resources/$subject/curriculum.md"
-          done
-          while IFS=: read -r subject lesson; do
-            test -s "$resources/$subject/lessons/$lesson.md"
-          done <<'LESSONS'
-          Mathematics:functions_as_models
-          Mathematics:domain_and_range
-          Mathematics:rates_of_change_and_derivative
-          Mathematics:solving_linear_equations
-          Mathematics:numbers_fractions_and_percentages
-          Mathematics:geometry_area_perimeter
-          Mathematics:quadratic_functions_and_transformations
-          English:present_simple_and_continuous
-          English:present_perfect_simple_continuous
-          English:reading_for_gist_and_detail
-          English:daily_routines_and_collocations
-          English:zero_first_second_conditionals
-          Physics:net_force_and_acceleration
-          Physics:static_and_kinetic_friction
-          Physics:measurement_units_and_uncertainty
-          Physics:motion_with_constant_acceleration
-          Physics:projectile_motion
-          Physics:work_and_kinetic_energy
-          Physics:impulse_and_momentum
-          Physics:elastic_collisions
-          Biology:passive_transport_osmosis
-          Biology:scientific_method_and_experiments
-          Biology:photosynthesis_energy_and_carbon
-          Biology:mendelian_inheritance
-          Biology:dna_genes_and_traits
-          Biology:eukaryotic_cell_organelles
-          Biology:biomolecules_and_building_blocks
-          Biology:natural_selection_and_population_change
-          Biology:ecosystem_energy_flow
-          Biology:food_webs_and_matter_cycles
-          Zoology:adaptation_and_behavior
-          Zoology:animals_as_a_group
-          Zoology:major_animal_lineages
-          Zoology:symmetry_and_body_plans
-          Zoology:comparative_gas_exchange_and_circulation
-          Zoology:comparative_thermoregulation_and_heat_stress
-          Programming:computational_thinking
-          Programming:conditions_loops_functions
-          Programming:strings_files_and_exceptions
-          Programming:collections_and_loops
-          Programming:variables_and_types
-          LESSONS
+          python 01_Projects/curriculum_routes.py "$resources"
 
       - name: Package macOS app archive
         id: package
