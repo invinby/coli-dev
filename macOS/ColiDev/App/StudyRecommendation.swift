@@ -112,6 +112,41 @@ struct StudyCourseProgress: Equatable {
     }
 }
 
+struct StudyAssessmentProgressRecord: Equatable {
+    let lessonID: String
+    let assessmentCount: Int?
+    let latestAssessment: StudyAssessmentEvidence?
+}
+
+struct StudyKnowledgeEvidenceCoverage: Equatable {
+    let totalTopicCount: Int
+    let topicsWithChecks: Int
+    let topicsNeedingPractice: Int
+
+    init(roadmaps: [StudyRoadmap], records: [StudyAssessmentProgressRecord]) {
+        let topicIDs = Set(roadmaps.flatMap { roadmap in
+            roadmap.lessonResources.map { "\(roadmap.subjectID).\($0)" }
+        })
+        totalTopicCount = topicIDs.count
+
+        var checkedTopicIDs = Set<String>()
+        var practiceTopicIDs = Set<String>()
+        for record in records where topicIDs.contains(record.lessonID) {
+            let hasRecordedCheck = (record.assessmentCount ?? 0) > 0
+                || record.latestAssessment != nil
+            guard hasRecordedCheck else { continue }
+            checkedTopicIDs.insert(record.lessonID)
+
+            if let assessment = record.latestAssessment,
+               assessment.attempts > 1 || !assessment.firstTryCorrect {
+                practiceTopicIDs.insert(record.lessonID)
+            }
+        }
+        topicsWithChecks = checkedTopicIDs.count
+        topicsNeedingPractice = practiceTopicIDs.count
+    }
+}
+
 enum StudyRecommendationReason: Equatable {
     case resume
     case practiceReview

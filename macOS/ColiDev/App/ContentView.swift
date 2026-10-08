@@ -245,6 +245,19 @@ private struct TodayView: View {
         return evidence
     }
 
+    private var knowledgeEvidenceCoverage: StudyKnowledgeEvidenceCoverage {
+        StudyKnowledgeEvidenceCoverage(
+            roadmaps: recommendationRoadmaps,
+            records: store.studyProgress.values.map { record in
+                StudyAssessmentProgressRecord(
+                    lessonID: record.lessonID,
+                    assessmentCount: record.assessmentCount,
+                    latestAssessment: record.assessment
+                )
+            }
+        )
+    }
+
     private var studyRecommendation: StudyRecommendation? {
         StudyRecommendationSelector.recommendation(
             roadmaps: recommendationRoadmaps,
@@ -343,7 +356,28 @@ private struct TodayView: View {
                     Text(L10n.text("home.roadmapUnavailable", store.language))
                         .font(.headline)
                 }
-                Text(L10n.text("home.masteryNotTracked", store.language))
+                if knowledgeEvidenceCoverage.totalTopicCount > 0 {
+                    Text(String(
+                        format: L10n.text("home.knowledgeChecks", store.language),
+                        knowledgeEvidenceCoverage.topicsWithChecks,
+                        knowledgeEvidenceCoverage.totalTopicCount
+                    ))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if knowledgeEvidenceCoverage.topicsNeedingPractice > 0 {
+                        Text(String(
+                            format: L10n.text("home.knowledgeNeedPractice", store.language),
+                            knowledgeEvidenceCoverage.topicsNeedingPractice
+                        ))
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(Color.accentColor)
+                    }
+                } else {
+                    Text(L10n.text("home.knowledgeChecksUnavailable", store.language))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Text(L10n.text("home.knowledgeEvidenceLimit", store.language))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 if !hasAddressableDueReview, studyRecommendation?.reason == .practiceReview {

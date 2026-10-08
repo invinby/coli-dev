@@ -35,6 +35,9 @@ These CI artifacts are unsigned test builds, not a published release. CI verifie
 Help learners understand a subject from its foundations through advanced topics. The tutor supports learning; it does not replace a well-sourced curriculum, an instructor, or the learner’s own reasoning.<br>
 Помогать изучать предмет от базовых понятий до углублённых тем. ИИ-тьютор поддерживает обучение, но не заменяет учебную программу с источниками, преподавателя или самостоятельное мышление ученика.
 
+This profile specifies the educational application as a product: its architecture, interface, learning paths, content, integrations, and AI routing. It is not a system prompt for the tutor; the tutor is one component of the app.<br>
+Этот профиль задаёт само образовательное приложение: его архитектуру, интерфейс, учебные маршруты, материалы, интеграции и маршрутизацию ИИ. Это не системная инструкция для тьютора; тьютор — один из компонентов приложения.
+
 ### Learning experience / Учебный процесс
 
 Each study session should adapt to its subject and the learner: set a short goal, check prerequisites where useful, explain the idea, let the learner work with it, give specific feedback, and choose a suitable next step or review. Recommend progression from evidence across varied tasks; course completion, self-rating, and a single correct answer are not proof of mastery. Move from foundations toward advanced and scientific depth when the learner and subject are ready.<br>
@@ -104,8 +107,8 @@ ColiDev — ранний командный прототип, а не готов
 - Lesson progress is saved locally and supports review scheduling. Course completion and actual mastery are separate product goals; the prototype does not yet provide a complete mastery model.<br>
   Прогресс уроков сохраняется локально и используется для планирования повторений. Завершение курса и реальное освоение материала — разные цели; в прототипе пока нет полной модели оценки знаний.
 
-- The home screen counts completed lessons linked in the built-in roadmaps, rather than counting the six subject introductions. It explicitly says that subject-level mastery is not assessed yet.<br>
-  Главный экран считает завершённые уроки, связанные со встроенными дорожными картами, а не шесть вводных карточек предметов. Он прямо сообщает, что общее освоение предметов пока не оценивается.
+- The home screen counts completed lessons linked in the built-in roadmaps and reports how many roadmap topics have a saved knowledge check, plus how many need reinforcement after the latest check. It explicitly says this is check coverage, not mastery, and excludes interactive labs for now.<br>
+  Главный экран считает завершённые уроки из встроенных дорожных карт и показывает, для скольких тем сохранён результат проверочного вопроса и по скольким темам после последней проверки нужно закрепление. Интерфейс прямо поясняет, что это покрытие проверками, а не оценка освоения; интерактивные тренажёры пока не учитываются.
 
 - The draft Continue flow includes built-in lessons, learner-created subjects and topics, and topics added to built-in subjects. It prioritizes a due review, an unfinished resumed topic, a topic whose knowledge check took multiple attempts, low self-rated recall, then the next unfinished roadmap topic. Custom topics use stable progress IDs, learner-confirmed completion, and spaced-review status. These signals do not form a complete mastery model; Mac acceptance is still required.<br>
   Черновая логика «Продолжить» учитывает встроенные уроки, созданные учеником предметы и темы, а также темы, добавленные во встроенные предметы. Сначала предлагается просроченное повторение, затем незавершённая открытая тема, тема, где проверочный вопрос потребовал нескольких попыток, повтор темы с низкой самооценкой воспоминания и следующий незавершённый пункт учебного плана. У пользовательских тем есть постоянные ID прогресса, подтверждение завершения учеником и статус интервального повторения. Эти сигналы ещё не образуют полноценную модель освоения; нужна проверка на Mac.

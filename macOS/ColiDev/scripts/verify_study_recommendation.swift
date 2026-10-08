@@ -26,6 +26,74 @@ enum StudyRecommendationVerification {
             emptyProgress.totalCount == 0 && emptyProgress.fractionCompleted == 0,
             "An empty curriculum must report zero completion without division errors. / Для пустого учебного плана нужно показывать нулевой прогресс без ошибки деления."
         )
+        let checkCoverage = StudyKnowledgeEvidenceCoverage(
+            roadmaps: roadmaps,
+            records: [
+                StudyAssessmentProgressRecord(
+                    lessonID: "mathematics.fractions",
+                    assessmentCount: 2,
+                    latestAssessment: StudyAssessmentEvidence(
+                        taskType: "knowledge_check",
+                        attempts: 2,
+                        firstTryCorrect: false,
+                        hintsUsed: 0
+                    )
+                ),
+                StudyAssessmentProgressRecord(
+                    lessonID: "english.verbs",
+                    assessmentCount: 1,
+                    latestAssessment: StudyAssessmentEvidence(
+                        taskType: "knowledge_check",
+                        attempts: 1,
+                        firstTryCorrect: true,
+                        hintsUsed: 0
+                    )
+                ),
+                StudyAssessmentProgressRecord(
+                    lessonID: "biology.cells",
+                    assessmentCount: 0,
+                    latestAssessment: nil
+                ),
+                StudyAssessmentProgressRecord(
+                    lessonID: "intro.mathematics",
+                    assessmentCount: 8,
+                    latestAssessment: StudyAssessmentEvidence(
+                        taskType: "knowledge_check",
+                        attempts: 3,
+                        firstTryCorrect: false,
+                        hintsUsed: 0
+                    )
+                ),
+                StudyAssessmentProgressRecord(
+                    lessonID: "mathematics.not_in_roadmap",
+                    assessmentCount: 3,
+                    latestAssessment: nil
+                ),
+                StudyAssessmentProgressRecord(
+                    lessonID: "english.conditionals",
+                    assessmentCount: nil,
+                    latestAssessment: StudyAssessmentEvidence(
+                        taskType: "knowledge_check",
+                        attempts: 1,
+                        firstTryCorrect: true,
+                        hintsUsed: 0
+                    )
+                ),
+            ]
+        )
+        precondition(
+            checkCoverage.totalTopicCount == 7
+                && checkCoverage.topicsWithChecks == 3
+                && checkCoverage.topicsNeedingPractice == 1,
+            "Knowledge evidence must count only addressable roadmap topics and flag the latest check when it needed retries. / Свидетельства понимания должны учитывать только доступные темы плана и отмечать темы, где последняя проверка потребовала повторов."
+        )
+        let emptyCoverage = StudyKnowledgeEvidenceCoverage(roadmaps: [], records: [])
+        precondition(
+            emptyCoverage.totalTopicCount == 0
+                && emptyCoverage.topicsWithChecks == 0
+                && emptyCoverage.topicsNeedingPractice == 0,
+            "An empty curriculum must report no knowledge evidence without inventing a mastery score. / Пустой учебный план должен показывать отсутствие свидетельств, не придумывая оценку освоения."
+        )
         precondition(
             !StudyReviewActionPolicy.canRecord(isComplete: true, isReviewDue: false, hasAssessment: false)
                 && StudyReviewActionPolicy.canRecord(isComplete: true, isReviewDue: false, hasAssessment: true)

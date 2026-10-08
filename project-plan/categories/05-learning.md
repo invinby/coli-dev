@@ -57,6 +57,12 @@ Biology Foundations также включает связанные RU/EN уро�
 
 **EN:** This is evidence from one multiple-choice question, not a topic mastery level. It does not yet cover subject-introduction quizzes, explanations in the learner’s own words, open-ended application, knowledge transfer, hints from other practice modules, or linked prerequisites. The next mastery-model increment should collect these outcomes separately and avoid collapsing them into a knowledge percentage without a validated criterion.
 
+## Покрытие проверок на главном экране / Dashboard check-evidence coverage
+
+**RU:** Главный экран отдельно считает завершённые уроки и темы учебных планов, по которым уже сохранён хотя бы один проверочный ответ. Дополнительно он показывает темы, где последняя проверка потребовала повторной попытки. Это счётчик покрытия одним типом задания, а не процент знаний или доказательство освоения. Интерактивные лаборатории, объяснение своими словами, перенос знаний и более сложные задания пока не входят в эту метрику; интерфейс должен говорить об этом прямо.
+
+**EN:** The home screen separately counts completed lessons and roadmap topics with at least one saved knowledge check. It also shows topics whose latest check required a retry. This is coverage by one task type, not a knowledge percentage or proof of mastery. Interactive labs, learner explanations, knowledge transfer, and harder tasks are not included yet; the interface must say so plainly.
+
 ## Уточнения после проверки прототипа — 2026-10-08
 
 - **EN:** Biology is already an existing subject. Keep it; do not create a duplicate. Add a clear “+” flow so learners can create their own subjects, topics, and subtopics, with stable saved IDs and a visible path into the course map. **RU:** Биология уже есть как отдельный предмет. Сохранить её и не создавать дубликат. Добавить понятное действие «+», чтобы ученик мог создавать собственные предметы, темы и подтемы; сохранять стабильные ID и показывать путь к ним в карте курса.
