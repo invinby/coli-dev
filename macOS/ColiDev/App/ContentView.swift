@@ -418,6 +418,13 @@ private struct TodayView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if !hasAddressableDueReview,
+                   studyRecommendation?.reason == .reportedFoundationPrerequisite {
+                    Text(L10n.text("home.reportedFoundationPrerequisite", store.language))
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Color.accentColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if !hasAddressableDueReview,
                    case let .reportedDifficulty(category)? = studyRecommendation?.reason {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(L10n.text("home.reportedDifficultyRecommendation", store.language)

@@ -399,8 +399,48 @@ enum StudyRecommendationVerification {
             ]
         )
         precondition(
-            reportedFoundationPrerequisite?.route == userTopicRoute,
+            reportedFoundationPrerequisite == StudyRecommendation(
+                route: userTopicRoute,
+                reason: .reportedFoundationPrerequisite
+            ),
             "A repeated foundation difficulty on a subtopic should point to its parent only when that parent also has a matching failed check. / Повторная отметка о нехватке основы должна вести к родительской теме только при собственной непройденной проверке с таким же сигналом."
+        )
+        let unrelatedParentFailure = StudyAssessmentEvidenceSummary(
+            lessonID: userTopicRoute.lessonID,
+            assessmentCount: 1,
+            taskTypeCounts: ["knowledge_check": 1],
+            passedTaskTypeCounts: [:],
+            errorCategoryCounts: [StudyErrorCategory.application.rawValue: 1],
+            latestAssessment: StudyAssessmentEvidence(
+                taskType: "knowledge_check",
+                attempts: 1,
+                firstTryCorrect: false,
+                hintsUsed: 0,
+                errorCategories: [.application],
+                passed: false
+            ),
+            latestAt: "2026-10-08T14:30:00Z"
+        )
+        let unrelatedFoundationPrerequisite = StudyRecommendationSelector.recommendation(
+            roadmaps: customRoadmaps,
+            completedLessonIDs: [],
+            resume: nil,
+            assessmentEvidence: [
+                repeatedFoundationOnSubtopic.lessonID: repeatedFoundationOnSubtopic,
+                unrelatedParentFailure.lessonID: unrelatedParentFailure,
+            ]
+        )
+        precondition(
+            unrelatedFoundationPrerequisite == StudyRecommendation(
+                route: userSubtopicRoute,
+                reason: .reportedDifficulty(.foundation)
+            ),
+            "A failed prerequisite with a different reported error must not redirect the learner. / Непройденная предпосылка с другой отмеченной трудностью не должна менять рекомендованный маршрут."
+        )
+        precondition(
+            customRoadmaps[0].prerequisitesByResource[customSubtopicID.uuidString.lowercased()]
+                == [customTopicID.uuidString.lowercased()],
+            "Nested learner topics must retain their direct prerequisite relationship. / Во вложенном плане должна сохраняться связь подтемы с непосредственной предпосылкой."
         )
         precondition(
             customRoadmaps.count == 2

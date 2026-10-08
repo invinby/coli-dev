@@ -11,11 +11,13 @@ struct StudyRoadmap: Equatable {
     let subjectID: String
     let lessonResources: [String]
     let progressionLevels: [[String]]
+    let prerequisitesByResource: [String: [String]]
 
     init(
         subjectID: String,
         lessonResources: [String],
-        progressionLevels: [[String]] = []
+        progressionLevels: [[String]] = [],
+        prerequisitesByResource: [String: [String]] = [:]
     ) {
         self.subjectID = subjectID
         var seen = Set<String>()
@@ -29,6 +31,19 @@ struct StudyRoadmap: Equatable {
                 availableResources.contains(resource) && assignedResources.insert(resource).inserted
             }
         }.filter { !$0.isEmpty }
+        var sanitizedPrerequisites: [String: [String]] = [:]
+        for (resource, candidates) in prerequisitesByResource where availableResources.contains(resource) {
+            var seenPrerequisites = Set<String>()
+            let prerequisites = candidates.filter { prerequisite in
+                prerequisite != resource
+                    && availableResources.contains(prerequisite)
+                    && seenPrerequisites.insert(prerequisite).inserted
+            }
+            if !prerequisites.isEmpty {
+                sanitizedPrerequisites[resource] = prerequisites
+            }
+        }
+        self.prerequisitesByResource = sanitizedPrerequisites
     }
 }
 
@@ -84,7 +99,8 @@ enum CustomTopicStudyRoute {
             guard !resources.isEmpty else { return nil }
             return StudyRoadmap(
                 subjectID: learnerSubjectPrefix + subject.id.uuidString.lowercased(),
-                lessonResources: resources
+                lessonResources: resources,
+                prerequisitesByResource: prerequisitesByResource(in: subject.topics)
             )
         }
 
@@ -93,7 +109,8 @@ enum CustomTopicStudyRoute {
             guard !resources.isEmpty else { continue }
             roadmaps.append(StudyRoadmap(
                 subjectID: builtInSubjectPrefix + subjectID,
-                lessonResources: resources
+                lessonResources: resources,
+                prerequisitesByResource: prerequisitesByResource(in: curriculum.topics(builtInSubjectID: subjectID))
             ))
         }
         return roadmaps
@@ -103,6 +120,23 @@ enum CustomTopicStudyRoute {
         topics.flatMap { topic in
             [topic.id.uuidString.lowercased()] + topicIDs(in: topic.subtopics)
         }
+    }
+
+    private static func prerequisitesByResource(in topics: [CustomLearningTopic]) -> [String: [String]] {
+        var prerequisites: [String: [String]] = [:]
+
+        func collect(_ topics: [CustomLearningTopic], ancestors: [String]) {
+            for topic in topics {
+                let resource = topic.id.uuidString.lowercased()
+                if !ancestors.isEmpty {
+                    prerequisites[resource] = Array(ancestors.reversed())
+                }
+                collect(topic.subtopics, ancestors: ancestors + [resource])
+            }
+        }
+
+        collect(topics, ancestors: [])
+        return prerequisites
     }
 }
 
@@ -226,6 +260,7 @@ enum StudyRecommendationReason: Equatable {
     case resume
     case practiceReview
     case reportedDifficulty(StudyErrorCategory)
+    case reportedFoundationPrerequisite
     case recallReview
     case prerequisiteCheck
     case nextLesson
@@ -277,6 +312,24 @@ struct StudyProgressionEvidence: Equatable {
 }
 
 enum StudyProgressionPolicy {
+    static func reportedFoundationPrerequisiteRecommendation(
+        for resource: String,
+        in roadmap: StudyRoadmap,
+        assessmentEvidence: [String: StudyAssessmentEvidenceSummary]
+    ) -> StudyLessonRoute? {
+        for prerequisite in roadmap.prerequisitesByResource[resource] ?? [] {
+            let lessonID = "\(roadmap.subjectID).\(prerequisite)"
+            guard let evidence = assessmentEvidence[lessonID],
+                  evidence.latestAssessment.taskType == "knowledge_check",
+                  evidence.latestAssessment.passed == false,
+                  evidence.latestAssessment.errorCategories?.contains(.foundation) == true else {
+                continue
+            }
+            return StudyLessonRoute(subjectID: roadmap.subjectID, resource: prerequisite)
+        }
+        return nil
+    }
+
     static func prerequisiteRecommendation(
         for resource: String,
         in roadmap: StudyRoadmap,
@@ -362,8 +415,16 @@ enum StudyRecommendationSelector {
                     return (category, count)
                 }.max { lhs, rhs in lhs.1 < rhs.1 }
                 guard let (category, reportCount) = repeatedCategory else { return nil }
+                let foundationPrerequisite = category == .foundation
+                    ? StudyProgressionPolicy.reportedFoundationPrerequisiteRecommendation(
+                        for: resource,
+                        in: roadmap,
+                        assessmentEvidence: assessmentEvidence
+                    )
+                    : nil
                 return ReportedDifficultyCandidate(
                     route: route,
+                    foundationPrerequisiteRoute: foundationPrerequisite,
                     category: category,
                     reportCount: reportCount,
                     latestAt: evidence.latestAt
@@ -376,8 +437,10 @@ enum StudyRecommendationSelector {
             return lhs.route.lessonID < rhs.route.lessonID
         }) {
             return StudyRecommendation(
-                route: repeatedDifficulty.route,
-                reason: .reportedDifficulty(repeatedDifficulty.category)
+                route: repeatedDifficulty.foundationPrerequisiteRoute ?? repeatedDifficulty.route,
+                reason: repeatedDifficulty.foundationPrerequisiteRoute == nil
+                    ? .reportedDifficulty(repeatedDifficulty.category)
+                    : .reportedFoundationPrerequisite
             )
         }
 
@@ -537,6 +600,7 @@ enum StudyRecommendationSelector {
 
     private struct ReportedDifficultyCandidate {
         let route: StudyLessonRoute
+        let foundationPrerequisiteRoute: StudyLessonRoute?
         let category: StudyErrorCategory
         let reportCount: Int
         let latestAt: String

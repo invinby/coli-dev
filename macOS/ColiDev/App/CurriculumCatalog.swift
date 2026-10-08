@@ -109,10 +109,19 @@ enum CurriculumCatalog {
             let progressionLevels = roadmap(for: subject).map { level in
                 level.topics.compactMap(\.lessonResource)
             }
+            var prerequisitesByResource: [String: [String]] = [:]
+            var earlierResources: [String] = []
+            for level in progressionLevels {
+                for resource in level {
+                    prerequisitesByResource[resource] = Array(earlierResources.reversed())
+                }
+                earlierResources.append(contentsOf: level)
+            }
             return StudyRoadmap(
                 subjectID: subject.rawValue,
                 lessonResources: progressionLevels.flatMap { $0 },
-                progressionLevels: progressionLevels
+                progressionLevels: progressionLevels,
+                prerequisitesByResource: prerequisitesByResource
             )
         }
     }
