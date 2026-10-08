@@ -141,7 +141,7 @@ enum CustomTopicOutlineDestination: Equatable {
 }
 
 struct CustomTopicOutlineProposal: Equatable {
-    let topics: [CustomTopicOutlineItem]
+    var topics: [CustomTopicOutlineItem]
 
     static func parse(_ response: String) throws -> CustomTopicOutlineProposal {
         guard response.utf8.count <= 64 * 1024 else {

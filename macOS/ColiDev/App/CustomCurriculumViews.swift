@@ -757,7 +757,7 @@ private struct CustomTopicOutlineItemEditor: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.leading, min(depth, 3) * 12)
+            .padding(.leading, CGFloat(min(depth, 3) * 12))
         }
     }
 }
