@@ -2153,5 +2153,6 @@ enum AppSection: Hashable {
     case customTopic(UUID, UUID)
     case builtInCustomTopic(Subject, UUID)
     case management
+    case localModels
     case settings
 }

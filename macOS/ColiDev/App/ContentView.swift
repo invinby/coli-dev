@@ -59,6 +59,10 @@ struct ContentView: View {
                         Image(systemName: "wrench.and.screwdriver")
                     }
                     .tag(AppSection.management)
+                    Label { Text(L10n.text("management.models", store.language)) } icon: {
+                        Image(systemName: "cpu")
+                    }
+                    .tag(AppSection.localModels)
                     Label { Text(L10n.text("nav.settings", store.language)) } icon: { Image(systemName: "gearshape") }
                         .tag(AppSection.settings)
                 }
@@ -109,6 +113,10 @@ struct ContentView: View {
                     }
                 case .management:
                     ManagementView(openSettings: { selection = .settings })
+                        .id(AppSection.management)
+                case .localModels:
+                    ManagementView(openSettings: { selection = .settings }, initialPane: .models)
+                        .id(AppSection.localModels)
                 case .settings:
                     SettingsView()
                 }
@@ -733,6 +741,11 @@ private struct ManagementView: View {
     @State private var statusIsError = false
 
     let openSettings: () -> Void
+
+    init(openSettings: @escaping () -> Void, initialPane: ManagementPane = .overview) {
+        self.openSettings = openSettings
+        _pane = State(initialValue: initialPane)
+    }
 
     private let metricColumns = [GridItem(.adaptive(minimum: 190), spacing: 12)]
 
