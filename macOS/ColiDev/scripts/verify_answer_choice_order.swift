@@ -271,7 +271,7 @@ enum AnswerChoiceOrderVerification {
                 taskType: "interactive_prediction",
                 attempts: 1,
                 firstTryCorrect: false,
-                hintsUsed: 0
+                hintsUsed: 1
             ),
             "An incorrect interactive prediction must be saved as its own piece of evidence. / Неверный интерактивный прогноз должен сохраняться как отдельное учебное свидетельство."
         )
@@ -290,7 +290,7 @@ enum AnswerChoiceOrderVerification {
                 taskType: "interactive_prediction",
                 attempts: 2,
                 firstTryCorrect: false,
-                hintsUsed: 0
+                hintsUsed: 1
             ),
             "A retry must preserve first-try correctness and cumulative attempts. / Повтор должен сохранять результат первой попытки и общее число попыток."
         )
