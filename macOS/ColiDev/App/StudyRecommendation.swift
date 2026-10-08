@@ -225,6 +225,7 @@ struct StudyKnowledgeEvidenceCoverage: Equatable {
 enum StudyRecommendationReason: Equatable {
     case resume
     case practiceReview
+    case reportedDifficulty(StudyErrorCategory)
     case recallReview
     case prerequisiteCheck
     case nextLesson
@@ -343,6 +344,41 @@ enum StudyRecommendationSelector {
                 evidence: progressionEvidence
             )
             return prerequisite ?? StudyRecommendation(route: resume, reason: .resume)
+        }
+
+        let repeatedDifficultyCandidates = roadmaps.flatMap { roadmap in
+            roadmap.lessonResources.compactMap { resource -> ReportedDifficultyCandidate? in
+                let route = StudyLessonRoute(subjectID: roadmap.subjectID, resource: resource)
+                guard StudyProgressionPolicy.isAvailable(route, in: roadmap, evidence: progressionEvidence),
+                      let evidence = assessmentEvidence[route.lessonID],
+                      let latest = evidence.latestAssessment,
+                      latest.taskType == "knowledge_check",
+                      latest.passed == false,
+                      let latestCategories = latest.errorCategories else { return nil }
+
+                let repeatedCategory = StudyErrorCategory.allCases.compactMap { category -> (StudyErrorCategory, Int)? in
+                    let count = evidence.errorCategoryCounts?[category.rawValue] ?? 0
+                    guard count >= 2, latestCategories.contains(category) else { return nil }
+                    return (category, count)
+                }.max { lhs, rhs in lhs.1 < rhs.1 }
+                guard let (category, reportCount) = repeatedCategory else { return nil }
+                return ReportedDifficultyCandidate(
+                    route: route,
+                    category: category,
+                    reportCount: reportCount,
+                    latestAt: evidence.latestAt
+                )
+            }
+        }
+        if let repeatedDifficulty = repeatedDifficultyCandidates.min(by: { lhs, rhs in
+            if lhs.reportCount != rhs.reportCount { return lhs.reportCount > rhs.reportCount }
+            if lhs.latestAt != rhs.latestAt { return lhs.latestAt > rhs.latestAt }
+            return lhs.route.lessonID < rhs.route.lessonID
+        }) {
+            return StudyRecommendation(
+                route: repeatedDifficulty.route,
+                reason: .reportedDifficulty(repeatedDifficulty.category)
+            )
         }
 
         let practiceCandidates = roadmaps.flatMap { roadmap in
@@ -497,5 +533,12 @@ enum StudyRecommendationSelector {
         let route: StudyLessonRoute
         let attempts: Int
         let reviewedAt: String
+    }
+
+    private struct ReportedDifficultyCandidate {
+        let route: StudyLessonRoute
+        let category: StudyErrorCategory
+        let reportCount: Int
+        let latestAt: String
     }
 }

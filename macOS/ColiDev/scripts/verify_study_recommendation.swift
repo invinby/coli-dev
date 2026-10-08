@@ -168,8 +168,36 @@ enum StudyRecommendationVerification {
             ]
         )
         precondition(
-            repeatedDifficultyRecommendation?.route.lessonID == "biology.cells",
+            repeatedDifficultyRecommendation == StudyRecommendation(
+                route: StudyLessonRoute(subjectID: "biology", resource: "cells"),
+                reason: .reportedDifficulty(.foundation)
+            ),
             "A repeated self-reported difficulty on the latest failed topic must take priority over a generic retry count. / Повторная самооценка трудности по последней непройденной теме должна быть приоритетнее общего числа повторных попыток."
+        )
+        let staleFoundationReport = StudyAssessmentEvidenceSummary(
+            lessonID: "biology.cells",
+            assessmentCount: 5,
+            taskTypeCounts: ["knowledge_check": 5],
+            passedTaskTypeCounts: ["knowledge_check": 3],
+            errorCategoryCounts: ["foundation": 2],
+            latestAssessment: StudyAssessmentEvidence(
+                taskType: "knowledge_check",
+                attempts: 1,
+                firstTryCorrect: true,
+                hintsUsed: 0,
+                passed: true
+            ),
+            latestAt: "2026-10-08T14:00:00Z"
+        )
+        let staleDifficultyRecommendation = StudyRecommendationSelector.recommendation(
+            roadmaps: [StudyRoadmap(subjectID: "biology", lessonResources: ["cells"])],
+            completedLessonIDs: [],
+            resume: nil,
+            assessmentEvidence: [staleFoundationReport.lessonID: staleFoundationReport]
+        )
+        precondition(
+            staleDifficultyRecommendation?.reason == .nextLesson,
+            "An older difficulty report must not override a later passed check. / Старая отметка о трудности не должна отменять более позднюю успешную проверку."
         )
         let emptyCoverage = StudyKnowledgeEvidenceCoverage(roadmaps: [], records: [])
         precondition(

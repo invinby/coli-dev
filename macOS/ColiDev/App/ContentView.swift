@@ -417,6 +417,19 @@ private struct TodayView: View {
                         .foregroundStyle(Color.accentColor)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                if !hasAddressableDueReview,
+                   case let .reportedDifficulty(category)? = studyRecommendation?.reason {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(L10n.text("home.reportedDifficultyRecommendation", store.language)
+                            .replacingOccurrences(of: "%@", with: L10n.text(category.titleKey, store.language)))
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(Color.accentColor)
+                        Text(L10n.text(category.guidanceKey, store.language))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .fixedSize(horizontal: false, vertical: true)
+                }
                 if !hasAddressableDueReview, studyRecommendation?.reason == .recallReview {
                     Text(L10n.text("home.recallNeedsPractice", store.language))
                         .font(.caption)

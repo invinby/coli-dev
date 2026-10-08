@@ -19,6 +19,7 @@ enum L10n {
         "home.knowledgeEvidenceLimit": ("Это покрытие проверками, а не уровень освоения; результат одного задания не доказывает общее понимание темы.", "This shows assessment coverage, not mastery; one task result does not prove overall understanding of a topic."),
         "home.reportedDifficulties": ("Отмеченные тобой трудности в последних проверках:", "Difficulties you reported in the latest checks:"),
         "home.reportedDifficultiesCaveat": ("Число тем с такой отметкой; это не автоматическая диагностика.", "Number of topics with this report; this is not an automated diagnosis."),
+        "home.reportedDifficultyRecommendation": ("Ты несколько раз отмечал: %@. Последняя проверка темы ещё не пройдена — вернёмся к ней. Это самооценка, не диагноз.", "You’ve reported %@ more than once. You haven’t passed the latest check for this topic yet, so let’s revisit it. This is your self-report, not a diagnosis."),
         "home.recallNeedsPractice": ("Ты оценил воспоминание как трудное — повторим эту тему перед новой.", "You rated recall as difficult, so let's revisit this topic before a new one."),
         "home.quizNeedsPractice": ("В последней проверке пришлось повторять — закрепим эту тему ещё раз.", "The latest check needed retries, so let's reinforce this topic."),
         "home.prerequisiteCheck": ("Урок отмечен пройденным, но проверка знаний не сохранена. Повтори вопрос, чтобы открыть следующий уровень.", "The lesson is marked complete, but its knowledge check was not saved. Retake the check to unlock the next level."),
