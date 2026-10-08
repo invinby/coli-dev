@@ -279,46 +279,21 @@ private struct CurriculumLessonDocument {
     }
 
     func notebookSource(subject: Subject, language: AppLanguage) -> String {
-        let subjectLabel = subject.title(in: language)
-        let goalHeading = language == .ru ? "Цель" : "Learning goal"
-        let theoryHeading = language == .ru ? "Теория и механизм" : "Theory and mechanism"
-        let practiceHeading = language == .ru ? "Практика" : "Practice"
-        let checkHeading = language == .ru ? "Проверка понимания" : "Knowledge check"
-        let answerHeading = language == .ru ? "Правильный ответ и разбор" : "Correct answer and explanation"
-        let limitsHeading = language == .ru ? "Ограничения" : "Limitations"
-        let sourcesHeading = language == .ru ? "Источники" : "Sources"
-        let origin = language == .ru ? "Экспортировано из ColiDev" : "Exported from ColiDev"
-
-        var sections = [
-            "# \(title)",
-            "**\(language == .ru ? "Предмет" : "Subject"): \(subjectLabel)**",
-            "*\(origin)*",
-            "## \(goalHeading)\n\(objective)",
-            "## \(theoryHeading)\n\(theory)",
-        ]
-        if !practice.isEmpty {
-            sections.append("## \(practiceHeading)\n\(practice)")
-        }
-        if !checkQuestion.isEmpty {
-            var check = "## \(checkHeading)\n\(checkQuestion)"
-            for (index, option) in checkOptions.enumerated() {
-                check += "\n\n\(index + 1). \(option)"
-            }
-            sections.append(check)
-        }
-        if let checkAnswerIndex {
-            let answerLabel = language == .ru ? "Правильный вариант" : "Correct option"
-            sections.append("## \(answerHeading)\n\(answerLabel): \(checkAnswerIndex + 1).\n\n\(answer)")
-        } else if !answer.isEmpty {
-            sections.append("## \(answerHeading)\n\(answer)")
-        }
-        if !limitations.isEmpty {
-            sections.append("## \(limitsHeading)\n\(limitations)")
-        }
-        if !sources.isEmpty {
-            sections.append("## \(sourcesHeading)\n\(sources)")
-        }
-        return sections.joined(separator: "\n\n") + "\n"
+        NotebookLessonExport(
+            title: title,
+            subjectLabel: subject.title(in: language),
+            isRussian: language == .ru,
+            sourceCheckedOn: sourceCheckedOn,
+            objective: objective,
+            theory: theory,
+            practice: practice,
+            answer: answer,
+            checkQuestion: checkQuestion,
+            checkOptions: checkOptions,
+            checkAnswerIndex: checkAnswerIndex,
+            limitations: limitations,
+            sources: sources
+        ).markdown
     }
 
     private static func extract(_ markdown: String, headings: [String]) -> String {

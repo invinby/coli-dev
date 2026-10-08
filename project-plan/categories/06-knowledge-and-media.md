@@ -73,3 +73,9 @@
 ### Выбор установленных моделей Ollama — 2026-10-06
 
 В Services/Control Center у выбора локальной модели есть каталог уже установленных ID из Ollama на этом Mac и ручное поле для пользовательского ID. Получение каталога — loopback-only, с таймаутом; наружу передаются только валидированные имена. Интерфейс не обещает, что выбранная вручную модель существует, пока Ollama не подтвердила её фактический вызов, и не устанавливает модели сам. В полном уроке добавлено явное сохранение его Markdown-копии в локальный Obsidian vault через loopback Local REST API; каждое сохранение получает уникальный путь, пишет только выбранный язык и не переписывает учебный исходник. Прямой NotebookLM API не реализован; поддерживается ручной экспорт `.md` и пользовательский импорт.
+
+### Происхождение источников в экспорте NotebookLM / Source provenance in NotebookLM exports
+
+**RU:** При ручном экспорте урока в Markdown перед списком источников указывать `source_checked` только как дату последней редакторской проверки, если она задана в самом уроке в формате `YYYY-MM-DD`. Пустую или неверно оформленную дату опускать, а не придумывать. Экспорт сохраняет двуязычный выбор, теорию, практику, вопрос, варианты, правильный ответ, ограничения и исходные цитаты. Эта дата не означает автоматического обновления материалов и не заменяет проверку актуальности фактов.
+
+**EN:** When a lesson is manually exported to Markdown, include `source_checked` before the source list only as the lesson's last editorial review date, when it is present in `YYYY-MM-DD` format. Omit missing or malformed dates rather than inventing one. The export preserves the selected language, theory, practice, question, choices, correct answer, limitations, and cited sources. This date does not mean that materials update automatically and does not replace fact-freshness review.
