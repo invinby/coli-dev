@@ -7643,13 +7643,13 @@ struct TutorChatView: View {
                 messageID: message.id,
                 proposal: proposal
             )
-            outlineErrorMessage = nil
+            outlineImportError = nil
             outlineErrorMessageID = nil
         } catch let error as CustomTopicOutlineError {
-            outlineErrorMessage = outlineErrorText(error)
+            outlineImportError = outlineErrorText(error)
             outlineErrorMessageID = message.id
         } catch {
-            outlineErrorMessage = L10n.text("custom.outlineParseMalformed", language)
+            outlineImportError = L10n.text("custom.outlineParseMalformed", language)
             outlineErrorMessageID = message.id
         }
     }
