@@ -251,6 +251,50 @@ enum AnswerChoiceOrderVerification {
             "A correct answer event must be explicitly marked as passed. / Правильный ответ должен явно помечаться как успешный."
         )
 
+        var predictionGenerator = SeededGenerator(seed: 307)
+        guard var prediction = InteractivePredictionAttempt(
+            optionCount: 3,
+            answerOriginalIndex: 2,
+            using: &predictionGenerator
+        ) else {
+            preconditionFailure("A valid option must start an interactive prediction. / Допустимый вариант должен запускать интерактивный прогноз.")
+        }
+        let predictionOrder = prediction.choiceOrder.displayedOriginalIndices
+        precondition(Set(predictionOrder) == Set(0..<3))
+        prediction.select(displayedIndex: -1)
+        precondition(prediction.attemptCount == 0 && prediction.currentAnswerEventEvidence() == nil)
+        let wrongPredictionIndex = predictionOrder.firstIndex(where: { $0 != 2 })!
+        prediction.select(displayedIndex: wrongPredictionIndex)
+        precondition(!prediction.isCorrect && prediction.canRetry)
+        precondition(
+            prediction.currentAnswerEventEvidence() == StudyAssessmentEvidence(
+                taskType: "interactive_prediction",
+                attempts: 1,
+                firstTryCorrect: false,
+                hintsUsed: 0
+            ),
+            "An incorrect interactive prediction must be saved as its own piece of evidence. / Неверный интерактивный прогноз должен сохраняться как отдельное учебное свидетельство."
+        )
+        let lockedPrediction = prediction.selectedOriginalIndex
+        prediction.select(displayedIndex: predictionOrder.firstIndex(of: 2)!)
+        precondition(prediction.selectedOriginalIndex == lockedPrediction)
+        var predictionRetryGenerator = SeededGenerator(seed: 241)
+        prediction.retry(using: &predictionRetryGenerator)
+        precondition(prediction.selectedOriginalIndex == nil && prediction.attemptCount == 1)
+        precondition(Set(prediction.choiceOrder.displayedOriginalIndices) == Set(0..<3))
+        let correctPredictionIndex = prediction.choiceOrder.displayedOriginalIndices.firstIndex(of: 2)!
+        prediction.select(displayedIndex: correctPredictionIndex)
+        precondition(prediction.isCorrect && !prediction.canRetry && prediction.attemptCount == 2)
+        precondition(
+            prediction.currentAnswerEventEvidence() == StudyAssessmentEvidence(
+                taskType: "interactive_prediction",
+                attempts: 2,
+                firstTryCorrect: false,
+                hintsUsed: 0
+            ),
+            "A retry must preserve first-try correctness and cumulative attempts. / Повтор должен сохранять результат первой попытки и общее число попыток."
+        )
+
         print("Answer choice order checks passed. / Проверки порядка вариантов прошли.")
     }
 }
