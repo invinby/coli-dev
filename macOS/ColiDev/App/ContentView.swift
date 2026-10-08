@@ -191,13 +191,28 @@ private struct TodayView: View {
         )
     }
 
-    private var nextLessonRoute: StudyLessonRoute? {
-        StudyRecommendationSelector.nextLesson(
+    private var recallEvidence: [String: StudyRecallEvidence] {
+        var evidence: [String: StudyRecallEvidence] = [:]
+        for record in store.studyProgress.values {
+            guard let quality = record.lastQuality else { continue }
+            evidence[record.lessonID] = StudyRecallEvidence(
+                quality: quality,
+                reviewedAt: record.lastReviewedAt
+            )
+        }
+        return evidence
+    }
+
+    private var studyRecommendation: StudyRecommendation? {
+        StudyRecommendationSelector.recommendation(
             roadmaps: studyRoadmaps,
             completedLessonIDs: store.completedLessonIDs,
-            resume: store.lastOpenedCourseRoute
+            resume: store.lastOpenedCourseRoute,
+            recallEvidence: recallEvidence
         )
     }
+
+    private var nextLessonRoute: StudyLessonRoute? { studyRecommendation?.route }
 
     private var hasAddressableDueReview: Bool {
         store.nextDueLessonID != nil && store.nextDueSubject != nil
@@ -289,6 +304,12 @@ private struct TodayView: View {
                 Text(L10n.text("home.masteryNotTracked", store.language))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if !hasAddressableDueReview, studyRecommendation?.reason == .recallReview {
+                    Text(L10n.text("home.recallNeedsPractice", store.language))
+                        .font(.caption)
+                        .foregroundStyle(Color.accentColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 if store.dueReviewCount > 0 {
                     Text(L10n.text("home.dueReviews", store.language)
                         .replacingOccurrences(of: "%@", with: "\(store.dueReviewCount)"))

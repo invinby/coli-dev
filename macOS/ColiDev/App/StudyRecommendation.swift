@@ -38,17 +38,55 @@ struct StudyCourseProgress: Equatable {
     }
 }
 
+enum StudyRecommendationReason: Equatable {
+    case resume
+    case recallReview
+    case nextLesson
+}
+
+struct StudyRecommendation: Equatable {
+    let route: StudyLessonRoute
+    let reason: StudyRecommendationReason
+}
+
+struct StudyRecallEvidence: Equatable {
+    let quality: Int
+    let reviewedAt: String?
+}
+
 enum StudyRecommendationSelector {
-    static func nextLesson(
+    static func recommendation(
         roadmaps: [StudyRoadmap],
         completedLessonIDs: Set<String>,
-        resume: StudyLessonRoute?
-    ) -> StudyLessonRoute? {
+        resume: StudyLessonRoute?,
+        recallEvidence: [String: StudyRecallEvidence] = [:]
+    ) -> StudyRecommendation? {
         if let resume,
            let roadmap = roadmaps.first(where: { $0.subjectID == resume.subjectID }),
            roadmap.lessonResources.contains(resume.resource),
            !completedLessonIDs.contains(resume.lessonID) {
-            return resume
+            return StudyRecommendation(route: resume, reason: .resume)
+        }
+
+        let weakRecallCandidates = roadmaps.flatMap { roadmap in
+            roadmap.lessonResources.enumerated().compactMap { _, resource -> RecallCandidate? in
+                let route = StudyLessonRoute(subjectID: roadmap.subjectID, resource: resource)
+                guard completedLessonIDs.contains(route.lessonID),
+                      let evidence = recallEvidence[route.lessonID],
+                      evidence.quality < 3 else { return nil }
+                return RecallCandidate(
+                    route: route,
+                    quality: evidence.quality,
+                    reviewedAt: evidence.reviewedAt ?? ""
+                )
+            }
+        }
+        if let weakest = weakRecallCandidates.min(by: { lhs, rhs in
+            if lhs.quality != rhs.quality { return lhs.quality < rhs.quality }
+            if lhs.reviewedAt != rhs.reviewedAt { return lhs.reviewedAt < rhs.reviewedAt }
+            return lhs.route.lessonID < rhs.route.lessonID
+        }) {
+            return StudyRecommendation(route: weakest.route, reason: .recallReview)
         }
 
         let candidates = roadmaps.enumerated().compactMap { index, roadmap -> Candidate? in
@@ -69,11 +107,26 @@ enum StudyRecommendationSelector {
             )
         }
 
-        return candidates.min { lhs, rhs in
+        guard let next = candidates.min(by: { lhs, rhs in
             let leftCoverage = lhs.completedCount * rhs.totalCount
             let rightCoverage = rhs.completedCount * lhs.totalCount
             return leftCoverage == rightCoverage ? lhs.index < rhs.index : leftCoverage < rightCoverage
-        }?.route
+        })?.route else { return nil }
+        return StudyRecommendation(route: next, reason: .nextLesson)
+    }
+
+    static func nextLesson(
+        roadmaps: [StudyRoadmap],
+        completedLessonIDs: Set<String>,
+        resume: StudyLessonRoute?,
+        recallEvidence: [String: StudyRecallEvidence] = [:]
+    ) -> StudyLessonRoute? {
+        recommendation(
+            roadmaps: roadmaps,
+            completedLessonIDs: completedLessonIDs,
+            resume: resume,
+            recallEvidence: recallEvidence
+        )?.route
     }
 
     private struct Candidate {
@@ -81,5 +134,11 @@ enum StudyRecommendationSelector {
         let route: StudyLessonRoute
         let completedCount: Int
         let totalCount: Int
+    }
+
+    private struct RecallCandidate {
+        let route: StudyLessonRoute
+        let quality: Int
+        let reviewedAt: String
     }
 }

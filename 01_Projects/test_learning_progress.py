@@ -18,12 +18,14 @@ def test_review_schedule_follows_quality_and_persists_across_instances(tmp_path:
     assert first["completed"] is True
     assert first["repetitions"] == 1
     assert first["interval_days"] == 1
+    assert first["last_quality"] == 4
     assert first["due_at"] == "2026-10-06T12:00:00Z"
 
     now[0] += timedelta(days=1)
     second = store.record_review("f47ac10b-58cc-4372-a567-0e02b2c3d480", "intro.physics", 5)
     assert second["repetitions"] == 2
     assert second["interval_days"] == 6
+    assert second["last_quality"] == 5
     assert second["due_at"] == "2026-10-12T12:00:00Z"
 
     restored = StudyProgressStore(database, clock=lambda: now[0])
@@ -179,6 +181,7 @@ def test_reflection_columns_migrate_existing_progress_database(tmp_path: Path) -
     store.initialize()
 
     assert store.get_progress()["records"][0]["reflection"] == ""
+    assert store.get_progress()["records"][0]["last_quality"] is None
     assert store.record_review(
         "f47ac10b-58cc-4372-a567-0e02b2c3d484", "intro.math", 4
     )["review_count"] == 0
@@ -231,6 +234,7 @@ def test_progress_backup_validation_is_atomic_and_rejects_duplicates(tmp_path: P
         "interval_days": 1,
         "ease_factor": 2.5,
         "review_count": 1,
+        "last_quality": 4,
         "due_at": "2026-10-07T00:00:00Z",
         "last_reviewed_at": "2026-10-06T00:00:00Z",
         "reflection": "I understand osmosis",
@@ -247,6 +251,12 @@ def test_progress_backup_validation_is_atomic_and_rejects_duplicates(tmp_path: P
             "format": "colidev-learning-progress",
             "version": 1,
             "records": [valid, valid],
+        })
+    with pytest.raises(ValueError, match="last_quality"):
+        store.restore_backup({
+            "format": "colidev-learning-progress",
+            "version": 1,
+            "records": [{**valid, "last_quality": 6}],
         })
     assert store.get_progress()["records"] == []
 

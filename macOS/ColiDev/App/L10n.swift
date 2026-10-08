@@ -14,6 +14,7 @@ enum L10n {
         "home.lessonCompletion": ("Уроков в плане пройдено: %d из %d", "Roadmap lessons completed: %d of %d"),
         "home.roadmapUnavailable": ("Учебные планы недоступны", "Course roadmaps unavailable"),
         "home.masteryNotTracked": ("Общий уровень знаний пока не оценивается", "Overall knowledge mastery is not assessed yet"),
+        "home.recallNeedsPractice": ("Ты оценил воспоминание как трудное — повторим эту тему перед новой.", "You rated recall as difficult, so let's revisit this topic before a new one."),
         "home.continue": ("Продолжить обучение", "Continue learning"),
         "home.reviewNow": ("Повторить урок", "Review lesson"),
         "home.dueReviews": ("Пора повторить: %@", "Reviews due: %@"),

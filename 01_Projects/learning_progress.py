@@ -80,6 +80,7 @@ class StudyProgressStore:
                     interval_days INTEGER NOT NULL DEFAULT 0,
                     ease_factor REAL NOT NULL DEFAULT 2.5,
                     review_count INTEGER NOT NULL DEFAULT 0,
+                    last_quality INTEGER CHECK (last_quality BETWEEN 0 AND 5),
                     due_at TEXT,
                     last_reviewed_at TEXT,
                     reflection TEXT NOT NULL DEFAULT '',
@@ -106,6 +107,12 @@ class StudyProgressStore:
                     connection.execute(
                         f"ALTER TABLE {table} ADD COLUMN reflection TEXT NOT NULL DEFAULT ''"
                     )
+            progress_columns = {
+                str(row["name"])
+                for row in connection.execute("PRAGMA table_info(lesson_progress)").fetchall()
+            }
+            if "last_quality" not in progress_columns:
+                connection.execute("ALTER TABLE lesson_progress ADD COLUMN last_quality INTEGER")
             review_columns = {
                 str(row["name"])
                 for row in connection.execute("PRAGMA table_info(review_events)").fetchall()
@@ -124,6 +131,7 @@ class StudyProgressStore:
             "interval_days": int(row["interval_days"]),
             "ease_factor": round(float(row["ease_factor"]), 2),
             "review_count": int(row["review_count"]),
+            "last_quality": row["last_quality"],
             "due_at": row["due_at"],
             "last_reviewed_at": row["last_reviewed_at"],
             "reflection": str(row["reflection"] or ""),
@@ -229,14 +237,15 @@ class StudyProgressStore:
             connection.execute(
                 """INSERT INTO lesson_progress (
                        lesson_id, completed, repetitions, interval_days, ease_factor,
-                       review_count, due_at, last_reviewed_at, reflection, updated_at
-                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                       review_count, last_quality, due_at, last_reviewed_at, reflection, updated_at
+                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(lesson_id) DO UPDATE SET
                        completed = excluded.completed,
                        repetitions = excluded.repetitions,
                        interval_days = excluded.interval_days,
                        ease_factor = excluded.ease_factor,
                        review_count = excluded.review_count,
+                       last_quality = excluded.last_quality,
                        due_at = excluded.due_at,
                        last_reviewed_at = excluded.last_reviewed_at,
                        reflection = excluded.reflection,
@@ -248,6 +257,7 @@ class StudyProgressStore:
                     interval_days,
                     ease_factor,
                     review_count + 1,
+                    quality,
                     due_text,
                     now_text,
                     normalized_reflection,
@@ -345,6 +355,13 @@ class StudyProgressStore:
         reflection = record.get("reflection", "")
         if not isinstance(reflection, str) or len(reflection) > 500:
             raise ValueError("Backup contains an invalid reflection")
+        last_quality = record.get("last_quality")
+        if last_quality is not None and (
+            isinstance(last_quality, bool)
+            or not isinstance(last_quality, int)
+            or not 0 <= last_quality <= 5
+        ):
+            raise ValueError("Backup contains an invalid last_quality")
 
         return {
             "lesson_id": lesson_id,
@@ -353,6 +370,7 @@ class StudyProgressStore:
             "interval_days": integer("interval_days"),
             "ease_factor": round(float(ease_factor), 2),
             "review_count": integer("review_count"),
+            "last_quality": last_quality,
             "due_at": timestamp("due_at", optional=True),
             "last_reviewed_at": timestamp("last_reviewed_at", optional=True),
             "reflection": " ".join(reflection.split()),
@@ -388,14 +406,15 @@ class StudyProgressStore:
                 connection.execute(
                     """INSERT INTO lesson_progress (
                            lesson_id, completed, repetitions, interval_days, ease_factor,
-                           review_count, due_at, last_reviewed_at, reflection, updated_at
-                       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                           review_count, last_quality, due_at, last_reviewed_at, reflection, updated_at
+                       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                        ON CONFLICT(lesson_id) DO UPDATE SET
                            completed = excluded.completed,
                            repetitions = excluded.repetitions,
                            interval_days = excluded.interval_days,
                            ease_factor = excluded.ease_factor,
                            review_count = excluded.review_count,
+                           last_quality = excluded.last_quality,
                            due_at = excluded.due_at,
                            last_reviewed_at = excluded.last_reviewed_at,
                            reflection = excluded.reflection,
@@ -407,6 +426,7 @@ class StudyProgressStore:
                         record["interval_days"],
                         record["ease_factor"],
                         record["review_count"],
+                        record["last_quality"],
                         record["due_at"],
                         record["last_reviewed_at"],
                         record["reflection"],

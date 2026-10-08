@@ -37,6 +37,44 @@ enum StudyRecommendationVerification {
             "The next step must choose the least-covered subject and its first unfinished lesson. / Следующий шаг должен выбрать наименее пройденный предмет и первый незавершённый урок."
         )
 
+        let difficultRecall = StudyRecommendationSelector.recommendation(
+            roadmaps: roadmaps,
+            completedLessonIDs: completed,
+            resume: nil,
+            recallEvidence: [
+                "mathematics.fractions": StudyRecallEvidence(
+                    quality: 2,
+                    reviewedAt: "2026-10-08T10:00:00Z"
+                ),
+            ]
+        )
+        precondition(
+            difficultRecall == StudyRecommendation(
+                route: StudyLessonRoute(subjectID: "mathematics", resource: "fractions"),
+                reason: .recallReview
+            ),
+            "A completed lesson with difficult self-rated recall must be recommended before a new topic. / После сложной самооценки воспоминания нужно рекомендовать повторить пройденную тему до перехода к новой."
+        )
+
+        let confidentRecall = StudyRecommendationSelector.recommendation(
+            roadmaps: roadmaps,
+            completedLessonIDs: completed,
+            resume: nil,
+            recallEvidence: [
+                "mathematics.fractions": StudyRecallEvidence(
+                    quality: 5,
+                    reviewedAt: "2026-10-08T10:00:00Z"
+                ),
+            ]
+        )
+        precondition(
+            confidentRecall == StudyRecommendation(
+                route: StudyLessonRoute(subjectID: "biology", resource: "cells"),
+                reason: .nextLesson
+            ),
+            "A confident self-rating must not force a repeat before the next unfinished topic. / Уверенная самооценка не должна заставлять ученика повторять тему вместо перехода к следующему незавершённому уроку."
+        )
+
         let resume = StudyLessonRoute(subjectID: "mathematics", resource: "geometry")
         let continued = StudyRecommendationSelector.nextLesson(
             roadmaps: roadmaps,
@@ -46,6 +84,19 @@ enum StudyRecommendationVerification {
         precondition(
             continued == resume,
             "Continue must resume the learner's unfinished lesson. / Продолжение должно открывать последний незавершённый урок."
+        )
+
+        let resumedBeforeReview = StudyRecommendationSelector.recommendation(
+            roadmaps: roadmaps,
+            completedLessonIDs: completed,
+            resume: resume,
+            recallEvidence: [
+                "mathematics.fractions": StudyRecallEvidence(quality: 1, reviewedAt: nil),
+            ]
+        )
+        precondition(
+            resumedBeforeReview == StudyRecommendation(route: resume, reason: .resume),
+            "Continue must preserve an unfinished lesson ahead of recall-based review suggestions. / Незавершённый урок должен оставаться выше рекомендации повторить другую тему."
         )
 
         let allCompleted = Set([

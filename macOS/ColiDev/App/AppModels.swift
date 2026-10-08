@@ -109,6 +109,7 @@ struct StudyProgressRecord: Decodable, Identifiable {
     let intervalDays: Int
     let easeFactor: Double
     let reviewCount: Int
+    let lastQuality: Int?
     let dueAt: String?
     let lastReviewedAt: String?
     let reflection: String?
@@ -126,6 +127,7 @@ struct StudyProgressRecord: Decodable, Identifiable {
         case intervalDays = "interval_days"
         case easeFactor = "ease_factor"
         case reviewCount = "review_count"
+        case lastQuality = "last_quality"
         case dueAt = "due_at"
         case lastReviewedAt = "last_reviewed_at"
         case reflection
