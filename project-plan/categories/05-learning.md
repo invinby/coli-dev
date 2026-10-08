@@ -117,6 +117,16 @@ Biology Foundations также включает связанные RU/EN уро�
 
 **EN — Verification:** GitHub Actions [37829756103](https://github.com/invinby/coli-dev/actions/runs/37829756103) passed: backend checks, all Swift verifiers, Apple Silicon and Intel builds and packaging, the bundled-backend smoke check, and all 50 routes. Hands-on review of rendering, slider interaction, and saved evidence on a Mac is still required.
 
+## Python: пошаговая трассировка цикла / Python: step-by-step loop tracing — 2026-10-09
+
+**RU:** В `programming.conditions_loops_functions` варианты числового прогноза перемешиваются при каждой новой попытке и повторе, а их соответствие значениям остаётся постоянным, пока ученик отвечает. После неверного ответа показывается подсказка: счётчик увеличивается только для чётных значений; ноль тоже чётный, отрицательные числа тоже могут быть чётными. Ответ и пошаговая трассировка не раскрываются до правильного прогноза. После правильного ответа ученик открывает трассировку по одному шагу. Каждая отправленная попытка сохраняется как `interactive_prediction` по ID урока `programming.conditions_loops_functions`.
+
+**EN:** In `programming.conditions_loops_functions`, numeric prediction choices are shuffled for every new attempt and retry, while their mapping to values remains stable as the learner answers. After a wrong answer, the hint says that only even values increment the counter; zero is even, and negative values can also be even. The answer and step-by-step trace stay hidden until the learner predicts correctly. After a correct answer, the learner reveals one trace step at a time. Each submitted attempt is saved as `interactive_prediction` against lesson ID `programming.conditions_loops_functions`.
+
+**RU — Проверка:** GitHub Actions [37832249637](https://github.com/invinby/coli-dev/actions/runs/37832249637) прошёл для коммита `4a1b6e6`: backend-проверки, все Swift-verifier, сборки и упаковка для Apple Silicon и Intel, smoke-проверки встроенного backend и все 50 маршрутов. Ручная проверка отображения, выбора чисел, повторной попытки и сохранения результата в приложении на Mac всё ещё нужна.
+
+**EN — Verification:** GitHub Actions [37832249637](https://github.com/invinby/coli-dev/actions/runs/37832249637) passed for commit `4a1b6e6`: backend checks, all Swift verifiers, Apple Silicon and Intel builds and packaging, bundled-backend smoke checks, and all 50 routes. Hands-on review of rendering, number selection, retry behavior, and saved evidence in the Mac app is still required.
+
 ## Уточнения после проверки прототипа — 2026-10-08
 
 - **EN:** Biology is already an existing subject. Keep it; do not create a duplicate. Add a clear “+” flow so learners can create their own subjects, topics, and subtopics, with stable saved IDs and a visible path into the course map. **RU:** Биология уже есть как отдельный предмет. Сохранить её и не создавать дубликат. Добавить понятное действие «+», чтобы ученик мог создавать собственные предметы, темы и подтемы; сохранять стабильные ID и показывать путь к ним в карте курса.
