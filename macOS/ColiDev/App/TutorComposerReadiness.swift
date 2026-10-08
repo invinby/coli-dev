@@ -3,6 +3,7 @@ enum TutorComposerReadiness: Equatable {
     case routeStatusUnknown
     case automaticRouteUnavailable
     case localModelUnavailable
+    case localEndpointNotLocal
     case ready
 
     var isReady: Bool { self == .ready }
@@ -13,6 +14,7 @@ enum TutorComposerReadiness: Equatable {
         case .routeStatusUnknown: return "tutor.routeStatusUnknown"
         case .automaticRouteUnavailable: return "tutor.autoRouteUnavailable"
         case .localModelUnavailable: return "tutor.localUnavailable"
+        case .localEndpointNotLocal: return "tutor.localEndpointBlocked"
         case .ready: return nil
         }
     }
@@ -22,8 +24,19 @@ enum TutorComposerReadiness: Equatable {
         routeStatusAvailable: Bool,
         isLocalOnly: Bool,
         hasAutomaticRoute: Bool,
-        hasLocalModel: Bool
+        hasLocalModel: Bool,
+        isLocalEndpointConfirmed: Bool
     ) -> TutorComposerReadiness {
-        .ready
+        guard backendReady else { return .backendNotReady }
+        guard routeStatusAvailable else { return .routeStatusUnknown }
+
+        if isLocalOnly {
+            guard isLocalEndpointConfirmed else { return .localEndpointNotLocal }
+            guard hasLocalModel else { return .localModelUnavailable }
+            return .ready
+        }
+
+        guard hasAutomaticRoute else { return .automaticRouteUnavailable }
+        return .ready
     }
 }

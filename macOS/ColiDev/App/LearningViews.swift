@@ -7723,15 +7723,15 @@ struct TutorChatView: View {
                     Label(L10n.text("tutor.webSearchAutoOnly", language), systemImage: "wifi.slash")
                         .font(.caption2).foregroundStyle(.secondary)
                 }
-                if store.aiHealth == nil {
-                    Text(L10n.text("tutor.unavailable", language))
-                        .font(.caption.monospaced()).foregroundStyle(.secondary)
-                } else if chat.mode == .localOnly && store.aiHealth?.hasLocalModel != true {
-                    let key = store.aiHealth?.isOllamaEndpointLocal == true
-                        ? "tutor.localUnavailable"
-                        : "tutor.localEndpointBlocked"
-                    Text(L10n.text(key, language))
-                        .font(.caption).foregroundStyle(.orange)
+                if !composerReadiness.isReady, let messageKey = composerReadiness.messageKey {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Label(L10n.text(messageKey, language), systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption).foregroundStyle(.orange)
+                        if composerReadiness == .backendNotReady {
+                            Text(L10n.text(backendSupervisor.status.localizationKey, language))
+                                .font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
                 }
                 HStack(alignment: .bottom, spacing: 10) {
                     TextField(L10n.text("tutor.placeholder", language), text: $draft, axis: .vertical)
@@ -7970,14 +7970,25 @@ struct TutorChatView: View {
         }
     }
 
+    private var composerReadiness: TutorComposerReadiness {
+        TutorComposerReadiness.resolve(
+            backendReady: backendSupervisor.isReady,
+            routeStatusAvailable: store.aiHealth != nil,
+            isLocalOnly: chat.mode == .localOnly,
+            hasAutomaticRoute: store.aiHealth?.hasAutomaticRoute == true,
+            hasLocalModel: store.aiHealth?.hasLocalModel == true,
+            isLocalEndpointConfirmed: store.aiHealth?.isOllamaEndpointLocal == true
+        )
+    }
+
     private var canSend: Bool {
-        guard backendSupervisor.isReady, let health = store.aiHealth else { return false }
+        guard composerReadiness.isReady, let health = store.aiHealth else { return false }
         if useWebSearch {
             return chat.mode == .automatic
                 && store.autoCostPolicy?.allowPaidRoutes == true
                 && health.hasGroundedSearch
         }
-        return chat.mode == .automatic ? health.hasAutomaticRoute : health.hasLocalModel
+        return true
     }
 
     private func officialSourceURL(_ reference: TutorSourceReference) -> URL? {
