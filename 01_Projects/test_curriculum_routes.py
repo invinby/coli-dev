@@ -14,6 +14,16 @@ def test_all_published_curriculum_routes_resolve_in_the_repository():
     assert audit.routed_lesson_count >= 49
 
 
+def test_advanced_math_optimization_route_has_a_complete_lesson():
+    curriculum = (REPOSITORY_ROOT / "02_Areas/Mathematics/curriculum.md").read_text(encoding="utf-8")
+    advanced = curriculum.split("## Продвинутый уровень / Advanced", maxsplit=1)[1]
+
+    assert "lesson:constrained_optimization_and_lagrange_multipliers" in advanced
+
+    audit = audit_curriculum_routes(REPOSITORY_ROOT / "02_Areas", subjects=("Mathematics",))
+    assert audit.errors == (), "\n".join(audit.errors)
+
+
 def test_missing_lesson_file_is_reported(tmp_path):
     areas = tmp_path / "02_Areas"
     subject = areas / "Biology"

@@ -115,11 +115,14 @@ ColiDev — ранний командный прототип, а не готов
 - The macOS app contains six subject areas, lesson pages, interactive exercises, and locally saved study progress. The six directions are a starting catalog, not complete courses.<br>
   Приложение macOS содержит шесть направлений, страницы уроков, интерактивные упражнения и локальное сохранение прогресса. Это начальный каталог, а не шесть завершённых курсов.
 
-- The repository contains 49 bilingual lesson files. They are a starter collection; coverage and academic review vary by subject and level.<br>
-  В репозитории есть 49 двуязычных файлов уроков. Это начальная подборка; полнота и академическая проверка различаются по предметам и уровням.
+- The repository contains 50 bilingual lesson files. They are a starter collection; coverage and academic review vary by subject and level.<br>
+  В репозитории есть 50 двуязычных файлов уроков. Это начальная подборка; полнота и академическая проверка различаются по предметам и уровням.
 
 - The mathematics starter includes a sourced RU/EN lesson and an interactive graph lab for quadratic functions. Learners predict a transformation, adjust `a`, `h`, and `k`, and inspect the graph, vertex, axis of symmetry, and real roots. The CI build and bundled lesson route passed; hands-on visual review on a Mac remains to be done.<br>
   В начальном курсе математики есть двуязычный урок с источником и интерактивная лаборатория графиков квадратичной функции. Ученик сначала предсказывает преобразование, затем меняет `a`, `h` и `k` и исследует график, вершину, ось симметрии и действительные корни. Сборка CI и проверка наличия урока в bundle прошли; вручную оценить отображение на Mac ещё предстоит.
+
+- The current branch adds an advanced constrained-optimization lesson based on OpenStax Calculus Volume 3 §§4.7–4.8 and a draggable unit-circle lab. Its route passes the local curriculum audit; the Swift verifier and native macOS build still await CI.<br>
+  В текущей ветке добавлены углублённый урок по оптимизации с ограничением на основе *Calculus Volume 3* §§4.7–4.8 от OpenStax и перетаскиваемая точка на интерактивной единичной окружности. Маршрут прошёл локальную проверку учебных планов; Swift-verifier и нативная сборка macOS пока ожидают CI.
 
 - The course maps are planned from foundational material toward advanced topics. A topic listed in a roadmap does not necessarily have a finished lesson yet.<br>
   Карты курсов ведут от основ к углублённым темам. Наличие темы в плане не означает, что готовый урок уже написан.
@@ -163,8 +166,8 @@ ColiDev — ранний командный прототип, а не готов
 - Source tools display attribution and dates and can check a fixed allowlist of official URLs. These checks can identify changed or unavailable pages, but they do not automatically update or approve lesson text.<br>
   Инструменты источников показывают атрибуцию и даты и проверяют ограниченный список официальных URL. Эти проверки могут выявить изменившиеся или недоступные страницы, но не обновляют и не утверждают текст урока автоматически.
 
-- After a wrong answer in six introductory quizzes and 49 linked lesson checks, the app withholds the answer and explanation until the learner retries or asks to reveal them. A correct answer shows the explanation automatically. Feedback coverage for other interactive-practice formats still needs review.<br>
-  После неправильного ответа в шести вводных тестах и 49 связанных проверках уроков приложение скрывает правильный ответ и объяснение, пока ученик не повторит попытку или сам не попросит показать разбор. После верного ответа объяснение появляется автоматически. Обратную связь в остальных форматах интерактивной практики ещё нужно проверить.
+- After a wrong answer in six introductory quizzes and 50 linked lesson checks, the app withholds the answer and explanation until the learner retries or asks to reveal them. A correct answer shows the explanation automatically. Feedback coverage for other interactive-practice formats still needs review.<br>
+  После неправильного ответа в шести вводных тестах и 50 связанных проверках уроков приложение скрывает правильный ответ и объяснение, пока ученик не повторит попытку или сам не попросит показать разбор. После верного ответа объяснение появляется автоматически. Обратную связь в остальных форматах интерактивной практики ещё нужно проверить.
 
 - Obsidian search and note saving are optional and require its local REST API. NotebookLM currently uses a manual workflow: export a lesson as Markdown and import it yourself; direct API integration and synchronization are not implemented.<br>
   Поиск в Obsidian и сохранение заметок доступны по желанию и требуют локального REST API. Сейчас NotebookLM используется вручную: экспортируйте урок в Markdown и импортируйте его самостоятельно; прямое подключение к API и синхронизация не реализованы.

@@ -192,6 +192,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-quadratic-function"
           "$RUNNER_TEMP/verify-quadratic-function"
 
+      - name: Verify constrained optimization model / Проверка модели условной оптимизации
+        run: |
+          swiftc macOS/ColiDev/App/ConstrainedOptimization.swift macOS/ColiDev/scripts/verify_constrained_optimization.swift \
+            -o "$RUNNER_TEMP/verify-constrained-optimization"
+          "$RUNNER_TEMP/verify-constrained-optimization"
+
       - name: Verify algorithm complexity model
         run: |
           swiftc macOS/ColiDev/App/AlgorithmComplexity.swift macOS/ColiDev/scripts/verify_algorithm_complexity.swift \
