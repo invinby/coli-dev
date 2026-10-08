@@ -18,6 +18,9 @@ enum LoopTraceVerification {
             }
             precondition(scenario.values == values, "unexpected values for \(id)")
             precondition(scenario.expectedCount == answer, "incorrect final count for \(id)")
+            let question = LoopTraceQuestion(scenario: scenario)
+            precondition(question.options == Array(0...values.count), "prediction choices should cover every possible count for \(id)")
+            precondition(question.options[question.correctOptionIndex] == answer, "randomized prediction should map to the correct count for \(id)")
             precondition(scenario.steps.count == values.count, "trace length should match input length for \(id)")
             precondition((scenario.steps.last?.countAfter ?? 0) == answer, "trace should end at the returned count for \(id)")
             precondition(LoopTracePractice.isCorrect(prediction: answer, for: id), "expected answer should pass for \(id)")
