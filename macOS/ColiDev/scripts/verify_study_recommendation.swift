@@ -409,7 +409,8 @@ enum StudyRecommendationVerification {
             taskType: "knowledge_check",
             attempts: 1,
             firstTryCorrect: true,
-            hintsUsed: 0
+            hintsUsed: 0,
+            passed: true
         )
         let passedCells = Set(["biology.cells", "biology.cell_cycle"])
         let oldSavedProgress = StudyProgressionEvidence(
@@ -566,6 +567,37 @@ enum StudyRecommendationVerification {
                 evidence: failedFoundation
             ),
             "A failed knowledge-check event must never unlock the next level. / Неудачная проверка знаний не должна открывать следующий уровень."
+        )
+
+        let legacyCheckWithoutExplicitResult = StudyAssessmentEvidence(
+            taskType: "knowledge_check",
+            attempts: 1,
+            firstTryCorrect: true,
+            hintsUsed: 0
+        )
+        let unknownLegacyFoundation = StudyProgressionEvidence(
+            completedLessonIDs: passedCells,
+            recallEvidence: [
+                "biology.cells": StudyRecallEvidence(
+                    quality: 5,
+                    reviewedAt: "2026-10-08T10:00:00Z",
+                    assessment: successfulCellCheck
+                ),
+                "biology.cell_cycle": StudyRecallEvidence(
+                    quality: 5,
+                    reviewedAt: "2026-10-08T11:00:00Z",
+                    assessment: legacyCheckWithoutExplicitResult
+                ),
+            ],
+            assessmentEvidence: [:]
+        )
+        precondition(
+            !StudyProgressionPolicy.isAvailable(
+                StudyLessonRoute(subjectID: "biology", resource: "gene_expression"),
+                in: stagedRoadmap,
+                evidence: unknownLegacyFoundation
+            ),
+            "A legacy knowledge check without an explicit pass result must not unlock the next level. / Старая проверка без явного результата «сдано» не должна открывать следующий уровень."
         )
 
         let passedFoundation = StudyProgressionEvidence(
