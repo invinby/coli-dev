@@ -99,6 +99,89 @@ enum StudyRecommendationVerification {
             "Continue must preserve an unfinished lesson ahead of recall-based review suggestions. / Незавершённый урок должен оставаться выше рекомендации повторить другую тему."
         )
 
+        var customCurriculum = CustomCurriculum()
+        let customSubjectID = try! customCurriculum.addSubject(
+            name: CustomCurriculumText(russian: "Астрономия", english: "Astronomy"),
+            description: CustomCurriculumText(russian: "Космос", english: "Space"),
+            reservedNames: []
+        )
+        let customTopicID = try! customCurriculum.addTopic(
+            subjectID: customSubjectID,
+            parentTopicID: nil,
+            name: CustomCurriculumText(russian: "Орбиты", english: "Orbits"),
+            learningOutcome: CustomCurriculumText(russian: "Понимать орбиты", english: "Understand orbits"),
+            notes: CustomCurriculumText(russian: "", english: "")
+        )
+        let customSubtopicID = try! customCurriculum.addTopic(
+            subjectID: customSubjectID,
+            parentTopicID: customTopicID,
+            name: CustomCurriculumText(russian: "Эллипсы", english: "Ellipses"),
+            learningOutcome: CustomCurriculumText(russian: "Изучать эллипсы", english: "Study ellipses"),
+            notes: CustomCurriculumText(russian: "", english: "")
+        )
+        let builtInCustomTopicID = try! customCurriculum.addTopic(
+            builtInSubjectID: "biology",
+            parentTopicID: nil,
+            name: CustomCurriculumText(russian: "Мой эксперимент", english: "My experiment"),
+            learningOutcome: CustomCurriculumText(russian: "Планировать опыт", english: "Plan an experiment"),
+            notes: CustomCurriculumText(russian: "", english: "")
+        )
+        let customRoadmaps = CustomTopicStudyRoute.roadmaps(from: customCurriculum)
+        let userTopicRoute = CustomTopicStudyRoute.userTopic(
+            subjectID: customSubjectID,
+            topicID: customTopicID
+        )
+        let userSubtopicRoute = CustomTopicStudyRoute.userTopic(
+            subjectID: customSubjectID,
+            topicID: customSubtopicID
+        )
+        let builtInTopicRoute = CustomTopicStudyRoute.builtInTopic(
+            subjectID: "biology",
+            topicID: builtInCustomTopicID
+        )
+        precondition(
+            customRoadmaps.count == 2
+                && customRoadmaps[0].lessonResources == [customTopicID.uuidString.lowercased(), customSubtopicID.uuidString.lowercased()]
+                && customRoadmaps[1].lessonResources == [builtInCustomTopicID.uuidString.lowercased()],
+            "User-created subjects and added built-in topics must become ordered study roadmaps. / Пользовательские предметы и добавленные темы встроенных предметов должны становиться упорядоченными учебными планами."
+        )
+        precondition(
+            CustomTopicStudyRoute.address(for: userTopicRoute, in: customCurriculum)
+                == .learnerSubject(subjectID: customSubjectID, topicID: customTopicID)
+                && CustomTopicStudyRoute.address(for: builtInTopicRoute, in: customCurriculum)
+                    == .builtInSubject(subjectID: "biology", topicID: builtInCustomTopicID),
+            "Custom study routes must resolve to their actual owner and topic. / Пользовательские маршруты должны разрешаться в соответствующий предмет и тему."
+        )
+        precondition(
+            CustomTopicStudyRoute.address(
+                for: CustomTopicStudyRoute.userTopic(subjectID: customSubjectID, topicID: UUID()),
+                in: customCurriculum
+            ) == nil,
+            "Deleted or unknown custom topics must not resolve to an arbitrary screen. / Удалённая или неизвестная пользовательская тема не должна открывать произвольный экран."
+        )
+
+        let customResume = StudyRecommendationSelector.recommendation(
+            roadmaps: customRoadmaps,
+            completedLessonIDs: [],
+            resume: userSubtopicRoute
+        )
+        precondition(
+            customResume == StudyRecommendation(route: userSubtopicRoute, reason: .resume),
+            "Continue must resume an unfinished user-created subtopic. / «Продолжить» должна возвращать к незавершённой пользовательской подтеме."
+        )
+        let customRecall = StudyRecommendationSelector.recommendation(
+            roadmaps: customRoadmaps,
+            completedLessonIDs: [userTopicRoute.lessonID],
+            resume: nil,
+            recallEvidence: [
+                userTopicRoute.lessonID: StudyRecallEvidence(quality: 2, reviewedAt: "2026-10-08T10:00:00Z"),
+            ]
+        )
+        precondition(
+            customRecall == StudyRecommendation(route: userTopicRoute, reason: .recallReview),
+            "Low recall on a user-created topic must recommend revisiting that topic. / Низкая самооценка пользовательской темы должна рекомендовать повторить именно её."
+        )
+
         let allCompleted = Set([
             "mathematics.fractions", "mathematics.geometry", "mathematics.algebra",
             "english.verbs", "english.conditionals", "biology.cells", "biology.genes",
