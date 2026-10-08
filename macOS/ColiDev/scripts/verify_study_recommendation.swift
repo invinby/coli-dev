@@ -127,6 +127,50 @@ enum StudyRecommendationVerification {
             ),
             "An unsuccessful interactive prediction must recommend its own topic even before lesson completion. / Неудачный интерактивный прогноз должен рекомендовать повторить именно эту тему, даже если урок ещё не отмечен пройденным."
         )
+        let repeatedFoundationReport = StudyAssessmentEvidenceSummary(
+            lessonID: "biology.cells",
+            assessmentCount: 4,
+            taskTypeCounts: ["knowledge_check": 4],
+            passedTaskTypeCounts: ["knowledge_check": 2],
+            errorCategoryCounts: ["foundation": 2],
+            latestAssessment: StudyAssessmentEvidence(
+                taskType: "knowledge_check",
+                attempts: 1,
+                firstTryCorrect: false,
+                hintsUsed: 0,
+                errorCategories: [.foundation],
+                passed: false
+            ),
+            latestAt: "2026-10-08T13:00:00Z"
+        )
+        let genericRetry = StudyAssessmentEvidenceSummary(
+            lessonID: "biology.genes",
+            assessmentCount: 4,
+            taskTypeCounts: ["knowledge_check": 4],
+            passedTaskTypeCounts: [:],
+            errorCategoryCounts: [:],
+            latestAssessment: StudyAssessmentEvidence(
+                taskType: "knowledge_check",
+                attempts: 5,
+                firstTryCorrect: false,
+                hintsUsed: 0,
+                passed: false
+            ),
+            latestAt: "2026-10-08T13:30:00Z"
+        )
+        let repeatedDifficultyRecommendation = StudyRecommendationSelector.recommendation(
+            roadmaps: [StudyRoadmap(subjectID: "biology", lessonResources: ["cells", "genes"])],
+            completedLessonIDs: [],
+            resume: nil,
+            assessmentEvidence: [
+                repeatedFoundationReport.lessonID: repeatedFoundationReport,
+                genericRetry.lessonID: genericRetry,
+            ]
+        )
+        precondition(
+            repeatedDifficultyRecommendation?.route.lessonID == "biology.cells",
+            "A repeated self-reported difficulty on the latest failed topic must take priority over a generic retry count. / Повторная самооценка трудности по последней непройденной теме должна быть приоритетнее общего числа повторных попыток."
+        )
         let emptyCoverage = StudyKnowledgeEvidenceCoverage(roadmaps: [], records: [])
         precondition(
             emptyCoverage.totalTopicCount == 0
