@@ -212,10 +212,17 @@ enum CustomCurriculumVerification {
         }
         precondition(targetCurriculum == beforeRejectedOutline, "Outline import must be atomic. / Импорт плана должен быть атомарным.")
 
+        let targetBiologyParent = try targetCurriculum.addTopic(
+            builtInSubjectID: "biology",
+            parentTopicID: nil,
+            name: CustomCurriculumText(russian: "Биология", english: "Biology"),
+            learningOutcome: CustomCurriculumText(russian: "Понять предмет", english: "Understand the subject"),
+            notes: CustomCurriculumText(russian: "", english: "")
+        )
         let savedIDs = try targetCurriculum.addOutline(
             outline.topics,
             to: .builtInSubject(subjectID: "biology"),
-            parentTopicID: builtInBiologyTopic
+            parentTopicID: targetBiologyParent
         )
         precondition(savedIDs.count == 3)
         precondition(targetCurriculum.topic(builtInSubjectID: "biology", topicID: savedIDs[0])?.subtopics.first?.name.russian == "Первые понятия")
