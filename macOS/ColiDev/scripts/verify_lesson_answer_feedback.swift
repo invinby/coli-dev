@@ -13,8 +13,8 @@ enum LessonAnswerFeedbackVerification {
         )
         precondition(
             wrongAnswer.statusMessage == retryPrompt
-                && wrongAnswer.explanation == explanation,
-            "An incorrect answer must keep the retry prompt and reveal the specific explanation. / После ошибочного ответа нужно показать подсказку для повтора и конкретное объяснение."
+                && wrongAnswer.explanation == nil,
+            "An incorrect answer must offer a retry without revealing the answer explanation immediately. / После ошибки нужно предложить повтор, не раскрывая сразу ответ и разбор."
         )
 
         let correctAnswer = LessonAnswerFeedback.presentation(
