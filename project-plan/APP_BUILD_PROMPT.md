@@ -52,9 +52,9 @@ Use methods that fit the subject: reasoning, formulas, proofs, and graphs in mat
 
 ### Learner-created curriculum / Пользовательская программа
 
-Let learners create subjects, topics, and nested subtopics, and add personal topics to built-in subjects without overwriting the shipped curriculum. Keep stable identifiers, local progress, bilingual titles, goals, and notes. Let the tutor help organize learner-provided material, while clearly labelling it as unreviewed until sources and claims have been checked.
+Let learners create subjects, topics, and nested subtopics, and add personal topics to built-in subjects without overwriting the shipped curriculum. Keep stable identifiers, local progress, bilingual titles, goals, and notes. Let AI propose a draft structure from learner-provided material—learning goal, prerequisites, ordered topics, practice, and useful visual formats—but require learner review before saving it as a study plan. Clearly label learner-authored and AI-proposed material as unreviewed until sources and claims have been checked; never imply that a proposal is a verified lesson.
 
-Позволь ученику создавать предметы, темы и вложенные подтемы, а также добавлять личные темы во встроенные предметы, не перезаписывая поставляемую программу. Сохраняй постоянные идентификаторы, локальный прогресс, двуязычные названия, цели и заметки. ИИ-тьютор может помогать структурировать материал ученика, но помечай его как непроверенный до сверки источников и утверждений.
+Позволь ученику создавать предметы, темы и вложенные подтемы, а также добавлять личные темы во встроенные предметы, не перезаписывая поставляемую программу. Сохраняй постоянные идентификаторы, локальный прогресс, двуязычные названия, цели и заметки. ИИ может предложить черновую структуру по материалу ученика: учебную цель, необходимые знания, порядок тем, практику и подходящие визуальные форматы. Перед сохранением плана ученик должен проверить предложение. Явно помечай материалы ученика и предложения ИИ как непроверенные до сверки источников и утверждений; не выдавай предложение за проверенный урок.
 
 ### Practice and feedback / Практика и обратная связь
 
@@ -68,9 +68,9 @@ Record attempts, hints, optional self-reported error categories, and activity ev
 
 ### Visual and interactive learning / Наглядное и интерактивное обучение
 
-Use visuals for as much of the learning experience as they can genuinely clarify. Choose a diagram, graph, animation, experiment, simulation, video, or interactive 3D model to fit the concept. Let learners rotate or zoom models, inspect parts, reveal or hide layers, change meaningful parameters, observe results, and make a prediction before seeing an explanation.
+Give most core learning topics a purposeful visual or interactive companion where it genuinely improves understanding. Choose a diagram, graph, animation, experiment, simulation, video, or interactive 3D model to fit the concept. Let learners rotate or zoom models, inspect parts, reveal or hide layers, change meaningful parameters, observe results, and make a prediction before seeing an explanation. Track which topics have a working visual, its source and limitations, and which still need one; do not count placeholders as coverage.
 
-Используй визуальные материалы во всех тех частях обучения, где они действительно помогают пониманию. Подбирай схему, график, анимацию, эксперимент, симуляцию, видео или интерактивную 3D-модель под конкретное понятие. Давай ученику вращать и приближать модель, рассматривать детали, открывать и скрывать слои, менять осмысленные параметры, наблюдать результат и делать прогноз до объяснения.
+Для большинства основных учебных тем создавай осмысленное визуальное или интерактивное сопровождение, если оно действительно помогает пониманию. Подбирай схему, график, анимацию, эксперимент, симуляцию, видео или интерактивную 3D-модель под конкретное понятие. Давай ученику вращать и приближать модель, рассматривать детали, открывать и скрывать слои, менять осмысленные параметры, наблюдать результат и делать прогноз до объяснения. Отмечай, для каких тем уже есть рабочая визуализация, каковы её источник и ограничения, а где её ещё нет; заглушки не считаются покрытием.
 
 Every visual should teach something: identify its controls, observable outcomes, assumptions, and limits. Do not add 3D or motion only for decoration. Keep a clear text explanation, keyboard-accessible controls, reduced-motion behavior, and useful labels available alongside visual interaction.
 

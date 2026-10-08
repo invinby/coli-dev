@@ -16,6 +16,16 @@ This list records the team's feedback received on 8 October 2026. It sets the pr
 
 **EN:** The long prompt in the team transcript is a specification for designing and building the educational application itself: its interface, architecture, learning paths, personalization, sources, visualizations, and verifiable navigation. It is not a system prompt for a standalone AI tutor. The tutor is one component of the product. Add further elements incrementally according to their learning value; fix P0 failures first and do not present planned features as complete.
 
+## Пользовательская программа и визуальное покрытие / Learner curriculum and visual coverage
+
+**RU:** Приёмка должна подтвердить, что ученик может создать собственный предмет и дерево тем/подтем, а также добавить тему во встроенный предмет, включая биологию. Сейчас прототип сохраняет двуязычную структуру, цели, заметки и локальный прогресс; автоматическое создание ИИ учебного плана по заметкам ученика остаётся будущей работой. Когда оно появится, ИИ должен предлагать черновик, ученик — просматривать его до сохранения, а непроверенные факты — оставаться помеченными.
+
+**EN:** Acceptance must confirm that a learner can create a custom subject and a tree of topics/subtopics, and add a topic to a built-in subject, including Biology. The prototype currently saves bilingual structure, goals, notes, and local progress; AI generation of a study plan from learner notes remains future work. Once implemented, AI must produce a draft for learner review before saving, and unverified claims must stay labelled.
+
+**RU:** Вести покрытие визуализациями отдельно по предметам и темам. Большинство основных тем должно иметь работающую и полезную визуальную поддержку, выбранную по содержанию: 3D там, где нужно пространственное исследование, и график, схема, опыт, видео или другая интерактивность там, где они полезнее. Для каждого модуля проверять связь с учебной целью, источник и права, доступность, текстовую альтернативу, допущения и ограничения. Пустая карточка или статичная декорация не считается визуализацией.
+
+**EN:** Track visualization coverage by subject and topic. Most core topics should have a working, useful visual aid chosen for the content: 3D when spatial inspection matters, and a graph, diagram, experiment, video, or other interaction when that is more useful. For each module, check its learning goal, source and rights, accessibility, text alternative, assumptions, and limits. An empty card or static decoration does not count as a visualization.
+
 ## Самооценка типа ошибки / Learner-reported error type
 
 **RU:** После неправильного ответа ученик может по желанию отметить, что именно ему помешало: понимание, память, применение, внимание к условию, логика, базовые знания или выбор метода. Перед повторной попыткой приложение предлагает короткую стратегию для выбранного типа. Отметка сохраняется с локальным прогрессом и показывается как самооценка по последним проверкам; она не является автоматическим диагнозом и сама по себе не доказывает освоение темы. Пропуск доступен всегда. Следующий этап — связать накопленные сигналы с конкретными предпосылками и учебными заданиями, не делая выводов из одной ошибки.

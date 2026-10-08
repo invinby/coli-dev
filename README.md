@@ -61,8 +61,8 @@ Use discipline-specific teaching methods rather than one fixed lesson template: 
 
 ### Learner-created study paths / Пользовательские учебные маршруты
 
-Keep the built-in subjects, and let learners add their own subjects, topics, and nested subtopics. They can also add a personal topic inside a built-in subject without overwriting its shipped curriculum. Clearly distinguish learner-authored material from lessons reviewed against external sources.<br>
-Сохранять встроенные предметы и позволить ученику создавать собственные предметы, темы и вложенные подтемы. Пользовательскую тему можно добавить и во встроенный предмет, не перезаписывая исходную программу. Материалы ученика необходимо явно отделять от уроков, сверенных с внешними источниками.
+Keep the built-in subjects, including Biology, and let learners create their own subjects, topics, and nested subtopics. They can also add personal topics inside built-in subjects without overwriting the shipped curriculum. The prototype already saves this bilingual structure and local progress. AI-assisted outlining from learner-provided notes is still planned: proposed goals, prerequisites, topic order, practice, and visuals must be reviewed by the learner, and unverified claims must remain clearly marked.<br>
+Сохранять встроенные предметы, включая биологию, и позволить ученику создавать собственные предметы, темы и вложенные подтемы. Личные темы можно добавлять во встроенные предметы, не перезаписывая исходную программу. Прототип уже сохраняет такую двуязычную структуру и локальный прогресс. Помощь ИИ в построении плана по заметкам ученика ещё запланирована: цели, предпосылки, порядок тем, практику и визуализации ИИ предлагает как черновик, который проверяет ученик; непроверенные утверждения должны оставаться явно помеченными.
 
 ### AI tutor and model routing / ИИ-тьютор и выбор моделей
 
@@ -74,8 +74,8 @@ Use current official or primary sources where possible. Show the source, its pub
 
 ### Interactive and visual learning / Интерактивное и наглядное обучение
 
-Choose diagrams, graphs, experiments, video, and manipulable 3D because they explain a specific concept, not as decoration. Let learners change parameters or inspect a model, then ask them to predict or explain an outcome. Every simulation must state its assumptions and limits and remain usable alongside a text explanation and accessible controls.<br>
-Выбирать схемы, графики, эксперименты, видео и управляемые 3D-модели потому, что они объясняют конкретное понятие, а не ради украшения. Ученик должен менять параметры или исследовать модель, а затем предсказывать или объяснять результат. Для каждой симуляции указывать допущения и ограничения; рядом должны оставаться текстовое объяснение и доступные элементы управления.
+Give most core topics a useful visual companion when it improves understanding: diagrams, graphs, experiments, video, animation, or an interactive model. Use manipulable 3D when inspecting spatial structure or changing a meaningful parameter helps. Track visual coverage by subject and topic so the catalogue does not imply that unbuilt visuals already exist. Ask learners to predict or explain what they observe; state each simulation's assumptions and limits, with text and accessible controls alongside it.<br>
+Для большинства основных тем добавляй полезное визуальное сопровождение, если оно помогает пониманию: схемы, графики, эксперименты, видео, анимацию или интерактивную модель. Используй управляемую 3D-сцену, когда важно рассмотреть пространственное строение или менять осмысленные параметры. Отмечай визуальное покрытие по предметам и темам, чтобы каталог не выдавал ещё не созданные материалы за готовые. Проси ученика предсказать или объяснить увиденное; указывай допущения и ограничения симуляции, сохраняя рядом текст и доступное управление.
 
 ### Native macOS product and control center / Нативное приложение и центр управления
 
