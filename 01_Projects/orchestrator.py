@@ -500,6 +500,7 @@ class ChatRequest(BaseModel):
         ),
     )
     retrieval_query: str | None = Field(default=None, max_length=16_000)
+    skip_retrieval: bool = False
     use_web_search: bool = False
     grounding_age_confirmed: bool = False
     include_local_sources_in_web_search: bool = False
@@ -4780,13 +4781,16 @@ async def chat_stream(request: Request, req: ChatRequest):
     if req.use_web_search:
         return await _handle_grounded_web_search(req)
 
-    retrieval_query = (req.retrieval_query or req.message).strip()
-    course_sources, obsidian_sources, official_sources = await asyncio.gather(
-        _retrieve_local_course_sources(retrieval_query),
-        _retrieve_obsidian_sources(retrieval_query),
-        _retrieve_licensed_official_sources(retrieval_query),
-    )
-    sources = _combine_retrieval_sources(course_sources, obsidian_sources, official_sources=official_sources)
+    if req.skip_retrieval:
+        sources = []
+    else:
+        retrieval_query = (req.retrieval_query or req.message).strip()
+        course_sources, obsidian_sources, official_sources = await asyncio.gather(
+            _retrieve_local_course_sources(retrieval_query),
+            _retrieve_obsidian_sources(retrieval_query),
+            _retrieve_licensed_official_sources(retrieval_query),
+        )
+        sources = _combine_retrieval_sources(course_sources, obsidian_sources, official_sources=official_sources)
     system_prompt = add_subject_rubric(req.system_prompt, req.subject, req.language)
     learner_message = _augment_message_with_sources(req.message, sources, req.language)
 

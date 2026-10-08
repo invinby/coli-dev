@@ -573,6 +573,7 @@ private struct SettingsView: View {
                         }
                     }
                 }
+                TutorRouteProbeCard()
                 VStack(alignment: .leading, spacing: 5) {
                     Text(L10n.text("settings.aiLaunch", store.language)).font(.caption.weight(.semibold))
                     Text(L10n.text(backendSupervisor.status.localizationKey, store.language))
@@ -612,6 +613,93 @@ private struct SettingsView: View {
         return L10n.text("settings.aiNoRoute", store.language)
     }
 
+}
+
+private struct TutorRouteProbeCard: View {
+    @EnvironmentObject private var store: LearningStore
+    @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
+    @StateObject private var probe = TutorRouteProbeModel()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(L10n.text("settings.tutorProbe.title", store.language))
+                .font(.headline)
+            Text(L10n.text("settings.tutorProbe.warning", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button(action: startProbe) {
+                if probe.isChecking {
+                    Label(L10n.text("settings.tutorProbe.checking", store.language), systemImage: "hourglass")
+                } else {
+                    Label(L10n.text("settings.tutorProbe.button", store.language), systemImage: "paperplane")
+                }
+            }
+            .disabled(probe.isChecking)
+
+            switch probe.state {
+            case .idle:
+                Label(L10n.text("settings.tutorProbe.unverified", store.language), systemImage: "info.circle")
+                    .foregroundStyle(.secondary)
+            case .checking:
+                Label(L10n.text("settings.tutorProbe.checking", store.language), systemImage: "hourglass")
+                    .foregroundStyle(.secondary)
+            case .succeeded(let provider, let model, let answer, let durationMS):
+                Label(L10n.text("settings.tutorProbe.success", store.language), systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                Text([provider, model].filter { !$0.isEmpty }.joined(separator: " · ") + " · \(durationMS) ms")
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                Text(answer)
+                    .font(.callout)
+                    .textSelection(.enabled)
+            case .failed(let message):
+                Label(L10n.text("settings.tutorProbe.failedTitle", store.language), systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
+        }
+        .padding(.vertical, 6)
+        .onChange(of: store.aiMode) { _ in probe.reset() }
+        .onChange(of: store.language) { _ in probe.reset() }
+    }
+
+    private func startProbe() {
+        guard !probe.isChecking else { return }
+        let selectedLanguage = store.language
+        let selectedMode = store.aiMode
+        probe.begin()
+
+        Task {
+            guard await backendSupervisor.ensureRunning() else {
+                probe.fail(L10n.text("settings.tutorProbe.backendUnavailable", selectedLanguage))
+                return
+            }
+            await store.refreshAIStatus()
+            guard selectedLanguage == store.language, selectedMode == store.aiMode else {
+                probe.reset()
+                return
+            }
+            guard let health = store.aiHealth else {
+                probe.fail(L10n.text("settings.tutorProbe.genericError", selectedLanguage))
+                return
+            }
+            let routeReady = selectedMode == .localOnly ? health.hasLocalModel : health.hasAutomaticRoute
+            guard routeReady else {
+                probe.fail(L10n.text("settings.tutorProbe.noRoute", selectedLanguage))
+                return
+            }
+
+            await probe.check(language: selectedLanguage, mode: selectedMode)
+            if selectedLanguage != store.language || selectedMode != store.aiMode {
+                probe.reset()
+            }
+        }
+    }
 }
 
 private struct ProviderKeyEntryView: View {

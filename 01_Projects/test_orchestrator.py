@@ -2340,6 +2340,47 @@ def _parse_sse(text: str) -> list[dict]:
 class TestStreamingChat:
     """Проверка SSE-стриминга через /chat/stream."""
 
+    def test_stream_can_skip_retrieval_for_a_private_tutor_route_probe(self, client, monkeypatch):
+        captured = {}
+
+        async def retrieval_must_not_run(*args, **kwargs):
+            raise AssertionError("A private route probe must not read learner materials")
+
+        async def capture_local_request(req, system_prompt, sources, learner_message=None):
+            captured["request"] = req
+            captured["sources"] = sources
+            captured["learner_message"] = learner_message
+            return orchestrator.StreamingResponse(
+                iter([b"data: {\"type\":\"done\",\"answer\":\"Tutor connection works\"}\n\n"]),
+                media_type="text/event-stream",
+            )
+
+        course_retrieval = AsyncMock(side_effect=retrieval_must_not_run)
+        obsidian_retrieval = AsyncMock(side_effect=retrieval_must_not_run)
+        official_retrieval = AsyncMock(side_effect=retrieval_must_not_run)
+        monkeypatch.setattr(orchestrator, "_retrieve_local_course_sources", course_retrieval)
+        monkeypatch.setattr(orchestrator, "_retrieve_obsidian_sources", obsidian_retrieval)
+        monkeypatch.setattr(orchestrator, "_retrieve_licensed_official_sources", official_retrieval)
+        monkeypatch.setattr(orchestrator, "_handle_local_or_error_stream", capture_local_request)
+
+        response = client.post(
+            "/chat/stream",
+            json={
+                "message": "Reply with a short connection check.",
+                "system_prompt": "This is a diagnostic request.",
+                "mode": "local",
+                "skip_retrieval": True,
+            },
+        )
+
+        assert response.status_code == 200
+        assert captured["sources"] == []
+        assert captured["learner_message"] == "Reply with a short connection check."
+        assert captured["request"].skip_retrieval is True
+        course_retrieval.assert_not_awaited()
+        obsidian_retrieval.assert_not_awaited()
+        official_retrieval.assert_not_awaited()
+
     def test_local_citations_are_checked_without_rewriting_code(self):
         answer = (
             "Supported [K1], unsupported [K2]. `literal [K3]`\n"

@@ -27,8 +27,8 @@ These CI artifacts are unsigned test builds, not a published release. CI verifie
 
 ## Project profile / Профиль проекта
 
-**In one sentence:** ColiDev is a bilingual learning platform for macOS that combines structured courses, hands-on practice, progress-aware guidance, and a configurable AI tutor.<br>
-**Коротко:** ColiDev — двуязычная учебная платформа для macOS, которая объединяет последовательные курсы, практические задания, рекомендации с учётом прогресса и настраиваемого ИИ-тьютора.
+**In one sentence:** ColiDev is a native macOS platform for bilingual, adaptive learning across subjects, combining structured courses, interactive practice, learner-created study paths, progress-aware guidance, and a configurable AI tutor.<br>
+**Коротко:** ColiDev — нативная платформа для macOS для двуязычного и адаптивного изучения разных предметов: последовательные курсы, интерактивная практика, пользовательские учебные маршруты, рекомендации с учётом прогресса и настраиваемый ИИ-тьютор.
 
 ### Product purpose / Назначение продукта
 
@@ -112,6 +112,9 @@ ColiDev — ранний командный прототип, а не готов
 
 - Tutor readiness distinguishes a responding local backend from a configured model route. The app does not treat internet access or an unused session allowance as proof that a model is ready.<br>
   Статус тьютора отдельно показывает, отвечает ли локальный сервер и настроен ли маршрут к модели. Наличие интернета или неиспользованной квоты сессии не считается подтверждением готовности модели.
+
+- Settings include a real-reply check for the selected local or automatic tutor route. It sends only a short static prompt, skips course and Obsidian retrieval and web search, and reports the actual provider, model, response time, answer text, or error. A successful health check alone does not mark the model as verified. The request may use provider quota; paid routes still follow the explicit cost policy.<br>
+  В настройках можно проверить реальный ответ выбранного локального или автоматического маршрута тьютора. Отправляется только короткий статический запрос; поиск по курсам и Obsidian, а также веб-поиск отключены. Приложение показывает фактического провайдера, модель, время ответа, текст ответа или ошибку. Успешная проверка health сама по себе не означает, что модель проверена. Запрос может расходовать квоту провайдера; платные маршруты по-прежнему подчиняются отдельной настройке расходов.
 
 - The local RAG index searches course Markdown and text resources. It supports lexical search and optional Ollama embeddings; tutor retrieval is limited to a small number of sources for each answer.<br>
   Локальный индекс RAG ищет по Markdown-урокам и текстовым материалам. Доступен обычный текстовый поиск и необязательные векторные представления через Ollama; для ответа тьютору передаётся ограниченное число источников.

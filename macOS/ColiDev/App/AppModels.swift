@@ -1286,6 +1286,7 @@ private struct TutorRequest: Encodable {
     let language: String
     let mode: String
     let retrievalQuery: String
+    let skipRetrieval: Bool
     let useWebSearch: Bool
     let groundingAgeConfirmed: Bool
     let includeLocalSourcesInWebSearch: Bool
@@ -1294,6 +1295,7 @@ private struct TutorRequest: Encodable {
         case message, subject, language, mode
         case systemPrompt = "system_prompt"
         case retrievalQuery = "retrieval_query"
+        case skipRetrieval = "skip_retrieval"
         case useWebSearch = "use_web_search"
         case groundingAgeConfirmed = "grounding_age_confirmed"
         case includeLocalSourcesInWebSearch = "include_local_sources_in_web_search"
@@ -1910,6 +1912,7 @@ enum OrchestratorClient {
         useWebSearch: Bool = false,
         groundingAgeConfirmed: Bool = false,
         includeLocalSourcesInWebSearch: Bool = false,
+        skipRetrieval: Bool = false,
         onToken: @MainActor (String) -> Void,
         onFinalAnswer: @MainActor (String) -> Void
     ) async throws -> TutorCompletion {
@@ -1928,6 +1931,7 @@ enum OrchestratorClient {
             language: language.rawValue,
             mode: mode.rawValue,
             retrievalQuery: retrievalQuery,
+            skipRetrieval: skipRetrieval,
             useWebSearch: useWebSearch,
             groundingAgeConfirmed: groundingAgeConfirmed,
             includeLocalSourcesInWebSearch: includeLocalSourcesInWebSearch
@@ -1968,6 +1972,59 @@ enum OrchestratorClient {
 
         guard let completion else { throw ClientError.incompleteStream }
         return completion
+    }
+}
+
+@MainActor
+final class TutorRouteProbeModel: ObservableObject {
+    @Published private(set) var state: TutorRouteProbeState = .idle
+
+    var isChecking: Bool { state == .checking }
+
+    func begin() {
+        guard !isChecking else { return }
+        state = .checking
+    }
+
+    func reset() {
+        state = .idle
+    }
+
+    func fail(_ message: String) {
+        state = .failed(message)
+    }
+
+    func check(language: AppLanguage, mode: AIRoutingMode) async {
+        begin()
+        var answer = ""
+
+        do {
+            let completion = try await OrchestratorClient.streamChat(
+                message: L10n.text("settings.tutorProbe.message", language),
+                systemPrompt: L10n.text("settings.tutorProbe.system", language),
+                retrievalQuery: "",
+                subjectID: Subject.mathematics.rawValue,
+                language: language,
+                mode: mode,
+                skipRetrieval: true,
+                onToken: { answer += $0 },
+                onFinalAnswer: { answer = $0 }
+            )
+            guard let verified = TutorRouteProbeState.verifiedResponse(
+                provider: completion.provider,
+                model: completion.model,
+                answer: answer,
+                durationMS: completion.durationMS
+            ) else {
+                state = .failed(L10n.text("settings.tutorProbe.emptyResponse", language))
+                return
+            }
+            state = verified
+        } catch OrchestratorClient.ClientError.serverError(let message) {
+            state = .failed(message)
+        } catch {
+            state = .failed(L10n.text("settings.tutorProbe.failed", language))
+        }
     }
 }
 

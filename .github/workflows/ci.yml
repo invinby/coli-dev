@@ -102,6 +102,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-answer-choice-order"
           "$RUNNER_TEMP/verify-answer-choice-order"
 
+      - name: Verify real tutor reply state / Проверка реального ответа тьютора
+        run: |
+          swiftc macOS/ColiDev/App/TutorRouteProbeState.swift macOS/ColiDev/scripts/verify_tutor_route_probe_state.swift \
+            -o "$RUNNER_TEMP/verify-tutor-route-probe-state"
+          "$RUNNER_TEMP/verify-tutor-route-probe-state"
+
       - name: Verify adaptive study recommendation / Проверка следующего шага обучения
         run: |
           swiftc -parse-as-library macOS/ColiDev/App/StudyRecommendation.swift macOS/ColiDev/App/CustomCurriculum.swift macOS/ColiDev/scripts/verify_study_recommendation.swift \
