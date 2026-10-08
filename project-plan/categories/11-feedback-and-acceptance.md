@@ -72,6 +72,14 @@ This list records the team's feedback received on 8 October 2026. It sets the pr
 
 **EN:** Next, close P0 issues and verify builds and end-to-end routes, then improve sourcing and exercise feedback; after that, expand personalization, interactive formats, and subject coverage. Cosmetic changes must not obscure incomplete or unverified behavior.
 
+## Текущая проверка ветки / Current branch verification — 2026-10-09
+
+**RU:** На commit `b973844f367311e5e25e5aa51144938b4b884389` локально на Windows прошёл полный backend-набор `py -3 -m pytest 01_Projects -q`: **481 passed за 232,51 с**. GitHub Actions run [37841436013](https://github.com/invinby/coli-dev/actions/runs/37841436013) для этого же SHA успешно завершил `Backend checks`, `macOS app build (macos-15)` и `macOS app build (macos-15-intel)`. Локально `git diff --check` также прошёл. Это подтверждает автоматические backend-проверки и сборки двух архитектур macOS; оно не подтверждает запуск окна на физическом Mac, доступность установленной Ollama-модели или реальный ответ выбранного AI-маршрута. В этой Windows-среде нет Swift и Xcode, поэтому ручной UI-проход остаётся задачей для Mac.
+
+**EN:** On commit `b973844f367311e5e25e5aa51144938b4b884389`, the full backend suite passed locally on Windows with `py -3 -m pytest 01_Projects -q`: **481 passed in 232.51 seconds**. GitHub Actions run [37841436013](https://github.com/invinby/coli-dev/actions/runs/37841436013) for the same SHA completed `Backend checks`, `macOS app build (macos-15)`, and `macOS app build (macos-15-intel)` successfully. Local `git diff --check` also passed. This confirms automated backend checks and builds for both macOS architectures; it does not confirm launching the window on a physical Mac, availability of an installed Ollama model, or a real reply from the selected AI route. Swift and Xcode are unavailable in this Windows environment, so hands-on UI acceptance still requires a Mac.
+
+**Следующий шаг / Next step:** выполнить на Mac сквозной сценарий: открыть раздел «Локальные модели», проверить выбранную модель и получить пробный ответ; затем открыть встроенный урок биологии, пользовательскую тему и проверить RU/EN, практику и сохранение прогресса. Отдельно продолжить адаптивную диагностику: нынешние правила маршрутизации и повторения ещё не являются полной моделью мастерства ученика.
+
 ## Приоритеты / Priorities
 
 | Приоритет | Требование по-русски | Requirement in English | Критерий приёмки / Acceptance criterion |
