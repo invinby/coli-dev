@@ -69,6 +69,9 @@ These CI artifacts are unsigned test builds, not a published release. CI verifie
 **Полное техническое задание:** [Промпт разработки приложения](project-plan/APP_BUILD_PROMPT.md). Это задание для разработки всей платформы, а не системный промпт для отдельного ИИ-тьютора.<br>
 **Full application brief:** [ColiDev development prompt](project-plan/APP_BUILD_PROMPT.md). It specifies the whole platform, not the system prompt for a standalone AI tutor.
 
+**Полный профиль продукта на русском и английском:** [Открыть профиль ColiDev](project-plan/PRODUCT_PROFILE_RU_EN.md). В нём отдельно указаны цель продукта, требования, отзывы команды, факты о прототипе и то, что ещё нужно проверить.<br>
+**Complete product profile in Russian and English:** [Open the ColiDev profile](project-plan/PRODUCT_PROFILE_RU_EN.md). It separates the product goal, requirements, team feedback, prototype facts, and items that still need verification.
+
 Текущая реализация и ограничения перечислены ниже.<br>
 Current implementation and limitations are listed below.
 ## What works in the prototype / Что работает в прототипе
@@ -233,6 +236,7 @@ Automatic routing defaults to free-only routes. Potentially paid cloud models an
 ## Project documents / Документы проекта
 
 - [Detailed project plan / Подробный план проекта](project-plan/README.md)
+- [Complete product profile / Полный профиль продукта](project-plan/PRODUCT_PROFILE_RU_EN.md)
 - [Bilingual application-development prompt / Двуязычный промпт на разработку приложения](project-plan/APP_BUILD_PROMPT.md)
 - [Feedback and acceptance criteria / Замечания и критерии приёмки](project-plan/categories/11-feedback-and-acceptance.md)
 - [macOS app notes / Заметки по приложению macOS](macOS/ColiDev/README.md)

@@ -4,7 +4,9 @@
 
 Копируемое задание на проектирование и разработку всего приложения собрано в [двуязычном промпте для разработчика](APP_BUILD_PROMPT.md); это бриф продукта, а не системная инструкция для поведения тьютора.
 
-Краткий двуязычный профиль продукта для GitHub собран в [README проекта](../README.md#project-profile); здесь хранится подробный рабочий план.
+Краткий профиль опубликован в [README проекта](../README.md#project-profile), а подробное описание требований, отзывов и состояния прототипа — в [двуязычном профиле продукта](PRODUCT_PROFILE_RU_EN.md). Здесь хранится рабочий план.
+
+The short profile is in the [project README](../README.md#project-profile); the [bilingual product profile](PRODUCT_PROFILE_RU_EN.md) records the full requirements, feedback, and prototype status. This folder contains the working plan.
 
 ## Подтверждённое направление
 
