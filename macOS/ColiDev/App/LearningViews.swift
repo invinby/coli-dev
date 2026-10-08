@@ -124,6 +124,7 @@ struct SubjectOverviewView: View {
                             CustomTopicBranch(
                                 topic: topic,
                                 language: store.language,
+                                lessonID: { CustomTopicStudyRoute.builtInTopic(subjectID: subject.rawValue, topicID: $0).lessonID },
                                 open: { openCustomTopic($0) },
                                 addChild: { customTopicParentID = $0; showingCustomTopicEditor = true },
                                 delete: { pendingCustomTopicID = $0; showingCustomTopicDelete = true }

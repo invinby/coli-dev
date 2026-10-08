@@ -399,7 +399,11 @@ final class LearningStore: ObservableObject {
     }
 
     func rememberCourseLesson(subject: Subject, resource: String) {
-        lastOpenedCourseRoute = StudyLessonRoute(subjectID: subject.rawValue, resource: resource)
+        rememberStudyRoute(StudyLessonRoute(subjectID: subject.rawValue, resource: resource))
+    }
+
+    func rememberStudyRoute(_ route: StudyLessonRoute) {
+        lastOpenedCourseRoute = route
     }
 
     func markComplete(_ subject: Subject, reflection: String = "") {

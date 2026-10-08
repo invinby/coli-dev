@@ -20,6 +20,80 @@ struct StudyRoadmap: Equatable {
     }
 }
 
+enum CustomTopicStudyAddress: Equatable {
+    case learnerSubject(subjectID: UUID, topicID: UUID)
+    case builtInSubject(subjectID: String, topicID: UUID)
+}
+
+enum CustomTopicStudyRoute {
+    private static let learnerSubjectPrefix = "custom-user:"
+    private static let builtInSubjectPrefix = "custom-builtin:"
+    private static let builtInSubjectIDs: Set<String> = [
+        "mathematics", "english", "physics", "biology", "zoology", "programming",
+    ]
+
+    static func userTopic(subjectID: UUID, topicID: UUID) -> StudyLessonRoute {
+        StudyLessonRoute(
+            subjectID: learnerSubjectPrefix + subjectID.uuidString.lowercased(),
+            resource: topicID.uuidString.lowercased()
+        )
+    }
+
+    static func builtInTopic(subjectID: String, topicID: UUID) -> StudyLessonRoute {
+        StudyLessonRoute(
+            subjectID: builtInSubjectPrefix + subjectID,
+            resource: topicID.uuidString.lowercased()
+        )
+    }
+
+    static func address(
+        for route: StudyLessonRoute,
+        in curriculum: CustomCurriculum
+    ) -> CustomTopicStudyAddress? {
+        guard let topicID = UUID(uuidString: route.resource) else { return nil }
+
+        if route.subjectID.hasPrefix(learnerSubjectPrefix) {
+            let rawSubjectID = String(route.subjectID.dropFirst(learnerSubjectPrefix.count))
+            guard let subjectID = UUID(uuidString: rawSubjectID),
+                  curriculum.topic(subjectID: subjectID, topicID: topicID) != nil else { return nil }
+            return .learnerSubject(subjectID: subjectID, topicID: topicID)
+        }
+
+        guard route.subjectID.hasPrefix(builtInSubjectPrefix) else { return nil }
+        let subjectID = String(route.subjectID.dropFirst(builtInSubjectPrefix.count))
+        guard builtInSubjectIDs.contains(subjectID),
+              curriculum.topic(builtInSubjectID: subjectID, topicID: topicID) != nil else { return nil }
+        return .builtInSubject(subjectID: subjectID, topicID: topicID)
+    }
+
+    static func roadmaps(from curriculum: CustomCurriculum) -> [StudyRoadmap] {
+        var roadmaps = curriculum.subjects.compactMap { subject -> StudyRoadmap? in
+            let resources = topicIDs(in: subject.topics)
+            guard !resources.isEmpty else { return nil }
+            return StudyRoadmap(
+                subjectID: learnerSubjectPrefix + subject.id.uuidString.lowercased(),
+                lessonResources: resources
+            )
+        }
+
+        for subjectID in builtInSubjectIDs.sorted() {
+            let resources = topicIDs(in: curriculum.topics(builtInSubjectID: subjectID))
+            guard !resources.isEmpty else { continue }
+            roadmaps.append(StudyRoadmap(
+                subjectID: builtInSubjectPrefix + subjectID,
+                lessonResources: resources
+            ))
+        }
+        return roadmaps
+    }
+
+    private static func topicIDs(in topics: [CustomLearningTopic]) -> [String] {
+        topics.flatMap { topic in
+            [topic.id.uuidString.lowercased()] + topicIDs(in: topic.subtopics)
+        }
+    }
+}
+
 struct StudyCourseProgress: Equatable {
     let completedCount: Int
     let totalCount: Int

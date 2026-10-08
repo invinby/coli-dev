@@ -242,6 +242,7 @@ struct CustomSubjectDetailView: View {
                                     CustomTopicBranch(
                                         topic: topic,
                                         language: store.language,
+                                        lessonID: { CustomTopicStudyRoute.userTopic(subjectID: subjectID, topicID: $0).lessonID },
                                         open: { openTopic($0) },
                                         addChild: { topicParentID = $0; showingTopicEditor = true },
                                         delete: { topicToDelete = $0; showingTopicDelete = true }
@@ -311,8 +312,10 @@ struct CustomSubjectDetailView: View {
 }
 
 struct CustomTopicBranch: View {
+    @EnvironmentObject private var store: LearningStore
     let topic: CustomLearningTopic
     let language: AppLanguage
+    let lessonID: (UUID) -> String
     let open: (UUID) -> Void
     let addChild: (UUID) -> Void
     let delete: (UUID) -> Void
@@ -326,6 +329,7 @@ struct CustomTopicBranch: View {
                     AnyView(CustomTopicBranch(
                         topic: child,
                         language: language,
+                        lessonID: lessonID,
                         open: open,
                         addChild: addChild,
                         delete: delete
@@ -348,6 +352,18 @@ struct CustomTopicBranch: View {
                         Text(L10n.text("custom.depth.\(topic.level)", language))
                             .font(.caption).foregroundStyle(.secondary)
                     }
+                    if store.isComplete(lessonID: lessonID(topic.id)) {
+                        Image(systemName: store.isReviewDue(lessonID: lessonID(topic.id))
+                            ? "clock.arrow.circlepath"
+                            : "checkmark.circle.fill")
+                            .foregroundStyle(store.isReviewDue(lessonID: lessonID(topic.id)) ? .orange : .green)
+                            .accessibilityLabel(L10n.text(
+                                store.isReviewDue(lessonID: lessonID(topic.id))
+                                    ? "custom.topicReviewDue"
+                                    : "custom.topicCompleted",
+                                language
+                            ))
+                    }
                 }
                 .contentShape(Rectangle())
             }
@@ -365,11 +381,77 @@ struct CustomTopicBranch: View {
             }
             .menuStyle(.borderlessButton)
         }
-        .padding(12)
+                .padding(12)
         .background(.background, in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.quaternary, lineWidth: 1))
     }
 
+}
+
+private struct CustomTopicProgressSection: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var learnerConfirmed = false
+    @State private var recallQuality = 4
+
+    let lessonID: String
+
+    private var isComplete: Bool { store.isComplete(lessonID: lessonID) }
+    private var isReviewDue: Bool { store.isReviewDue(lessonID: lessonID) }
+    private var hasPendingReview: Bool { store.hasPendingReview(lessonID: lessonID) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(L10n.text("custom.topicProgressTitle", store.language))
+                .font(.headline)
+            Text(L10n.text("custom.topicProgressHint", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if isComplete {
+                Label(
+                    L10n.text(isReviewDue ? "custom.topicReviewDue" : "custom.topicCompleted", store.language),
+                    systemImage: isReviewDue ? "clock.arrow.circlepath" : "checkmark.circle.fill"
+                )
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(isReviewDue ? .orange : .green)
+            }
+            Picker(L10n.text("session.recallQuality", store.language), selection: $recallQuality) {
+                Text(L10n.text("session.recallHard", store.language)).tag(2)
+                Text(L10n.text("session.recallGood", store.language)).tag(4)
+                Text(L10n.text("session.recallEasy", store.language)).tag(5)
+            }
+            .pickerStyle(.segmented)
+            Toggle(L10n.text("custom.topicConfirmStudied", store.language), isOn: $learnerConfirmed)
+                .toggleStyle(.checkbox)
+            Button {
+                if isComplete {
+                    store.recordReview(lessonID: lessonID, quality: recallQuality)
+                } else {
+                    store.markComplete(lessonID: lessonID, quality: recallQuality)
+                }
+                learnerConfirmed = false
+            } label: {
+                let titleKey = hasPendingReview
+                    ? "session.reviewSaved"
+                    : (isComplete
+                        ? (isReviewDue ? "session.recordReview" : "custom.topicCompleted")
+                        : "custom.topicMarkComplete")
+                Label(L10n.text(titleKey, store.language), systemImage: isComplete ? "checkmark.circle.fill" : "checkmark")
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(
+                !learnerConfirmed
+                    || hasPendingReview
+                    || (isComplete && !isReviewDue)
+            )
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 14))
+        .onAppear {
+            recallQuality = store.studyProgress[lessonID]?.lastQuality ?? 4
+        }
+    }
 }
 
 struct CustomTopicStudyView: View {
@@ -408,11 +490,17 @@ struct CustomTopicStudyView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 12))
                     }
+                    CustomTopicProgressSection(
+                        lessonID: CustomTopicStudyRoute.userTopic(subjectID: subjectID, topicID: topicID).lessonID
+                    )
                     Divider()
                     TutorChatView(customSubject: subject, topic: topic, language: store.language, mode: store.aiMode)
                 }
                 .padding(24)
                 .navigationTitle(topic.name.value(in: store.language.rawValue))
+                .onAppear {
+                    store.rememberStudyRoute(CustomTopicStudyRoute.userTopic(subjectID: subjectID, topicID: topicID))
+                }
             } else {
                 VStack(spacing: 10) {
                     Image(systemName: "text.book.closed").font(.largeTitle).foregroundStyle(.secondary)
@@ -458,6 +546,9 @@ struct BuiltInCustomTopicStudyView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 12))
                     }
+                    CustomTopicProgressSection(
+                        lessonID: CustomTopicStudyRoute.builtInTopic(subjectID: subject.rawValue, topicID: topicID).lessonID
+                    )
                     Divider()
                     TutorChatView(
                         customSubject: CustomLearningSubject(
@@ -475,6 +566,9 @@ struct BuiltInCustomTopicStudyView: View {
                 }
                 .padding(24)
                 .navigationTitle(topic.name.value(in: store.language.rawValue))
+                .onAppear {
+                    store.rememberStudyRoute(CustomTopicStudyRoute.builtInTopic(subjectID: subject.rawValue, topicID: topicID))
+                }
             } else {
                 VStack(spacing: 10) {
                     Image(systemName: "text.book.closed").font(.largeTitle).foregroundStyle(.secondary)

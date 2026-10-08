@@ -159,18 +159,31 @@ struct ContentView: View {
     }
 
     private func openRecommendedLesson(_ route: StudyLessonRoute) {
-        guard let subject = Subject(rawValue: route.subjectID) else { return }
-        openCourseLesson(subject: subject, resource: route.resource)
+        openStudyRoute(route)
     }
 
-    private func openDueReview(_ subject: Subject, lessonID: String) {
-        if lessonID == subject.lessonID {
-            selection = .lesson(subject)
-        } else {
-            let prefix = "\(subject.rawValue)."
-            let resource = String(lessonID.dropFirst(prefix.count))
-            selection = .courseLesson(subject, resource)
+    private func openDueReview(_ route: StudyLessonRoute) {
+        openStudyRoute(route)
+    }
+
+    private func openStudyRoute(_ route: StudyLessonRoute) {
+        if let address = CustomTopicStudyRoute.address(for: route, in: store.customCurriculum) {
+            store.rememberStudyRoute(route)
+            switch address {
+            case .learnerSubject(let subjectID, let topicID):
+                selection = .customTopic(subjectID, topicID)
+            case .builtInSubject(let subjectID, let topicID):
+                guard let subject = Subject(rawValue: subjectID) else { return }
+                selection = .builtInCustomTopic(subject, topicID)
+            }
+            return
         }
+        if route.subjectID == "intro", let subject = Subject(rawValue: route.resource) {
+            selection = .lesson(subject)
+            return
+        }
+        guard let subject = Subject(rawValue: route.subjectID) else { return }
+        openCourseLesson(subject: subject, resource: route.resource)
     }
 }
 
@@ -179,14 +192,42 @@ private struct TodayView: View {
     let open: (Subject) -> Void
     let openCustom: (UUID) -> Void
     let openCourseLesson: (StudyLessonRoute) -> Void
-    let openDueReview: (Subject, String) -> Void
+    let openDueReview: (StudyLessonRoute) -> Void
 
-    @State private var studyRoadmaps = CurriculumCatalog.studyRoadmaps()
+    @State private var builtInStudyRoadmaps = CurriculumCatalog.studyRoadmaps()
     private let columns = [GridItem(.adaptive(minimum: 210), spacing: 16)]
+
+    private var recommendationRoadmaps: [StudyRoadmap] {
+        builtInStudyRoadmaps + CustomTopicStudyRoute.roadmaps(from: store.customCurriculum)
+    }
+
+    private var addressableRoutesByLessonID: [String: StudyLessonRoute] {
+        var routes = builtInStudyRoadmaps.flatMap { roadmap in
+            roadmap.lessonResources.map { StudyLessonRoute(subjectID: roadmap.subjectID, resource: $0) }
+        }
+        routes += CustomTopicStudyRoute.roadmaps(from: store.customCurriculum).flatMap { roadmap in
+            roadmap.lessonResources.map { StudyLessonRoute(subjectID: roadmap.subjectID, resource: $0) }
+        }
+        routes += Subject.allCases.map { StudyLessonRoute(subjectID: "intro", resource: $0.rawValue) }
+        return routes.reduce(into: [:]) { result, route in
+            result[route.lessonID] = route
+        }
+    }
+
+    private var addressableDueReviewRoutes: [StudyLessonRoute] {
+        store.studyProgress.values
+            .filter { ($0.dueDate ?? .distantFuture) <= Date() }
+            .sorted {
+                let leftDate = $0.dueDate ?? .distantFuture
+                let rightDate = $1.dueDate ?? .distantFuture
+                return leftDate == rightDate ? $0.lessonID < $1.lessonID : leftDate < rightDate
+            }
+            .compactMap { addressableRoutesByLessonID[$0.lessonID] }
+    }
 
     private var courseProgress: StudyCourseProgress {
         StudyCourseProgress(
-            roadmaps: studyRoadmaps,
+            roadmaps: builtInStudyRoadmaps,
             completedLessonIDs: store.completedLessonIDs
         )
     }
@@ -205,7 +246,7 @@ private struct TodayView: View {
 
     private var studyRecommendation: StudyRecommendation? {
         StudyRecommendationSelector.recommendation(
-            roadmaps: studyRoadmaps,
+            roadmaps: recommendationRoadmaps,
             completedLessonIDs: store.completedLessonIDs,
             resume: store.lastOpenedCourseRoute,
             recallEvidence: recallEvidence
@@ -214,9 +255,9 @@ private struct TodayView: View {
 
     private var nextLessonRoute: StudyLessonRoute? { studyRecommendation?.route }
 
-    private var hasAddressableDueReview: Bool {
-        store.nextDueLessonID != nil && store.nextDueSubject != nil
-    }
+    private var nextDueReviewRoute: StudyLessonRoute? { addressableDueReviewRoutes.first }
+
+    private var hasAddressableDueReview: Bool { nextDueReviewRoute != nil }
 
     var body: some View {
         ScrollView {
@@ -310,19 +351,17 @@ private struct TodayView: View {
                         .foregroundStyle(Color.accentColor)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                if store.dueReviewCount > 0 {
+                if !addressableDueReviewRoutes.isEmpty {
                     Text(L10n.text("home.dueReviews", store.language)
-                        .replacingOccurrences(of: "%@", with: "\(store.dueReviewCount)"))
+                        .replacingOccurrences(of: "%@", with: "\(addressableDueReviewRoutes.count)"))
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(Color.accentColor)
                 }
             }
             Spacer(minLength: 0)
             Button {
-                if hasAddressableDueReview,
-                   let subject = store.nextDueSubject,
-                   let lessonID = store.nextDueLessonID {
-                    openDueReview(subject, lessonID)
+                if let nextDueReviewRoute {
+                    openDueReview(nextDueReviewRoute)
                 } else if let nextLessonRoute {
                     openCourseLesson(nextLessonRoute)
                 } else {
