@@ -97,6 +97,16 @@ Biology Foundations также включает связанные RU/EN уро�
 
 **EN — Verification:** GitHub Actions [37790495394](https://github.com/invinby/coli-dev/actions/runs/37790495394) passed: 481 backend tests, all Swift verifiers, Apple Silicon and Intel builds, backend packaging and smoke checks, and all 50 routes. `ColiDev-macos-arm64` and `ColiDev-macos-x86_64` archives are available until 22 October 2026. Rendering and navigation still need hands-on Mac acceptance; this model test does not verify a live AI reply.
 
+## Математика: случайный прогноз для систем уравнений / Mathematics: randomized linear-system prediction — 2026-10-08
+
+**RU:** В уроке `mathematics.systems_of_linear_equations` варианты прогноза теперь перемешиваются, а связь между вариантом и исходом системы остаётся устойчивой во время попытки. После неверного ответа ученик получает подсказку о противоречии или тождестве, может повторить попытку с новым перемешиванием и только после верного ответа видит разбор конкретного исхода. Каждая попытка записывается как `interactive_prediction` в историю прогресса по правильному ID урока. События поддерживают офлайн-очередь, покрытие результатов и рекомендации закрепить тему; они не завершают урок и не меняют интервальное повторение. Проверка `correctPredictionIndex` покрывает все три исхода: одно решение, отсутствие решений и бесконечно много решений.
+
+**EN:** In `mathematics.systems_of_linear_equations`, prediction choices are now shuffled while their mapping to the system outcome stays stable during an attempt. After an incorrect answer, the learner receives a hint about a contradiction or identity, can retry with another shuffle, and sees the specific outcome explanation only after a correct answer. Each attempt is recorded as `interactive_prediction` against the correct lesson ID. Events support offline queuing, evidence coverage, and recommendations to reinforce the topic; they do not complete the lesson or change spaced review. The `correctPredictionIndex` check covers all three outcomes: one solution, no solution, and infinitely many solutions.
+
+**RU — Проверка:** GitHub Actions [37792914666](https://github.com/invinby/coli-dev/actions/runs/37792914666) прошёл: тесты backend, все Swift-verifier, сборки и упаковка для Apple Silicon/Intel, smoke-проверки и все 50 маршрутов. Приложение нужно отдельно открыть на Mac и проверить навигацию и отображение нового тренажёра.
+
+**EN — Verification:** GitHub Actions [37792914666](https://github.com/invinby/coli-dev/actions/runs/37792914666) passed: backend tests, all Swift verifiers, Apple Silicon and Intel builds and packaging, smoke checks, and all 50 routes. The app still needs to be opened on a Mac to review navigation and the new lab's rendering.
+
 ## Уточнения после проверки прототипа — 2026-10-08
 
 - **EN:** Biology is already an existing subject. Keep it; do not create a duplicate. Add a clear “+” flow so learners can create their own subjects, topics, and subtopics, with stable saved IDs and a visible path into the course map. **RU:** Биология уже есть как отдельный предмет. Сохранить её и не создавать дубликат. Добавить понятное действие «+», чтобы ученик мог создавать собственные предметы, темы и подтемы; сохранять стабильные ID и показывать путь к ним в карте курса.
