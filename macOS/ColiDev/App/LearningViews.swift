@@ -1179,6 +1179,8 @@ private struct PracticeLab: View {
             PercentRepresentationLab()
         } else if subject == .mathematics, moduleResource == "domain_and_range" {
             DomainRangeLab()
+        } else if subject == .mathematics, moduleResource == "quadratic_functions_and_transformations" {
+            QuadraticFunctionLab()
         } else if subject == .mathematics, moduleResource == "rates_of_change_and_derivative" {
             DerivativeRateLab()
         } else if subject == .english, moduleResource == "present_simple_and_continuous" {

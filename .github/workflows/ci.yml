@@ -174,9 +174,9 @@ jobs:
             -o "$RUNNER_TEMP/verify-rational-expression"
           "$RUNNER_TEMP/verify-rational-expression"
 
-      - name: Verify quadratic function model
+      - name: Verify quadratic function model / Проверка модели квадратичной функции
         run: |
-          swiftc macOS/ColiDev/scripts/verify_quadratic_function.swift \
+          swiftc macOS/ColiDev/App/QuadraticFunctionPractice.swift macOS/ColiDev/scripts/verify_quadratic_function.swift \
             -o "$RUNNER_TEMP/verify-quadratic-function"
           "$RUNNER_TEMP/verify-quadratic-function"
 
@@ -234,6 +234,7 @@ jobs:
           Mathematics:solving_linear_equations
           Mathematics:numbers_fractions_and_percentages
           Mathematics:geometry_area_perimeter
+          Mathematics:quadratic_functions_and_transformations
           English:present_simple_and_continuous
           English:present_perfect_simple_continuous
           English:reading_for_gist_and_detail
