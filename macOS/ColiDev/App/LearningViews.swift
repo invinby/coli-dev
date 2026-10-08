@@ -1347,9 +1347,10 @@ private struct ReadingStrategyLab: View {
     @State private var selection: Int?
     @State private var wasCorrect: Bool?
     @State private var complete = false
-    @State private var optionOrders = EnglishReadingPractice.questions.map {
-        QuizAnswerOrder(optionCount: 3, answerOriginalIndex: $0.correctOption)
-    }
+    @State private var optionOrders = QuizAnswerOrder.balancedSequence(
+        optionCount: 3,
+        answerOriginalIndices: EnglishReadingPractice.questions.map(\.correctOption)
+    )
 
     private let questions = [
         ConditionalPracticeQuestion(id: EnglishReadingPractice.questions[0].id, promptKey: "lab.readingQuestion0", feedbackKey: "lab.readingFeedback0"),
@@ -1439,9 +1440,10 @@ private struct ReadingStrategyLab: View {
         selection = nil
         wasCorrect = nil
         complete = false
-        optionOrders = EnglishReadingPractice.questions.map {
-            QuizAnswerOrder(optionCount: 3, answerOriginalIndex: $0.correctOption)
-        }
+        optionOrders = QuizAnswerOrder.balancedSequence(
+            optionCount: 3,
+            answerOriginalIndices: EnglishReadingPractice.questions.map(\.correctOption)
+        )
     }
 }
 
@@ -1451,9 +1453,9 @@ private struct DailyRoutineVocabularyLab: View {
     @State private var selectedOption: Int?
     @State private var lastWasCorrect: Bool?
     @State private var isComplete = false
-    @State private var optionOrders: [[Int]] = (0..<5).map { _ in Array(0..<3).shuffled() }
+    @State private var optionOrders: [[Int]] = Self.makeOptionOrders()
 
-    private let questions = [
+    private static let questionSet = [
         RoutineVocabularyQuestion(
             promptKey: "lab.routinePrompt1",
             optionKeys: ["lab.routineGoToBed", "lab.routineHaveBreakfast", "lab.routineHaveDinner"],
@@ -1481,6 +1483,7 @@ private struct DailyRoutineVocabularyLab: View {
         )
     ]
 
+    private var questions: [RoutineVocabularyQuestion] { Self.questionSet }
     private var currentQuestion: RoutineVocabularyQuestion { questions[questionIndex] }
 
     var body: some View {
@@ -1575,7 +1578,14 @@ private struct DailyRoutineVocabularyLab: View {
         selectedOption = nil
         lastWasCorrect = nil
         isComplete = false
-        optionOrders = questions.map { Array($0.optionKeys.indices).shuffled() }
+        optionOrders = Self.makeOptionOrders()
+    }
+
+    private static func makeOptionOrders() -> [[Int]] {
+        QuizAnswerOrder.balancedSequence(
+            optionCount: 3,
+            answerOriginalIndices: questionSet.map(\.answerIndex)
+        ).map(\.displayedOriginalIndices)
     }
 }
 
@@ -1591,14 +1601,16 @@ private struct AnimalGroupLab: View {
     @State private var selection: Int?
     @State private var wasCorrect: Bool?
     @State private var complete = false
-    @State private var optionOrders: [[Int]] = (0..<4).map { _ in Array(0..<3).shuffled() }
+    @State private var optionOrders: [[Int]] = Self.makeOptionOrders()
 
-    private let questions = [
+    private static let questionSet = [
         AnimalGroupQuestion(promptKey: "lab.animalGroupQ1", options: ["lab.animalGroupQ1A", "lab.animalGroupQ1B", "lab.animalGroupQ1C"], answerIndex: 0),
         AnimalGroupQuestion(promptKey: "lab.animalGroupQ2", options: ["lab.animalGroupQ2A", "lab.animalGroupQ2B", "lab.animalGroupQ2C"], answerIndex: 1),
         AnimalGroupQuestion(promptKey: "lab.animalGroupQ3", options: ["lab.animalGroupQ3A", "lab.animalGroupQ3B", "lab.animalGroupQ3C"], answerIndex: 2),
         AnimalGroupQuestion(promptKey: "lab.animalGroupQ4", options: ["lab.animalGroupQ4A", "lab.animalGroupQ4B", "lab.animalGroupQ4C"], answerIndex: 1)
     ]
+
+    private var questions: [AnimalGroupQuestion] { Self.questionSet }
 
     var body: some View {
         LabCard {
@@ -1615,7 +1627,7 @@ private struct AnimalGroupLab: View {
                     selection = nil
                     wasCorrect = nil
                     complete = false
-                    optionOrders = questions.map { Array($0.options.indices).shuffled() }
+                    optionOrders = Self.makeOptionOrders()
                 }
                 .buttonStyle(.bordered)
             } else {
@@ -1680,14 +1692,16 @@ private struct AnimalLineageLab: View {
     @State private var selection: Int?
     @State private var wasCorrect: Bool?
     @State private var complete = false
-    @State private var optionOrders: [[Int]] = (0..<4).map { _ in Array(0..<3).shuffled() }
+    @State private var optionOrders: [[Int]] = Self.makeOptionOrders()
 
-    private let questions = [
+    private static let questionSet = [
         AnimalGroupQuestion(promptKey: "lab.lineageQ1", options: ["lab.lineageQ1A", "lab.lineageQ1B", "lab.lineageQ1C"], answerIndex: 1),
         AnimalGroupQuestion(promptKey: "lab.lineageQ2", options: ["lab.lineageQ2A", "lab.lineageQ2B", "lab.lineageQ2C"], answerIndex: 0),
         AnimalGroupQuestion(promptKey: "lab.lineageQ3", options: ["lab.lineageQ3A", "lab.lineageQ3B", "lab.lineageQ3C"], answerIndex: 2),
         AnimalGroupQuestion(promptKey: "lab.lineageQ4", options: ["lab.lineageQ4A", "lab.lineageQ4B", "lab.lineageQ4C"], answerIndex: 1)
     ]
+
+    private var questions: [AnimalGroupQuestion] { Self.questionSet }
 
     var body: some View {
         LabCard {
@@ -1721,7 +1735,7 @@ private struct AnimalLineageLab: View {
                     selection = nil
                     wasCorrect = nil
                     complete = false
-                    optionOrders = questions.map { Array($0.options.indices).shuffled() }
+                    optionOrders = Self.makeOptionOrders()
                 }
                 .buttonStyle(.bordered)
             } else {
@@ -1777,6 +1791,13 @@ private struct AnimalLineageLab: View {
                 .disabled(selection == nil && wasCorrect != true)
             }
         }
+    }
+
+    private static func makeOptionOrders() -> [[Int]] {
+        QuizAnswerOrder.balancedSequence(
+            optionCount: 3,
+            answerOriginalIndices: questionSet.map(\.answerIndex)
+        ).map(\.displayedOriginalIndices)
     }
 
     private func lineageBranch(title: String, members: String) -> some View {
@@ -5136,6 +5157,7 @@ private struct ThermoregulationLab: View {
             }
         }
     }
+
 }
 
 private struct ThermalRangeBar: View {

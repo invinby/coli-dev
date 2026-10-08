@@ -13,6 +13,30 @@ struct AnswerChoiceOrder: Equatable {
         displayedOriginalIndices = Array(0..<optionCount).shuffled(using: &generator)
     }
 
+    init<Generator: RandomNumberGenerator>(
+        optionCount: Int,
+        placingOriginalIndex originalIndex: Int,
+        atDisplayedIndex displayedIndex: Int,
+        using generator: inout Generator
+    ) {
+        precondition(
+            optionCount > 0 && (0..<optionCount).contains(originalIndex) && (0..<optionCount).contains(displayedIndex),
+            "A pinned answer must refer to a valid option and display slot. / Закреплённый ответ должен ссылаться на существующий вариант и позицию."
+        )
+
+        var displayedIndices = Array<Int?>(repeating: nil, count: optionCount)
+        displayedIndices[displayedIndex] = originalIndex
+        var distractors = (0..<optionCount).filter { $0 != originalIndex }
+        distractors.shuffle(using: &generator)
+
+        var distractorIndex = 0
+        for index in displayedIndices.indices where displayedIndices[index] == nil {
+            displayedIndices[index] = distractors[distractorIndex]
+            distractorIndex += 1
+        }
+        self.displayedOriginalIndices = displayedIndices.map { $0! }
+    }
+
     mutating func reshuffle() {
         var generator = SystemRandomNumberGenerator()
         reshuffle(using: &generator)
@@ -37,6 +61,7 @@ struct QuizAnswerOrder: Equatable {
     private let choiceOrder: AnswerChoiceOrder
 
     var displayedOriginalIndices: [Int] { choiceOrder.displayedOriginalIndices }
+    var correctDisplayedIndex: Int { displayedOriginalIndices.firstIndex(of: answerOriginalIndex)! }
 
     init(optionCount: Int, answerOriginalIndex: Int) {
         precondition(optionCount > 0 && (0..<optionCount).contains(answerOriginalIndex), "The answer index must match an option.")
@@ -52,6 +77,69 @@ struct QuizAnswerOrder: Equatable {
         precondition(optionCount > 0 && (0..<optionCount).contains(answerOriginalIndex), "The answer index must match an option.")
         self.answerOriginalIndex = answerOriginalIndex
         choiceOrder = AnswerChoiceOrder(optionCount: optionCount, using: &generator)
+    }
+
+    private init<Generator: RandomNumberGenerator>(
+        optionCount: Int,
+        answerOriginalIndex: Int,
+        correctDisplayedIndex: Int,
+        using generator: inout Generator
+    ) {
+        precondition(
+            optionCount > 0 && (0..<optionCount).contains(answerOriginalIndex) && (0..<optionCount).contains(correctDisplayedIndex),
+            "A balanced answer slot must refer to a valid option. / Сбалансированная позиция должна ссылаться на существующий вариант."
+        )
+        self.answerOriginalIndex = answerOriginalIndex
+        choiceOrder = AnswerChoiceOrder(
+            optionCount: optionCount,
+            placingOriginalIndex: answerOriginalIndex,
+            atDisplayedIndex: correctDisplayedIndex,
+            using: &generator
+        )
+    }
+
+    static func balancedSequence(optionCount: Int, answerOriginalIndices: [Int]) -> [QuizAnswerOrder] {
+        var generator = SystemRandomNumberGenerator()
+        return balancedSequence(optionCount: optionCount, answerOriginalIndices: answerOriginalIndices, using: &generator)
+    }
+
+    static func balancedSequence<Generator: RandomNumberGenerator>(
+        optionCount: Int,
+        answerOriginalIndices: [Int],
+        using generator: inout Generator
+    ) -> [QuizAnswerOrder] {
+        precondition(optionCount > 0, "A multiple-choice question needs at least one option.")
+
+        var positionCounts = Array(repeating: 0, count: optionCount)
+        var previousPosition: Int?
+        var orders: [QuizAnswerOrder] = []
+        orders.reserveCapacity(answerOriginalIndices.count)
+
+        for answerOriginalIndex in answerOriginalIndices {
+            precondition(
+                (0..<optionCount).contains(answerOriginalIndex),
+                "Every answer must match an available option. / Каждый правильный ответ должен соответствовать одному из вариантов."
+            )
+
+            var eligiblePositions = Array(0..<optionCount)
+            if optionCount > 1, let previousPosition {
+                eligiblePositions.removeAll { $0 == previousPosition }
+            }
+            let leastUsedCount = eligiblePositions.map { positionCounts[$0] }.min()!
+            let leastUsedPositions = eligiblePositions.filter { positionCounts[$0] == leastUsedCount }
+            let displayedIndex = leastUsedPositions.randomElement(using: &generator)!
+
+            orders.append(QuizAnswerOrder(
+                optionCount: optionCount,
+                answerOriginalIndex: answerOriginalIndex,
+                correctDisplayedIndex: displayedIndex,
+                using: &generator
+            ))
+            positionCounts[displayedIndex] += 1
+            previousPosition = displayedIndex
+        }
+
+        return orders
     }
 
     func originalIndex(forDisplayedIndex index: Int) -> Int? {
