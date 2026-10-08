@@ -350,9 +350,9 @@ enum StudyRecommendationSelector {
             roadmap.lessonResources.compactMap { resource -> ReportedDifficultyCandidate? in
                 let route = StudyLessonRoute(subjectID: roadmap.subjectID, resource: resource)
                 guard StudyProgressionPolicy.isAvailable(route, in: roadmap, evidence: progressionEvidence),
-                      let evidence = assessmentEvidence[route.lessonID],
-                      let latest = evidence.latestAssessment,
-                      latest.taskType == "knowledge_check",
+                      let evidence = assessmentEvidence[route.lessonID] else { return nil }
+                let latest = evidence.latestAssessment
+                guard latest.taskType == "knowledge_check",
                       latest.passed == false,
                       let latestCategories = latest.errorCategories else { return nil }
 
