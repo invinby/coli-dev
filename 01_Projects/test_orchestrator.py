@@ -77,6 +77,8 @@ def _mock_keyring(monkeypatch):
 @pytest.fixture(autouse=True)
 def _reset_session_tracker(monkeypatch, tmp_path):
     """Сброс сессий перед каждым тестом."""
+    # Route tests should not share one minute-long HTTP bucket. / Тесты маршрута не должны делить общий HTTP-лимит на минуту.
+    monkeypatch.setattr(orchestrator.limiter, "enabled", False)
     monkeypatch.setattr(orchestrator, "AUTO_SOURCE_CHECK_ENABLED", False)
     monkeypatch.setattr(orchestrator, "GEMINI_KEY", "test-gemini-key")
     monkeypatch.setattr(orchestrator, "KIMI_KEY", "test-kimi-key")
@@ -2339,6 +2341,28 @@ def _parse_sse(text: str) -> list[dict]:
 
 class TestStreamingChat:
     """Проверка SSE-стриминга через /chat/stream."""
+
+    def test_chat_stream_enforces_its_rate_limit(self, client, monkeypatch):
+        monkeypatch.setattr(orchestrator.limiter, "enabled", True)
+
+        async def capture_local_request(req, system_prompt, sources, learner_message=None):
+            return orchestrator.StreamingResponse(
+                iter([b"data: {\"type\":\"done\",\"answer\":\"ok\"}\n\n"]),
+                media_type="text/event-stream",
+            )
+
+        monkeypatch.setattr(orchestrator, "_handle_local_or_error_stream", capture_local_request)
+
+        responses = [
+            client.post(
+                "/chat/stream",
+                json={"message": "Rate-limit check", "mode": "local", "skip_retrieval": True},
+            )
+            for _ in range(31)
+        ]
+
+        assert [response.status_code for response in responses[:30]] == [200] * 30
+        assert responses[30].status_code == 429
 
     def test_stream_can_skip_retrieval_for_a_private_tutor_route_probe(self, client, monkeypatch):
         captured = {}
