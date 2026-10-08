@@ -503,6 +503,52 @@ def test_nist_rag_policy_only_allows_si_appendix_b9() -> None:
     ) is None
 
 
+def test_nist_metric_prefixes_are_cached_with_public_information_attribution(tmp_path: Path) -> None:
+    url = "https://www.nist.gov/pml/owm/metric-si-prefixes"
+    _write_lesson(tmp_path, f"[NIST metric prefixes]({url})")
+    monitor = _monitor(tmp_path, tmp_path)
+    page_text = (
+        "NIST Metric SI Prefixes. Kilo has the factor 10^3, or one thousand. "
+        "Quetta has the factor 10^30. NIST updated this page on August 13, 2025."
+    )
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/html; charset=utf-8", "etag": '"nist-prefixes-v1"'},
+            text=(
+                "<html><head><title>Metric (SI) Prefixes | NIST</title></head><body>"
+                f"<main><article><p>{page_text}</p></article></main></body></html>"
+            ),
+        )
+
+    async def check() -> dict[str, object]:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await monitor.check_sources(client)
+
+    result = asyncio.run(check())
+    found = monitor.search_rag_sources("NIST metric SI prefixes kilo thousand quetta")
+
+    assert result["checks"][0]["state"] == "available_untracked"
+    assert len(found) == 1
+    assert found[0]["path"] == url
+    assert found[0]["license"] == (
+        "NIST public information; may be distributed or copied unless marked copyrighted"
+    )
+    assert found[0]["license_url"] == "https://www.nist.gov/copyrights-disclaimers"
+    assert "NIST" in found[0]["attribution"]
+    assert "10^30" in found[0]["excerpt"]
+
+
+def test_nist_rag_policy_accepts_only_reviewed_si_pages() -> None:
+    assert TrustedSourceMonitor._rag_policy(
+        "https://www.nist.gov/pml/owm/metric-si-prefixes"
+    ) is not None
+    assert TrustedSourceMonitor._rag_policy(
+        "https://www.nist.gov/pml/owm/metric-si/si-units"
+    ) is None
+
+
 def test_bundled_lesson_sources_fit_the_bounded_monitor_inventory(tmp_path: Path) -> None:
     project_root = Path(__file__).resolve().parent.parent
     monitor = TrustedSourceMonitor(project_root, tmp_path / "course-sources.sqlite3")

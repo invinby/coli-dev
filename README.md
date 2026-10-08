@@ -51,6 +51,14 @@ Russian and English are supported product languages for both the interface and l
 Lessons should combine a short goal, the explanation, a worked example, a subject-appropriate activity, practice, feedback, and a check of understanding. Build each roadmap from foundations toward advanced study; a roadmap entry is not a promise that its lesson is already written or reviewed. Recommendations may use several signals, but completion, self-rating, or one correct answer alone must never be presented as mastery.<br>
 В уроке должны быть короткая цель, объяснение, разобранный пример, подходящая предмету интерактивная задача, практика, обратная связь и проверка понимания. Учебный план ведёт от основ к углублённому материалу; наличие темы в плане не означает, что урок уже написан и проверен. Рекомендации могут опираться на разные сигналы, но завершение, самооценка или один правильный ответ сами по себе не должны выдаваться за освоение темы.
 
+### Adaptive learning and depth / Адаптивное обучение и глубина
+
+Start with a lightweight check of prior knowledge and keep evidence for each topic. Move from prerequisites and foundations toward advanced work, and toward scientific depth when it fits the discipline and the learner's goal. Skip or shorten material only when more than one suitable check supports that decision; when a learner struggles, fill the prerequisite gap or change the explanation, example, visual, or practice instead of repeating the same lecture. Use active recall, spaced review, increasing challenge, and new problems that test transfer. Show why the next topic is recommended and what evidence would justify moving on.<br>
+Начинать с короткой проверки уже имеющихся знаний и сохранять результаты отдельно по каждой теме. Вести от предпосылок и основ к продвинутому уровню, а к научной глубине — когда это уместно для предмета и цели ученика. Сокращать или пропускать материал только при подтверждении несколькими подходящими проверками; при трудностях закрывать пробел в предпосылках или менять объяснение, пример, визуальный формат либо практику, а не повторять ту же лекцию. Использовать активное вспоминание, интервальные повторы, постепенное усложнение и новые задачи на перенос знаний. Показывать, почему рекомендована следующая тема и какие результаты позволят перейти дальше.
+
+Use discipline-specific teaching methods rather than one fixed lesson template: mathematical reasoning and proofs, physical models and experiments, biological structures and processes, zoological comparisons with stated limits, practical programming and debugging, and active language use. Let learners revisit a topic, ask for another explanation, or move to a harder challenge when their evidence supports it.<br>
+Подбирать обучение под предмет, а не загонять всё в один шаблон: математические рассуждения и доказательства, физические модели и эксперименты, биологические структуры и процессы, сравнение животных с явными ограничениями, практическое программирование и отладка, активная языковая практика. Давать возможность повторить тему, запросить другое объяснение или перейти к более сложной задаче, если результаты это подтверждают.
+
 ### Learner-created study paths / Пользовательские учебные маршруты
 
 Keep the built-in subjects, and let learners add their own subjects, topics, and nested subtopics. They can also add a personal topic inside a built-in subject without overwriting its shipped curriculum. Clearly distinguish learner-authored material from lessons reviewed against external sources.<br>
@@ -227,6 +235,7 @@ Automatic routing defaults to free-only routes. Potentially paid cloud models an
 ## Project documents / Документы проекта
 
 - [Detailed project plan / Подробный план проекта](project-plan/README.md)
+- [Bilingual application-development prompt / Двуязычный промпт на разработку приложения](project-plan/APP_BUILD_PROMPT.md)
 - [Feedback and acceptance criteria / Замечания и критерии приёмки](project-plan/categories/11-feedback-and-acceptance.md)
 - [macOS app notes / Заметки по приложению macOS](macOS/ColiDev/README.md)
 - [Backend notes / Заметки по backend](01_Projects/README.md)

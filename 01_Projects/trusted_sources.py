@@ -87,7 +87,8 @@ _ALLOWED_PATHS = {
         r"^/books/(?:NBK26854|NBK550206|NBK9842)/?$"
     ),
     "www.nist.gov": re.compile(
-        r"^/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b9$"
+        r"^(?:/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/"
+        r"nist-guide-si-appendix-b9|/pml/owm/metric-si-prefixes)$"
     ),
     "www.sqlite.org": re.compile(r"^/lang_transaction\.html$"),
     "openstax.org": re.compile(r"^/books/[a-z0-9-]+/pages/[a-z0-9-]+/?$"),
@@ -117,11 +118,12 @@ _RAG_SOURCE_POLICIES = {
     },
     "www.nist.gov": {
         "path": re.compile(
-            r"^/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b9$"
+            r"^(?:/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/"
+            r"nist-guide-si-appendix-b9|/pml/owm/metric-si-prefixes)$"
         ),
         "license": "NIST public information; may be distributed or copied unless marked copyrighted",
         "license_url": "https://www.nist.gov/copyrights-disclaimers",
-        "attribution": "Source: National Institute of Standards and Technology (NIST), Guide to the SI, Appendix B.9. NIST requests appropriate source credit; no endorsement implied.",
+        "attribution": "Source: National Institute of Standards and Technology (NIST). Credit the linked page; no endorsement implied.",
     },
     "raw.githubusercontent.com": {
         "path": re.compile(
