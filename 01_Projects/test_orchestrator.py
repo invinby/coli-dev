@@ -440,9 +440,28 @@ class TestAPIEndpoints:
             "lesson_id": event["lesson_id"],
             "assessment_count": 1,
             "task_type_counts": {"interactive_prediction": 1},
+            "passed_task_type_counts": {},
+            "error_category_counts": {},
             "latest_assessment": event["assessment"],
             "latest_at": saved.json()["created_at"],
         }]
+
+        failed_check = {
+            "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d504",
+            "lesson_id": "biology.cell_cycle",
+            "assessment": {
+                "task_type": "knowledge_check",
+                "passed": False,
+                "error_categories": ["foundation"],
+            },
+        }
+        failed_check_response = client.post("/learning/assessments", json=failed_check)
+        assert failed_check_response.status_code == 200
+        assert failed_check_response.json()["assessment"] == failed_check["assessment"]
+        check_progress = client.get("/learning/progress").json()
+        assert check_progress["records"] == []
+        assert check_progress["assessment_evidence"][0]["passed_task_type_counts"] == {}
+        assert check_progress["assessment_evidence"][0]["error_category_counts"] == {"foundation": 1}
         invalid = client.post(
             "/learning/assessments",
             json={

@@ -704,12 +704,20 @@ struct CurriculumModuleView: View {
     private func selectCheckAnswer(displayedIndex: Int) {
         guard var attempt = checkAttempt else { return }
         attempt.select(displayedIndex: displayedIndex)
+        if attempt.isCorrect,
+           let evidence = attempt.currentAnswerEventEvidence() {
+            store.recordStudyAssessment(lessonID: lessonID, evidence: evidence)
+        }
         checkAttempt = attempt
     }
 
     private func retryKnowledgeCheck() {
         guard var attempt = checkAttempt else { return }
-        attempt.retry(errorCategory: StudyErrorCategory(rawValue: selectedErrorCategory))
+        let errorCategory = StudyErrorCategory(rawValue: selectedErrorCategory)
+        if let evidence = attempt.currentAnswerEventEvidence(errorCategory: errorCategory) {
+            store.recordStudyAssessment(lessonID: lessonID, evidence: evidence)
+        }
+        attempt.retry(errorCategory: errorCategory)
         checkAttempt = attempt
         selectedErrorCategory = ""
     }

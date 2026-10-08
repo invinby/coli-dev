@@ -431,6 +431,7 @@ enum StudyRecommendationVerification {
             lessonID: "biology.cell_cycle",
             assessmentCount: 1,
             taskTypeCounts: ["knowledge_check": 1],
+            passedTaskTypeCounts: ["knowledge_check": 1],
             latestAssessment: successfulCellCheck,
             latestAt: "2026-10-08T11:00:00Z"
         )
@@ -452,6 +453,41 @@ enum StudyRecommendationVerification {
                 evidence: syncedFoundation
             ),
             "A synchronized successful knowledge check must unlock the next level. / Синхронизированная успешная проверка знаний должна открывать следующий уровень."
+        )
+
+        let failedSyncedCheck = StudyAssessmentEvidenceSummary(
+            lessonID: "biology.cell_cycle",
+            assessmentCount: 1,
+            taskTypeCounts: ["knowledge_check": 1],
+            passedTaskTypeCounts: [:],
+            latestAssessment: StudyAssessmentEvidence(
+                taskType: "knowledge_check",
+                attempts: 1,
+                firstTryCorrect: false,
+                hintsUsed: 0,
+                errorCategories: [.foundation],
+                passed: false
+            ),
+            latestAt: "2026-10-08T11:00:00Z"
+        )
+        let failedFoundation = StudyProgressionEvidence(
+            completedLessonIDs: passedCells,
+            recallEvidence: [
+                "biology.cells": StudyRecallEvidence(
+                    quality: 5,
+                    reviewedAt: "2026-10-08T10:00:00Z",
+                    assessment: successfulCellCheck
+                ),
+            ],
+            assessmentEvidence: ["biology.cell_cycle": failedSyncedCheck]
+        )
+        precondition(
+            !StudyProgressionPolicy.isAvailable(
+                StudyLessonRoute(subjectID: "biology", resource: "gene_expression"),
+                in: stagedRoadmap,
+                evidence: failedFoundation
+            ),
+            "A failed knowledge-check event must never unlock the next level. / Неудачная проверка знаний не должна открывать следующий уровень."
         )
 
         let passedFoundation = StudyProgressionEvidence(

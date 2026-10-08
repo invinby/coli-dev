@@ -168,6 +168,17 @@ enum AnswerChoiceOrderVerification {
         precondition(attempt.selectedOriginalIndex == firstOrder[wrongDisplayIndex])
         precondition(!attempt.canComplete && attempt.canRetry)
         precondition(
+            attempt.currentAnswerEventEvidence(errorCategory: .foundation) == StudyAssessmentEvidence(
+                taskType: "knowledge_check",
+                attempts: 1,
+                firstTryCorrect: false,
+                hintsUsed: 0,
+                errorCategories: [.foundation],
+                passed: false
+            ),
+            "A failed check event must remain distinct from a pass. / Событие неудачной проверки должно оставаться отдельно от успешной."
+        )
+        precondition(
             attempt.attemptCount == 1 && attempt.firstTryCorrect == false,
             "A wrong first answer must remain visible as learning evidence after a retry. / Ошибочный первый ответ должен остаться в учебном свидетельстве после повтора."
         )
@@ -234,6 +245,10 @@ enum AnswerChoiceOrderVerification {
                 hintsUsed: 0
             ),
             "A first-try correct answer must be recorded as independent check evidence. / Правильный ответ с первой попытки должен сохраняться как результат проверки без повторов."
+        )
+        precondition(
+            firstTryAttempt.currentAnswerEventEvidence()?.passed == true,
+            "A correct answer event must be explicitly marked as passed. / Правильный ответ должен явно помечаться как успешный."
         )
 
         print("Answer choice order checks passed. / Проверки порядка вариантов прошли.")

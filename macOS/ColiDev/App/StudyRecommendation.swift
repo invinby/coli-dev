@@ -147,6 +147,8 @@ struct StudyAssessmentEvidenceSummary: Decodable, Equatable, Identifiable {
     let lessonID: String
     let assessmentCount: Int
     let taskTypeCounts: [String: Int]
+    let passedTaskTypeCounts: [String: Int]? = nil
+    let errorCategoryCounts: [String: Int]? = nil
     let latestAssessment: StudyAssessmentEvidence
     let latestAt: String
 
@@ -156,6 +158,8 @@ struct StudyAssessmentEvidenceSummary: Decodable, Equatable, Identifiable {
         case lessonID = "lesson_id"
         case assessmentCount = "assessment_count"
         case taskTypeCounts = "task_type_counts"
+        case passedTaskTypeCounts = "passed_task_type_counts"
+        case errorCategoryCounts = "error_category_counts"
         case latestAssessment = "latest_assessment"
         case latestAt = "latest_at"
     }
@@ -204,6 +208,12 @@ struct StudyKnowledgeEvidenceCoverage: Equatable {
             }
             for category in record.latestAssessment?.errorCategories ?? [] {
                 errorTopicIDsByCategory[category, default: []].insert(record.lessonID)
+            }
+        }
+        for summary in additionalEvidence where topicIDs.contains(summary.lessonID) {
+            for (rawCategory, count) in summary.errorCategoryCounts ?? [:] where count > 0 {
+                guard let category = StudyErrorCategory(rawValue: rawCategory) else { continue }
+                errorTopicIDsByCategory[category, default: []].insert(summary.lessonID)
             }
         }
         topicsWithChecks = checkedTopicIDs.count
@@ -255,10 +265,11 @@ struct StudyProgressionEvidence: Equatable {
         self.completedLessonIDs = completedLessonIDs
 
         var checkedLessonIDs = Set(recallEvidence.compactMap { lessonID, evidence in
-            evidence.assessment?.taskType == "knowledge_check" ? lessonID : nil
+            evidence.assessment?.taskType == "knowledge_check"
+                && evidence.assessment?.passed != false ? lessonID : nil
         })
         checkedLessonIDs.formUnion(assessmentEvidence.values.compactMap { summary in
-            (summary.taskTypeCounts["knowledge_check"] ?? 0) > 0 ? summary.lessonID : nil
+            (summary.passedTaskTypeCounts?["knowledge_check"] ?? 0) > 0 ? summary.lessonID : nil
         })
         successfulKnowledgeCheckLessonIDs = checkedLessonIDs
     }

@@ -547,6 +547,14 @@ class InteractiveAssessmentEvidenceRequest(BaseModel):
     hints_used: int = Field(strict=True, ge=0, le=1_000)
 
 
+class KnowledgeCheckAttemptEventRequest(BaseModel):
+    task_type: Literal["knowledge_check"]
+    passed: bool = Field(strict=True)
+    error_categories: list[
+        Literal["understanding", "memory", "application", "attention", "logic", "foundation", "method"]
+    ] = Field(default_factory=list, max_length=1)
+
+
 class StudyAssessmentEventRequest(BaseModel):
     event_id: uuid.UUID
     lesson_id: str = Field(
@@ -554,7 +562,7 @@ class StudyAssessmentEventRequest(BaseModel):
         max_length=120,
         pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$",
     )
-    assessment: InteractiveAssessmentEvidenceRequest
+    assessment: InteractiveAssessmentEvidenceRequest | KnowledgeCheckAttemptEventRequest
 
 
 class StudyReviewRequest(BaseModel):

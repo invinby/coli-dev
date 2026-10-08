@@ -265,6 +265,8 @@ def test_interactive_assessments_are_idempotent_and_do_not_change_review_schedul
         "lesson_id": lesson_id,
         "assessment_count": 2,
         "task_type_counts": {"interactive_prediction": 2},
+        "passed_task_type_counts": {},
+        "error_category_counts": {},
         "latest_assessment": second_evidence,
         "latest_at": "2026-10-08T12:01:00Z",
     }]
@@ -289,6 +291,52 @@ def test_interactive_assessment_can_record_an_incorrect_first_attempt(tmp_path: 
 
     assert saved["assessment"]["first_try_correct"] is False
     assert store.get_progress()["records"] == []
+
+
+def test_failed_knowledge_check_event_is_persisted_but_not_counted_as_passed(tmp_path: Path) -> None:
+    store = StudyProgressStore(tmp_path / "progress.sqlite3")
+    store.initialize()
+    lesson_id = "biology.cell_cycle"
+    failed = store.record_assessment_event(
+        "f47ac10b-58cc-4372-a567-0e02b2c3d502",
+        lesson_id,
+        {
+            "task_type": "knowledge_check",
+            "passed": False,
+            "error_categories": ["foundation"],
+        },
+    )
+    assert failed["assessment"]["passed"] is False
+    assert store.get_progress()["records"] == []
+    assert store.get_progress()["assessment_evidence"] == [{
+        "lesson_id": lesson_id,
+        "assessment_count": 1,
+        "task_type_counts": {"knowledge_check": 1},
+        "passed_task_type_counts": {},
+        "error_category_counts": {"foundation": 1},
+        "latest_assessment": {
+            "task_type": "knowledge_check",
+            "passed": False,
+            "error_categories": ["foundation"],
+        },
+        "latest_at": failed["created_at"],
+    }]
+
+    passed = store.record_assessment_event(
+        "f47ac10b-58cc-4372-a567-0e02b2c3d503",
+        lesson_id,
+        {"task_type": "knowledge_check", "passed": True},
+    )
+    summary = store.get_progress()["assessment_evidence"][0]
+    assert summary["task_type_counts"] == {"knowledge_check": 2}
+    assert summary["passed_task_type_counts"] == {"knowledge_check": 1}
+    assert summary["error_category_counts"] == {"foundation": 1}
+    assert summary["latest_assessment"] == passed["assessment"]
+
+    restored = StudyProgressStore(tmp_path / "restored-assessments.sqlite3")
+    restored.initialize()
+    restored.restore_backup(store.export_backup())
+    assert restored.get_progress()["assessment_evidence"] == store.get_progress()["assessment_evidence"]
 
 
 def test_learning_backup_round_trips_interactive_assessment_events(tmp_path: Path) -> None:

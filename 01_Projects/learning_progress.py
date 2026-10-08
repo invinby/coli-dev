@@ -236,25 +236,51 @@ class StudyProgressStore:
     def _assessment_event(value: Any) -> tuple[dict[str, Any], str]:
         if not isinstance(value, Mapping):
             raise ValueError("assessment must be an object")
-        if set(value) != {"task_type", "attempts", "first_try_correct", "hints_used"}:
-            raise ValueError("assessment must contain exactly the supported evidence fields")
-        if value["task_type"] != "interactive_prediction":
-            raise ValueError("assessment task_type must be interactive_prediction")
-        attempts = value["attempts"]
-        hints_used = value["hints_used"]
-        first_try_correct = value["first_try_correct"]
-        if isinstance(attempts, bool) or not isinstance(attempts, int) or not 1 <= attempts <= 1_000:
-            raise ValueError("assessment attempts must be an integer between 1 and 1000")
-        if isinstance(hints_used, bool) or not isinstance(hints_used, int) or not 0 <= hints_used <= 1_000:
-            raise ValueError("assessment hints_used must be an integer between 0 and 1000")
-        if not isinstance(first_try_correct, bool):
-            raise ValueError("assessment first_try_correct must be a boolean")
-        normalized = {
-            "task_type": "interactive_prediction",
-            "attempts": attempts,
-            "first_try_correct": first_try_correct,
-            "hints_used": hints_used,
-        }
+        task_type = value.get("task_type")
+        if task_type == "interactive_prediction":
+            if set(value) != {"task_type", "attempts", "first_try_correct", "hints_used"}:
+                raise ValueError("assessment must contain exactly the supported evidence fields")
+            attempts = value["attempts"]
+            hints_used = value["hints_used"]
+            first_try_correct = value["first_try_correct"]
+            if isinstance(attempts, bool) or not isinstance(attempts, int) or not 1 <= attempts <= 1_000:
+                raise ValueError("assessment attempts must be an integer between 1 and 1000")
+            if isinstance(hints_used, bool) or not isinstance(hints_used, int) or not 0 <= hints_used <= 1_000:
+                raise ValueError("assessment hints_used must be an integer between 0 and 1000")
+            if not isinstance(first_try_correct, bool):
+                raise ValueError("assessment first_try_correct must be a boolean")
+            normalized = {
+                "task_type": "interactive_prediction",
+                "attempts": attempts,
+                "first_try_correct": first_try_correct,
+                "hints_used": hints_used,
+            }
+        elif task_type == "knowledge_check":
+            required_fields = {"task_type", "passed"}
+            if not required_fields.issubset(value) or set(value) - required_fields - {"error_categories"}:
+                raise ValueError("knowledge-check event must include only task_type, passed, and error_categories")
+            passed = value["passed"]
+            error_categories = value.get("error_categories", [])
+            supported_error_categories = {
+                "understanding", "memory", "application", "attention", "logic", "foundation", "method"
+            }
+            if not isinstance(passed, bool):
+                raise ValueError("knowledge-check event passed must be a boolean")
+            if (
+                not isinstance(error_categories, list)
+                or len(error_categories) > 1
+                or any(
+                    not isinstance(category, str) or category not in supported_error_categories
+                    for category in error_categories
+                )
+                or (passed and error_categories)
+            ):
+                raise ValueError("knowledge-check error_categories must describe at most one failed attempt")
+            normalized = {"task_type": "knowledge_check", "passed": passed}
+            if error_categories:
+                normalized["error_categories"] = error_categories
+        else:
+            raise ValueError("assessment task_type must be interactive_prediction or knowledge_check")
         encoded = json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return normalized, encoded
 
@@ -514,6 +540,10 @@ class StudyProgressStore:
                    FROM assessment_events GROUP BY lesson_id, task_type
                    ORDER BY lesson_id, task_type"""
             ).fetchall()
+            passed_event_rows = connection.execute(
+                "SELECT lesson_id, task_type, assessment_json FROM assessment_events "
+                "WHERE task_type = 'knowledge_check'"
+            ).fetchall()
             latest_events = {
                 lesson_id: connection.execute(
                     "SELECT * FROM assessment_events WHERE lesson_id = ? "
@@ -524,6 +554,8 @@ class StudyProgressStore:
             }
         records = [self._row(row) for row in rows]
         task_counts: dict[str, dict[str, int]] = {}
+        passed_task_counts: dict[str, dict[str, int]] = {}
+        error_category_counts: dict[str, dict[str, int]] = {}
         totals: dict[str, int] = {}
         for row in event_groups:
             lesson_id = str(row["lesson_id"])
@@ -531,11 +563,25 @@ class StudyProgressStore:
             task_count = int(row["task_count"])
             task_counts.setdefault(lesson_id, {})[task_type] = task_count
             totals[lesson_id] = totals.get(lesson_id, 0) + task_count
+        for row in passed_event_rows:
+            lesson_id = str(row["lesson_id"])
+            task_type = str(row["task_type"])
+            assessment = json.loads(str(row["assessment_json"]))
+            if assessment.get("passed") is True:
+                passed_task_counts.setdefault(lesson_id, {})[task_type] = (
+                    passed_task_counts.get(lesson_id, {}).get(task_type, 0) + 1
+                )
+            for category in assessment.get("error_categories", []):
+                error_category_counts.setdefault(lesson_id, {})[category] = (
+                    error_category_counts.get(lesson_id, {}).get(category, 0) + 1
+                )
         assessment_evidence = [
             {
                 "lesson_id": lesson_id,
                 "assessment_count": totals[lesson_id],
                 "task_type_counts": task_counts[lesson_id],
+                "passed_task_type_counts": passed_task_counts.get(lesson_id, {}),
+                "error_category_counts": error_category_counts.get(lesson_id, {}),
                 "latest_assessment": self._assessment_event_row(latest_events[lesson_id])["assessment"],
                 "latest_at": self._assessment_event_row(latest_events[lesson_id])["created_at"],
             }

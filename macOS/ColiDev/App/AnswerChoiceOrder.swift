@@ -188,6 +188,18 @@ struct CurriculumCheckAttempt: Equatable {
         )
     }
 
+    func currentAnswerEventEvidence(errorCategory: StudyErrorCategory? = nil) -> StudyAssessmentEvidence? {
+        guard hasAnswered else { return nil }
+        return StudyAssessmentEvidence(
+            taskType: "knowledge_check",
+            attempts: 1,
+            firstTryCorrect: isCorrect,
+            hintsUsed: 0,
+            errorCategories: errorCategory.map { [$0] },
+            passed: isCorrect
+        )
+    }
+
     init?(optionCount: Int, answerOriginalIndex: Int) {
         var generator = SystemRandomNumberGenerator()
         self.init(optionCount: optionCount, answerOriginalIndex: answerOriginalIndex, using: &generator)
@@ -241,19 +253,22 @@ struct StudyAssessmentEvidence: Codable, Equatable {
     let firstTryCorrect: Bool
     let hintsUsed: Int
     let errorCategories: [StudyErrorCategory]?
+    let passed: Bool?
 
     init(
         taskType: String,
         attempts: Int,
         firstTryCorrect: Bool,
         hintsUsed: Int,
-        errorCategories: [StudyErrorCategory]? = nil
+        errorCategories: [StudyErrorCategory]? = nil,
+        passed: Bool? = nil
     ) {
         self.taskType = taskType
         self.attempts = attempts
         self.firstTryCorrect = firstTryCorrect
         self.hintsUsed = hintsUsed
         self.errorCategories = errorCategories
+        self.passed = passed
     }
 
     enum CodingKeys: String, CodingKey {
@@ -262,6 +277,7 @@ struct StudyAssessmentEvidence: Codable, Equatable {
         case firstTryCorrect = "first_try_correct"
         case hintsUsed = "hints_used"
         case errorCategories = "error_categories"
+        case passed
     }
 }
 
