@@ -12,6 +12,13 @@
 
 Платформа помогает изучать темы по курсам, понимать механизмы, практиковаться, находить пробелы и возвращаться к материалу. ИИ помогает объяснять и проверять знания; он не заменяет проверенные учебные материалы и источники. Должны быть онлайн- и офлайн-режимы.
 
+## Уточнение по продуктовому брифу / Product brief clarification
+
+- **RU:** Большой бриф из обсуждения описывает проектирование и разработку всего образовательного приложения — его интерфейса, архитектуры, курсов, источников, адаптивного плана, интерактивов и ИИ-инфраструктуры. Это не инструкция только для роли тьютора и не требование превратить приложение в один чат. Сам тьютор — один из компонентов платформы с отдельными правилами общения и источниками контекста.
+- **EN:** The long brief from the discussion describes the design and development of the complete learning application—its interface, architecture, courses, sources, adaptive study plan, interactive activities, and AI infrastructure. It is not an instruction only for the tutor persona, and it does not ask to turn the product into a single chat. The tutor is one platform component with separate conversation rules and contextual sources.
+- **RU:** Учебная система должна вести от основ к продвинутому и, где уместно, научному уровню; менять маршрут по ответам и пробелам ученика; сочетать объяснения, практику и обратную связь; и выбирать схемы, симуляции, видео или управляемые 3D-модели по пользе для конкретной темы. Пользователь может создавать предметы и темы. Проверенные первоисточники и честные статусы важнее количества уроков и декоративных эффектов.
+- **EN:** The learning system should progress from foundations to advanced and, where appropriate, scientific depth; adapt the path to the learner's answers and gaps; combine explanations, practice, and feedback; and choose diagrams, simulations, video, or manipulable 3D models when they help with a specific topic. Learners can create subjects and topics. Verified primary sources and truthful status are more important than lesson count or decorative effects.
+
 ## Подтверждённое будущее направление: Windows и установка продукта
 
 После готового и проверенного macOS-релиза сделать Windows-версию с теми же основными возможностями обучения, RU/EN, ИИ, офлайн-режима, RAG, администрирования и работы с пользовательскими данными. Интерфейс должен соответствовать Windows, сохраняя общий продуктовый опыт и функциональный паритет.
