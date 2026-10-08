@@ -80,6 +80,21 @@ enum CustomCurriculumVerification {
         precondition(restored.topic(subjectID: astronomy, topicID: ellipses)?.name.russian == "Эллиптические орбиты")
         precondition(restored.topic(builtInSubjectID: "biology", topicID: builtInBiologyTopic)?.name.english == "My biology topic")
 
+        let russianOutlineRequest = CustomTopicStudyPrompt.outlineDraft(languageCode: "ru")
+        for requiredIdea in ["черновик", "предпосыл", "подтем", "упражнен", "визуал", "источник", "не сохраняй"] {
+            precondition(
+                russianOutlineRequest.localizedCaseInsensitiveContains(requiredIdea),
+                "The Russian study-plan draft must request a sourced, structured outline without saving it automatically. Missing: \(requiredIdea)"
+            )
+        }
+        let englishOutlineRequest = CustomTopicStudyPrompt.outlineDraft(languageCode: "en")
+        for requiredIdea in ["draft", "prerequisite", "subtopic", "exercise", "visual", "source", "do not save"] {
+            precondition(
+                englishOutlineRequest.localizedCaseInsensitiveContains(requiredIdea),
+                "The English study-plan draft must request a sourced, structured outline without saving it automatically. Missing: \(requiredIdea)"
+            )
+        }
+
         precondition(curriculum.removeTopic(subjectID: astronomy, topicID: orbits))
         precondition(curriculum.subject(id: astronomy)?.topics.isEmpty == true)
         precondition(curriculum.removeTopic(builtInSubjectID: "biology", topicID: builtInBiologyTopic))
