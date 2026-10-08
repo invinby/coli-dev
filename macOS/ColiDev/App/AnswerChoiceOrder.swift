@@ -1,7 +1,7 @@
 import Foundation
 
 struct AnswerChoiceOrder: Equatable {
-    let displayedOriginalIndices: [Int]
+    private(set) var displayedOriginalIndices: [Int]
 
     init(optionCount: Int) {
         var generator = SystemRandomNumberGenerator()
@@ -11,6 +11,15 @@ struct AnswerChoiceOrder: Equatable {
     init<Generator: RandomNumberGenerator>(optionCount: Int, using generator: inout Generator) {
         precondition(optionCount > 0, "A multiple-choice question needs at least one option.")
         displayedOriginalIndices = Array(0..<optionCount).shuffled(using: &generator)
+    }
+
+    mutating func reshuffle() {
+        var generator = SystemRandomNumberGenerator()
+        reshuffle(using: &generator)
+    }
+
+    mutating func reshuffle<Generator: RandomNumberGenerator>(using generator: inout Generator) {
+        displayedOriginalIndices = Array(displayedOriginalIndices.indices).shuffled(using: &generator)
     }
 
     func originalIndex(forDisplayedIndex index: Int) -> Int? {

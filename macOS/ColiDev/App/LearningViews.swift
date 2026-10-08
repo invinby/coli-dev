@@ -1089,7 +1089,12 @@ struct LessonSessionView: View {
                 .foregroundStyle(answerIsCorrect ? Color.green : Color.orange)
                 .padding(.top, 4)
                 if !answerIsCorrect {
-                    Button { self.selectedAnswer = nil } label: { Text(L10n.text("session.retry", store.language)) }
+                    Button {
+                        self.selectedAnswer = nil
+                        self.optionOrder.reshuffle()
+                    } label: {
+                        Text(L10n.text("session.retry", store.language))
+                    }
                         .buttonStyle(.link)
                 }
             }

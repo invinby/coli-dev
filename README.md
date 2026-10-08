@@ -27,22 +27,47 @@ These CI artifacts are unsigned test builds, not a published release. CI verifie
 
 ## Project profile / Профиль проекта
 
-| English | Русский |
-|---|---|
-| **Platform:** native SwiftUI app for macOS 13 and later, with a local FastAPI service. | **Платформа:** нативное приложение SwiftUI для macOS 13 и новее с локальным сервером FastAPI. |
-| **Languages:** Russian and English interface strings and starter learning materials. | **Языки:** русский и английский в интерфейсе и начальных учебных материалах. |
-| **Priority subjects:** mathematics, English, physics, biology, zoology, and programming. | **Приоритетные направления:** математика, английский язык, физика, биология, зоология и программирование. |
-| **Learning loop:** explanation, examples, practice, feedback, self-check, and saved progress. | **Цикл обучения:** объяснение, примеры, практика, обратная связь, самопроверка и сохранение прогресса. |
-| **AI modes:** local Ollama and configured online providers, with a free-only default policy for automatic routing. | **Режимы ИИ:** локальная Ollama и настроенные онлайн-провайдеры; автоматическая маршрутизация по умолчанию ограничена бесплатными вариантами. |
-| **Knowledge:** local course search with source-aware tutor context; approved web-source checks do not rewrite lessons automatically. | **Материалы:** локальный поиск по курсам с передачей источников тьютору; проверки одобренных веб-источников сами по себе не переписывают уроки. |
-| **Product goal:** help learners move from foundations to advanced understanding across major disciplines, while keeping lesson completion separate from demonstrated mastery. | **Цель продукта:** помогать переходить от основ к углублённому пониманию разных важных дисциплин, отдельно показывая завершение уроков и подтверждённое освоение знаний. |
-| **Adaptive learning:** recommend prerequisites, practice, review, or a harder next step from observed learner results; avoid one fixed template for every subject. | **Адаптивное обучение:** по результатам ученика предлагать нужные основы, практику, повторение или более сложный следующий шаг; не применять один шаблон ко всем предметам. |
-| **Visual learning:** use interactive diagrams, simulations, video, or manipulable 3D when they explain a concept; describe each model’s assumptions and limits. | **Наглядное обучение:** использовать интерактивные схемы, симуляции, видео или управляемые 3D-модели, когда они помогают понять тему; указывать предпосылки и ограничения каждой модели. |
-| **Learner-created curriculum:** let learners add their own subjects and topics without duplicating the built-in catalog; Biology is already a built-in subject. | **Пользовательская программа:** дать ученику возможность добавлять свои предметы и темы, не дублируя встроенный каталог; биология уже входит в стандартный список предметов. |
-| **Evidence and accuracy:** prefer current official or primary sources, show attribution and review dates, and mark uncertainty instead of inventing evidence. | **Источники и точность:** отдавать предпочтение актуальным официальным или первичным источникам, показывать атрибуцию и даты проверки, а при неопределённости сообщать об этом вместо выдуманных подтверждений. |
+**In one sentence:** ColiDev is a bilingual learning platform for macOS that combines structured courses, hands-on practice, progress-aware guidance, and a configurable AI tutor.<br>
+**Коротко:** ColiDev — двуязычная учебная платформа для macOS, которая объединяет последовательные курсы, практические задания, рекомендации с учётом прогресса и настраиваемого ИИ-тьютора.
 
-The rows marked as product goals describe the intended direction; they are not claims that every adaptive, visual, or mastery feature is already complete.<br>
-Строки с целями продукта описывают направление развития и не означают, что все функции адаптации, визуализации и оценки освоения уже готовы.
+### Product purpose / Назначение продукта
+
+Help learners understand a subject from its foundations through advanced topics. The tutor supports learning; it does not replace a well-sourced curriculum, an instructor, or the learner’s own reasoning.<br>
+Помогать изучать предмет от базовых понятий до углублённых тем. ИИ-тьютор поддерживает обучение, но не заменяет учебную программу с источниками, преподавателя или самостоятельное мышление ученика.
+
+### Learning experience / Учебный процесс
+
+Courses should combine clear explanations, worked examples, practice, feedback, self-checks, and scheduled review. Recommend the next step from learner results instead of forcing every subject into one fixed lesson template. Track course completion separately from demonstrated understanding.<br>
+Курсы должны объединять понятные объяснения, разобранные примеры, практику, обратную связь, самопроверку и запланированное повторение. Следующий шаг нужно выбирать по результатам ученика, а не загонять все предметы в один шаблон урока. Завершение курса следует показывать отдельно от подтверждённого понимания материала.
+
+### Priority fields and languages / Приоритетные предметы и языки
+
+The first subject set is mathematics, English, physics, biology, zoology, and programming. Learners should be able to progress from foundations to advanced study in each field, with room to add more subjects and topics later.<br>
+Начальный набор направлений: математика, английский язык, физика, биология, зоология и программирование. По каждому предмету ученик должен переходить от основ к углублённому изучению; позднее каталог можно расширять новыми предметами и темами.
+
+Russian and English are product languages for the interface and learning materials. English examples used to teach English remain in English, with a complete Russian explanation or equivalent alongside them.<br>
+Русский и английский — языки интерфейса и учебных материалов. Примеры на английском, которые нужны для изучения английского языка, остаются на английском; рядом приводится полный перевод или пояснение на русском.
+
+### AI, sources, and visual tools / ИИ, источники и наглядные материалы
+
+The tutor should use the active subject, lesson, learner progress, and retrieved sources as context. The intended architecture combines local Ollama models with explicitly configured compatible cloud providers. Automatic routing defaults to free-only routes; a provider’s free quota or continued availability is never guaranteed.<br>
+Тьютор должен учитывать выбранный предмет, урок, прогресс ученика и найденные источники. Целевая архитектура объединяет локальные модели Ollama с явно настроенными совместимыми облачными провайдерами. Автоматическая маршрутизация по умолчанию использует только бесплатные маршруты; бесплатная квота и постоянная доступность провайдера не гарантируются.
+
+Use current official or primary sources where suitable. Show attribution and review dates, and send changed material through editorial review before revising a lesson. Choose diagrams, simulations, video, or manipulable 3D when they make a concept easier to understand; state each model’s assumptions and limits.<br>
+Когда это уместно, использовать актуальные официальные или первичные источники. Показывать атрибуцию и даты проверки, а изменившиеся материалы отправлять на редакторскую проверку до обновления урока. Выбирать схемы, симуляции, видео или управляемые 3D-модели, если они помогают понять понятие; указывать предпосылки и ограничения каждой модели.
+
+### Platform and integrations / Платформа и интеграции
+
+The current client is a native SwiftUI macOS app backed by a local Python service. Obsidian is an optional local knowledge connection. NotebookLM currently has a manual Markdown export/import workflow; direct API integration and synchronization are not implemented.<br>
+Текущий клиент — нативное приложение SwiftUI для macOS с локальным сервером на Python. Obsidian подключается как дополнительный локальный источник знаний. Сейчас NotebookLM поддерживается вручную через экспорт и импорт Markdown; прямое API-подключение и синхронизация не реализованы.
+
+After the macOS product is ready, the planned expansion is a Windows app with functional parity, followed by a product website with downloadable installers. End users should not need to clone the Git repository to install the app.<br>
+После готовности продукта для macOS планируется версия для Windows с теми же основными возможностями, а затем сайт продукта со скачиваемыми установщиками. Для установки пользователям не придётся клонировать Git-репозиторий.
+
+### Current status / Текущий статус
+
+ColiDev is an early team prototype, not a finished or bug-free product. The sections below distinguish working prototype features from planned work and from checks that still require hands-on acceptance on a Mac.<br>
+ColiDev — ранний командный прототип, а не готовый продукт без ошибок. В разделах ниже отдельно описаны работающие функции, будущие задачи и проверки, для которых всё ещё нужна ручная приёмка на Mac.
 
 ## What works in the prototype / Что работает в прототипе
 
@@ -76,8 +101,8 @@ The rows marked as product goals describe the intended direction; they are not c
 - The local RAG index searches course Markdown and text resources. It supports lexical search and optional Ollama embeddings; tutor retrieval is limited to a small number of sources for each answer.<br>
   Локальный индекс RAG ищет по Markdown-урокам и текстовым материалам. Доступен обычный текстовый поиск и необязательные векторные представления через Ollama; для ответа тьютору передаётся ограниченное число источников.
 
-- Correct-answer positions are randomized in the six subject introductions and the current answer-checking quiz modules, including reading, conditionals, tense contrasts, file tracing, debugging, daily routines, animal groups and lineages, genetics, gene expression, cell-cycle, and animal-function practice. The option mapping stays stable while a learner answers and is reshuffled when an activity restarts or switches scenario. Ordered controls and numeric prediction inputs keep their meaningful order.<br>
-  Позиции правильных ответов перемешиваются во вводных проверках шести направлений и во всех найденных проверках с выбором ответа: чтение, условные предложения и времена английского, обработка файловых ошибок, отладка, повседневные действия, группы и происхождение животных, генетика, экспрессия генов, клеточный цикл и зоология. Пока ученик отвечает, соответствие вариантов не меняется; при перезапуске задания или смене сценария порядок перемешивается заново. Управляющие последовательности и числовые вводы сохраняют смысловой порядок.
+- Correct-answer positions are randomized in the six subject introductions and the current answer-checking quiz modules, including reading, conditionals, tense contrasts, file tracing, debugging, daily routines, animal groups and lineages, genetics, gene expression, cell-cycle, and animal-function practice. The option mapping stays stable while a learner answers and is reshuffled when an activity restarts, switches scenario, or the learner retries after a wrong answer. Ordered controls and numeric prediction inputs keep their meaningful order.<br>
+  Позиции правильных ответов перемешиваются во вводных проверках шести направлений и во всех найденных проверках с выбором ответа: чтение, условные предложения и времена английского, обработка файловых ошибок, отладка, повседневные действия, группы и происхождение животных, генетика, экспрессия генов, клеточный цикл и зоология. Пока ученик отвечает, соответствие вариантов не меняется; порядок заново перемешивается при перезапуске задания, смене сценария или повторной попытке после неверного ответа. Управляющие последовательности и числовые вводы сохраняют смысловой порядок.
 
 - Source tools display attribution and dates and can check a fixed allowlist of official URLs. These checks can identify changed or unavailable pages, but they do not automatically update or approve lesson text.<br>
   Инструменты источников показывают атрибуцию и даты и проверяют ограниченный список официальных URL. Эти проверки могут выявить изменившиеся или недоступные страницы, но не обновляют и не утверждают текст урока автоматически.
@@ -168,8 +193,9 @@ Automatic routing defaults to free-only routes. Potentially paid cloud models an
 - [macOS app notes / Заметки по приложению macOS](macOS/ColiDev/README.md)
 - [Backend notes / Заметки по backend](01_Projects/README.md)
 - [Course catalog / Каталог курсов](02_Areas/README.md)
+- [Biology source audit / Аудит источников уроков биологии](project-plan/research/biology-foundations-source-audit.md)
 - [Current pull request / Текущий pull request](https://github.com/invinby/coli-dev/pull/4)
 - [Project repository / Репозиторий проекта](https://github.com/invinby/coli-dev)
 
-Every English description in this profile is followed immediately by its complete Russian version. Product identifiers, filenames, commands, model IDs, and API names are kept unchanged so they can be copied and searched.<br>
-После каждого английского описания в этом профиле сразу приведён полный перевод на русский. Названия продукта, файлов, команд, моделей и API оставлены без изменений, чтобы их можно было копировать и искать.
+Every explanatory English passage in the README is followed immediately by its complete Russian version. Product identifiers, filenames, commands, model IDs, and API names stay unchanged so they can be copied and searched.<br>
+После каждого пояснительного текста на английском в README сразу приведён его полный русский перевод. Названия продукта, файлов, команд, моделей и API оставлены без изменений, чтобы их можно было копировать и искать.
