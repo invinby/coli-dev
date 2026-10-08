@@ -216,6 +216,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-safe-web-reference-url"
           "$RUNNER_TEMP/verify-safe-web-reference-url"
 
+      - name: Verify NotebookLM export provenance / Проверить источники в экспорте NotebookLM
+        run: |
+          swiftc macOS/ColiDev/App/NotebookLessonExport.swift macOS/ColiDev/scripts/verify_notebook_lesson_export.swift \
+            -o "$RUNNER_TEMP/verify-notebook-lesson-export"
+          "$RUNNER_TEMP/verify-notebook-lesson-export"
+
       - name: Build ColiDev for macOS
         run: >-
           xcodebuild
