@@ -506,6 +506,66 @@ class TestAPIEndpoints:
         assert data["local_route_ready"] is True
         assert data["automatic_route_ready"] is True
 
+    def test_ollama_model_readiness_accepts_latest_alias_for_untagged_id(self):
+        assert orchestrator._ollama_model_is_installed(
+            "llama3",
+            {"available": True, "models": ["llama3:latest"]},
+        )
+
+    def test_health_rejects_uninstalled_selected_ollama_synthesis_model(self, client, monkeypatch):
+        orchestrator.final_synthesis_routes.set("ollama", "qwen3:8b")
+        monkeypatch.setattr(orchestrator, "_check_network", AsyncMock(return_value=True))
+        monkeypatch.setattr(
+            orchestrator,
+            "_check_ollama",
+            AsyncMock(return_value={
+                "available": True,
+                "version": "0.12.0",
+                "models": [orchestrator.OLLAMA_MODEL_RESEARCHER],
+                "model_ready": True,
+            }),
+        )
+
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["local_route_ready"] is True
+        assert data["cloud_route_ready"] is False
+        assert data["automatic_route_ready"] is True
+
+    @pytest.mark.parametrize(
+        ("installed_models", "expected_cloud_route_ready"),
+        [
+            ([orchestrator.OLLAMA_MODEL_RESEARCHER], False),
+            ([orchestrator.OLLAMA_MODEL_RESEARCHER, "qwen3:8b"], True),
+        ],
+    )
+    def test_health_checks_the_selected_ollama_subject_model(
+        self, client, monkeypatch, installed_models, expected_cloud_route_ready
+    ):
+        monkeypatch.setattr(orchestrator, "KIMI_KEY", "")
+        monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "")
+        orchestrator.auto_agent_models.set_route("gemini_draft", "ollama", "qwen3:8b")
+        orchestrator.subject_model_routes.set("biology", "ollama", "qwen3:8b")
+        orchestrator.final_synthesis_routes.set("gemini", orchestrator.GEMINI_PRO_MODEL)
+        monkeypatch.setattr(orchestrator, "_check_network", AsyncMock(return_value=True))
+        monkeypatch.setattr(
+            orchestrator,
+            "_check_ollama",
+            AsyncMock(return_value={
+                "available": True,
+                "version": "0.12.0",
+                "models": installed_models,
+                "model_ready": orchestrator.OLLAMA_MODEL_RESEARCHER in installed_models,
+            }),
+        )
+
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        assert response.json()["cloud_route_ready"] is expected_cloud_route_ready
+
     def test_health_reports_configured_free_cloud_route(self, client, monkeypatch):
         monkeypatch.setattr(orchestrator, "GEMINI_KEY", "")
         monkeypatch.setattr(orchestrator, "KIMI_KEY", "")

@@ -3253,15 +3253,36 @@ def _final_synthesis_route_payload() -> dict[str, Any]:
 def _effective_tutor_provider_ready(
     provider: str,
     configured_ready: bool | None,
-    local_model_ready: bool,
+    model: str | None,
+    ollama_info: dict[str, Any],
 ) -> bool:
-    """Resolve endpoint-level local status to actual installed model status.
+    """Resolve local provider status against the exact selected installed model.
 
-    Переводит статус локального endpoint в фактический статус установленной модели.
+    Проверяет наличие именно выбранной локальной модели, а не только Ollama endpoint.
     """
     if provider == "ollama":
-        return local_model_ready
+        return _ollama_model_is_installed(model or OLLAMA_MODEL_RESEARCHER, ollama_info)
     return configured_ready is True
+
+
+def _ollama_model_is_installed(model: str, ollama_info: dict[str, Any]) -> bool:
+    """Check a selected model ID against Ollama's installed model inventory."""
+    if (
+        not _is_loopback_http_url(OLLAMA_BASE)
+        or ollama_info.get("available") is not True
+    ):
+        return False
+
+    installed = ollama_info.get("models")
+    if isinstance(installed, list):
+        installed_ids = {item for item in installed if isinstance(item, str)}
+        if model in installed_ids:
+            return True
+        # Ollama treats an omitted tag as `:latest`; accept that common alias.
+        return ":" not in model and f"{model}:latest" in installed_ids
+
+    # Older health probes only carried the readiness bit for the default model.
+    return model == OLLAMA_MODEL_RESEARCHER and ollama_info.get("model_ready") is True
 
 
 def _tutor_route_readiness(
@@ -3273,11 +3294,7 @@ def _tutor_route_readiness(
 
     Отдельно сообщает о настроенных маршрутах тьютора и доступности backend/сети.
     """
-    local_ready = (
-        _is_loopback_http_url(OLLAMA_BASE)
-        and ollama_info.get("available") is True
-        and ollama_info.get("model_ready") is True
-    )
+    local_ready = _ollama_model_is_installed(OLLAMA_MODEL_RESEARCHER, ollama_info)
 
     agent_routes = {
         route["role"]: route
@@ -3287,7 +3304,8 @@ def _tutor_route_readiness(
         _effective_tutor_provider_ready(
             str(agent_routes[role]["effective_provider"]),
             agent_routes[role].get("effective_provider_ready"),
-            local_ready,
+            agent_routes[role].get("effective_model"),
+            ollama_info,
         )
         and agent_routes[role]["effective_provider"] != "ollama"
         for role in ("gemini_draft", "local_draft")
@@ -3298,15 +3316,18 @@ def _tutor_route_readiness(
     allow_paid_routes = auto_cost_policy.get()["allow_paid_routes"]
     for subject_route in subject_model_routes.snapshot().values():
         provider = subject_route["provider"] or "auto"
+        subject_model = subject_route["model"] or OLLAMA_MODEL_RESEARCHER
         if not allow_paid_routes:
-            if provider == "ollama" and local_ready:
+            if provider == "ollama" and _ollama_model_is_installed(subject_model, ollama_info):
                 cloud_draft_ready = True
             elif provider != "ollama" and OPENROUTER_KEY:
                 cloud_draft_ready = True
         elif provider == "auto":
             cloud_draft_ready = cloud_draft_ready or bool(KIMI_KEY or OPENROUTER_KEY)
         elif provider == "ollama":
-            cloud_draft_ready = cloud_draft_ready or local_ready
+            cloud_draft_ready = cloud_draft_ready or _ollama_model_is_installed(
+                subject_model, ollama_info
+            )
         else:
             provider_ready, _ = _subject_model_route_status(provider)
             cloud_draft_ready = cloud_draft_ready or provider_ready is True
@@ -3315,7 +3336,8 @@ def _tutor_route_readiness(
     final_ready = _effective_tutor_provider_ready(
         str(final_route["effective_provider"]),
         final_route.get("provider_ready"),
-        local_ready,
+        final_route.get("effective_model"),
+        ollama_info,
     )
     session_ready = (
         online
