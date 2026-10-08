@@ -94,6 +94,8 @@ enum StudyRecommendationVerification {
             lessonID: "zoology.thermoregulation",
             assessmentCount: 2,
             taskTypeCounts: ["interactive_prediction": 2],
+            passedTaskTypeCounts: [:],
+            errorCategoryCounts: [:],
             latestAssessment: StudyAssessmentEvidence(
                 taskType: "interactive_prediction",
                 attempts: 2,
@@ -400,6 +402,8 @@ enum StudyRecommendationVerification {
             lessonID: "biology.cell_cycle",
             assessmentCount: 1,
             taskTypeCounts: ["interactive_prediction": 1],
+            passedTaskTypeCounts: [:],
+            errorCategoryCounts: [:],
             latestAssessment: StudyAssessmentEvidence(
                 taskType: "interactive_prediction",
                 attempts: 1,
@@ -432,6 +436,7 @@ enum StudyRecommendationVerification {
             assessmentCount: 1,
             taskTypeCounts: ["knowledge_check": 1],
             passedTaskTypeCounts: ["knowledge_check": 1],
+            errorCategoryCounts: [:],
             latestAssessment: successfulCellCheck,
             latestAt: "2026-10-08T11:00:00Z"
         )
@@ -460,6 +465,7 @@ enum StudyRecommendationVerification {
             assessmentCount: 1,
             taskTypeCounts: ["knowledge_check": 1],
             passedTaskTypeCounts: [:],
+            errorCategoryCounts: ["foundation": 1],
             latestAssessment: StudyAssessmentEvidence(
                 taskType: "knowledge_check",
                 attempts: 1,

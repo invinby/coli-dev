@@ -147,8 +147,8 @@ struct StudyAssessmentEvidenceSummary: Decodable, Equatable, Identifiable {
     let lessonID: String
     let assessmentCount: Int
     let taskTypeCounts: [String: Int]
-    let passedTaskTypeCounts: [String: Int]? = nil
-    let errorCategoryCounts: [String: Int]? = nil
+    let passedTaskTypeCounts: [String: Int]?
+    let errorCategoryCounts: [String: Int]?
     let latestAssessment: StudyAssessmentEvidence
     let latestAt: String
 
