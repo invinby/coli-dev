@@ -393,6 +393,78 @@ struct StudyAssessmentEvent: Codable, Identifiable {
         case lessonID = "lesson_id"
         case assessment
     }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        lessonID = try container.decode(String.self, forKey: .lessonID)
+
+        let assessmentContainer = try container.nestedContainer(keyedBy: AssessmentCodingKeys.self, forKey: .assessment)
+        let taskType = try assessmentContainer.decode(String.self, forKey: .taskType)
+        if assessmentContainer.contains(.attempts) {
+            assessment = StudyAssessmentEvidence(
+                taskType: taskType,
+                attempts: try assessmentContainer.decode(Int.self, forKey: .attempts),
+                firstTryCorrect: try assessmentContainer.decode(Bool.self, forKey: .firstTryCorrect),
+                hintsUsed: try assessmentContainer.decode(Int.self, forKey: .hintsUsed),
+                errorCategories: try assessmentContainer.decodeIfPresent([StudyErrorCategory].self, forKey: .errorCategories),
+                passed: try assessmentContainer.decodeIfPresent(Bool.self, forKey: .passed)
+            )
+        } else if taskType == "knowledge_check" {
+            let passed = try assessmentContainer.decode(Bool.self, forKey: .passed)
+            assessment = StudyAssessmentEvidence(
+                taskType: taskType,
+                attempts: 1,
+                firstTryCorrect: passed,
+                hintsUsed: 0,
+                errorCategories: try assessmentContainer.decodeIfPresent([StudyErrorCategory].self, forKey: .errorCategories),
+                passed: passed
+            )
+        } else {
+            throw DecodingError.keyNotFound(
+                AssessmentCodingKeys.attempts,
+                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Interactive-prediction events need attempt evidence. / Для событий интерактивного прогноза нужны данные попытки.")
+            )
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(lessonID, forKey: .lessonID)
+
+        var assessmentContainer = container.nestedContainer(keyedBy: AssessmentCodingKeys.self, forKey: .assessment)
+        try assessmentContainer.encode(assessment.taskType, forKey: .taskType)
+        if assessment.taskType == "knowledge_check" {
+            guard let passed = assessment.passed else {
+                throw EncodingError.invalidValue(
+                    assessment,
+                    EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "Knowledge-check events need a pass result. / Для проверки знаний нужен итоговый результат.")
+                )
+            }
+            try assessmentContainer.encode(passed, forKey: .passed)
+            try assessmentContainer.encodeIfPresent(assessment.errorCategories, forKey: .errorCategories)
+        } else if assessment.taskType == "interactive_prediction" {
+            try assessmentContainer.encode(assessment.attempts, forKey: .attempts)
+            try assessmentContainer.encode(assessment.firstTryCorrect, forKey: .firstTryCorrect)
+            try assessmentContainer.encode(assessment.hintsUsed, forKey: .hintsUsed)
+            try assessmentContainer.encodeIfPresent(assessment.errorCategories, forKey: .errorCategories)
+        } else {
+            throw EncodingError.invalidValue(
+                assessment.taskType,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "Unsupported assessment event type. / Неподдерживаемый тип события проверки знаний.")
+            )
+        }
+    }
+
+    private enum AssessmentCodingKeys: String, CodingKey {
+        case taskType = "task_type"
+        case attempts
+        case firstTryCorrect = "first_try_correct"
+        case hintsUsed = "hints_used"
+        case errorCategories = "error_categories"
+        case passed
+    }
 }
 
 struct LessonAnswerFeedback: Equatable {

@@ -192,9 +192,9 @@ jobs:
             -o "$RUNNER_TEMP/verify-thermoregulation-practice"
           "$RUNNER_TEMP/verify-thermoregulation-practice"
 
-      - name: Verify English conditional practice model
+      - name: Verify English practice models and assessment events / Проверить тренажёры английского и события проверки
         run: |
-          swiftc macOS/ColiDev/App/EnglishLearningModels.swift macOS/ColiDev/scripts/verify_english_learning_models.swift \
+          swiftc macOS/ColiDev/App/EnglishLearningModels.swift macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/scripts/verify_english_learning_models.swift \
             -o "$RUNNER_TEMP/verify-english-learning-models"
           "$RUNNER_TEMP/verify-english-learning-models"
 

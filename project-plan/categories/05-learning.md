@@ -256,6 +256,16 @@ Foundation-модуль связан с двуязычным уроком `mathe
 
 Детальная карта тем и глубина каждого курса, редакторская проверка, лицензии источников, переводческий процесс и метрики эффективности.
 
+## Английский: косвенная речь и контекст — 2026-10-09
+
+**RU:** В промежуточный курс добавлен двуязычный урок `reported_speech_questions_and_backshift`: согласование времён, контекстное изменение указателей времени, косвенные специальные и общие вопросы, распространённая конструкция просьбы и различие `say`/`tell`. Добавлен тренажёр из четырёх ситуационных задач с перемешанными вариантами, подсказкой без раскрытия ответа после ошибки, объяснением после успеха и записью результата проверки в прогресс. Правило согласования времён сформулировано как частая схема, а не безусловное требование. Сверка выполнена по двум страницам British Council; автоматический мониторинг для них проверяет только разрешённые метаданные, содержимое страниц не добавляется в RAG-кэш.
+
+**EN:** Added the bilingual intermediate lesson `reported_speech_questions_and_backshift`, covering backshift, context-dependent time references, reported wh- and yes/no questions, a common request pattern, and the distinction between `say` and `tell`. A four-scenario trainer shuffles choices, gives a non-revealing cue after a mistake, explains a correct response, and records the check result in learning progress. Backshift is presented as a common pattern rather than an absolute requirement. The lesson was checked against two British Council pages; automated monitoring for those pages checks approved metadata only and does not add page text to the RAG cache.
+
+Проверки на Windows: прошёл весь backend-набор из 481 теста; карта содержит 51 связанный маршрут по шести направлениям; два URL проходят allowlist источников; `git diff --check` прошёл. Ruff и Swift/Xcode локально недоступны. Сборка Swift должна пройти через macOS CI, затем нужна ручная приёмка интерфейса на Mac.
+
+Windows checks: the full backend suite of 481 tests passed; the roadmap contains 51 linked routes across six subjects; both URLs pass the source allowlist; `git diff --check` passed. Ruff and Swift/Xcode are unavailable locally. The Swift build still needs macOS CI, followed by hands-on Mac acceptance.
+
 ## Первый связанный модуль математики
 
 В 02_Areas/Mathematics/lessons/domain_and_range.md добавлен RU/EN урок об ограничениях формул, области определения, множестве значений и интервальной записи. Он связан с картой математики и продолжает вводную тему функций. Примеры охватывают корень, исключённый ноль знаменателя и ограничение входа контекстом.

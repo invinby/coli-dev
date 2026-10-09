@@ -1288,6 +1288,8 @@ private struct PracticeLab: View {
             DailyRoutineVocabularyLab()
         } else if subject == .english, moduleResource == "reading_for_gist_and_detail" {
             ReadingStrategyLab()
+        } else if subject == .english, moduleResource == "reported_speech_questions_and_backshift" {
+            ReportedSpeechLab()
         } else if subject == .zoology, moduleResource == "animals_as_a_group" {
             AnimalGroupLab()
         } else if subject == .zoology, moduleResource == "major_animal_lineages" {
@@ -3004,6 +3006,132 @@ private struct ConditionalsLab: View {
             optionCount: EnglishConditionalForm.allCases.count,
             answerOriginalIndex: EnglishConditionalPractice.scenarios[0].correctForm.rawValue
         )
+    }
+}
+
+private struct ReportedSpeechLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var index = 0
+    @State private var selection: Int?
+    @State private var wasCorrect: Bool?
+    @State private var complete = false
+    @State private var attemptsForQuestion = 0
+    @State private var optionOrder = QuizAnswerOrder(
+        optionCount: 3,
+        answerOriginalIndex: EnglishReportedSpeechPractice.questions[0].correctOption
+    )
+
+    private let questions = EnglishReportedSpeechPractice.questions
+    private let lessonID = "english.reported_speech_questions_and_backshift"
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.reportedHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if complete {
+                Label(L10n.text("lab.reportedComplete", store.language), systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(L10n.text("lab.reportedRestart", store.language), systemImage: "arrow.counterclockwise") {
+                    reset()
+                }
+                .buttonStyle(.bordered)
+            } else {
+                Text(String(format: L10n.text("lab.reportedProgress", store.language), index + 1, questions.count))
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                ProgressView(value: Double(index + 1), total: Double(questions.count))
+                Text(L10n.text("lab.reportedQuestion\(index)", store.language))
+                    .font(.title3.weight(.medium))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Button {
+                        selection = displayIndex
+                        wasCorrect = nil
+                    } label: {
+                        Label(
+                            L10n.text("lab.reportedOption\(index).\(originalIndex)", store.language),
+                            systemImage: selection == displayIndex ? "checkmark.circle.fill" : "circle"
+                        )
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(selection == displayIndex ? .accentColor : .secondary)
+                    .accessibilityAddTraits(selection == displayIndex ? .isSelected : [])
+                }
+
+                if let wasCorrect {
+                    Label(
+                        wasCorrect
+                            ? L10n.text("lab.reportedFeedback\(index)", store.language)
+                            : L10n.text("lab.reportedTryAgain", store.language),
+                        systemImage: wasCorrect ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath"
+                    )
+                    .foregroundStyle(wasCorrect ? Color.green : Color.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Button(action: advanceOrCheck) {
+                    Text(L10n.text(
+                        wasCorrect == true
+                            ? (index == questions.count - 1 ? "lab.reportedFinish" : "lab.reportedNext")
+                            : (attemptsForQuestion > 0 ? "lab.reportedCheckAgain" : "lab.reportedCheck"),
+                        store.language
+                    ))
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(selection == nil && wasCorrect != true)
+            }
+        }
+    }
+
+    private func advanceOrCheck() {
+        if wasCorrect == true {
+            guard index < questions.count - 1 else {
+                complete = true
+                return
+            }
+            index += 1
+            selection = nil
+            wasCorrect = nil
+            attemptsForQuestion = 0
+            optionOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: questions[index].correctOption)
+            return
+        }
+
+        guard let selection else { return }
+        attemptsForQuestion += 1
+        let isCorrect = optionOrder.isCorrect(displayedIndex: selection)
+        wasCorrect = isCorrect
+        if !isCorrect {
+            selection = nil
+            optionOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: questions[index].correctOption)
+        }
+        store.recordStudyAssessment(
+            lessonID: lessonID,
+            evidence: StudyAssessmentEvidence(
+                taskType: "knowledge_check",
+                attempts: attemptsForQuestion,
+                firstTryCorrect: isCorrect && attemptsForQuestion == 1,
+                hintsUsed: 0,
+                errorCategories: isCorrect ? nil : [.understanding],
+                passed: isCorrect
+            )
+        )
+    }
+
+    private func reset() {
+        index = 0
+        selection = nil
+        wasCorrect = nil
+        complete = false
+        attemptsForQuestion = 0
+        optionOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: questions[0].correctOption)
     }
 }
 
