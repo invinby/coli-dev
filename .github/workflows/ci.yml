@@ -108,6 +108,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-tense-contrast-feedback"
           "$RUNNER_TEMP/verify-tense-contrast-feedback"
 
+      - name: Verify gene-regulation feedback / Проверка разбора регуляции гена
+        run: |
+          swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/L10n.swift macOS/ColiDev/scripts/verify_gene_regulation_feedback.swift \
+            -o "$RUNNER_TEMP/verify-gene-regulation-feedback"
+          "$RUNNER_TEMP/verify-gene-regulation-feedback"
+
       - name: Verify learner-facing lesson feedback / Проверка разбора ответа ученику
         run: |
           swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/scripts/verify_lesson_answer_feedback.swift \
