@@ -4893,10 +4893,9 @@ private struct GeneRegulationLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var variant = 0
     @State private var signalPresent = true
-    @State private var selectedAnswer: Int?
-    @State private var optionOrder = QuizAnswerOrder(
-        optionCount: 2,
-        answerOriginalIndex: GeneRegulationPractice.correctPredictionAnswerOriginalIndex
+    @State private var prediction = GeneRegulationPractice.makePredictionAttempt(
+        variant: 0,
+        signalPresent: true
     )
 
     private var productMade: Bool {
@@ -4914,13 +4913,7 @@ private struct GeneRegulationLab: View {
                 Text(L10n.text("lab.dnaVariant1", store.language)).tag(1)
             }
             .pickerStyle(.segmented)
-            .onChange(of: variant) { _ in
-                selectedAnswer = nil
-                optionOrder = QuizAnswerOrder(
-                    optionCount: 2,
-                    answerOriginalIndex: GeneRegulationPractice.correctPredictionAnswerOriginalIndex
-                )
-            }
+            .onChange(of: variant) { _ in resetPrediction() }
 
             DNAHelixVisualization(variant: variant)
                 .frame(height: 230)
@@ -4934,25 +4927,33 @@ private struct GeneRegulationLab: View {
                 .accessibilityLabel(Text(L10n.text(variant == 0 ? "lab.dnaPairAT" : "lab.dnaPairCG", store.language)))
 
             Toggle(L10n.text("lab.dnaSignal", store.language), isOn: $signalPresent)
-                .onChange(of: signalPresent) { _ in
-                    selectedAnswer = nil
-                    optionOrder = QuizAnswerOrder(
-                        optionCount: 2,
-                        answerOriginalIndex: GeneRegulationPractice.correctPredictionAnswerOriginalIndex
-                    )
-                }
+                .onChange(of: signalPresent) { _ in resetPrediction() }
+
+            let outcomeRevealed = prediction.isCorrect
 
             HStack(spacing: 8) {
                 flowNode(title: L10n.text("lab.dnaSequence", store.language), value: "A · T · C · G")
                 Image(systemName: "arrow.right").foregroundStyle(.secondary)
                 flowNode(
                     title: L10n.text("lab.dnaGeneActivity", store.language),
-                    value: L10n.text(productMade ? "lab.dnaGeneOn" : "lab.dnaGeneOff", store.language)
+                    value: L10n.text(
+                        GeneRegulationPractice.geneActivityKey(
+                            productMade: productMade,
+                            outcomeRevealed: outcomeRevealed
+                        ),
+                        store.language
+                    )
                 )
                 Image(systemName: "arrow.right").foregroundStyle(.secondary)
                 flowNode(
                     title: L10n.text("lab.dnaProduct", store.language),
-                    value: L10n.text(productMade ? "lab.dnaProductMade" : "lab.dnaProductAbsent", store.language)
+                    value: L10n.text(
+                        GeneRegulationPractice.productKey(
+                            productMade: productMade,
+                            outcomeRevealed: outcomeRevealed
+                        ),
+                        store.language
+                    )
                 )
             }
             .accessibilityElement(children: .combine)
@@ -4960,16 +4961,17 @@ private struct GeneRegulationLab: View {
             Text(L10n.text("lab.dnaPredict", store.language))
                 .font(.callout.weight(.medium))
             HStack {
-                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                ForEach(Array(prediction.choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
                     answerButton(
-                        displayIndex,
+                        displayIndex: displayIndex,
+                        originalIndex: originalIndex,
                         key: originalIndex == 0 ? "lab.dnaPredictOption0" : "lab.dnaPredictOption1"
                     )
                 }
             }
 
-            if let selectedAnswer {
-                let isCorrect = optionOrder.isCorrect(displayedIndex: selectedAnswer)
+            if prediction.hasAnswered {
+                let isCorrect = prediction.isCorrect
                 Label(
                     L10n.text(
                         isCorrect ? "lab.dnaPredictCorrect" : "lab.dnaPredictIncorrect",
@@ -4984,8 +4986,22 @@ private struct GeneRegulationLab: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+
+                if prediction.canRetry {
+                    Button(L10n.text("lab.dnaRetry", store.language)) {
+                        prediction.retry()
+                    }
+                    .buttonStyle(.bordered)
+                }
             }
         }
+    }
+
+    private func resetPrediction() {
+        prediction = GeneRegulationPractice.makePredictionAttempt(
+            variant: variant,
+            signalPresent: signalPresent
+        )
     }
 
     private func flowNode(title: String, value: String) -> some View {
@@ -5004,16 +5020,19 @@ private struct GeneRegulationLab: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func answerButton(_ answer: Int, key: String) -> some View {
+    private func answerButton(displayIndex: Int, originalIndex: Int, key: String) -> some View {
         Button {
-            selectedAnswer = answer
+            prediction.select(displayedIndex: displayIndex)
+            guard let evidence = prediction.currentAnswerEventEvidence() else { return }
+            store.recordStudyAssessment(lessonID: "biology.dna_genes_and_traits", evidence: evidence)
         } label: {
             Text(L10n.text(key, store.language))
                 .frame(maxWidth: .infinity, minHeight: 34)
         }
         .buttonStyle(.bordered)
-        .tint(selectedAnswer == answer ? Color.accentColor : nil)
-        .accessibilityAddTraits(selectedAnswer == answer ? .isSelected : [])
+        .tint(prediction.selectedOriginalIndex == originalIndex ? Color.accentColor : nil)
+        .disabled(prediction.hasAnswered)
+        .accessibilityAddTraits(prediction.selectedOriginalIndex == originalIndex ? .isSelected : [])
     }
 }
 

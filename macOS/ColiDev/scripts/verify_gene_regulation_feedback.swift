@@ -73,6 +73,20 @@ enum GeneRegulationFeedbackVerification {
             "The hidden outcome needs distinct Russian and English labels. / Скрытый результат должен иметь отдельные подписи на русском и английском."
         )
 
+        for key in [
+            "lab.dnaPredict",
+            "lab.dnaPredictOption0",
+            "lab.dnaPredictOption1",
+            "lab.dnaRetry"
+        ] {
+            let russian = L10n.text(key, .ru)
+            let english = L10n.text(key, .en)
+            precondition(
+                russian != key && english != key && russian != english,
+                "Each prediction and retry action needs Russian and English copy. / Вопрос и действие повтора должны быть переведены на русский и английский."
+            )
+        }
+
         let cases: [(isCorrect: Bool, expectedKey: String)] = [
             (true, "lab.dnaPredictExplanation.correct"),
             (false, "lab.dnaPredictExplanation.incorrect")

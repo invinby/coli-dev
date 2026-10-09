@@ -434,10 +434,35 @@ enum TenseContrastFeedback {
 }
 
 enum GeneRegulationPractice {
-    static let correctPredictionAnswerOriginalIndex = 1
-
     static func isProductMade(variant: Int, signalPresent: Bool) -> Bool {
         variant == 0 && signalPresent
+    }
+
+    static func correctPredictionAnswerOriginalIndex(variant: Int, signalPresent: Bool) -> Int {
+        isProductMade(variant: variant, signalPresent: signalPresent) ? 0 : 1
+    }
+
+    static func geneActivityKey(productMade: Bool, outcomeRevealed: Bool) -> String {
+        guard outcomeRevealed else { return "lab.dnaOutcomeHidden" }
+        return productMade ? "lab.dnaGeneOn" : "lab.dnaGeneOff"
+    }
+
+    static func productKey(productMade: Bool, outcomeRevealed: Bool) -> String {
+        guard outcomeRevealed else { return "lab.dnaOutcomeHidden" }
+        return productMade ? "lab.dnaProductMade" : "lab.dnaProductAbsent"
+    }
+
+    static func makePredictionAttempt(variant: Int, signalPresent: Bool) -> InteractivePredictionAttempt {
+        guard let attempt = InteractivePredictionAttempt(
+            optionCount: 2,
+            answerOriginalIndex: correctPredictionAnswerOriginalIndex(
+                variant: variant,
+                signalPresent: signalPresent
+            )
+        ) else {
+            preconditionFailure("A valid gene-regulation scenario must produce a prediction attempt. / Для корректного сценария регуляции гена должна создаваться попытка прогноза.")
+        }
+        return attempt
     }
 
     static func explanationKey(isCorrect: Bool) -> String {
