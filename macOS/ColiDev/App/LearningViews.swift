@@ -4894,9 +4894,14 @@ private struct GeneRegulationLab: View {
     @State private var variant = 0
     @State private var signalPresent = true
     @State private var selectedAnswer: Int?
-    @State private var optionOrder = QuizAnswerOrder(optionCount: 2, answerOriginalIndex: 1)
+    @State private var optionOrder = QuizAnswerOrder(
+        optionCount: 2,
+        answerOriginalIndex: GeneRegulationPractice.correctPredictionAnswerOriginalIndex
+    )
 
-    private var productMade: Bool { variant == 0 && signalPresent }
+    private var productMade: Bool {
+        GeneRegulationPractice.isProductMade(variant: variant, signalPresent: signalPresent)
+    }
 
     var body: some View {
         LabCard {
@@ -4911,7 +4916,10 @@ private struct GeneRegulationLab: View {
             .pickerStyle(.segmented)
             .onChange(of: variant) { _ in
                 selectedAnswer = nil
-                optionOrder = QuizAnswerOrder(optionCount: 2, answerOriginalIndex: 1)
+                optionOrder = QuizAnswerOrder(
+                    optionCount: 2,
+                    answerOriginalIndex: GeneRegulationPractice.correctPredictionAnswerOriginalIndex
+                )
             }
 
             DNAHelixVisualization(variant: variant)
@@ -4928,7 +4936,10 @@ private struct GeneRegulationLab: View {
             Toggle(L10n.text("lab.dnaSignal", store.language), isOn: $signalPresent)
                 .onChange(of: signalPresent) { _ in
                     selectedAnswer = nil
-                    optionOrder = QuizAnswerOrder(optionCount: 2, answerOriginalIndex: 1)
+                    optionOrder = QuizAnswerOrder(
+                        optionCount: 2,
+                        answerOriginalIndex: GeneRegulationPractice.correctPredictionAnswerOriginalIndex
+                    )
                 }
 
             HStack(spacing: 8) {
@@ -4968,6 +4979,11 @@ private struct GeneRegulationLab: View {
                 )
                 .font(.callout)
                 .foregroundStyle(isCorrect ? Color.green : Color.secondary)
+
+                Text(L10n.text(GeneRegulationPractice.explanationKey(isCorrect: isCorrect), store.language))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }

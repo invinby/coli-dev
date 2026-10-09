@@ -432,3 +432,15 @@ enum TenseContrastFeedback {
         return "lab.tenseExplanation.\(scenario).\(isCorrect ? "correct" : "incorrect")"
     }
 }
+
+enum GeneRegulationPractice {
+    static let correctPredictionAnswerOriginalIndex = 1
+
+    static func isProductMade(variant: Int, signalPresent: Bool) -> Bool {
+        variant == 0 && signalPresent
+    }
+
+    static func explanationKey(isCorrect: Bool) -> String {
+        isCorrect ? "lab.dnaPredictExplanation.correct" : "lab.dnaPredictExplanation.incorrect"
+    }
+}
