@@ -7772,12 +7772,28 @@ struct TutorChatView: View {
                     Text(L10n.text("tutor.subtitle", language)).font(.subheadline).foregroundStyle(.secondary)
                 }
                 Spacer()
-                if store.isCheckingAI && store.aiHealth == nil {
+                if chat.isSending {
+                    Label(L10n.text("settings.tutorProbe.checking", language), systemImage: "hourglass")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else if let completionLabel = chat.completionLabel {
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Label(L10n.text("tutor.responseVerified", language), systemImage: "checkmark.circle.fill")
+                            .font(.caption).foregroundStyle(.green)
+                        if !completionLabel.isEmpty {
+                            Text(completionLabel)
+                                .font(.caption2.monospaced()).foregroundStyle(.secondary)
+                                .multilineTextAlignment(.trailing)
+                        }
+                    }
+                } else if store.isCheckingAI && store.aiHealth == nil {
                     ProgressView().controlSize(.small)
                 } else if let health = store.aiHealth {
                     VStack(alignment: .trailing, spacing: 4) {
-                        Label(L10n.text("settings.aiConnected", language), systemImage: "checkmark.circle.fill")
-                            .font(.caption).foregroundStyle(.green)
+                        Label(L10n.text("settings.aiBackendResponding", language), systemImage: "server.rack")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Text(L10n.text("tutor.responseNotVerified", language))
+                            .font(.caption2).foregroundStyle(.secondary)
+                            .multilineTextAlignment(.trailing)
                         Text(routeDescription(for: health))
                             .font(.caption2).foregroundStyle(.secondary)
                             .multilineTextAlignment(.trailing)

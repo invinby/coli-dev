@@ -586,6 +586,7 @@ private struct SettingsView: View {
                     Text(L10n.text("settings.aiLocal", store.language)).tag(AIRoutingMode.localOnly)
                 }
                 .pickerStyle(.segmented)
+                TutorRouteProbeCard()
                 LabeledContent {
                     Text(LearningStore.orchestratorBaseURL).font(.callout.monospaced())
                 } label: {
@@ -597,8 +598,10 @@ private struct SettingsView: View {
                         Text(L10n.text("settings.aiChecking", store.language)).foregroundStyle(.secondary)
                     } else if let health = store.aiHealth {
                         VStack(alignment: .leading, spacing: 4) {
-                            Label(L10n.text("settings.aiConnected", store.language), systemImage: "checkmark.circle.fill")
-                                .foregroundStyle(.green)
+                            Label(L10n.text("settings.aiBackendResponding", store.language), systemImage: "server.rack")
+                                .foregroundStyle(.secondary)
+                            Text(L10n.text("settings.aiBackendOnlyStatus", store.language))
+                                .font(.caption).foregroundStyle(.secondary)
                             Text(routeDescription(for: health))
                                 .font(.caption).foregroundStyle(.secondary)
                             if health.openRouterKeyConfigured == true {
@@ -665,7 +668,6 @@ private struct SettingsView: View {
                         }
                     }
                 }
-                TutorRouteProbeCard()
                 VStack(alignment: .leading, spacing: 5) {
                     Text(L10n.text("settings.aiLaunch", store.language)).font(.caption.weight(.semibold))
                     Text(L10n.text(backendSupervisor.status.localizationKey, store.language))

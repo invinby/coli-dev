@@ -2272,12 +2272,18 @@ final class TutorChatModel: ObservableObject {
                     onToken: { [weak self] token in self?.append(token, to: reply.id) },
                     onFinalAnswer: { [weak self] answer in self?.replace(answer, in: reply.id) }
                 )
-                completionLabel = [result.provider, result.model].filter { !$0.isEmpty }.joined(separator: " · ")
-                if let index = messages.firstIndex(where: { $0.id == reply.id }) {
-                    messages[index].sources = result.sources
-                    messages[index].citationWarnings = result.citationWarnings
-                    messages[index].googleSearchSuggestions = result.googleSearchSuggestions
-                    messages[index].isGoogleGrounded = result.googleSearchSuggestions != nil
+                if let replyMessage = messages.first(where: { $0.id == reply.id }),
+                   !replyMessage.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    completionLabel = [result.provider, result.model].filter { !$0.isEmpty }.joined(separator: " · ")
+                    if let index = messages.firstIndex(where: { $0.id == reply.id }) {
+                        messages[index].sources = result.sources
+                        messages[index].citationWarnings = result.citationWarnings
+                        messages[index].googleSearchSuggestions = result.googleSearchSuggestions
+                        messages[index].isGoogleGrounded = result.googleSearchSuggestions != nil
+                    }
+                } else {
+                    discard(reply.id)
+                    errorMessage = L10n.text("tutor.emptyResponse", language)
                 }
             } catch is CancellationError {
                 // Keep a partial answer visible when the learner stops generation.
@@ -2287,8 +2293,8 @@ final class TutorChatModel: ObservableObject {
             } catch {
                 discard(reply.id)
                 errorMessage = language == .ru
-                    ? "Не удалось получить ответ. Проверь, запущен ли локальный оркестратор."
-                    : "The tutor could not reply. Check that the local orchestrator is running."
+                    ? "Не удалось получить ответ. Проверь доступность backend и настройки выбранной модели."
+                    : "The tutor could not reply. Check the backend and the selected model configuration."
             }
             isSending = false
             requestTask = nil
