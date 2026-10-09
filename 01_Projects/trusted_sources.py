@@ -116,6 +116,17 @@ _RAG_SOURCE_POLICIES = {
         "license_url": "https://medlineplus.gov/about/using/usingcontent/",
         "attribution": "Source: MedlinePlus, National Library of Medicine (NLM), National Institutes of Health (NIH). Public-domain Genetics summary.",
     },
+    "www.genome.gov": {
+        "path": re.compile(
+            r"^/genetics-glossary/(?:Gene-Expression|Gene-Regulation|Promoter|Chromatid)$"
+        ),
+        "license": "NHGRI website material is public domain unless otherwise indicated on the page",
+        "license_url": "https://www.genome.gov/about-nhgri/Policies-Guidance/Copyright",
+        "attribution": (
+            "Courtesy: National Human Genome Research Institute (NHGRI), genome.gov. "
+            "Public-domain web content unless otherwise marked; no government endorsement implied."
+        ),
+    },
     "www.nist.gov": {
         "path": re.compile(
             r"^(?:/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/"

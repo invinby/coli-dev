@@ -104,7 +104,9 @@ def test_reference_scan_deduplicates_allowed_urls_and_ignores_untrusted_domains(
     assert omitted_count == 0
 
 
-def test_gene_expression_sources_are_exact_path_monitored_metadata_only(tmp_path: Path) -> None:
+def test_gene_expression_sources_use_rag_only_for_licensed_genome_glossary_pages(
+    tmp_path: Path,
+) -> None:
     urls = {
         "https://medlineplus.gov/genetics/understanding/howgeneswork/makingprotein/",
         "https://www.genome.gov/genetics-glossary/Gene-Expression",
@@ -123,11 +125,14 @@ def test_gene_expression_sources_are_exact_path_monitored_metadata_only(tmp_path
     assert {reference.url for reference in references} == urls
     assert unsupported_count == 1
     assert omitted_count == 0
-    assert all(monitor._rag_policy(url) is None for url in urls)
+    genome_urls = {url for url in urls if "genome.gov" in url}
+    metadata_only_urls = urls - genome_urls
+    assert all(monitor._rag_policy(url) is not None for url in genome_urls)
+    assert all(monitor._rag_policy(url) is None for url in metadata_only_urls)
     assert all(not monitor._has_rag_snapshot(url) for url in urls)
 
 
-def test_cell_cycle_sources_are_monitored_metadata_only(tmp_path: Path) -> None:
+def test_cell_cycle_source_rag_policy_respects_reuse_permissions(tmp_path: Path) -> None:
     urls = {
         "https://openstax.org/books/biology-2e/pages/10-2-the-cell-cycle",
         "https://www.genome.gov/genetics-glossary/Chromatid",
@@ -144,7 +149,8 @@ def test_cell_cycle_sources_are_monitored_metadata_only(tmp_path: Path) -> None:
     assert {reference.url for reference in references} == urls
     assert unsupported_count == 1
     assert omitted_count == 0
-    assert all(monitor._rag_policy(url) is None for url in urls)
+    assert monitor._rag_policy("https://www.genome.gov/genetics-glossary/Chromatid") is not None
+    assert monitor._rag_policy("https://openstax.org/books/biology-2e/pages/10-2-the-cell-cycle") is None
     assert all(not monitor._has_rag_snapshot(url) for url in urls)
 
 
@@ -402,6 +408,80 @@ def test_medlineplus_genetics_ingestion_is_restricted_to_public_domain_basics() 
     assert TrustedSourceMonitor._canonical_url(
         "https://medlineplus.gov/genetics/understanding/basics/dna/?download=1"
     ) is None
+
+
+def test_nhgri_glossary_rag_policy_is_exact_and_public_domain() -> None:
+    approved = {
+        "https://www.genome.gov/genetics-glossary/Gene-Expression",
+        "https://www.genome.gov/genetics-glossary/Gene-Regulation",
+        "https://www.genome.gov/genetics-glossary/Promoter",
+        "https://www.genome.gov/genetics-glossary/Chromatid",
+    }
+
+    assert all(TrustedSourceMonitor._rag_policy(url) is not None for url in approved)
+    assert TrustedSourceMonitor._rag_policy(
+        "https://www.genome.gov/genetics-glossary/Other-Term"
+    ) is None
+    assert TrustedSourceMonitor._rag_policy(
+        "https://www.genome.gov/genetics-glossary/Gene-Regulation?download=1"
+    ) is None
+    policy = TrustedSourceMonitor._rag_policy(
+        "https://www.genome.gov/genetics-glossary/Gene-Regulation"
+    )
+    assert policy is not None
+    assert "public domain" in policy["license"].casefold()
+    assert policy["license_url"] == (
+        "https://www.genome.gov/about-nhgri/Policies-Guidance/Copyright"
+    )
+    assert "NHGRI" in policy["attribution"]
+
+
+def test_nhgri_gene_regulation_glossary_is_cached_for_rag_with_attribution(
+    tmp_path: Path,
+) -> None:
+    url = "https://www.genome.gov/genetics-glossary/Gene-Regulation"
+    _write_lesson(tmp_path, f"[NHGRI gene regulation glossary]({url})")
+    monitor = _monitor(tmp_path, tmp_path)
+    initial_item = monitor.inventory()["sources"][0]
+    assert initial_item["rag_content_state"] == "license_approved_pending_check"
+    assert "public domain" in str(initial_item["rag_license"]).casefold()
+    page_text = (
+        "Gene regulation controls when and where genes are expressed. "
+        "Regulatory proteins and chemical DNA modifications help cells respond to change."
+    )
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/html; charset=utf-8", "etag": '"nhgri-v1"'},
+            text=(
+                "<html><head><title>Gene Regulation | NHGRI</title></head><body>"
+                f"<main><article><h1>Gene Regulation</h1><p>{page_text}</p></article></main>"
+                "</body></html>"
+            ),
+        )
+
+    async def check() -> dict[str, object]:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await monitor.check_sources(client)
+
+    result = asyncio.run(check())
+    found = monitor.search_rag_sources("gene regulation proteins DNA express response")
+
+    assert result["checks"][0]["state"] == "available_untracked"
+    assert len(found) == 1
+    assert found[0]["source_type"] == "official_web"
+    assert found[0]["path"] == url
+    assert found[0]["license_url"] == (
+        "https://www.genome.gov/about-nhgri/Policies-Guidance/Copyright"
+    )
+    assert "public domain" in found[0]["license"].casefold()
+    assert "Courtesy: National Human Genome Research Institute" in found[0]["attribution"]
+    assert found[0]["source_checked_at"] == result["checks"][0]["checked_at"]
+    assert "gene regulation controls when and where" in found[0]["excerpt"].casefold()
+    refreshed_item = monitor.inventory()["sources"][0]
+    assert refreshed_item["rag_content_state"] == "cached"
+    assert refreshed_item["rag_content_fetched_at"] == result["checks"][0]["checked_at"]
 
 
 def test_unlicensed_official_sources_remain_metadata_only_for_rag(tmp_path: Path) -> None:
