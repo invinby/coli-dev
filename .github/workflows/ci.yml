@@ -102,6 +102,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-answer-choice-order"
           "$RUNNER_TEMP/verify-answer-choice-order"
 
+      - name: Verify English tense feedback / Проверка объяснений по английским временам
+        run: |
+          swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/L10n.swift macOS/ColiDev/scripts/verify_tense_contrast_feedback.swift \
+            -o "$RUNNER_TEMP/verify-tense-contrast-feedback"
+          "$RUNNER_TEMP/verify-tense-contrast-feedback"
+
       - name: Verify learner-facing lesson feedback / Проверка разбора ответа ученику
         run: |
           swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/scripts/verify_lesson_answer_feedback.swift \
