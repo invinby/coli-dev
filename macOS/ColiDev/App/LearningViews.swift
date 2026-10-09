@@ -3119,7 +3119,6 @@ private struct ReportedSpeechLab: View {
                 attempts: attemptsForQuestion,
                 firstTryCorrect: isCorrect && attemptsForQuestion == 1,
                 hintsUsed: 0,
-                errorCategories: isCorrect ? nil : [.understanding],
                 passed: isCorrect
             )
         )
