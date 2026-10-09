@@ -394,6 +394,12 @@ struct StudyAssessmentEvent: Codable, Identifiable {
         case assessment
     }
 
+    init(id: String, lessonID: String, assessment: StudyAssessmentEvidence) {
+        self.id = id
+        self.lessonID = lessonID
+        self.assessment = assessment
+    }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
