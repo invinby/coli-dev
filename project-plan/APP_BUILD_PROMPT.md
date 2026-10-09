@@ -1,8 +1,7 @@
 # Промпт разработки ColiDev / ColiDev application development prompt
 
-Скопируй приведённое ниже задание в ИИ, который будет изучать и развивать репозиторий. Здесь описаны архитектура и разработка всего приложения; это не системный промпт для личности отдельного ИИ-тьютора.
-
 Copy the prompt below into an AI that will inspect and develop the repository. It specifies the architecture and development of the complete application; it is not a system prompt for the AI tutor's persona.
+
 Скопируй промпт ниже в ИИ, который будет разбирать и развивать репозиторий. Это задание на разработку всего приложения и его архитектуры, а не системная инструкция для персонажа ИИ-тьютора.
 
 ---
@@ -11,19 +10,13 @@ Copy the prompt below into an AI that will inspect and develop the repository. I
 
 ### Role and objective / Роль и цель
 
-Работай над ColiDev как архитектор продукта, UX-дизайнер macOS, разработчик SwiftUI и backend, а также проектировщик систем обучения. Перед изменениями изучи существующий репозиторий. Развивай само приложение, сервисы, учебные программы и рабочие процессы; не ограничивайся промптом для тьютора, макетом или общим предложением.
-
 Act as the product architect, macOS UX designer, SwiftUI engineer, backend engineer, and learning-systems designer for ColiDev. Inspect the existing repository before changing it. Build and improve the actual application, services, curriculum, and workflows; do not respond with only a tutor prompt, mockup, or high-level proposal.
 
 Ты — архитектор продукта, UX-дизайнер macOS, SwiftUI-разработчик, backend-разработчик и проектировщик учебных систем ColiDev. Перед изменениями изучи существующий репозиторий. Развивай само приложение, сервисы, учебную программу и рабочие сценарии; не ограничивайся промптом для тьютора, макетом или общими предложениями.
 
-ColiDev — единая двуязычная образовательная платформа для macOS. Она объединяет существующие учебные инструменты ColiDev с широким адаптивным тьютором и локальным backend. Тьютор — один из компонентов продукта; продукт не должен сводиться к оболочке вокруг чата.
-
 ColiDev is one bilingual educational platform for macOS. It combines the current ColiDev learning tools with a broad, adaptive tutor and a local backend. The tutor is one component of the product; the product is not a chat-only wrapper.
 
 ColiDev — единая двуязычная учебная платформа для macOS. Она объединяет имеющиеся учебные инструменты ColiDev с широкой адаптивной системой обучения и локальным backend. ИИ-тьютор — один из компонентов продукта; продукт не должен превращаться в одну оболочку чата.
-
-Оставь XGENT полностью отдельным проектом. Не копируй в ColiDev его исходный код, файлы, секреты, историю или предположения о продукте.
 
 Keep XGENT entirely separate. Do not copy its source, files, secrets, history, or product assumptions into ColiDev.
 
@@ -31,13 +24,9 @@ Keep XGENT entirely separate. Do not copy its source, files, secrets, history, o
 
 ### Learners, subjects, and languages / Ученики, предметы и языки
 
-Начни с математики, английского языка, физики, биологии, зоологии и программирования. Биология уже является встроенным предметом и должна оставаться доступной; зоология — отдельный, связанный с биологией предмет. Спроектируй каталог так, чтобы добавлять новые предметы без дублирования существующих и без навязывания одинакового шаблона урока всем дисциплинам.
-
 Start with mathematics, English, physics, biology, zoology, and programming. Biology is already a built-in subject and must remain available; zoology is a distinct, related subject. Design the catalog so more subjects can be added without duplicating existing ones or forcing every discipline into an identical lesson template.
 
 Начни с математики, английского языка, физики, биологии, зоологии и программирования. Биология уже входит во встроенный каталог и должна оставаться доступной; зоология — отдельное связанное направление. Проектируй каталог так, чтобы добавлять новые дисциплины без дублирования существующих и без принуждения всех предметов к одному шаблону урока.
-
-Предусмотри русский и английский языки для интерфейса и учебных материалов. Примеры в уроках иностранного языка оставляй на изучаемом языке и размещай рядом полный перевод или объяснение на другом языке. Храни названия и описания предметов и тем, созданных учеником, на обоих языках.
 
 Provide Russian and English for the interface and learning materials. Keep language-learning examples in the language being studied, with a complete translation or explanation in the other language beside them. Store bilingual names and descriptions for learner-created subjects and topics.
 
@@ -45,37 +34,25 @@ Provide Russian and English for the interface and learning materials. Keep langu
 
 ### Learning system / Учебная система
 
-Помогай ученикам двигаться от основ к продвинутому пониманию и, когда это оправдано предметом и целью, к научной глубине. Объясняй, что представляет собой понятие, почему и как оно работает, из каких частей состоит, как связано с другими темами, где применяется, а также каковы его предположения и ограничения. Проверяй понимание через объяснение, применение, рассуждение и перенос знаний на новую задачу; чтение или один правильный ответ сами по себе не подтверждают освоение.
-
 Help learners progress from foundations to advanced understanding and, where the discipline and goal justify it, scientific depth. Teach what a concept is, why and how it works, its parts and relationships, uses, assumptions, limits, and connections to other topics. Check understanding through explanation, application, reasoning, and transfer to a new problem; reading or one correct answer alone is not mastery.
 
 Помогай ученику двигаться от основ к углублённому пониманию и, когда этого требуют предмет и цель, к научному уровню. Объясняй, что представляет собой понятие, почему и как оно работает, из каких частей состоит, как связано с другими темами, где применяется, каковы его допущения и ограничения. Проверяй понимание через объяснение, применение, рассуждение и перенос знаний на новую задачу; чтение или один правильный ответ сами по себе не означают освоение.
-
-Оценивай предпосылки и свидетельства освоения конкретной темы. Меняй порядок, глубину, темп и практику в соответствии с тем, что ученик демонстрирует. Не заставляй каждого повторять уже знакомый материал; пропускай или сокращай его только при наличии подходящих подтверждающих проверок. Если ученик испытывает трудности, найди пробел в предпосылках или измени объяснение, пример, визуализацию либо упражнение, а не повторяй тот же текст. Считай повторный самоотчёт о пробеле в основах сигналом, а не диагнозом: рекомендуй конкретную предпосылку только тогда, когда последняя проверка именно этой темы не пройдена с той же указанной категорией; иначе оставь ученика на текущей теме и предложи другое объяснение или упражнение.
 
 Assess prerequisites and topic-specific evidence. Adapt sequence, depth, pace, and practice to what the learner demonstrates. Do not make every learner repeat material they already know; skip or shorten it only when suitable checks support that decision. When the learner struggles, identify a prerequisite gap or change the explanation, example, visual, or exercise rather than repeating the same text. Treat a repeated self-report of a foundation gap as a cue, not a diagnosis: recommend a specific prerequisite only when its own latest knowledge check explicitly failed with the same reported category; otherwise keep the learner on the current topic and offer another explanation or practice.
 
 Оценивай предпосылки и результаты по каждой теме. Меняй последовательность, глубину, темп и практику по тому, что ученик действительно показывает. Не заставляй всех проходить заново уже освоенный материал; сокращай или пропускай его только при наличии подходящих подтверждений. Если ученик испытывает трудности, найди пробел в предпосылках или измени объяснение, пример, визуализацию либо упражнение вместо повторения того же текста. Повторную самооценку «не хватает основы» считай подсказкой, а не диагнозом: предлагай конкретную предпосылку только если её собственная последняя проверка явно не пройдена с той же отмеченной категорией ошибки; иначе оставайся на текущей теме и предложи другое объяснение или практику.
 
-Используй активное вспоминание, интервальное повторение, разобранные примеры, самостоятельную практику, постепенное усложнение, анализ ошибок и новые задачи на перенос знаний. Объясняй, почему рекомендуется следующая тема, на какие предпосылки она опирается и какие результаты позволят перейти на более сложный уровень. Подбирай методы под дисциплину, а не применяй один жёсткий шаблон урока.
-
 Use active recall, spaced review, worked examples, independent practice, increasing challenge, error analysis, and new problems that test transfer. Explain why the next topic is recommended, which prerequisite it uses, and what evidence would support moving to a harder level. Adapt methods to each discipline rather than applying one rigid lesson template.
 
 Используй активное вспоминание, интервальные повторы, разобранные примеры, самостоятельную практику, постепенное усложнение, разбор ошибок и новые задачи на перенос знаний. Объясняй, почему рекомендована следующая тема, на какие предпосылки она опирается и какие результаты позволят перейти к более высокому уровню. Подбирай методы под дисциплину, не применяй один жёсткий шаблон ко всем урокам.
-
-Отслеживай глубину отдельно для каждой важной темы, а не своди ученика к одному неподтверждённому показателю мастерства. Когда это подходит предмету, различай: знакомство с терминами; объяснение идеи своими словами; решение типовой задачи; перенос знаний на изменённую или незнакомую задачу; понимание механизмов, предположений, взаимосвязей и ограничений; продвинутый анализ; формальную или научную работу. Не требуй доводить каждую тему до последнего этапа.
 
 Track depth independently for each important topic instead of reducing a learner to one ungrounded mastery score. Where it fits the subject, distinguish: familiarity with terms; explaining the idea in the learner's own words; routine application; transfer to a changed or unfamiliar problem; understanding mechanisms, assumptions, relationships, and limits; advanced analysis; and formal or scientific work. Do not require every topic to reach the last stage.
 
 Для каждой важной темы отслеживай глубину отдельно, не своди знания ученика к одной неподтверждённой оценке. Если это подходит предмету, различай: знакомство с терминами; объяснение своими словами; стандартное применение; перенос на изменённую или незнакомую задачу; понимание механизмов, предпосылок, связей и ограничений; углублённый анализ; формальную или научную работу. Не требуй доводить каждую тему до последней ступени.
 
-Прежде чем считать важное понятие освоенным, собери разные свидетельства: объяснение ученика, типовую задачу, изменённую задачу, рассуждение о том, почему метод работает, поиск ошибки и применение в новом контексте. Классифицируй значимые ошибки как ошибки понимания, памяти, применения, внимания, рассуждения, предпосылок или выбора метода. Если это поможет ученику продвинуться, сначала дай целевую подсказку или другое объяснение и только затем показывай полное решение. Отображай связи с предпосылками и соседними темами на карте знаний, а затем объясняй рекомендуемый следующий шаг.
-
 For an important concept, gather different evidence before calling it understood: a learner explanation, a standard task, a changed task, reasoning about why a method works, finding an error, and application in a new context. Classify significant mistakes as conceptual, memory, application, attention, reasoning, prerequisite, or method-selection problems. Offer a targeted hint or another explanation before revealing a full solution when that can help the learner make progress. Show prerequisite and cross-topic links in a knowledge map, then explain the recommended next step.
 
 Для важного понятия собирай разные свидетельства, прежде чем считать его понятым: объяснение ученика, стандартную задачу, изменённую задачу, рассуждение о том, почему метод работает, поиск ошибки и применение в новом контексте. Классифицируй значимые ошибки как непонимание концепции, пробел памяти, трудность применения, невнимательность, ошибку рассуждения, пробел в предпосылках или неверный выбор метода. Если это помогает ученику продвинуться, сначала предложи точечную подсказку или другое объяснение и лишь затем полный ответ. Показывай предпосылки и связи между темами на карте знаний, а затем объясняй рекомендуемый следующий шаг.
-
-Используй методы, подходящие предмету: рассуждения, формулы, доказательства и графики в математике; модели, эксперименты и причинно-следственные связи в физике; структуры, процессы и системы в биологии; механизмы и сравнение на основе свидетельств в зоологии; безопасную исполняемую практику и отладку в программировании; активное использование языка в контексте в английском.
 
 Use methods that fit the subject: reasoning, formulas, proofs, and graphs in mathematics; models, experiments, and causal relationships in physics; structures, processes, and systems in biology; mechanisms and evidence-based comparison in zoology; runnable, safe practice and debugging in programming; and contextual, active use in English.
 
@@ -83,21 +60,15 @@ Use methods that fit the subject: reasoning, formulas, proofs, and graphs in mat
 
 ### Learner-created curriculum / Пользовательская программа
 
-Разреши ученику создавать предметы, темы и вложенные подтемы, а также добавлять собственные темы во встроенные предметы, не перезаписывая поставляемую программу. Сохраняй стабильные идентификаторы, локальный прогресс, двуязычные названия, цели и заметки. ИИ может предложить черновую структуру по материалам ученика — цель обучения, предпосылки, упорядоченные темы, практику, подходящие визуализации и заметки об источниках; перед сохранением в виде плана ученик должен проверить предложение. Текущая ветка обрабатывает версионированный двуязычный JSON-план, проверяет его структуру и ограничения, позволяет ученику редактировать и удалять пункты и сохраняет их внутри выбранной темы только после явного подтверждения. Автосохранения нет. Этот процесс помогает составить предложение, но не создаёт автоматически проверенный курс: цитаты и научные утверждения всё ещё должен проверить человек, а ручная приёмка на Mac не завершена.
-
 Let learners create subjects, topics, and nested subtopics, and add personal topics to built-in subjects without overwriting the shipped curriculum. Keep stable identifiers, local progress, bilingual titles, goals, and notes. Let AI propose a draft structure from learner-provided material—learning goal, prerequisites, ordered topics, practice, useful visual formats, and source notes—and require learner review before saving it as a study plan. The current branch parses a versioned bilingual JSON outline, validates its structure and limits, lets the learner edit or remove items, and saves beneath the selected topic only after explicit confirmation. It never auto-saves. This is an implemented proposal workflow, not a verified-course generator: citations and scientific claims still need human review, and hands-on Mac acceptance remains open.
 
 Позволь ученику создавать предметы, темы и вложенные подтемы, а также добавлять личные темы во встроенные предметы, не перезаписывая поставляемую программу. Сохраняй постоянные идентификаторы, локальный прогресс, двуязычные названия, цели и заметки. ИИ может предложить черновую структуру по материалу ученика: учебную цель, необходимые знания, порядок тем, практику, подходящие визуальные форматы и заметки об источниках. В текущей ветке двуязычный план разбирается по версионируемой JSON-схеме и проверяется по структуре и ограничениям; ученик может изменить или удалить пункты, а сохранение под выбранной темой происходит только после явного подтверждения. Автоматического сохранения нет. Это реализованный процесс подготовки предложения, а не генератор проверенного курса: цитаты и научные утверждения всё ещё требуют ручной проверки, а ручная приёмка на Mac не завершена.
 
 ### Practice and feedback / Практика и обратная связь
 
-Делай практику разнообразной и содержательной. Перемешивай позиции ответов в заданиях с выбором варианта, сохраняя правильное соответствие на протяжении всей попытки; по возможности не допускай повторяющихся шаблонов позиций в серии вопросов. Используй правдоподобные отвлекающие варианты. Объясняй, почему правильные и неправильные ответы верны или ошибочны, и предлагай полезный следующий шаг. Добавляй интерактивные задания и свободные ответы, а не только тесты с выбором.
-
 Make practice varied and meaningful. Randomize answer positions in multiple-choice tasks while preserving the correct mapping for the whole attempt; avoid repeated positional patterns across a question set where practical. Use plausible distractors. Explain why both correct and incorrect responses are right or wrong, and offer a useful next action. Include interactive tasks and free-response formats, not only multiple-choice quizzes.
 
 Делай практику разнообразной и содержательной. Перемешивай позиции вариантов в тестах, сохраняя правильное соответствие в течение попытки; по возможности избегай повторяющегося шаблона позиций в серии вопросов. Используй правдоподобные отвлекающие варианты. Объясняй, почему верный ответ верен, а ошибочный — нет, и предлагай полезный следующий шаг. Используй интерактивные задания и свободные ответы, а не только тесты с выбором варианта.
-
-Записывай попытки, подсказки, необязательные выбранные учеником категории ошибок и свидетельства выполнения отдельно от завершения урока и утверждений об освоении. Сохраняй обратную связь при повторных попытках, прогресс и запланированные повторения. Не превращай самоотчёт в диагноз и не показывай непроверенный показатель как реальный уровень мастерства ученика.
 
 Record attempts, hints, optional self-reported error categories, and activity evidence separately from lesson completion and mastery claims. Preserve retry feedback, progress, and due reviews. Never turn self-report into a diagnosis or present an unvalidated score as a learner's true mastery.
 
@@ -105,13 +76,9 @@ Record attempts, hints, optional self-reported error categories, and activity ev
 
 ### Visual and interactive learning / Наглядное и интерактивное обучение
 
-Добавляй к большинству ключевых тем осмысленное визуальное или интерактивное дополнение, если оно действительно улучшает понимание. Подбирай схему, график, анимацию, опыт, симуляцию, видео или интерактивную 3D-модель по смыслу концепции. Дай ученику возможность вращать и приближать модель, осматривать части, показывать или скрывать слои, менять значимые параметры, наблюдать результат и делать прогноз до просмотра объяснения. Отслеживай, для каких тем есть рабочая визуализация, её источник и ограничения, а для каких она ещё нужна; заглушки не считаются покрытием.
-
 Give most core learning topics a purposeful visual or interactive companion where it genuinely improves understanding. Choose a diagram, graph, animation, experiment, simulation, video, or interactive 3D model to fit the concept. Let learners rotate or zoom models, inspect parts, reveal or hide layers, change meaningful parameters, observe results, and make a prediction before seeing an explanation. Track which topics have a working visual, its source and limitations, and which still need one; do not count placeholders as coverage.
 
 Для большинства основных учебных тем создавай осмысленное визуальное или интерактивное сопровождение, если оно действительно помогает пониманию. Подбирай схему, график, анимацию, эксперимент, симуляцию, видео или интерактивную 3D-модель под конкретное понятие. Давай ученику вращать и приближать модель, рассматривать детали, открывать и скрывать слои, менять осмысленные параметры, наблюдать результат и делать прогноз до объяснения. Отмечай, для каких тем уже есть рабочая визуализация, каковы её источник и ограничения, а где её ещё нет; заглушки не считаются покрытием.
-
-Каждая визуализация должна чему-то учить: укажи её управление, наблюдаемые результаты, предположения и ограничения. Не добавляй 3D и анимацию только для украшения. Вместе с интерактивом оставь понятное текстовое объяснение, элементы управления с клавиатуры, поддержку уменьшения анимации и полезные подписи.
 
 Every visual should teach something: identify its controls, observable outcomes, assumptions, and limits. Do not add 3D or motion only for decoration. Keep a clear text explanation, keyboard-accessible controls, reduced-motion behavior, and useful labels available alongside visual interaction.
 
@@ -119,13 +86,9 @@ Every visual should teach something: identify its controls, observable outcomes,
 
 ### Content, sources, and RAG / Материалы, источники и RAG
 
-Создавай уроки на основе наиболее свежих подходящих официальных или первичных источников, доступных для проверки. Показывай организацию или автора, название, ссылку, дату публикации или редакции, если она есть, дату последней проверки и статус редакторской проверки. Разделяй установленные факты, гипотезы, неопределённость и интерпретации. Не выдумывай цитаты, исследования или заявления об актуальности.
-
 Build lessons from the latest suitable official or primary sources that can be reviewed. Show the organization or author, title, source link, publication or revision date when available, last checked date, and review state. Distinguish established facts from hypotheses, uncertainty, and interpretation. Do not invent citations, research, or claims of freshness.
 
 Создавай уроки по самым новым подходящим официальным или первичным источникам, которые можно проверить. Показывай организацию или автора, название и ссылку на источник, дату публикации или редакции при наличии, дату последней проверки и статус ревью. Разделяй установленный факт, гипотезу, неопределённость и интерпретацию. Не выдумывай ссылки, исследования и заявления об актуальности.
-
-Используй RAG для поиска подходящих одобренных материалов и добавляй цитаты в контекст ответа. Отслеживай поддерживаемые источники только в пределах технических возможностей и лицензий. Изменение страницы или обновление индекса не должно автоматически переписывать утверждённый текст урока: передавай обнаруженные изменения на редакторскую проверку, а затем записывай, кто и когда проверил содержание. Не включай источники с разрешённым только просмотром метаданных в текстовый поиск, если политика и права не позволяют этого.
 
 Use RAG to retrieve relevant approved material and cite it in context. Monitor supported sources only within their technical and license limits. A changed page or refreshed index does not update approved lesson text automatically: send detected changes to editorial review, then record who reviewed the content and when. Keep metadata-only sources out of text retrieval unless permission and policy allow it.
 
@@ -133,19 +96,13 @@ Use RAG to retrieve relevant approved material and cite it in context. Monitor s
 
 ### AI architecture and routes / Архитектура ИИ и маршруты
 
-Построй гибридную онлайн- и офлайн-архитектуру. Используй координатора для планирования и объединения ответа, а для подходящих предметов и проверочных задач — специализированные роли. Настраивай провайдера и модель для каждой роли: черновик, критик, проверяющий, предметный эксперт и финальный ответ. Координируй агентов с помощью явно заданных входных и выходных данных и показывай ученику единый связный ответ с подходящими цитатами.
-
 Build a hybrid online/offline architecture. Use a coordinator to plan and synthesize an answer, with specialist roles for suitable subjects and review tasks. Provide configurable provider and model routes per role, including draft, critic, verifier, subject expert, and final answer. Coordinate agents through explicit inputs and outputs, and show the learner one coherent final answer with appropriate citations.
 
 Построй гибридную онлайн-/офлайн-архитектуру. Используй координатора для планирования и сборки ответа, а для подходящих предметов и проверок — роли специалистов. Дай возможность настраивать провайдера и модель отдельно для каждой роли: черновик, критик, проверяющий, предметный эксперт и итоговый ответ. Связывай агентов через явные входы и результаты, а ученику показывай один цельный итоговый ответ с подходящими источниками.
 
-Поддерживай локальные модели Ollama для работы без интернета и настроенные пользователем OpenAI-совместимые API для онлайн-режима. Сделай легко находимый экран «Локальные модели»: доступность службы, установленные модели, выбранная модель, назначение ролей, обновление и проверка реального ответа. Настройки провайдеров и моделей размести в Центре управления. По умолчанию используй только бесплатные маршруты; квоты и доступность моделей могут меняться. Блокируй потенциально платные маршруты, пока пользователь явно их не разрешит, и предупреждай, если учебный контекст покидает устройство. Храни секреты провайдеров в macOS Keychain, никогда не записывай их в исходники или Git.
-
 Support local Ollama models for offline work and user-configured OpenAI-compatible APIs for online work. Keep a clearly discoverable Local Models screen with service availability, installed models, selected model, role assignments, refresh, and a real-response check. Keep provider and model configuration in the Control Center. Use free-only routes by default; quotas and model availability can change. Block potentially paid routes until the user explicitly enables them, and explain when learner context leaves the device. Store provider secrets in macOS Keychain, never in source code or Git.
 
 Поддерживай локальные модели Ollama для работы без сети и настроенные пользователем OpenAI-совместимые API для онлайн-режима. Сделай легко находимый экран «Локальные модели» с доступностью сервиса, установленными моделями, выбранной моделью, назначением ролей, обновлением списка и проверкой реального ответа. Настройки провайдеров и моделей размещай в Центре управления. По умолчанию используй только бесплатные маршруты; квоты и доступность моделей могут меняться. Блокируй потенциально платные маршруты, пока пользователь явно их не разрешит, и сообщай, когда контекст ученика покидает устройство. Храни секреты провайдеров в macOS Keychain, никогда не добавляй их в исходный код или Git.
-
-Разделяй состояния системы: ответивший локальный backend не доказывает, что работает Ollama, установлена модель, настроен маршрут или модель выдала полезный ответ. Показывай, на каком именно уровне возник сбой, и давай конкретные шаги восстановления. Никогда не сообщай об успешной оркестрации, если обязательный агент или финальное объединение ответа завершились ошибкой.
 
 Keep health states separate: a responding local backend is not proof that Ollama is running, a model is installed, a route is configured, or a model has returned a useful answer. Show the failing layer and actionable recovery steps. Never report orchestration success when a required agent or final synthesis failed.
 
@@ -153,13 +110,9 @@ Keep health states separate: a responding local backend is not proof that Ollama
 
 ### Control Center and integrations / Центр управления и интеграции
 
-Создай раздел администрирования и диагностики для курсов, пользовательских материалов, состояния источников, индексации RAG, маршрутов провайдеров и моделей, локальных моделей, использования, состояния backend и ошибок. Отделяй проверку структуры от проверки фактов. Не включай API-ключи, сообщения чатов или личные заметки в диагностический экспорт, если ученик явно не выбрал их для экспорта.
-
 Build an administration and diagnostic area for courses, learner-created material, source status, RAG indexing, provider and model routes, local models, usage, backend health, and errors. Distinguish structure checks from fact checks. Do not include API keys, chat messages, or private notes in diagnostic exports unless the learner explicitly chooses to export them.
 
 Создай административный и диагностический раздел для курсов, материалов ученика, статусов источников, индекса RAG, маршрутов провайдеров и моделей, локальных моделей, использования, состояния backend и ошибок. Разделяй проверку структуры и проверку фактов. Не включай API-ключи, переписки и личные заметки в диагностические файлы, если ученик явно не выбрал их экспорт.
-
-Поддерживай необязательное подключение к Obsidian с понятными разрешениями и указанием происхождения заметок. Для личного NotebookLM используй только сценарии, описанные в официальных источниках; если автоматический API недоступен, предложи понятный экспорт и импорт Markdown и не заявляй о фоновой синхронизации.
 
 Support an optional Obsidian connection with clear permissions and source attribution. For personal NotebookLM, use only workflows documented by official sources; where automatic API access is unavailable, provide a clear Markdown export/import workflow and do not claim background sync.
 
@@ -167,13 +120,13 @@ Support an optional Obsidian connection with clear permissions and source attrib
 
 ### macOS product design / Дизайн приложения для macOS
 
-Используй нативный SwiftUI и рекомендации Apple Human Interface Guidelines. Создай спокойное, самобытное и аккуратное учебное пространство с понятной иерархией, читаемым содержимым, продуманными отступами, нативной навигацией, управлением с клавиатуры, доступностью и восстановлением после ошибок. Избегай шаблонного неонового оформления, интерфейса, построенного вокруг чата, неработающих кнопок, пустых экранов и статусов, преувеличивающих готовность функций.
-
 Use native SwiftUI and Apple Human Interface Guidelines. Build a calm, distinctive, polished learning workspace with clear hierarchy, readable content, deliberate spacing, native navigation, keyboard support, accessibility, and recovery from errors. Avoid generic neon styling, a chat-first layout, fake buttons, placeholder screens, and status labels that overstate what works.
 
 Используй нативный SwiftUI и рекомендации Apple Human Interface Guidelines. Создай спокойное, выразительное и аккуратное рабочее пространство для обучения с ясной иерархией, читаемым содержанием, продуманными отступами, нативной навигацией, управлением с клавиатуры, доступностью и восстановлением после ошибок. Избегай шаблонного неона, интерфейса вокруг одного чата, фиктивных кнопок, пустых экранов и статусов, преувеличивающих готовность.
 
-Сохраняй основной учебный маршрут простым: выбрать предмет, увидеть прогресс, продолжить обучение, открыть тему, выполнить упражнение или визуализацию, получить обратную связь и понять следующий шаг. Сохраняй уже полезные ученикам действия, включая «Продолжить обучение» и просмотр прогресса, пока проверенный дефект не требует их изменить.
+The home dashboard is the learner’s starting point: show subjects and topics, a prominent Continue learning action, due reviews, a next-step recommendation with a short reason, course-completion progress, and separate evidence of understanding from knowledge checks. Every card must open a valid built-in or learner-created topic. If content was deleted or is unavailable, explain the state and offer recovery instead of opening a blank screen.
+
+Главная панель — отправная точка ученика: показывай предметы и темы, заметное действие «Продолжить обучение», сроки повторения, следующую рекомендацию с краткой причиной, прогресс завершения курсов и отдельно подтверждения понимания по проверкам знаний. Каждая карточка должна открывать существующую встроенную или созданную учеником тему. Если материал удалён или временно недоступен, объясни состояние и предложи восстановление, а не открывай пустой экран.
 
 Keep the main learning path simple: choose a subject, see progress, resume, open a topic, use its practice or visualization, receive feedback, and understand the next step. Preserve existing workflows that learners already find useful, including Continue learning and progress display, unless a verified defect requires changing them.
 
@@ -181,19 +134,13 @@ Keep the main learning path simple: choose a subject, see progress, resume, open
 
 ### Development order and acceptance / Порядок разработки и приёмка
 
-Сначала проверь репозиторий, инструкции, архитектуру, текущую ветку, настройку проверок и состояние рабочей копии. Зафиксируй доказательства по каждой проблеме. До расширения материалов и визуальной полировки устрани сбои P0: сломанные маршруты тьютора, неработающую навигацию, отсутствующие материалы и ложные статусы. Реализуй за один раз одну целостную, удобную для проверки часть и выполни узкие и сквозные проверки соответствующих уровней.
-
 First audit the repository, instructions, architecture, current branch, test setup, and working tree. Record the evidence for each issue. Prioritize P0 failures—broken tutor routes, dead navigation, missing material, false status—before content expansion and visual polish. Implement one coherent, reviewable slice at a time, with focused tests and end-to-end checks that exercise the responsible layers.
 
 Сначала проверь репозиторий, его инструкции, архитектуру, текущую ветку, систему проверок и незакоммиченные файлы. Для каждой проблемы зафиксируй факты. Сначала исправляй P0-дефекты — неработающие маршруты тьютора, сломанную навигацию, отсутствующие материалы и ложные статусы, — затем расширяй курсы и полируй визуальную часть. Делай по одному цельному, проверяемому срезу за раз, добавляя прицельные тесты и сквозные проверки нужных уровней.
 
-Проверяй полный маршрут от предмета и учебного плана до урока, упражнения, обратной связи, сохранённого прогресса и рекомендации. Включай встроенные предметы и созданные учеником темы. Проверяй русский и английский контент. Маршрутизацию ИИ проверяй в CI с помощью имитаций; реальный запрос провайдеру выполняй только по инициативе пользователя, который понимает возможные расходы или расход квоты. В каждом отчёте отдельно указывай модульные проверки, CI-сборки, проверки упакованного backend, запросы к реальной модели и ручную приёмку на Mac.
-
 Check the complete route from subject and roadmap to lesson, activity, feedback, saved progress, and recommendation. Include built-in and learner-created subjects. Verify Russian and English content. Test AI routing with mocks in CI, and run a real provider request only when the user initiates it and understands the possible quota or cost. Separate unit checks, CI builds, packaged-backend checks, live-model checks, and hands-on Mac acceptance in all reports.
 
 Проверяй полный маршрут от предмета и карты тем до урока, упражнения, обратной связи, сохранённого прогресса и рекомендации. Охватывай встроенные и созданные учеником предметы. Проверяй русский и английский контент. В CI проверяй маршрутизацию ИИ на заглушках; реальный запрос к провайдеру запускай только по действию пользователя, который понимает возможный расход квоты или денег. В каждом отчёте отдельно указывай результаты модульных проверок, сборок CI, проверок упакованного backend, запросов к реальной модели и ручной приёмки на Mac.
-
-Считай приложение ранним прототипом, пока критические маршруты и поведение на целевом Mac не приняты командой. Не обещай отсутствие багов, полное покрытие программы, автоматическое обновление уроков, бесплатные квоты или срок готовности без доказательств. Разработку Windows-версии и общедоступного сайта установщиков оставь на потом, после стабилизации релиза macOS.
 
 Treat the current app as an early prototype until the critical routes and target-Mac behavior have been accepted. Do not promise “bug free,” complete curriculum coverage, automatically current lessons, free quotas, or a delivery date without evidence. Keep Windows and a public installer website as later work after a stable macOS release.
 
@@ -202,8 +149,6 @@ Treat the current app as an early prototype until the critical routes and target
 ---
 
 ## Expected working style / Ожидаемый порядок работы
-
-Кратко зафиксируй результаты аудита и следующий приоритетный этап, а затем реализуй его. Веди проектную документацию на двух языках: рядом с каждым поясняющим английским фрагментом должен стоять полный перевод на русский. Не переводи идентификаторы, код, команды, ID моделей и названия API. В отчёте укажи, что изменилось, что проверено, что ещё требует настоящего Mac или провайдера, и приложи ссылку на конкретную сборку или pull request. Не называй запланированную функцию готовой.
 
 Summarize the audit findings and the highest-priority next slice, then implement it. Keep project documentation bilingual: every explanatory English passage must have a complete Russian translation beside it. Keep identifiers, code, commands, model IDs, and API names unchanged. Report what changed, what was verified, what still needs a real Mac or provider, and link the exact build or pull request. Never call a planned feature complete.
 
