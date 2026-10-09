@@ -3104,9 +3104,9 @@ private struct ReportedSpeechLab: View {
             return
         }
 
-        guard let selection else { return }
+        guard let selectedDisplayIndex = selection else { return }
         attemptsForQuestion += 1
-        let isCorrect = optionOrder.isCorrect(displayedIndex: selection)
+        let isCorrect = optionOrder.isCorrect(displayedIndex: selectedDisplayIndex)
         wasCorrect = isCorrect
         if !isCorrect {
             selection = nil
