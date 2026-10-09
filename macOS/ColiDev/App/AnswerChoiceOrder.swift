@@ -425,3 +425,10 @@ struct LessonAnswerFeedback: Equatable {
         )
     }
 }
+
+enum TenseContrastFeedback {
+    static func explanationKey(scenario: Int, isCorrect: Bool) -> String? {
+        guard (0...1).contains(scenario) else { return nil }
+        return "lab.tenseExplanation.\(scenario).\(isCorrect ? "correct" : "incorrect")"
+    }
+}

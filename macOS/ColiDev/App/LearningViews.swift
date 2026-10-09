@@ -2805,11 +2805,22 @@ private struct TenseContrastLab: View {
             }
 
             if let selectedAnswer {
+                let isCorrect = optionOrder.isCorrect(displayedIndex: selectedAnswer)
                 Label(
-                    L10n.text(optionOrder.isCorrect(displayedIndex: selectedAnswer) ? "lab.tenseCorrect" : "lab.tenseIncorrect", store.language),
-                    systemImage: optionOrder.isCorrect(displayedIndex: selectedAnswer) ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
+                    L10n.text(isCorrect ? "lab.tenseCorrect" : "lab.tenseIncorrect", store.language),
+                    systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
                 )
-                .foregroundStyle(optionOrder.isCorrect(displayedIndex: selectedAnswer) ? Color.green : Color.orange)
+                .foregroundStyle(isCorrect ? Color.green : Color.orange)
+
+                if let explanationKey = TenseContrastFeedback.explanationKey(
+                    scenario: scenario,
+                    isCorrect: isCorrect
+                ) {
+                    Text(L10n.text(explanationKey, store.language))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
     }
