@@ -23,6 +23,7 @@ private struct LearningProgressBackupFile: FileDocument {
 struct ContentView: View {
     @EnvironmentObject private var store: LearningStore
     @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selection: AppSection? = .today
 
     var body: some View {
@@ -39,7 +40,10 @@ struct ContentView: View {
 
                 Section {
                     ForEach(Subject.allCases) { subject in
-                        Label { Text(subject.title(in: store.language)) } icon: { Image(systemName: subject.symbol) }
+                        Label { Text(subject.title(in: store.language)) } icon: {
+                            Image(systemName: subject.symbol)
+                                .foregroundStyle(ColiDevVisualSystem.subjectColor(subject.rawValue))
+                        }
                             .tag(AppSection.subject(subject))
                     }
                     ForEach(store.customCurriculum.subjects) { subject in
@@ -121,6 +125,12 @@ struct ContentView: View {
                     SettingsView()
                 }
             }
+            .id(selection)
+            .transition(.opacity)
+            .animation(
+                reduceMotion ? nil : .easeInOut(duration: ColiDevVisualSystem.routineTransitionDuration),
+                value: selection
+            )
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Picker(selection: $store.language, label: Text(L10n.text("settings.language", store.language))) {
@@ -570,6 +580,7 @@ private struct SubjectCard: View {
 private struct SettingsView: View {
     @EnvironmentObject private var store: LearningStore
     @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
+    @AppStorage(ColiDevVisualSystem.soundPreferenceKey) private var soundEffectsEnabled = false
 
     var body: some View {
         Form {
@@ -579,6 +590,16 @@ private struct SettingsView: View {
                     Text("English").tag(AppLanguage.en)
                 }
                 .pickerStyle(.segmented)
+            }
+            Section {
+                Toggle(isOn: $soundEffectsEnabled) {
+                    Text(L10n.text("settings.soundEffects", store.language))
+                }
+                Text(L10n.text("settings.soundEffectsHelp", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text(L10n.text("settings.feedback", store.language))
             }
             Section {
                 Picker(selection: $store.aiMode, label: Text(L10n.text("settings.aiRoute", store.language))) {
@@ -945,6 +966,7 @@ private enum SourceRegistryFilter: String, CaseIterable, Identifiable {
 private struct ManagementView: View {
     @EnvironmentObject private var store: LearningStore
     @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pane: ManagementPane = .overview
     @State private var sourceInventory: TrustedSourceInventory?
     @State private var sourceSearchText = ""
@@ -1023,7 +1045,10 @@ private struct ManagementView: View {
                 }
             }
             .pickerStyle(.segmented)
+            .padding(5)
             .frame(maxWidth: 900)
+            .coliGlassControl(cornerRadius: 16)
+            .accessibilityIdentifier("control-center.pane-picker")
 
             if let statusMessage {
                 Label(statusMessage, systemImage: statusIsError ? "exclamationmark.triangle" : "checkmark.circle")
@@ -1048,8 +1073,15 @@ private struct ManagementView: View {
                     integrationsPane
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .id(pane)
+            .transition(.opacity)
+            .frame(maxWidth: .infinity, minHeight: 260, maxHeight: .infinity, alignment: .topLeading)
+            .animation(
+                reduceMotion ? nil : .easeInOut(duration: ColiDevVisualSystem.routineTransitionDuration),
+                value: pane
+            )
         }
+        .accessibilityIdentifier("control-center.root")
         .padding(28)
         .frame(maxWidth: 1120, alignment: .leading)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -1433,6 +1465,7 @@ private struct ManagementView: View {
             }
             .padding(.bottom, 18)
         }
+        .accessibilityIdentifier("control-center.overview")
     }
 
     private var coursesPane: some View {
@@ -2453,9 +2486,14 @@ private struct ManagementView: View {
 
     private func metric(title: String, value: String, symbol: String, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label(title, systemImage: symbol)
-                .font(.callout.weight(.medium))
-                .foregroundStyle(.secondary)
+            Label {
+                Text(title)
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(.secondary)
+            } icon: {
+                Image(systemName: symbol)
+                    .foregroundStyle(tint)
+            }
             Text(value)
                 .font(.title2.weight(.semibold).monospacedDigit())
                 .foregroundStyle(tint)
@@ -2464,7 +2502,11 @@ private struct ManagementView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 88, alignment: .leading)
-        .background(Color.secondary.opacity(0.055), in: RoundedRectangle(cornerRadius: 12))
+        .background(tint.opacity(0.075), in: RoundedRectangle(cornerRadius: 14))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(tint.opacity(0.16), lineWidth: 1)
+        }
     }
 
     private func statusRow(title: String, value: String, symbol: String) -> some View {

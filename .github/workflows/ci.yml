@@ -43,7 +43,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [macos-15, macos-15-intel]
+        runner: [macos-15, macos-26, macos-26-intel]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     steps:
@@ -52,6 +52,12 @@ jobs:
 
       - name: Show Xcode version
         run: xcodebuild -version
+
+      - name: Verify subject color and appearance tokens
+        run: |
+          swiftc macOS/ColiDev/App/AppVisualSystem.swift macOS/ColiDev/scripts/verify_app_visual_system.swift \
+            -o "$RUNNER_TEMP/verify-app-visual-system"
+          "$RUNNER_TEMP/verify-app-visual-system"
 
       - name: Set up Python for the Keychain backend
         uses: actions/setup-python@v7

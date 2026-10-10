@@ -52,6 +52,7 @@ flowchart TD
 - [09. Решения и открытые вопросы](categories/09-decisions.md)
 - [10. Журнал обсуждений](categories/10-session-notes.md)
 - [11. Обратная связь и критерии готовности](categories/11-feedback-and-acceptance.md)
+- [12. Интерфейс и доступность / Interface and accessibility](categories/12-interface-and-accessibility.md)
 
 ## Правило ведения
 

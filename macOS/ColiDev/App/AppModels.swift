@@ -42,14 +42,7 @@ enum Subject: String, CaseIterable, Identifiable, Hashable {
     }
 
     var tint: Color {
-        switch self {
-        case .mathematics: return .indigo
-        case .english: return .orange
-        case .physics: return .blue
-        case .biology: return .green
-        case .zoology: return .brown
-        case .programming: return .purple
-        }
+        ColiDevVisualSystem.subjectColor(rawValue)
     }
 }
 
@@ -457,7 +450,10 @@ final class LearningStore: ObservableObject {
         reflection: String = "",
         assessment: StudyAssessmentEvidence? = nil
     ) {
-        completedLessonIDs.insert(lessonID)
+        let isFirstCompletion = completedLessonIDs.insert(lessonID).inserted
+        if isFirstCompletion {
+            AppSoundFeedback.playCompletion()
+        }
         queueStudyReview(
             lessonID: lessonID,
             quality: quality,
