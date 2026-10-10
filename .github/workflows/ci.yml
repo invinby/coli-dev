@@ -43,7 +43,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [macos-15, macos-15-intel]
+        runner: [macos-15, macos-26, macos-26-intel]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     steps:
@@ -52,6 +52,12 @@ jobs:
 
       - name: Show Xcode version
         run: xcodebuild -version
+
+      - name: Verify subject color and appearance tokens
+        run: |
+          swiftc -parse-as-library macOS/ColiDev/App/AppVisualSystem.swift macOS/ColiDev/scripts/verify_app_visual_system.swift \
+            -o "$RUNNER_TEMP/verify-app-visual-system"
+          "$RUNNER_TEMP/verify-app-visual-system"
 
       - name: Set up Python for the Keychain backend
         uses: actions/setup-python@v7
@@ -71,6 +77,9 @@ jobs:
           swiftc macOS/ColiDev/App/ForceMotion.swift macOS/ColiDev/scripts/verify_friction_motion.swift \
             -o "$RUNNER_TEMP/verify-friction-motion"
           "$RUNNER_TEMP/verify-friction-motion"
+          swiftc macOS/ColiDev/App/LengthMeasurement.swift macOS/ColiDev/scripts/verify_length_measurement.swift \
+            -o "$RUNNER_TEMP/verify-length-measurement"
+          "$RUNNER_TEMP/verify-length-measurement"
 
       - name: Verify shared linear equation model
         run: |
@@ -92,6 +101,54 @@ jobs:
           swiftc macOS/ColiDev/App/LoopTrace.swift macOS/ColiDev/scripts/verify_loop_trace.swift \
             -o "$RUNNER_TEMP/verify-loop-trace"
           "$RUNNER_TEMP/verify-loop-trace"
+
+      - name: Verify answer choice order / Проверка порядка вариантов
+        run: |
+          swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/scripts/verify_answer_choice_order.swift \
+            -o "$RUNNER_TEMP/verify-answer-choice-order"
+          "$RUNNER_TEMP/verify-answer-choice-order"
+
+      - name: Verify English tense feedback / Проверка объяснений по английским временам
+        run: |
+          swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/L10n.swift macOS/ColiDev/scripts/verify_tense_contrast_feedback.swift \
+            -o "$RUNNER_TEMP/verify-tense-contrast-feedback"
+          "$RUNNER_TEMP/verify-tense-contrast-feedback"
+
+      - name: Verify gene-regulation feedback / Проверка разбора регуляции гена
+        run: |
+          swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/L10n.swift macOS/ColiDev/scripts/verify_gene_regulation_feedback.swift \
+            -o "$RUNNER_TEMP/verify-gene-regulation-feedback"
+          "$RUNNER_TEMP/verify-gene-regulation-feedback"
+
+      - name: Verify learner-facing lesson feedback / Проверка разбора ответа ученику
+        run: |
+          swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/scripts/verify_lesson_answer_feedback.swift \
+            -o "$RUNNER_TEMP/verify-lesson-answer-feedback"
+          "$RUNNER_TEMP/verify-lesson-answer-feedback"
+
+      - name: Verify real tutor reply state / Проверка реального ответа тьютора
+        run: |
+          swiftc macOS/ColiDev/App/TutorRouteProbeState.swift macOS/ColiDev/scripts/verify_tutor_route_probe_state.swift \
+            -o "$RUNNER_TEMP/verify-tutor-route-probe-state"
+          "$RUNNER_TEMP/verify-tutor-route-probe-state"
+
+      - name: Verify tutor composer readiness / Проверка готовности поля тьютора
+        run: |
+          swiftc macOS/ColiDev/App/TutorComposerReadiness.swift macOS/ColiDev/scripts/verify_tutor_composer_readiness.swift \
+            -o "$RUNNER_TEMP/verify-tutor-composer-readiness"
+          "$RUNNER_TEMP/verify-tutor-composer-readiness"
+
+      - name: Verify adaptive study recommendation / Проверка следующего шага обучения
+        run: |
+          swiftc -parse-as-library macOS/ColiDev/App/StudyRecommendation.swift macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/CustomCurriculum.swift macOS/ColiDev/scripts/verify_study_recommendation.swift \
+            -o "$RUNNER_TEMP/verify-study-recommendation"
+          "$RUNNER_TEMP/verify-study-recommendation"
+
+      - name: Verify user-created curriculum / Проверка пользовательских курсов
+        run: |
+          swiftc -parse-as-library macOS/ColiDev/App/CustomCurriculum.swift macOS/ColiDev/scripts/verify_custom_curriculum.swift \
+            -o "$RUNNER_TEMP/verify-custom-curriculum"
+          "$RUNNER_TEMP/verify-custom-curriculum"
 
       - name: Verify programming file-reading practice model
         run: |
@@ -119,13 +176,13 @@ jobs:
 
       - name: Verify gene expression model
         run: |
-          swiftc macOS/ColiDev/App/GeneExpression.swift macOS/ColiDev/scripts/verify_gene_expression.swift \
+          swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/GeneExpression.swift macOS/ColiDev/scripts/verify_gene_expression.swift \
             -o "$RUNNER_TEMP/verify-gene-expression"
           "$RUNNER_TEMP/verify-gene-expression"
 
-      - name: Verify cell-cycle practice model
+      - name: Verify cell-cycle practice model / Проверка тренажёра клеточного цикла
         run: |
-          swiftc macOS/ColiDev/App/CellCyclePractice.swift macOS/ColiDev/scripts/verify_cell_cycle_practice.swift \
+          swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/CellCyclePractice.swift macOS/ColiDev/scripts/verify_cell_cycle_practice.swift \
             -o "$RUNNER_TEMP/verify-cell-cycle-practice"
           "$RUNNER_TEMP/verify-cell-cycle-practice"
 
@@ -135,9 +192,15 @@ jobs:
             -o "$RUNNER_TEMP/verify-animal-function-practice"
           "$RUNNER_TEMP/verify-animal-function-practice"
 
-      - name: Verify English conditional practice model
+      - name: Verify zoology thermoregulation evidence model / Проверить модель данных терморегуляции
         run: |
-          swiftc macOS/ColiDev/App/EnglishLearningModels.swift macOS/ColiDev/scripts/verify_english_learning_models.swift \
+          swiftc macOS/ColiDev/App/ThermoregulationPractice.swift macOS/ColiDev/scripts/verify_thermoregulation_practice.swift \
+            -o "$RUNNER_TEMP/verify-thermoregulation-practice"
+          "$RUNNER_TEMP/verify-thermoregulation-practice"
+
+      - name: Verify English practice models and assessment events / Проверить тренажёры английского и события проверки
+        run: |
+          swiftc macOS/ColiDev/App/EnglishLearningModels.swift macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/scripts/verify_english_learning_models.swift \
             -o "$RUNNER_TEMP/verify-english-learning-models"
           "$RUNNER_TEMP/verify-english-learning-models"
 
@@ -146,6 +209,24 @@ jobs:
           swiftc macOS/ColiDev/App/RationalExpression.swift macOS/ColiDev/scripts/verify_rational_expression.swift \
             -o "$RUNNER_TEMP/verify-rational-expression"
           "$RUNNER_TEMP/verify-rational-expression"
+
+      - name: Verify quadratic function model / Проверка модели квадратичной функции
+        run: |
+          swiftc macOS/ColiDev/App/QuadraticFunctionPractice.swift macOS/ColiDev/scripts/verify_quadratic_function.swift \
+            -o "$RUNNER_TEMP/verify-quadratic-function"
+          "$RUNNER_TEMP/verify-quadratic-function"
+
+      - name: Verify trigonometry unit-circle model / Проверка модели единичной окружности
+        run: |
+          swiftc macOS/ColiDev/App/TrigonometricUnitCircle.swift macOS/ColiDev/scripts/verify_trigonometry_model.swift \
+            -o "$RUNNER_TEMP/verify-trigonometry-model"
+          "$RUNNER_TEMP/verify-trigonometry-model"
+
+      - name: Verify constrained optimization model / Проверка модели условной оптимизации
+        run: |
+          swiftc macOS/ColiDev/App/ConstrainedOptimization.swift macOS/ColiDev/scripts/verify_constrained_optimization.swift \
+            -o "$RUNNER_TEMP/verify-constrained-optimization"
+          "$RUNNER_TEMP/verify-constrained-optimization"
 
       - name: Verify algorithm complexity model
         run: |
@@ -164,6 +245,12 @@ jobs:
           swiftc macOS/ColiDev/App/SafeWebReferenceURL.swift macOS/ColiDev/scripts/verify_safe_web_reference_url.swift \
             -o "$RUNNER_TEMP/verify-safe-web-reference-url"
           "$RUNNER_TEMP/verify-safe-web-reference-url"
+
+      - name: Verify NotebookLM export provenance / Проверить источники в экспорте NotebookLM
+        run: |
+          swiftc macOS/ColiDev/App/NotebookLessonExport.swift macOS/ColiDev/scripts/verify_notebook_lesson_export.swift \
+            -o "$RUNNER_TEMP/verify-notebook-lesson-export"
+          "$RUNNER_TEMP/verify-notebook-lesson-export"
 
       - name: Build ColiDev for macOS
         run: >-
@@ -189,55 +276,11 @@ jobs:
         run: |
           resources="$RUNNER_TEMP/ColiDevDerivedData/Build/Products/Debug/ColiDev.app/Contents/Resources/02_Areas"
           test -x "$RUNNER_TEMP/ColiDevDerivedData/Build/Products/Debug/ColiDev.app/Contents/Resources/ColiDevBackend/ColiDevBackend"
-          for subject in Mathematics English Physics Biology Zoology Programming; do
-            test -s "$resources/$subject/curriculum.md"
-          done
-          while IFS=: read -r subject lesson; do
-            test -s "$resources/$subject/lessons/$lesson.md"
-          done <<'LESSONS'
-          Mathematics:functions_as_models
-          Mathematics:domain_and_range
-          Mathematics:rates_of_change_and_derivative
-          Mathematics:solving_linear_equations
-          Mathematics:numbers_fractions_and_percentages
-          Mathematics:geometry_area_perimeter
-          English:present_simple_and_continuous
-          English:present_perfect_simple_continuous
-          English:reading_for_gist_and_detail
-          English:daily_routines_and_collocations
-          English:zero_first_second_conditionals
-          Physics:net_force_and_acceleration
-          Physics:static_and_kinetic_friction
-          Physics:motion_with_constant_acceleration
-          Physics:projectile_motion
-          Physics:work_and_kinetic_energy
-          Physics:impulse_and_momentum
-          Physics:elastic_collisions
-          Biology:passive_transport_osmosis
-          Biology:scientific_method_and_experiments
-          Biology:photosynthesis_energy_and_carbon
-          Biology:mendelian_inheritance
-          Biology:dna_genes_and_traits
-          Biology:eukaryotic_cell_organelles
-          Biology:biomolecules_and_building_blocks
-          Biology:natural_selection_and_population_change
-          Biology:ecosystem_energy_flow
-          Biology:food_webs_and_matter_cycles
-          Zoology:adaptation_and_behavior
-          Zoology:animals_as_a_group
-          Zoology:major_animal_lineages
-          Zoology:symmetry_and_body_plans
-          Zoology:comparative_gas_exchange_and_circulation
-          Programming:computational_thinking
-          Programming:conditions_loops_functions
-          Programming:strings_files_and_exceptions
-          Programming:collections_and_loops
-          Programming:variables_and_types
-          LESSONS
+          python 01_Projects/curriculum_routes.py "$resources"
 
       - name: Package macOS app archive
         id: package
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: |
           app="$RUNNER_TEMP/ColiDevDerivedData/Build/Products/Debug/ColiDev.app"
           arch="$(uname -m)"
@@ -250,7 +293,7 @@ jobs:
         if: steps.package.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
-          name: ColiDev-macos-${{ steps.package.outputs.arch }}
+          name: ColiDev-${{ matrix.runner }}-${{ steps.package.outputs.arch }}
           path: ${{ steps.package.outputs.archive }}
           if-no-files-found: error
           retention-days: 14

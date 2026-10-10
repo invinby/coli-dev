@@ -3,7 +3,7 @@ subject: biology
 lesson_id: biology.biomolecules_and_building_blocks
 level: foundations
 languages: ru, en
-source_checked: 2026-10-06
+source_checked: 2026-10-08
 source_review_interval_days: 365
 ---
 
@@ -91,6 +91,6 @@ Group names help compare molecules, but they do not mean that every member has o
 
 ## Sources
 
-- Clark, M. A., Douglas, M., & Choi, J. (2018). *Biology 2e*, §§ 3.1–3.5, OpenStax. <https://openstax.org/books/biology-2e/pages/3-1-synthesis-of-biological-macromolecules>
-- OpenStax, *Biology 2e*, chapter 3 sections 3.2–3.5: <https://openstax.org/books/biology-2e/pages/3-introduction>
+- Clark, M. A., Douglas, M., & Choi, J. (2018). *Biology 2e*, [3.1 Synthesis of Biological Macromolecules / 3.1 «Синтез биологических макромолекул»](https://openstax.org/books/biology-2e/pages/3-1-synthesis-of-biological-macromolecules) — обезвоживающий синтез и гидролиз / dehydration synthesis and hydrolysis.
+- OpenStax, *Biology 2e*: [3.2 Carbohydrates / «Углеводы»](https://openstax.org/books/biology-2e/pages/3-2-carbohydrates), [3.3 Lipids / «Липиды»](https://openstax.org/books/biology-2e/pages/3-3-lipids), [3.4 Proteins / «Белки»](https://openstax.org/books/biology-2e/pages/3-4-proteins), and [3.5 Nucleic Acids / «Нуклеиновые кислоты»](https://openstax.org/books/biology-2e/pages/3-5-nucleic-acids) — точные разделы для утверждений о свойствах и функциях каждой группы / the specific sections supporting the descriptions and functions of each group. Checked / проверено 2026-10-08.
 - OpenStax reuse terms: <https://openstax.org/terms-of-use>

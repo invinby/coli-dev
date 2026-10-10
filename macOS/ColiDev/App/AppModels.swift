@@ -42,14 +42,7 @@ enum Subject: String, CaseIterable, Identifiable, Hashable {
     }
 
     var tint: Color {
-        switch self {
-        case .mathematics: return .indigo
-        case .english: return .orange
-        case .physics: return .blue
-        case .biology: return .green
-        case .zoology: return .brown
-        case .programming: return .purple
-        }
+        ColiDevVisualSystem.subjectColor(rawValue)
     }
 }
 
@@ -89,6 +82,8 @@ struct StudyReviewEvent: Codable, Identifiable {
     let lessonID: String
     let quality: Int
     let reflection: String?
+    let completeLesson: Bool?
+    let assessment: StudyAssessmentEvidence?
 
     var eventID: String { id }
 
@@ -97,6 +92,8 @@ struct StudyReviewEvent: Codable, Identifiable {
         case lessonID = "lesson_id"
         case quality
         case reflection
+        case completeLesson = "complete_lesson"
+        case assessment
     }
 }
 
@@ -107,9 +104,12 @@ struct StudyProgressRecord: Decodable, Identifiable {
     let intervalDays: Int
     let easeFactor: Double
     let reviewCount: Int
+    let lastQuality: Int?
     let dueAt: String?
     let lastReviewedAt: String?
     let reflection: String?
+    let assessment: StudyAssessmentEvidence?
+    let assessmentCount: Int?
     let updatedAt: String
 
     var id: String { lessonID }
@@ -124,21 +124,26 @@ struct StudyProgressRecord: Decodable, Identifiable {
         case intervalDays = "interval_days"
         case easeFactor = "ease_factor"
         case reviewCount = "review_count"
+        case lastQuality = "last_quality"
         case dueAt = "due_at"
         case lastReviewedAt = "last_reviewed_at"
         case reflection
+        case assessment
+        case assessmentCount = "assessment_count"
         case updatedAt = "updated_at"
     }
 }
 
 struct StudyProgressSnapshot: Decodable {
     let records: [StudyProgressRecord]
+    let assessmentEvidence: [StudyAssessmentEvidenceSummary]?
     let dueCount: Int
     let nextDueAt: String?
     let generatedAt: String
 
     enum CodingKeys: String, CodingKey {
         case records
+        case assessmentEvidence = "assessment_evidence"
         case dueCount = "due_count"
         case nextDueAt = "next_due_at"
         case generatedAt = "generated_at"
@@ -158,6 +163,16 @@ final class LearningStore: ObservableObject {
     @Published private(set) var completedLessonIDs: Set<String> {
         didSet { UserDefaults.standard.set(Array(completedLessonIDs), forKey: "colidev.completedLessons") }
     }
+    @Published private(set) var lastOpenedCourseRoute: StudyLessonRoute? {
+        didSet {
+            guard let lastOpenedCourseRoute,
+                  let data = try? JSONEncoder().encode(lastOpenedCourseRoute) else {
+                UserDefaults.standard.removeObject(forKey: "colidev.lastOpenedCourseRoute")
+                return
+            }
+            UserDefaults.standard.set(data, forKey: "colidev.lastOpenedCourseRoute")
+        }
+    }
     @Published private(set) var aiHealth: OrchestratorHealth?
     @Published private(set) var isCheckingAI = false
     @Published private(set) var providerSecretStatuses: [String: ProviderSecretStatus] = [:]
@@ -172,11 +187,44 @@ final class LearningStore: ObservableObject {
     @Published private(set) var isRefreshingProviderUsage = false
     @Published private(set) var providerUsageUnavailable = false
     @Published private(set) var studyProgress: [String: StudyProgressRecord] = [:]
+    @Published private(set) var studyAssessmentEvidence: [String: StudyAssessmentEvidenceSummary] = [:]
     @Published private(set) var dueReviewCount = 0
+
+    var studyRecallEvidence: [String: StudyRecallEvidence] {
+        studyProgress.values.reduce(into: [:]) { evidence, record in
+            guard let quality = record.lastQuality else { return }
+            evidence[record.lessonID] = StudyRecallEvidence(
+                quality: quality,
+                reviewedAt: record.lastReviewedAt,
+                assessment: record.assessment
+            )
+        }
+    }
+
+    var studyProgressionEvidence: StudyProgressionEvidence {
+        StudyProgressionEvidence(
+            completedLessonIDs: completedLessonIDs,
+            recallEvidence: studyRecallEvidence,
+            assessmentEvidence: studyAssessmentEvidence
+        )
+    }
+
+    @Published private(set) var customCurriculum: CustomCurriculum {
+        didSet {
+            guard let data = try? JSONEncoder().encode(customCurriculum) else { return }
+            UserDefaults.standard.set(data, forKey: "colidev.customCurriculum")
+        }
+    }
     @Published private var pendingStudyReviews: [StudyReviewEvent] {
         didSet {
             guard let data = try? JSONEncoder().encode(pendingStudyReviews) else { return }
             UserDefaults.standard.set(data, forKey: "colidev.pendingStudyReviews")
+        }
+    }
+    @Published private var pendingStudyAssessments: [StudyAssessmentEvent] {
+        didSet {
+            guard let data = try? JSONEncoder().encode(pendingStudyAssessments) else { return }
+            UserDefaults.standard.set(data, forKey: "colidev.pendingStudyAssessments")
         }
     }
     private var isSyncingStudyProgress = false
@@ -191,6 +239,18 @@ final class LearningStore: ObservableObject {
         let savedLanguage = UserDefaults.standard.string(forKey: "colidev.language")
         language = AppLanguage(rawValue: savedLanguage ?? "") ?? .ru
         completedLessonIDs = Set(UserDefaults.standard.stringArray(forKey: "colidev.completedLessons") ?? [])
+        if let data = UserDefaults.standard.data(forKey: "colidev.lastOpenedCourseRoute"),
+           let savedRoute = try? JSONDecoder().decode(StudyLessonRoute.self, from: data) {
+            lastOpenedCourseRoute = savedRoute
+        } else {
+            lastOpenedCourseRoute = nil
+        }
+        if let data = UserDefaults.standard.data(forKey: "colidev.customCurriculum"),
+           let savedCurriculum = try? JSONDecoder().decode(CustomCurriculum.self, from: data) {
+            customCurriculum = savedCurriculum
+        } else {
+            customCurriculum = CustomCurriculum()
+        }
         let savedMode = UserDefaults.standard.string(forKey: "colidev.aiMode")
         aiMode = AIRoutingMode(rawValue: savedMode ?? "") ?? .automatic
         if let pending = UserDefaults.standard.data(forKey: "colidev.pendingStudyReviews"),
@@ -198,6 +258,12 @@ final class LearningStore: ObservableObject {
             pendingStudyReviews = events
         } else {
             pendingStudyReviews = []
+        }
+        if let pending = UserDefaults.standard.data(forKey: "colidev.pendingStudyAssessments"),
+           let events = try? JSONDecoder().decode([StudyAssessmentEvent].self, from: pending) {
+            pendingStudyAssessments = events
+        } else {
+            pendingStudyAssessments = []
         }
     }
 
@@ -280,8 +346,10 @@ final class LearningStore: ObservableObject {
         }
     }
 
-    func saveAutoAgentModelRoute(role: String, model: String?) async throws {
-        let route = try await OrchestratorClient.saveAutoAgentModelRoute(role: role, model: model)
+    func saveAutoAgentModelRoute(role: String, provider: String, model: String?) async throws {
+        let route = try await OrchestratorClient.saveAutoAgentModelRoute(
+            role: role, provider: provider, model: model
+        )
         autoAgentModelRoutes[route.role] = route
     }
 
@@ -364,21 +432,54 @@ final class LearningStore: ObservableObject {
         completedLessonIDs.contains(lessonID)
     }
 
+    func rememberCourseLesson(subject: Subject, resource: String) {
+        rememberStudyRoute(StudyLessonRoute(subjectID: subject.rawValue, resource: resource))
+    }
+
+    func rememberStudyRoute(_ route: StudyLessonRoute) {
+        lastOpenedCourseRoute = route
+    }
+
     func markComplete(_ subject: Subject, reflection: String = "") {
         markComplete(lessonID: subject.lessonID, quality: 4, reflection: reflection)
     }
 
-    func markComplete(lessonID: String, quality: Int, reflection: String = "") {
-        completedLessonIDs.insert(lessonID)
-        queueStudyReview(lessonID: lessonID, quality: quality, reflection: reflection)
+    func markComplete(
+        lessonID: String,
+        quality: Int,
+        reflection: String = "",
+        assessment: StudyAssessmentEvidence? = nil
+    ) {
+        let isFirstCompletion = completedLessonIDs.insert(lessonID).inserted
+        if isFirstCompletion {
+            AppSoundFeedback.playCompletion()
+        }
+        queueStudyReview(
+            lessonID: lessonID,
+            quality: quality,
+            reflection: reflection,
+            completeLesson: true,
+            assessment: assessment
+        )
     }
 
     func recordReview(for subject: Subject, reflection: String = "") {
         recordReview(lessonID: subject.lessonID, quality: 4, reflection: reflection)
     }
 
-    func recordReview(lessonID: String, quality: Int, reflection: String = "") {
-        queueStudyReview(lessonID: lessonID, quality: quality, reflection: reflection)
+    func recordReview(
+        lessonID: String,
+        quality: Int,
+        reflection: String = "",
+        assessment: StudyAssessmentEvidence? = nil
+    ) {
+        queueStudyReview(
+            lessonID: lessonID,
+            quality: quality,
+            reflection: reflection,
+            completeLesson: false,
+            assessment: assessment
+        )
     }
 
     func isReviewDue(_ subject: Subject) -> Bool {
@@ -439,9 +540,21 @@ final class LearningStore: ObservableObject {
             }
         }
 
+        while let event = pendingStudyAssessments.first {
+            do {
+                try await OrchestratorClient.recordStudyAssessment(event)
+                pendingStudyAssessments.removeAll(where: { $0.id == event.id })
+            } catch {
+                return
+            }
+        }
+
         do {
             let snapshot = try await OrchestratorClient.studyProgress()
             studyProgress = Dictionary(uniqueKeysWithValues: snapshot.records.map { ($0.lessonID, $0) })
+            studyAssessmentEvidence = Dictionary(
+                uniqueKeysWithValues: (snapshot.assessmentEvidence ?? []).map { ($0.lessonID, $0) }
+            )
             dueReviewCount = snapshot.records.filter { record in
                 (record.dueDate ?? .distantFuture) <= Date()
             }.count
@@ -453,19 +566,125 @@ final class LearningStore: ObservableObject {
         }
     }
 
-    var completedSubjectCount: Int {
-        Subject.allCases.filter(isComplete).count
+    var pendingStudyReviewCount: Int { pendingStudyReviews.count }
+    var pendingStudyAssessmentCount: Int { pendingStudyAssessments.count }
+
+    @discardableResult
+    func addCustomSubject(name: CustomCurriculumText, description: CustomCurriculumText) throws -> UUID {
+        var updated = customCurriculum
+        let reservedNames = Subject.allCases.map { subject in
+            CustomCurriculumText(
+                russian: subject.title(in: .ru),
+                english: subject.title(in: .en)
+            )
+        }
+        let id = try updated.addSubject(name: name, description: description, reservedNames: reservedNames)
+        customCurriculum = updated
+        return id
     }
 
-    var pendingStudyReviewCount: Int { pendingStudyReviews.count }
+    @discardableResult
+    func addCustomTopic(
+        subjectID: UUID,
+        parentTopicID: UUID?,
+        name: CustomCurriculumText,
+        learningOutcome: CustomCurriculumText,
+        notes: CustomCurriculumText,
+        level: Int
+    ) throws -> UUID {
+        var updated = customCurriculum
+        let id = try updated.addTopic(
+            subjectID: subjectID,
+            parentTopicID: parentTopicID,
+            name: name,
+            learningOutcome: learningOutcome,
+            notes: notes,
+            level: level
+        )
+        customCurriculum = updated
+        return id
+    }
 
-    private func queueStudyReview(lessonID: String, quality: Int, reflection: String) {
+    @discardableResult
+    func addCustomTopic(
+        builtInSubject: Subject,
+        parentTopicID: UUID?,
+        name: CustomCurriculumText,
+        learningOutcome: CustomCurriculumText,
+        notes: CustomCurriculumText,
+        level: Int
+    ) throws -> UUID {
+        var updated = customCurriculum
+        let id = try updated.addTopic(
+            builtInSubjectID: builtInSubject.rawValue,
+            parentTopicID: parentTopicID,
+            name: name,
+            learningOutcome: learningOutcome,
+            notes: notes,
+            level: level
+        )
+        customCurriculum = updated
+        return id
+    }
+
+    @discardableResult
+    func addCustomTopicOutline(
+        _ proposal: CustomTopicOutlineProposal,
+        to destination: CustomTopicOutlineDestination,
+        parentTopicID: UUID
+    ) throws -> [UUID] {
+        var updated = customCurriculum
+        let ids = try updated.addOutline(
+            proposal.topics,
+            to: destination,
+            parentTopicID: parentTopicID
+        )
+        customCurriculum = updated
+        return ids
+    }
+
+    func removeCustomSubject(id: UUID) {
+        var updated = customCurriculum
+        guard updated.removeSubject(id: id) else { return }
+        customCurriculum = updated
+    }
+
+    func removeCustomTopic(subjectID: UUID, topicID: UUID) {
+        var updated = customCurriculum
+        guard updated.removeTopic(subjectID: subjectID, topicID: topicID) else { return }
+        customCurriculum = updated
+    }
+
+    func removeCustomTopic(builtInSubject: Subject, topicID: UUID) {
+        var updated = customCurriculum
+        guard updated.removeTopic(builtInSubjectID: builtInSubject.rawValue, topicID: topicID) else { return }
+        customCurriculum = updated
+    }
+
+    func recordStudyAssessment(lessonID: String, evidence: StudyAssessmentEvidence) {
+        pendingStudyAssessments.append(StudyAssessmentEvent(
+            id: UUID().uuidString.lowercased(),
+            lessonID: lessonID,
+            assessment: evidence
+        ))
+        Task { await syncStudyProgress() }
+    }
+
+    private func queueStudyReview(
+        lessonID: String,
+        quality: Int,
+        reflection: String,
+        completeLesson: Bool?,
+        assessment: StudyAssessmentEvidence? = nil
+    ) {
         guard !hasPendingReview(lessonID: lessonID) else { return }
         pendingStudyReviews.append(StudyReviewEvent(
             id: UUID().uuidString.lowercased(),
             lessonID: lessonID,
             quality: quality,
-            reflection: String(reflection.trimmingCharacters(in: .whitespacesAndNewlines).prefix(500))
+            reflection: String(reflection.trimmingCharacters(in: .whitespacesAndNewlines).prefix(500)),
+            completeLesson: completeLesson,
+            assessment: assessment
         ))
         Task { await syncStudyProgress() }
     }
@@ -641,6 +860,9 @@ struct OrchestratorHealth: Decodable {
     let sessionMode: String?
     let sessionCurrent: Int?
     let sessionMax: Int?
+    let cloudRouteReady: Bool?
+    let localRouteReady: Bool?
+    let automaticRouteReady: Bool?
     let cloudModelCallsToday: Int?
     let cloudModelCallsMax: Int?
     let cloudModelCallsRemaining: Int?
@@ -666,7 +888,9 @@ struct OrchestratorHealth: Decodable {
         guard let sessionCurrent, let sessionMax else { return true }
         return sessionCurrent < sessionMax
     }
-    var hasAutomaticRoute: Bool { hasCloudSession || hasLocalModel }
+
+    var hasCloudRoute: Bool { cloudRouteReady ?? false }
+    var hasAutomaticRoute: Bool { automaticRouteReady ?? false }
 
     enum CodingKeys: String, CodingKey {
         case status, online, provider
@@ -682,6 +906,9 @@ struct OrchestratorHealth: Decodable {
         case sessionMode = "session_mode"
         case sessionCurrent = "session_current"
         case sessionMax = "session_max"
+        case cloudRouteReady = "cloud_route_ready"
+        case localRouteReady = "local_route_ready"
+        case automaticRouteReady = "automatic_route_ready"
         case cloudModelCallsToday = "cloud_model_calls_today"
         case cloudModelCallsMax = "cloud_model_calls_max"
         case cloudModelCallsRemaining = "cloud_model_calls_remaining"
@@ -1031,17 +1258,24 @@ struct SubjectModelRoutingSnapshot: Decodable {
 
 struct AutoAgentModelRoute: Decodable, Identifiable, Hashable {
     let role: String
+    let provider: String
     let model: String?
+    let effectiveProvider: String
     let effectiveModel: String
-    let providerReady: Bool
+    let providerReady: Bool?
+    let effectiveProviderReady: Bool?
     let status: String
+    let paidRouteBlocked: Bool
 
     var id: String { role }
 
     enum CodingKeys: String, CodingKey {
-        case role, model, status
+        case role, provider, model, status
+        case effectiveProvider = "effective_provider"
         case effectiveModel = "effective_model"
         case providerReady = "provider_ready"
+        case effectiveProviderReady = "effective_provider_ready"
+        case paidRouteBlocked = "paid_route_blocked"
     }
 }
 
@@ -1061,12 +1295,14 @@ struct LocalOllamaModelCatalog: Decodable, Equatable {
 struct FinalSynthesisModelRoute: Decodable, Hashable {
     let provider: String
     let model: String?
+    let effectiveProvider: String
     let effectiveModel: String
     let providerReady: Bool?
     let status: String
 
     enum CodingKeys: String, CodingKey {
         case provider, model, status
+        case effectiveProvider = "effective_provider"
         case effectiveModel = "effective_model"
         case providerReady = "provider_ready"
     }
@@ -1096,6 +1332,7 @@ private struct OpenAICompatibleSettingsUpdate: Encodable {
 }
 
 private struct AutoAgentModelUpdate: Encodable {
+    let provider: String
     let model: String?
 }
 
@@ -1138,6 +1375,7 @@ private struct TutorRequest: Encodable {
     let language: String
     let mode: String
     let retrievalQuery: String
+    let skipRetrieval: Bool
     let useWebSearch: Bool
     let groundingAgeConfirmed: Bool
     let includeLocalSourcesInWebSearch: Bool
@@ -1146,6 +1384,7 @@ private struct TutorRequest: Encodable {
         case message, subject, language, mode
         case systemPrompt = "system_prompt"
         case retrievalQuery = "retrieval_query"
+        case skipRetrieval = "skip_retrieval"
         case useWebSearch = "use_web_search"
         case groundingAgeConfirmed = "grounding_age_confirmed"
         case includeLocalSourcesInWebSearch = "include_local_sources_in_web_search"
@@ -1489,6 +1728,21 @@ enum OrchestratorClient {
         return try JSONDecoder().decode(StudyProgressRecord.self, from: data)
     }
 
+    static func recordStudyAssessment(_ event: StudyAssessmentEvent) async throws {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/learning/assessments") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 8
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(event)
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+    }
+
     static func providerSecretStatuses() async throws -> [ProviderSecretStatus] {
         guard let url = URL(string: LearningStore.orchestratorBaseURL + "/settings/api-keys") else {
             throw ClientError.invalidResponse
@@ -1609,7 +1863,9 @@ enum OrchestratorClient {
         return try JSONDecoder().decode(LocalOllamaModelCatalog.self, from: data)
     }
 
-    static func saveAutoAgentModelRoute(role: String, model: String?) async throws -> AutoAgentModelRoute {
+    static func saveAutoAgentModelRoute(
+        role: String, provider: String, model: String?
+    ) async throws -> AutoAgentModelRoute {
         guard let url = URL(string: LearningStore.orchestratorBaseURL + "/settings/agent-models/\(role)") else {
             throw ClientError.invalidResponse
         }
@@ -1617,7 +1873,9 @@ enum OrchestratorClient {
         request.httpMethod = "PUT"
         request.timeoutInterval = 15
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(AutoAgentModelUpdate(model: model))
+        request.httpBody = try JSONEncoder().encode(
+            AutoAgentModelUpdate(provider: provider, model: model)
+        )
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             throw ClientError.unavailable
@@ -1752,12 +2010,13 @@ enum OrchestratorClient {
         message: String,
         systemPrompt: String,
         retrievalQuery: String,
-        subject: Subject,
+        subjectID: String,
         language: AppLanguage,
         mode: AIRoutingMode,
         useWebSearch: Bool = false,
         groundingAgeConfirmed: Bool = false,
         includeLocalSourcesInWebSearch: Bool = false,
+        skipRetrieval: Bool = false,
         onToken: @MainActor (String) -> Void,
         onFinalAnswer: @MainActor (String) -> Void
     ) async throws -> TutorCompletion {
@@ -1772,10 +2031,11 @@ enum OrchestratorClient {
         request.httpBody = try JSONEncoder().encode(TutorRequest(
             message: message,
             systemPrompt: systemPrompt,
-            subject: subject.rawValue,
+            subject: subjectID,
             language: language.rawValue,
             mode: mode.rawValue,
             retrievalQuery: retrievalQuery,
+            skipRetrieval: skipRetrieval,
             useWebSearch: useWebSearch,
             groundingAgeConfirmed: groundingAgeConfirmed,
             includeLocalSourcesInWebSearch: includeLocalSourcesInWebSearch
@@ -1816,6 +2076,59 @@ enum OrchestratorClient {
 
         guard let completion else { throw ClientError.incompleteStream }
         return completion
+    }
+}
+
+@MainActor
+final class TutorRouteProbeModel: ObservableObject {
+    @Published private(set) var state: TutorRouteProbeState = .idle
+
+    var isChecking: Bool { state == .checking }
+
+    func begin() {
+        guard !isChecking else { return }
+        state = .checking
+    }
+
+    func reset() {
+        state = .idle
+    }
+
+    func fail(_ message: String) {
+        state = .failed(message)
+    }
+
+    func check(language: AppLanguage, mode: AIRoutingMode) async {
+        begin()
+        var answer = ""
+
+        do {
+            let completion = try await OrchestratorClient.streamChat(
+                message: L10n.text("settings.tutorProbe.message", language),
+                systemPrompt: L10n.text("settings.tutorProbe.system", language),
+                retrievalQuery: "",
+                subjectID: Subject.mathematics.rawValue,
+                language: language,
+                mode: mode,
+                skipRetrieval: true,
+                onToken: { answer += $0 },
+                onFinalAnswer: { answer = $0 }
+            )
+            guard let verified = TutorRouteProbeState.verifiedResponse(
+                provider: completion.provider,
+                model: completion.model,
+                answer: answer,
+                durationMS: completion.durationMS
+            ) else {
+                state = .failed(L10n.text("settings.tutorProbe.emptyResponse", language))
+                return
+            }
+            state = verified
+        } catch OrchestratorClient.ClientError.serverError(let message) {
+            state = .failed(message)
+        } catch {
+            state = .failed(L10n.text("settings.tutorProbe.failed", language))
+        }
     }
 }
 
@@ -1869,13 +2182,23 @@ final class TutorChatModel: ObservableObject {
     @Published private(set) var completionLabel: String?
     private var requestTask: Task<Void, Never>?
 
-    let subject: Subject
+    let subjectID: String
+    let subjectName: String
     let lesson: LessonContent
     let language: AppLanguage
     let mode: AIRoutingMode
 
     init(subject: Subject, lesson: LessonContent, language: AppLanguage, mode: AIRoutingMode) {
-        self.subject = subject
+        self.subjectID = subject.rawValue
+        self.subjectName = subject.title(in: language)
+        self.lesson = lesson
+        self.language = language
+        self.mode = mode
+    }
+
+    init(subjectID: String, subjectName: String, lesson: LessonContent, language: AppLanguage, mode: AIRoutingMode) {
+        self.subjectID = subjectID
+        self.subjectName = subjectName
         self.lesson = lesson
         self.language = language
         self.mode = mode
@@ -1897,7 +2220,6 @@ final class TutorChatModel: ObservableObject {
         messages.append(reply)
         isSending = true
 
-        let subjectName = subject.title(in: language)
         let systemPrompt: String
         if language == .ru {
             systemPrompt = """
@@ -1937,7 +2259,7 @@ final class TutorChatModel: ObservableObject {
                     message: requestMessage,
                     systemPrompt: systemPrompt,
                     retrievalQuery: "\(subjectName) \(lesson.title) \(question)",
-                    subject: subject,
+                    subjectID: subjectID,
                     language: language,
                     mode: mode,
                     useWebSearch: useWebSearch,
@@ -1946,12 +2268,18 @@ final class TutorChatModel: ObservableObject {
                     onToken: { [weak self] token in self?.append(token, to: reply.id) },
                     onFinalAnswer: { [weak self] answer in self?.replace(answer, in: reply.id) }
                 )
-                completionLabel = [result.provider, result.model].filter { !$0.isEmpty }.joined(separator: " · ")
-                if let index = messages.firstIndex(where: { $0.id == reply.id }) {
-                    messages[index].sources = result.sources
-                    messages[index].citationWarnings = result.citationWarnings
-                    messages[index].googleSearchSuggestions = result.googleSearchSuggestions
-                    messages[index].isGoogleGrounded = result.googleSearchSuggestions != nil
+                if let replyMessage = messages.first(where: { $0.id == reply.id }),
+                   !replyMessage.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    completionLabel = [result.provider, result.model].filter { !$0.isEmpty }.joined(separator: " · ")
+                    if let index = messages.firstIndex(where: { $0.id == reply.id }) {
+                        messages[index].sources = result.sources
+                        messages[index].citationWarnings = result.citationWarnings
+                        messages[index].googleSearchSuggestions = result.googleSearchSuggestions
+                        messages[index].isGoogleGrounded = result.googleSearchSuggestions != nil
+                    }
+                } else {
+                    discard(reply.id)
+                    errorMessage = L10n.text("tutor.emptyResponse", language)
                 }
             } catch is CancellationError {
                 // Keep a partial answer visible when the learner stops generation.
@@ -1961,8 +2289,8 @@ final class TutorChatModel: ObservableObject {
             } catch {
                 discard(reply.id)
                 errorMessage = language == .ru
-                    ? "Не удалось получить ответ. Проверь, запущен ли локальный оркестратор."
-                    : "The tutor could not reply. Check that the local orchestrator is running."
+                    ? "Не удалось получить ответ. Проверь доступность backend и настройки выбранной модели."
+                    : "The tutor could not reply. Check the backend and the selected model configuration."
             }
             isSending = false
             requestTask = nil
@@ -1994,6 +2322,10 @@ enum AppSection: Hashable {
     case subject(Subject)
     case lesson(Subject)
     case courseLesson(Subject, String)
+    case customSubject(UUID)
+    case customTopic(UUID, UUID)
+    case builtInCustomTopic(Subject, UUID)
     case management
+    case localModels
     case settings
 }

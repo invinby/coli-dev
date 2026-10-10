@@ -3,7 +3,7 @@ subject: biology
 lesson_id: biology.cell_cycle_and_differentiation
 level: intermediate
 languages: ru, en
-source_checked: 2026-10-06
+source_checked: 2026-10-08
 source_review_interval_days: 180
 ---
 
@@ -91,5 +91,6 @@ This is a standard overview of a dividing eukaryotic cell. It does not assign un
 
 ## Sources
 
-- OpenStax Biology 2e, [10.2 The Cell Cycle](https://openstax.org/books/biology-2e/pages/10-2-the-cell-cycle) — overview of interphase, mitosis, and cytokinesis; checked 2026-10-06.
-- NHGRI, [Chromatid](https://www.genome.gov/genetics-glossary/Chromatid) — sister chromatids and their separation; checked 2026-10-06.
+- OpenStax Biology 2e, [10.2 The Cell Cycle / 10.2 «Клеточный цикл»](https://openstax.org/books/biology-2e/pages/10-2-the-cell-cycle) — интерфаза, митоз и цитокинез / interphase, mitosis, and cytokinesis; checked / проверено 2026-10-08.
+- NHGRI, [Chromatid / «Хроматида»](https://www.genome.gov/genetics-glossary/Chromatid) — сестринские хроматиды и их расхождение / sister chromatids and their separation; checked / проверено 2026-10-08.
+- NCBI Bookshelf, [The Molecular Genetic Mechanisms That Create Specialized Cell Types / «Молекулярно-генетические механизмы формирования специализированных типов клеток»](https://www.ncbi.nlm.nih.gov/books/NBK26854/) — различия типов клеток связаны с регуляцией экспрессии генов / cell-type differences and gene-expression regulation; checked / проверено 2026-10-08.

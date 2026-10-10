@@ -23,6 +23,7 @@ private struct LearningProgressBackupFile: FileDocument {
 struct ContentView: View {
     @EnvironmentObject private var store: LearningStore
     @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selection: AppSection? = .today
 
     var body: some View {
@@ -39,8 +40,19 @@ struct ContentView: View {
 
                 Section {
                     ForEach(Subject.allCases) { subject in
-                        Label { Text(subject.title(in: store.language)) } icon: { Image(systemName: subject.symbol) }
+                        Label { Text(subject.title(in: store.language)) } icon: {
+                            Image(systemName: subject.symbol)
+                                .foregroundStyle(ColiDevVisualSystem.subjectColor(subject.rawValue))
+                        }
                             .tag(AppSection.subject(subject))
+                    }
+                    ForEach(store.customCurriculum.subjects) { subject in
+                        Label {
+                            Text(subject.name.value(in: store.language.rawValue))
+                        } icon: {
+                            Image(systemName: "books.vertical.fill")
+                        }
+                        .tag(AppSection.customSubject(subject.id))
                     }
                 } header: {
                     Text(L10n.text("nav.subjects", store.language))
@@ -51,6 +63,10 @@ struct ContentView: View {
                         Image(systemName: "wrench.and.screwdriver")
                     }
                     .tag(AppSection.management)
+                    Label { Text(L10n.text("management.models", store.language)) } icon: {
+                        Image(systemName: "cpu")
+                    }
+                    .tag(AppSection.localModels)
                     Label { Text(L10n.text("nav.settings", store.language)) } icon: { Image(systemName: "gearshape") }
                         .tag(AppSection.settings)
                 }
@@ -61,15 +77,21 @@ struct ContentView: View {
             Group {
                 switch selection ?? .today {
                 case .today:
-                    TodayView(open: open, openDueReview: openDueReview)
+                    TodayView(
+                        open: open,
+                        openCustom: openCustom,
+                        openCourseLesson: openRecommendedLesson,
+                        openDueReview: openDueReview
+                    )
                 case .subjects:
-                    SubjectCatalogView(open: open)
+                    SubjectCatalogView(open: open, openCustom: openCustom)
                 case .subject(let subject):
                     SubjectOverviewView(
                         subject: subject,
                         openCourseLesson: { resource in
-                            selection = .courseLesson(subject, resource)
-                        }
+                            openCourseLesson(subject: subject, resource: resource)
+                        },
+                        openCustomTopic: { selection = .builtInCustomTopic(subject, $0) }
                     ) {
                         selection = .lesson(subject)
                     }
@@ -79,12 +101,36 @@ struct ContentView: View {
                     }
                 case .courseLesson(let subject, let resource):
                     CurriculumModuleView(subject: subject, resource: resource)
+                case .customSubject(let subjectID):
+                    CustomSubjectDetailView(
+                        subjectID: subjectID,
+                        openTopic: { selection = .customTopic(subjectID, $0) },
+                        onDelete: { selection = .subjects }
+                    )
+                case .customTopic(let subjectID, let topicID):
+                    CustomTopicStudyView(subjectID: subjectID, topicID: topicID) {
+                        selection = .customSubject(subjectID)
+                    }
+                case .builtInCustomTopic(let subject, let topicID):
+                    BuiltInCustomTopicStudyView(subject: subject, topicID: topicID) {
+                        selection = .subject(subject)
+                    }
                 case .management:
                     ManagementView(openSettings: { selection = .settings })
+                        .id(AppSection.management)
+                case .localModels:
+                    ManagementView(openSettings: { selection = .settings }, initialPane: .models)
+                        .id(AppSection.localModels)
                 case .settings:
                     SettingsView()
                 }
             }
+            .id(selection)
+            .transition(.opacity)
+            .animation(
+                reduceMotion ? nil : .easeInOut(duration: ColiDevVisualSystem.routineTransitionDuration),
+                value: selection
+            )
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Picker(selection: $store.language, label: Text(L10n.text("settings.language", store.language))) {
@@ -113,23 +159,140 @@ struct ContentView: View {
         selection = .subject(subject)
     }
 
-    private func openDueReview(_ subject: Subject, lessonID: String) {
-        if lessonID == subject.lessonID {
-            selection = .lesson(subject)
-        } else {
-            let prefix = "\(subject.rawValue)."
-            let resource = String(lessonID.dropFirst(prefix.count))
-            selection = .courseLesson(subject, resource)
+    private func openCustom(_ subjectID: UUID) {
+        selection = .customSubject(subjectID)
+    }
+
+    private func openCourseLesson(subject: Subject, resource: String) {
+        let route = StudyLessonRoute(subjectID: subject.rawValue, resource: resource)
+        if let roadmap = CurriculumCatalog.studyRoadmaps().first(where: { $0.subjectID == subject.rawValue }),
+           !StudyProgressionPolicy.isAvailable(route, in: roadmap, evidence: store.studyProgressionEvidence) {
+            selection = .subject(subject)
+            return
         }
+        store.rememberCourseLesson(subject: subject, resource: resource)
+        selection = .courseLesson(subject, resource)
+    }
+
+    private func openRecommendedLesson(_ route: StudyLessonRoute) {
+        openStudyRoute(route)
+    }
+
+    private func openDueReview(_ route: StudyLessonRoute) {
+        openStudyRoute(route)
+    }
+
+    private func openStudyRoute(_ route: StudyLessonRoute) {
+        if let address = CustomTopicStudyRoute.address(for: route, in: store.customCurriculum) {
+            store.rememberStudyRoute(route)
+            switch address {
+            case .learnerSubject(let subjectID, let topicID):
+                selection = .customTopic(subjectID, topicID)
+            case .builtInSubject(let subjectID, let topicID):
+                guard let subject = Subject(rawValue: subjectID) else { return }
+                selection = .builtInCustomTopic(subject, topicID)
+            }
+            return
+        }
+        if route.subjectID == "intro", let subject = Subject(rawValue: route.resource) {
+            selection = .lesson(subject)
+            return
+        }
+        guard let subject = Subject(rawValue: route.subjectID) else { return }
+        openCourseLesson(subject: subject, resource: route.resource)
     }
 }
 
 private struct TodayView: View {
     @EnvironmentObject private var store: LearningStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let open: (Subject) -> Void
-    let openDueReview: (Subject, String) -> Void
+    let openCustom: (UUID) -> Void
+    let openCourseLesson: (StudyLessonRoute) -> Void
+    let openDueReview: (StudyLessonRoute) -> Void
 
+    @State private var builtInStudyRoadmaps = CurriculumCatalog.studyRoadmaps()
     private let columns = [GridItem(.adaptive(minimum: 210), spacing: 16)]
+
+    private var recommendationRoadmaps: [StudyRoadmap] {
+        builtInStudyRoadmaps + CustomTopicStudyRoute.roadmaps(from: store.customCurriculum)
+    }
+
+    private var addressableRoutesByLessonID: [String: StudyLessonRoute] {
+        var routes = builtInStudyRoadmaps.flatMap { roadmap in
+            roadmap.lessonResources.map { StudyLessonRoute(subjectID: roadmap.subjectID, resource: $0) }
+        }
+        routes += CustomTopicStudyRoute.roadmaps(from: store.customCurriculum).flatMap { roadmap in
+            roadmap.lessonResources.map { StudyLessonRoute(subjectID: roadmap.subjectID, resource: $0) }
+        }
+        routes += Subject.allCases.map { StudyLessonRoute(subjectID: "intro", resource: $0.rawValue) }
+        return routes.reduce(into: [:]) { result, route in
+            result[route.lessonID] = route
+        }
+    }
+
+    private var addressableDueReviewRoutes: [StudyLessonRoute] {
+        store.studyProgress.values
+            .filter { ($0.dueDate ?? .distantFuture) <= Date() }
+            .sorted {
+                let leftDate = $0.dueDate ?? .distantFuture
+                let rightDate = $1.dueDate ?? .distantFuture
+                return leftDate == rightDate ? $0.lessonID < $1.lessonID : leftDate < rightDate
+            }
+            .compactMap { addressableRoutesByLessonID[$0.lessonID] }
+            .filter { route in
+                guard let roadmap = recommendationRoadmaps.first(where: { $0.subjectID == route.subjectID }) else {
+                    return true
+                }
+                return StudyProgressionPolicy.isAvailable(
+                    route,
+                    in: roadmap,
+                    evidence: store.studyProgressionEvidence
+                )
+            }
+    }
+
+    private var courseProgress: StudyCourseProgress {
+        StudyCourseProgress(
+            roadmaps: builtInStudyRoadmaps,
+            completedLessonIDs: store.completedLessonIDs
+        )
+    }
+
+    private var recallEvidence: [String: StudyRecallEvidence] {
+        store.studyRecallEvidence
+    }
+
+    private var knowledgeEvidenceCoverage: StudyKnowledgeEvidenceCoverage {
+        StudyKnowledgeEvidenceCoverage(
+            roadmaps: recommendationRoadmaps,
+            records: store.studyProgress.values.map { record in
+                StudyAssessmentProgressRecord(
+                    lessonID: record.lessonID,
+                    assessmentCount: record.assessmentCount,
+                    latestAssessment: record.assessment,
+                    latestAssessmentAt: record.assessment == nil ? nil : record.lastReviewedAt
+                )
+            },
+            additionalEvidence: Array(store.studyAssessmentEvidence.values)
+        )
+    }
+
+    private var studyRecommendation: StudyRecommendation? {
+        StudyRecommendationSelector.recommendation(
+            roadmaps: recommendationRoadmaps,
+            completedLessonIDs: store.completedLessonIDs,
+            resume: store.lastOpenedCourseRoute,
+            recallEvidence: recallEvidence,
+            assessmentEvidence: store.studyAssessmentEvidence
+        )
+    }
+
+    private var nextLessonRoute: StudyLessonRoute? { studyRecommendation?.route }
+
+    private var nextDueReviewRoute: StudyLessonRoute? { addressableDueReviewRoutes.first }
+
+    private var hasAddressableDueReview: Bool { nextDueReviewRoute != nil }
 
     var body: some View {
         ScrollView {
@@ -164,6 +327,11 @@ private struct TodayView: View {
                                 open(subject)
                             }
                         }
+                        ForEach(store.customCurriculum.subjects) { subject in
+                            CustomSubjectCard(subject: subject, language: store.language) {
+                                openCustom(subject.id)
+                            }
+                        }
                     }
                 }
 
@@ -184,10 +352,16 @@ private struct TodayView: View {
             ZStack {
                 Circle().stroke(.quaternary, lineWidth: 8)
                 Circle()
-                    .trim(from: 0, to: CGFloat(store.completedSubjectCount) / CGFloat(Subject.allCases.count))
+                    .trim(from: 0, to: CGFloat(courseProgress.fractionCompleted))
                     .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 8, lineCap: .round))
                     .rotationEffect(.degrees(-90))
-                Text("\(store.completedSubjectCount)/6")
+                    .animation(
+                        reduceMotion ? nil : .easeInOut(duration: 0.28),
+                        value: courseProgress.fractionCompleted
+                    )
+                Text(courseProgress.totalCount > 0
+                    ? "\(courseProgress.completedCount)/\(courseProgress.totalCount)"
+                    : "—")
                     .font(.headline.monospacedDigit())
             }
             .frame(width: 64, height: 64)
@@ -196,50 +370,167 @@ private struct TodayView: View {
                     .font(.caption.weight(.semibold))
                     .tracking(1.1)
                     .foregroundStyle(.secondary)
-                Text("\(store.completedSubjectCount) \(L10n.text("home.completed", store.language))")
-                    .font(.headline)
-                Text(L10n.text("home.subjectCount", store.language))
-                    .font(.subheadline)
+                if courseProgress.totalCount > 0 {
+                    Text(String(
+                        format: L10n.text("home.lessonCompletion", store.language),
+                        courseProgress.completedCount,
+                        courseProgress.totalCount
+                    ))
+                        .font(.headline)
+                } else {
+                    Text(L10n.text("home.roadmapUnavailable", store.language))
+                        .font(.headline)
+                }
+                if knowledgeEvidenceCoverage.totalTopicCount > 0 {
+                    Text(String(
+                        format: L10n.text("home.knowledgeChecks", store.language),
+                        knowledgeEvidenceCoverage.topicsWithChecks,
+                        knowledgeEvidenceCoverage.totalTopicCount
+                    ))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if knowledgeEvidenceCoverage.topicsNeedingPractice > 0 {
+                        Text(String(
+                            format: L10n.text("home.knowledgeNeedPractice", store.language),
+                            knowledgeEvidenceCoverage.topicsNeedingPractice
+                        ))
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(Color.accentColor)
+                    }
+                    let reportedDifficulties = StudyErrorCategory.allCases.filter {
+                        (knowledgeEvidenceCoverage.reportedErrorTopicCounts[$0] ?? 0) > 0
+                    }
+                    if !reportedDifficulties.isEmpty {
+                        Text(L10n.text("home.reportedDifficulties", store.language))
+                            .font(.caption.weight(.medium))
+                        ForEach(reportedDifficulties) { category in
+                            Text("\(L10n.text(category.titleKey, store.language)) · \(knowledgeEvidenceCoverage.reportedErrorTopicCounts[category] ?? 0)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Text(L10n.text("home.reportedDifficultiesCaveat", store.language))
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                } else {
+                    Text(L10n.text("home.knowledgeChecksUnavailable", store.language))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Text(L10n.text("home.knowledgeEvidenceLimit", store.language))
+                    .font(.caption)
                     .foregroundStyle(.secondary)
-                if store.dueReviewCount > 0 {
+                if !hasAddressableDueReview, studyRecommendation?.reason == .prerequisiteCheck {
+                    Text(L10n.text("home.prerequisiteCheck", store.language))
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Color.accentColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if !hasAddressableDueReview, studyRecommendation?.reason == .practiceReview {
+                    Text(L10n.text("home.quizNeedsPractice", store.language))
+                        .font(.caption)
+                        .foregroundStyle(Color.accentColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if !hasAddressableDueReview,
+                   studyRecommendation?.reason == .reportedFoundationPrerequisite {
+                    Text(L10n.text("home.reportedFoundationPrerequisite", store.language))
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Color.accentColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if !hasAddressableDueReview,
+                   case let .reportedDifficulty(category)? = studyRecommendation?.reason {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(L10n.text("home.reportedDifficultyRecommendation", store.language)
+                            .replacingOccurrences(of: "%@", with: L10n.text(category.titleKey, store.language)))
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(Color.accentColor)
+                        Text(L10n.text(category.guidanceKey, store.language))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+                if !hasAddressableDueReview, studyRecommendation?.reason == .recallReview {
+                    Text(L10n.text("home.recallNeedsPractice", store.language))
+                        .font(.caption)
+                        .foregroundStyle(Color.accentColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if !addressableDueReviewRoutes.isEmpty {
                     Text(L10n.text("home.dueReviews", store.language)
-                        .replacingOccurrences(of: "%@", with: "\(store.dueReviewCount)"))
+                        .replacingOccurrences(of: "%@", with: "\(addressableDueReviewRoutes.count)"))
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(Color.accentColor)
                 }
             }
             Spacer(minLength: 0)
             Button {
-                if let subject = store.nextDueSubject, let lessonID = store.nextDueLessonID {
-                    openDueReview(subject, lessonID)
+                if let nextDueReviewRoute {
+                    openDueReview(nextDueReviewRoute)
+                } else if let nextLessonRoute {
+                    openCourseLesson(nextLessonRoute)
                 } else {
                     let next = Subject.allCases.first(where: { !store.isComplete($0) }) ?? .mathematics
                     open(next)
                 }
             } label: {
                 Label {
-                    Text(L10n.text(store.dueReviewCount > 0 ? "home.reviewNow" : "home.continue", store.language))
+                    Text(L10n.text(hasAddressableDueReview ? "home.reviewNow" : "home.continue", store.language))
                 } icon: {
-                    Image(systemName: store.dueReviewCount > 0 ? "arrow.counterclockwise" : "arrow.right")
+                    Image(systemName: hasAddressableDueReview ? "arrow.counterclockwise" : "arrow.right")
                 }
             }
             .buttonStyle(.borderedProminent)
         }
         .padding(20)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+        .background(
+            LinearGradient(
+                colors: [Color.purple.opacity(0.12), Color.blue.opacity(0.09), Color.cyan.opacity(0.07)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 20)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 20)
+                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+        }
+        .coliGlassControl(cornerRadius: 20)
     }
 }
 
 private struct SubjectCatalogView: View {
     @EnvironmentObject private var store: LearningStore
     let open: (Subject) -> Void
+    let openCustom: (UUID) -> Void
+    @State private var showingSubjectEditor = false
     private let columns = [GridItem(.adaptive(minimum: 210), spacing: 16)]
 
     var body: some View {
         ScrollView {
-            LazyVGrid(columns: columns, alignment: .leading, spacing: 16) {
-                ForEach(Subject.allCases) { subject in
-                    SubjectCard(subject: subject, complete: store.isComplete(subject)) { open(subject) }
+            VStack(alignment: .leading, spacing: 22) {
+                HStack {
+                    Text(L10n.text("nav.subjects", store.language)).font(.title2.weight(.semibold))
+                    Spacer()
+                    Button { showingSubjectEditor = true } label: {
+                        Label(L10n.text("custom.addSubject", store.language), systemImage: "plus")
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                LazyVGrid(columns: columns, alignment: .leading, spacing: 16) {
+                    ForEach(Subject.allCases) { subject in
+                        SubjectCard(subject: subject, complete: store.isComplete(subject)) { open(subject) }
+                    }
+                }
+                if !store.customCurriculum.subjects.isEmpty {
+                    Text(L10n.text("custom.subjectsCount", store.language)).font(.title3.weight(.semibold))
+                    LazyVGrid(columns: columns, alignment: .leading, spacing: 16) {
+                        ForEach(store.customCurriculum.subjects) { subject in
+                            CustomSubjectCard(subject: subject, language: store.language) { openCustom(subject.id) }
+                        }
+                    }
                 }
             }
             .padding(28)
@@ -247,11 +538,17 @@ private struct SubjectCatalogView: View {
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .navigationTitle(Text(L10n.text("nav.subjects", store.language)))
+        .sheet(isPresented: $showingSubjectEditor) {
+            CustomSubjectEditor { openCustom($0) }
+                .environmentObject(store)
+        }
     }
 }
 
 private struct SubjectCard: View {
     @EnvironmentObject private var store: LearningStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isHovered = false
     let subject: Subject
     let complete: Bool
     let action: () -> Void
@@ -264,7 +561,18 @@ private struct SubjectCard: View {
                         .font(.title2.weight(.semibold))
                         .foregroundStyle(subject.tint)
                         .frame(width: 44, height: 44)
-                        .background(subject.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 13))
+                        .background(
+                            LinearGradient(
+                                colors: [subject.tint.opacity(0.30), subject.tint.opacity(0.13)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            in: RoundedRectangle(cornerRadius: 13)
+                        )
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 13)
+                                .strokeBorder(subject.tint.opacity(0.24), lineWidth: 1)
+                        }
                     Spacer()
                     if complete {
                         Image(systemName: "checkmark.circle.fill")
@@ -283,7 +591,7 @@ private struct SubjectCard: View {
                         .foregroundStyle(.secondary)
                 }
                 HStack(spacing: 6) {
-                    Text(complete ? L10n.text("home.done", store.language) : L10n.text("home.foundation", store.language))
+                    Text(complete ? L10n.text("home.introDone", store.language) : L10n.text("home.foundation", store.language))
                     Image(systemName: "arrow.right")
                 }
                 .font(.caption.weight(.medium))
@@ -291,17 +599,36 @@ private struct SubjectCard: View {
             }
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.background, in: RoundedRectangle(cornerRadius: 18))
-            .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(.quaternary, lineWidth: 1))
+            .background(
+                LinearGradient(
+                    colors: [
+                        subject.tint.opacity(isHovered && !reduceMotion ? 0.22 : 0.15),
+                        subject.tint.opacity(0.035),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: RoundedRectangle(cornerRadius: 18)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 18)
+                    .strokeBorder(subject.tint.opacity(isHovered ? 0.34 : 0.20), lineWidth: 1)
+            }
             .contentShape(RoundedRectangle(cornerRadius: 18))
+            .scaleEffect(isHovered && !reduceMotion ? 1.012 : 1)
+            .offset(y: isHovered && !reduceMotion ? -2 : 0)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: isHovered)
+            .coliGlassControl(cornerRadius: 18)
         }
         .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
     }
 }
 
 private struct SettingsView: View {
     @EnvironmentObject private var store: LearningStore
     @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
+    @AppStorage(ColiDevVisualSystem.soundPreferenceKey) private var soundEffectsEnabled = false
 
     var body: some View {
         Form {
@@ -313,11 +640,22 @@ private struct SettingsView: View {
                 .pickerStyle(.segmented)
             }
             Section {
+                Toggle(isOn: $soundEffectsEnabled) {
+                    Text(L10n.text("settings.soundEffects", store.language))
+                }
+                Text(L10n.text("settings.soundEffectsHelp", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text(L10n.text("settings.feedback", store.language))
+            }
+            Section {
                 Picker(selection: $store.aiMode, label: Text(L10n.text("settings.aiRoute", store.language))) {
                     Text(L10n.text("settings.aiAuto", store.language)).tag(AIRoutingMode.automatic)
                     Text(L10n.text("settings.aiLocal", store.language)).tag(AIRoutingMode.localOnly)
                 }
                 .pickerStyle(.segmented)
+                TutorRouteProbeCard()
                 LabeledContent {
                     Text(LearningStore.orchestratorBaseURL).font(.callout.monospaced())
                 } label: {
@@ -329,8 +667,10 @@ private struct SettingsView: View {
                         Text(L10n.text("settings.aiChecking", store.language)).foregroundStyle(.secondary)
                     } else if let health = store.aiHealth {
                         VStack(alignment: .leading, spacing: 4) {
-                            Label(L10n.text("settings.aiConnected", store.language), systemImage: "checkmark.circle.fill")
-                                .foregroundStyle(.green)
+                            Label(L10n.text("settings.aiBackendResponding", store.language), systemImage: "server.rack")
+                                .foregroundStyle(.secondary)
+                            Text(L10n.text("settings.aiBackendOnlyStatus", store.language))
+                                .font(.caption).foregroundStyle(.secondary)
                             Text(routeDescription(for: health))
                                 .font(.caption).foregroundStyle(.secondary)
                             if health.openRouterKeyConfigured == true {
@@ -431,11 +771,98 @@ private struct SettingsView: View {
         if store.aiMode == .localOnly {
             return L10n.text(health.hasLocalModel ? "settings.aiLocalRoute" : "settings.aiNoLocal", store.language)
         }
-        if health.hasCloudSession { return L10n.text("settings.aiOnlineRoute", store.language) }
+        if health.hasCloudRoute { return L10n.text("settings.aiOnlineRoute", store.language) }
         if health.hasLocalModel { return L10n.text("settings.aiLocalRoute", store.language) }
         return L10n.text("settings.aiNoRoute", store.language)
     }
 
+}
+
+private struct TutorRouteProbeCard: View {
+    @EnvironmentObject private var store: LearningStore
+    @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
+    @StateObject private var probe = TutorRouteProbeModel()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(L10n.text("settings.tutorProbe.title", store.language))
+                .font(.headline)
+            Text(L10n.text("settings.tutorProbe.warning", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button(action: startProbe) {
+                if probe.isChecking {
+                    Label(L10n.text("settings.tutorProbe.checking", store.language), systemImage: "hourglass")
+                } else {
+                    Label(L10n.text("settings.tutorProbe.button", store.language), systemImage: "paperplane")
+                }
+            }
+            .disabled(probe.isChecking)
+
+            switch probe.state {
+            case .idle:
+                Label(L10n.text("settings.tutorProbe.unverified", store.language), systemImage: "info.circle")
+                    .foregroundStyle(.secondary)
+            case .checking:
+                Label(L10n.text("settings.tutorProbe.checking", store.language), systemImage: "hourglass")
+                    .foregroundStyle(.secondary)
+            case .succeeded(let provider, let model, let answer, let durationMS):
+                Label(L10n.text("settings.tutorProbe.success", store.language), systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                Text([provider, model].filter { !$0.isEmpty }.joined(separator: " · ") + " · \(durationMS) ms")
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                Text(answer)
+                    .font(.callout)
+                    .textSelection(.enabled)
+            case .failed(let message):
+                Label(L10n.text("settings.tutorProbe.failedTitle", store.language), systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
+        }
+        .padding(.vertical, 6)
+        .onChange(of: store.aiMode) { _ in probe.reset() }
+        .onChange(of: store.language) { _ in probe.reset() }
+    }
+
+    private func startProbe() {
+        guard !probe.isChecking else { return }
+        let selectedLanguage = store.language
+        let selectedMode = store.aiMode
+        probe.begin()
+
+        Task {
+            guard await backendSupervisor.ensureRunning() else {
+                probe.fail(L10n.text("settings.tutorProbe.backendUnavailable", selectedLanguage))
+                return
+            }
+            await store.refreshAIStatus()
+            guard selectedLanguage == store.language, selectedMode == store.aiMode else {
+                probe.reset()
+                return
+            }
+            guard let health = store.aiHealth else {
+                probe.fail(L10n.text("settings.tutorProbe.genericError", selectedLanguage))
+                return
+            }
+            let routeReady = selectedMode == .localOnly ? health.hasLocalModel : health.hasAutomaticRoute
+            guard routeReady else {
+                probe.fail(L10n.text("settings.tutorProbe.noRoute", selectedLanguage))
+                return
+            }
+
+            await probe.check(language: selectedLanguage, mode: selectedMode)
+            if selectedLanguage != store.language || selectedMode != store.aiMode {
+                probe.reset()
+            }
+        }
+    }
 }
 
 private struct ProviderKeyEntryView: View {
@@ -547,6 +974,7 @@ private struct ProviderKeyEntryView: View {
 private enum ManagementPane: String, CaseIterable, Identifiable {
     case overview
     case courses
+    case models
     case rag
     case sources
     case integrations
@@ -557,6 +985,7 @@ private enum ManagementPane: String, CaseIterable, Identifiable {
         switch self {
         case .overview: return "management.overview"
         case .courses: return "management.courses"
+        case .models: return "management.models"
         case .rag: return "management.rag"
         case .sources: return "management.sources"
         case .integrations: return "management.integrations"
@@ -585,6 +1014,7 @@ private enum SourceRegistryFilter: String, CaseIterable, Identifiable {
 private struct ManagementView: View {
     @EnvironmentObject private var store: LearningStore
     @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pane: ManagementPane = .overview
     @State private var sourceInventory: TrustedSourceInventory?
     @State private var sourceSearchText = ""
@@ -600,6 +1030,7 @@ private struct ManagementView: View {
     @State private var routeProvider = "auto"
     @State private var routeModel = ""
     @State private var autoAgentRole = "local_draft"
+    @State private var autoAgentProvider = "auto"
     @State private var autoAgentModel = ""
     @State private var finalSynthesisProvider = "auto"
     @State private var finalSynthesisModel = ""
@@ -622,6 +1053,11 @@ private struct ManagementView: View {
     @State private var statusIsError = false
 
     let openSettings: () -> Void
+
+    init(openSettings: @escaping () -> Void, initialPane: ManagementPane = .overview) {
+        self.openSettings = openSettings
+        _pane = State(initialValue: initialPane)
+    }
 
     private let metricColumns = [GridItem(.adaptive(minimum: 190), spacing: 12)]
 
@@ -657,7 +1093,10 @@ private struct ManagementView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .frame(maxWidth: 520)
+            .padding(5)
+            .frame(maxWidth: 900)
+            .coliGlassControl(cornerRadius: 16)
+            .accessibilityIdentifier("control-center.pane-picker")
 
             if let statusMessage {
                 Label(statusMessage, systemImage: statusIsError ? "exclamationmark.triangle" : "checkmark.circle")
@@ -672,6 +1111,8 @@ private struct ManagementView: View {
                     overviewPane
                 case .courses:
                     coursesPane
+                case .models:
+                    modelsPane
                 case .rag:
                     ragPane
                 case .sources:
@@ -680,14 +1121,24 @@ private struct ManagementView: View {
                     integrationsPane
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .id(pane)
+            .transition(.opacity)
+            .frame(maxWidth: .infinity, minHeight: 260, maxHeight: .infinity, alignment: .topLeading)
+            .animation(
+                reduceMotion ? nil : .easeInOut(duration: ColiDevVisualSystem.routineTransitionDuration),
+                value: pane
+            )
         }
+        .accessibilityIdentifier("control-center.root")
         .padding(28)
         .frame(maxWidth: 1120, alignment: .leading)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .navigationTitle(Text(L10n.text("management.title", store.language)))
         .onChange(of: routeSubject) { _ in syncSubjectModelRouteForm() }
         .onChange(of: autoAgentRole) { _ in syncAutoAgentModelForm() }
+        .onChange(of: autoAgentProvider) { provider in
+            if provider == "auto" { autoAgentModel = "" }
+        }
         .onChange(of: finalSynthesisProvider) { provider in
             if provider == "auto" { finalSynthesisModel = "" }
         }
@@ -962,6 +1413,107 @@ private struct ManagementView: View {
             }
             .padding(.bottom, 18)
         }
+    }
+
+    private var modelsPane: some View {
+        let localRoles = store.autoAgentModelRoutes.values
+            .filter { $0.effectiveProvider == "ollama" }
+            .sorted { $0.role < $1.role }
+
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(L10n.text("management.modelsSubtitle", store.language))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                GroupBox(label: Text(L10n.text("management.ollamaLocalService", store.language))) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        statusRow(
+                            title: "Ollama",
+                            value: store.localOllamaModelCatalog.available
+                                ? L10n.text("management.ollamaServiceReachable", store.language)
+                                : L10n.text("management.serviceUnavailable", store.language),
+                            symbol: store.localOllamaModelCatalog.available ? "checkmark.circle.fill" : "wifi.slash"
+                        )
+                        statusRow(
+                            title: L10n.text("management.localTutorRoute", store.language),
+                            value: store.aiHealth?.hasLocalModel == true
+                                ? L10n.text("settings.aiLocalRoute", store.language)
+                                : L10n.text("settings.aiNoLocal", store.language),
+                            symbol: store.aiHealth?.hasLocalModel == true ? "checkmark.circle.fill" : "exclamationmark.circle"
+                        )
+                        Text(L10n.text("management.localModelsDescription", store.language))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Button {
+                            Task { await store.refreshLocalOllamaModelCatalog() }
+                        } label: {
+                            if store.isRefreshingLocalOllamaModelCatalog {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Label(
+                                    L10n.text("management.ollamaModelsRefresh", store.language),
+                                    systemImage: "arrow.clockwise"
+                                )
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(store.isRefreshingLocalOllamaModelCatalog)
+
+                        if store.localOllamaModelCatalog.available {
+                            if store.localOllamaModelCatalog.models.isEmpty {
+                                Text(L10n.text("management.ollamaModelsEmpty", store.language))
+                                    .font(.callout)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    ForEach(store.localOllamaModelCatalog.models, id: \.self) { model in
+                                        Label(model, systemImage: "cube")
+                                            .font(.callout.monospaced())
+                                            .textSelection(.enabled)
+                                            .padding(.vertical, 2)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 6)
+                }
+
+                GroupBox(label: Text(L10n.text("management.localModelAssignments", store.language))) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        if localRoles.isEmpty {
+                            Text(L10n.text("management.noLocalModelRoles", store.language))
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            ForEach(localRoles) { route in
+                                statusRow(
+                                    title: L10n.text("management.autoAgentRole.\(route.role)", store.language),
+                                    value: route.effectiveModel,
+                                    symbol: route.effectiveProviderReady == true
+                                        ? "checkmark.circle.fill"
+                                        : "exclamationmark.circle"
+                                )
+                            }
+                        }
+
+                        Button(L10n.text("management.configureAIRoutes", store.language)) {
+                            pane = .integrations
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 6)
+                }
+            }
+            .padding(.bottom, 18)
+        }
+        .accessibilityIdentifier("control-center.overview")
     }
 
     private var coursesPane: some View {
@@ -1723,6 +2275,17 @@ private struct ManagementView: View {
                                 .textFieldStyle(.roundedBorder)
                                 .frame(maxWidth: 520)
                         }
+                        if finalSynthesisProvider != "ollama"
+                            && (finalSynthesisProvider != "auto"
+                                || store.finalSynthesisModelRoute?.effectiveProvider != "ollama") {
+                            Label(
+                                L10n.text("management.autoAgentCloudNotice", store.language),
+                                systemImage: "exclamationmark.triangle"
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                        }
 
                         if let route = store.finalSynthesisModelRoute {
                             HStack(spacing: 8) {
@@ -1789,6 +2352,15 @@ private struct ManagementView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
+                        if routeProvider != "ollama" {
+                            Label(
+                                L10n.text("management.autoAgentCloudNotice", store.language),
+                                systemImage: "exclamationmark.triangle"
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                        }
 
                         if let route = store.subjectModelRoutes[routeSubject.rawValue] {
                             HStack(spacing: 8) {
@@ -1837,56 +2409,79 @@ private struct ManagementView: View {
                             .fixedSize(horizontal: false, vertical: true)
 
                         Picker(L10n.text("management.autoAgentRole", store.language), selection: $autoAgentRole) {
-                            ForEach(["local_draft", "critic", "verifier"], id: \.self) { role in
+                            ForEach(["local_draft", "gemini_draft", "critic", "verifier"], id: \.self) { role in
                                 Text(L10n.text("management.autoAgentRole.\(role)", store.language)).tag(role)
                             }
                         }
                         .frame(maxWidth: 360, alignment: .leading)
 
-                        TextField(L10n.text("management.autoAgentModel", store.language), text: $autoAgentModel)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(maxWidth: 520)
-                        HStack(spacing: 10) {
-                            Button {
-                                Task { await store.refreshLocalOllamaModelCatalog() }
-                            } label: {
-                                if store.isRefreshingLocalOllamaModelCatalog {
-                                    ProgressView().controlSize(.small)
-                                } else {
+                        Picker(L10n.text("management.routeProvider", store.language), selection: $autoAgentProvider) {
+                            ForEach(["auto", "ollama", "openrouter", "gemini", "kimi", "compatible"], id: \.self) { provider in
+                                Text(L10n.text("management.routeProvider.\(provider)", store.language))
+                                    .tag(provider)
+                            }
+                        }
+                        .frame(maxWidth: 360, alignment: .leading)
+
+                        if autoAgentProvider != "auto" {
+                            TextField(L10n.text("management.routeModel", store.language), text: $autoAgentModel)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(maxWidth: 520)
+                        }
+                        if autoAgentProvider == "ollama" {
+                            HStack(spacing: 10) {
+                                Button {
+                                    Task { await store.refreshLocalOllamaModelCatalog() }
+                                } label: {
+                                    if store.isRefreshingLocalOllamaModelCatalog {
+                                        ProgressView().controlSize(.small)
+                                    } else {
+                                        Label(
+                                            L10n.text("management.ollamaModelsRefresh", store.language),
+                                            systemImage: "arrow.clockwise"
+                                        )
+                                    }
+                                }
+                                .buttonStyle(.bordered)
+                                .disabled(store.isRefreshingLocalOllamaModelCatalog)
+
+                                Menu {
+                                    ForEach(store.localOllamaModelCatalog.models, id: \.self) { model in
+                                        Button(model) { autoAgentModel = model }
+                                    }
+                                } label: {
                                     Label(
-                                        L10n.text("management.ollamaModelsRefresh", store.language),
-                                        systemImage: "arrow.clockwise"
+                                        L10n.text("management.ollamaModelsChoose", store.language),
+                                        systemImage: "list.bullet"
                                     )
                                 }
+                                .disabled(store.localOllamaModelCatalog.models.isEmpty)
                             }
-                            .buttonStyle(.bordered)
-                            .disabled(store.isRefreshingLocalOllamaModelCatalog)
-
-                            Menu {
-                                ForEach(store.localOllamaModelCatalog.models, id: \.self) { model in
-                                    Button(model) { autoAgentModel = model }
-                                }
-                            } label: {
-                                Label(
-                                    L10n.text("management.ollamaModelsChoose", store.language),
-                                    systemImage: "list.bullet"
-                                )
+                            if store.localOllamaModelCatalog.available {
+                                Text(store.localOllamaModelCatalog.models.isEmpty
+                                    ? L10n.text("management.ollamaModelsEmpty", store.language)
+                                    : L10n.text("management.ollamaModelsReady", store.language))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else if store.localOllamaModelCatalog.status != "not_checked" {
+                                Text(L10n.text(
+                                    "management.ollamaModelsStatus.\(store.localOllamaModelCatalog.status)",
+                                    store.language
+                                ))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
-                            .disabled(store.localOllamaModelCatalog.models.isEmpty)
                         }
-                        if store.localOllamaModelCatalog.available {
-                            Text(store.localOllamaModelCatalog.models.isEmpty
-                                ? L10n.text("management.ollamaModelsEmpty", store.language)
-                                : L10n.text("management.ollamaModelsReady", store.language))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        } else if store.localOllamaModelCatalog.status != "not_checked" {
-                            Text(L10n.text(
-                                "management.ollamaModelsStatus.\(store.localOllamaModelCatalog.status)",
-                                store.language
-                            ))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                        if autoAgentProvider != "ollama"
+                            && (autoAgentProvider != "auto"
+                                || store.autoAgentModelRoutes[autoAgentRole]?.effectiveProvider != "ollama") {
+                            Label(
+                                L10n.text("management.autoAgentCloudNotice", store.language),
+                                systemImage: "exclamationmark.triangle"
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
                         }
                         Text(L10n.text("management.autoAgentModelHelp", store.language))
                             .font(.caption)
@@ -1894,10 +2489,10 @@ private struct ManagementView: View {
 
                         if let route = store.autoAgentModelRoutes[autoAgentRole] {
                             HStack(spacing: 8) {
-                                Image(systemName: route.providerReady ? "checkmark.circle" : "exclamationmark.circle")
-                                    .foregroundStyle(route.providerReady ? Color.secondary : Color.orange)
+                                Image(systemName: route.effectiveProviderReady == false ? "exclamationmark.circle" : "checkmark.circle")
+                                    .foregroundStyle(route.effectiveProviderReady == false ? Color.orange : Color.secondary)
                                 Text(L10n.text("management.routeStatus.\(route.status)", store.language))
-                                Text(route.effectiveModel)
+                                Text("\(route.effectiveProvider) · \(route.effectiveModel)")
                                     .font(.caption.monospaced())
                                     .foregroundStyle(.secondary)
                                     .textSelection(.enabled)
@@ -1938,19 +2533,52 @@ private struct ManagementView: View {
     }
 
     private func metric(title: String, value: String, symbol: String, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label(title, systemImage: symbol)
-                .font(.callout.weight(.medium))
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.title2.weight(.semibold).monospacedDigit())
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: symbol)
+                .font(.headline.weight(.semibold))
                 .foregroundStyle(tint)
-                .lineLimit(2)
-                .minimumScaleFactor(0.8)
+                .frame(width: 38, height: 38)
+                .background(
+                    LinearGradient(
+                        colors: [tint.opacity(0.24), tint.opacity(0.10)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    in: RoundedRectangle(cornerRadius: 12)
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(tint.opacity(0.22), lineWidth: 1)
+                }
+            VStack(alignment: .leading, spacing: 7) {
+                Text(title)
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+                Text(value)
+                    .font(.title2.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(tint)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+            }
+            Spacer(minLength: 0)
         }
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 88, alignment: .leading)
-        .background(Color.secondary.opacity(0.055), in: RoundedRectangle(cornerRadius: 12))
+        .background(
+            LinearGradient(
+                colors: [tint.opacity(0.18), tint.opacity(0.045)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 14)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(tint.opacity(0.24), lineWidth: 1)
+        }
+        .coliGlassControl(cornerRadius: 14)
     }
 
     private func statusRow(title: String, value: String, symbol: String) -> some View {
@@ -2179,7 +2807,9 @@ private struct ManagementView: View {
 
     @MainActor
     private func syncAutoAgentModelForm() {
-        autoAgentModel = store.autoAgentModelRoutes[autoAgentRole]?.model ?? ""
+        let route = store.autoAgentModelRoutes[autoAgentRole]
+        autoAgentProvider = route?.provider ?? "auto"
+        autoAgentModel = route?.model ?? ""
     }
 
     @MainActor
@@ -2228,7 +2858,8 @@ private struct ManagementView: View {
             let model = autoAgentModel.trimmingCharacters(in: .whitespacesAndNewlines)
             try await store.saveAutoAgentModelRoute(
                 role: autoAgentRole,
-                model: model.isEmpty ? nil : model
+                provider: autoAgentProvider,
+                model: autoAgentProvider == "auto" || model.isEmpty ? nil : model
             )
             syncAutoAgentModelForm()
             statusMessage = L10n.text("management.routeSaved", store.language)

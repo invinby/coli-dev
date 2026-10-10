@@ -34,7 +34,7 @@ _MARKDOWN_LINK_RE = re.compile(r"\[([^\]]{1,200})\]\(\s*(https://[^)\s]+)\s*\)",
 _TRAILING_PUNCTUATION = ".,;:!?"
 _MAX_LESSON_FILES = 200
 _MAX_LESSON_FILE_BYTES = 256 * 1024
-_MAX_SOURCES = 80
+_MAX_SOURCES = 96
 _MAX_CONCURRENT_REQUESTS = 5
 _MAX_TITLE_LENGTH = 200
 _MAX_PAGE_DESCRIPTION_LENGTH = 500
@@ -59,8 +59,11 @@ _TRUSTED_HOSTS = frozenset(
         "raw.githubusercontent.com",
         "www.nist.gov",
         "www.genome.gov",
+        "www.ncbi.nlm.nih.gov",
         "www.sqlite.org",
         "openstax.org",
+        "www.sciencedirect.com",
+        "pubmed.ncbi.nlm.nih.gov",
     }
 )
 _ALLOWED_PATHS = {
@@ -80,11 +83,17 @@ _ALLOWED_PATHS = {
     "www.genome.gov": re.compile(
         r"^/genetics-glossary/(?:Gene-Expression|Gene-Regulation|Promoter|Chromatid)$"
     ),
+    "www.ncbi.nlm.nih.gov": re.compile(
+        r"^/books/(?:NBK26854|NBK550206|NBK9842)/?$"
+    ),
     "www.nist.gov": re.compile(
-        r"^/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b9$"
+        r"^(?:/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/"
+        r"nist-guide-si-appendix-b9|/pml/owm/metric-si-prefixes)$"
     ),
     "www.sqlite.org": re.compile(r"^/lang_transaction\.html$"),
     "openstax.org": re.compile(r"^/books/[a-z0-9-]+/pages/[a-z0-9-]+/?$"),
+    "www.sciencedirect.com": re.compile(r"^/science/article/pii/S1095643325000789$"),
+    "pubmed.ncbi.nlm.nih.gov": re.compile(r"^/40393560/$"),
     "raw.githubusercontent.com": re.compile(
         r"^/elifesciences/elife-article-xml/master/articles/elife-81613-v1\.xml$"
     ),
@@ -107,13 +116,25 @@ _RAG_SOURCE_POLICIES = {
         "license_url": "https://medlineplus.gov/about/using/usingcontent/",
         "attribution": "Source: MedlinePlus, National Library of Medicine (NLM), National Institutes of Health (NIH). Public-domain Genetics summary.",
     },
+    "www.genome.gov": {
+        "path": re.compile(
+            r"^/genetics-glossary/(?:Gene-Expression|Gene-Regulation|Promoter|Chromatid)$"
+        ),
+        "license": "NHGRI website material is public domain unless otherwise indicated on the page",
+        "license_url": "https://www.genome.gov/about-nhgri/Policies-Guidance/Copyright",
+        "attribution": (
+            "Courtesy: National Human Genome Research Institute (NHGRI), genome.gov. "
+            "Public-domain web content unless otherwise marked; no government endorsement implied."
+        ),
+    },
     "www.nist.gov": {
         "path": re.compile(
-            r"^/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b9$"
+            r"^(?:/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/"
+            r"nist-guide-si-appendix-b9|/pml/owm/metric-si-prefixes)$"
         ),
         "license": "NIST public information; may be distributed or copied unless marked copyrighted",
         "license_url": "https://www.nist.gov/copyrights-disclaimers",
-        "attribution": "Source: National Institute of Standards and Technology (NIST), Guide to the SI, Appendix B.9. NIST requests appropriate source credit; no endorsement implied.",
+        "attribution": "Source: National Institute of Standards and Technology (NIST). Credit the linked page; no endorsement implied.",
     },
     "raw.githubusercontent.com": {
         "path": re.compile(

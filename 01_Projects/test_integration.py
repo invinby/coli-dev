@@ -106,11 +106,14 @@ def client_online(mock_obsidian):
 
 @pytest.fixture
 def client_offline(mock_obsidian):
-    """TestClient: offline."""
+    """TestClient: offline, with the default local tutor model installed."""
     with (
         patch.object(orchestrator, "_check_network", AsyncMock(return_value=False)),
         patch.object(orchestrator, "_check_ollama", AsyncMock(return_value={
-            "available": False, "version": None, "models": None, "model_ready": None,
+            "available": True,
+            "version": "0.12.0",
+            "models": [orchestrator.OLLAMA_MODEL_RESEARCHER],
+            "model_ready": True,
         })),
         patch.object(orchestrator.state, "obsidian", mock_obsidian),
     ):
@@ -334,8 +337,18 @@ class TestFullStreamingPipeline:
 class TestSessionIntegration:
     """Интеграция с трекером сессий: лимит → автономный режим."""
 
-    def test_session_limit_triggers_local_mode(self, client_online):
+    def test_session_limit_triggers_local_mode(self, client_online, monkeypatch):
         """Исчерпание лимита сессий → ответ через local provider."""
+        monkeypatch.setattr(
+            orchestrator,
+            "_check_ollama",
+            AsyncMock(return_value={
+                "available": True,
+                "version": "0.12.0",
+                "models": [orchestrator.OLLAMA_MODEL_RESEARCHER],
+                "model_ready": True,
+            }),
+        )
         # Устанавливаем лимит в 1 сессию
         session_tracker.max_per_day = 1
         session_tracker.start_session()  # исчерпали

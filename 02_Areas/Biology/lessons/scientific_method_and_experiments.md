@@ -3,7 +3,7 @@ subject: biology
 lesson_id: biology.scientific_method_and_experiments
 level: foundations
 languages: ru, en
-source_checked: 2026-10-06
+source_checked: 2026-10-08
 source_review_interval_days: 180
 ---
 
@@ -91,4 +91,5 @@ This is a learning plan for one simple investigation, not a complete growing pro
 
 ## Sources
 
-- OpenStax, *Biology 2e*, [1.1 The Science of Biology](https://openstax.org/books/biology-2e/pages/1-1-the-science-of-biology) — observations, questions, testable hypotheses, predictions, repeatable experiments, and the flexible nature of scientific reasoning. Source checked 2026-10-06; the lesson text is an original summary, and the page is metadata-only in ColiDev RAG.
+- OpenStax, *Biology 2e*, [1.1 The Science of Biology / 1.1 «Наука о биологии»](https://openstax.org/books/biology-2e/pages/1-1-the-science-of-biology) — наблюдения, вопросы, гипотезы, предсказания и повторяемые эксперименты / observations, questions, hypotheses, predictions, and repeatable experiments; checked / проверено 2026-10-08. Урок написан своими словами; страница используется только для проверки метаданных и не попадает в RAG. / The lesson is original wording; the page is metadata-only in ColiDev RAG.
+- NCBI, [Basic Guidelines for Reporting Non-Clinical Data / «Основные рекомендации по представлению доклинических данных»](https://www.ncbi.nlm.nih.gov/books/NBK550206/) — как описывать независимые образцы, повторы и отдельные измерения / reporting independent samples, replicates, and repeated measurements; checked / проверено 2026-10-08.

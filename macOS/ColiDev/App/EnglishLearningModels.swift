@@ -41,3 +41,22 @@ enum EnglishReadingPractice {
         return option == question.correctOption
     }
 }
+
+struct EnglishReportedSpeechQuestion: Equatable, Identifiable {
+    let id: String
+    let correctOption: Int
+}
+
+enum EnglishReportedSpeechPractice {
+    static let questions = [
+        EnglishReportedSpeechQuestion(id: "backshift-and-time-reference", correctOption: 1),
+        EnglishReportedSpeechQuestion(id: "reported-wh-question", correctOption: 0),
+        EnglishReportedSpeechQuestion(id: "reported-yes-no-question", correctOption: 2),
+        EnglishReportedSpeechQuestion(id: "reported-request", correctOption: 1)
+    ]
+
+    static func isCorrect(_ option: Int, for questionID: String) -> Bool {
+        guard let question = questions.first(where: { $0.id == questionID }) else { return false }
+        return option == question.correctOption
+    }
+}

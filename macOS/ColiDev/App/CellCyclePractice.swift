@@ -19,6 +19,19 @@ enum CellCycleStage: String, CaseIterable, Identifiable {
 
 enum CellCyclePractice {
     static let sequence = CellCycleStage.allCases
+    static let knowledgeCheckAnswerOriginalIndex = 0
+
+    static func makeKnowledgeCheckAttempt() -> InteractivePredictionAttempt {
+        guard let attempt = InteractivePredictionAttempt(
+            optionCount: 3,
+            answerOriginalIndex: knowledgeCheckAnswerOriginalIndex
+        ) else {
+            preconditionFailure(
+                "The cell-cycle knowledge check must have a valid answer. / Проверочная попытка по клеточному циклу должна иметь допустимый ответ."
+            )
+        }
+        return attempt
+    }
 
     static func next(after stage: CellCycleStage) -> CellCycleStage? {
         guard let index = sequence.firstIndex(of: stage), sequence.indices.contains(index + 1) else {

@@ -17,21 +17,22 @@
 | Модуль / Module | Результат обучения / Learning outcome | Урок / Lesson |
 |---|---|---|
 | Полиномы, рациональные выражения и системы / Polynomials, rational expressions, systems | Выбирать преобразование по структуре задачи и объяснять ограничения области определения. / Choose transformations and track domain restrictions. | lesson:rational_expressions_and_restrictions |
+| Квадратичные функции и преобразования графика / Quadratic functions and graph transformations | Читать вершинную форму, находить вершину, корни и объяснять сдвиг, направление ветвей и ширину графика. / Read vertex form, find the vertex and roots, and explain shifts, opening direction, and graph width. | lesson:quadratic_functions_and_transformations |
 | Системы линейных уравнений / Linear systems | Решать пары уравнений сложением и объяснять случаи одной, нулевой или бесконечного числа общих точек. / Solve pairs by elimination and explain one, zero, or infinitely many intersections. | lesson:systems_of_linear_equations |
-| Тригонометрия и периодические функции / Trigonometry and periodic functions | Использовать единичную окружность, тождества и графики для моделирования периодических процессов. / Use the unit circle, identities, and graphs to model periodic behavior. | |
+| Тригонометрия и периодические функции / Trigonometry and periodic functions | Связывать угол на единичной окружности с координатами и графиками синуса и косинуса; применять периодичность в простых моделях. / Relate a unit-circle angle to sine and cosine coordinates and graphs; use periodicity in simple models. | lesson:trigonometry_and_periodic_functions |
 | Векторы и линейная алгебра / Vectors and linear algebra | Работать с векторами, матрицами, линейными системами и геометрическим смыслом преобразований. / Relate vectors, matrices, linear systems, and transformations. | |
 | Пределы, производные и интегралы / Limits, derivatives, integrals | Объяснять скорость изменения и накопление, связывая вычисление с графиком и единицами. / Explain rates of change and accumulation using graphs and units. | lesson:rates_of_change_and_derivative |
 | Вероятность, статистика и данные / Probability, statistics, data | Различать случайность и закономерность, описывать неопределённость и выбирать подходящую модель. / Distinguish signal from chance and communicate uncertainty. | |
 
 ## Продвинутый уровень / Advanced
 
-| Модуль / Module | Результат обучения / Learning outcome |
-|---|---|
-| Доказательства, логика и дискретная математика / Proofs, logic, discrete mathematics | Строить прямые доказательства, контрпримеры, рекуррентные и комбинаторные рассуждения. / Build proofs, counterexamples, recurrences, and counting arguments. |
-| Многомерный анализ и дифференциальные уравнения / Multivariable calculus and differential equations | Исследовать многопараметрические функции и модели изменения во времени. / Analyze multivariable functions and dynamic systems. |
-| Собственные значения, ортогональность и оптимизация / Eigenvalues, orthogonality, optimization | Понимать устойчивые направления преобразований и применять ограничения в задачах оптимизации. / Understand invariant directions and constrained optimization. |
-| Численные методы и вычислительное моделирование / Numerical methods and computational modeling | Оценивать погрешность приближений и проверять вычислительные модели на граничных случаях. / Track approximation error and validate computational models. |
-| Специализации: теория чисел, комплексный анализ, топология / Specializations: number theory, complex analysis, topology | Выбирать отдельную математическую ветвь и доказывать результаты на её собственном языке. / Pursue a branch using its definitions and proof methods. |
+| Модуль / Module | Результат обучения / Learning outcome | Урок / Lesson |
+|---|---|---|
+| Доказательства, логика и дискретная математика / Proofs, logic, discrete mathematics | Строить прямые доказательства, контрпримеры, рекуррентные и комбинаторные рассуждения. / Build proofs, counterexamples, recurrences, and counting arguments. | |
+| Многомерный анализ и дифференциальные уравнения / Multivariable calculus and differential equations | Исследовать многопараметрические функции и модели изменения во времени. / Analyze multivariable functions and dynamic systems. | |
+| Собственные значения, ортогональность и оптимизация / Eigenvalues, orthogonality, optimization | Понимать устойчивые направления преобразований и применять ограничения в задачах оптимизации. / Understand invariant directions and constrained optimization. | lesson:constrained_optimization_and_lagrange_multipliers |
+| Численные методы и вычислительное моделирование / Numerical methods and computational modeling | Оценивать погрешность приближений и проверять вычислительные модели на граничных случаях. / Track approximation error and validate computational models. | |
+| Специализации: теория чисел, комплексный анализ, топология / Specializations: number theory, complex analysis, topology | Выбирать отдельную математическую ветвь и доказывать результаты на её собственном языке. / Pursue a branch using its definitions and proof methods. | |
 
 ## Форматы практики / Practice formats
 

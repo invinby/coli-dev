@@ -60,11 +60,17 @@ enum LinearSystemPractice {
     }
 
     static func isCorrectPrediction(_ prediction: Int, for scenario: LinearSystemScenario) -> Bool {
-        switch (prediction, classify(scenario)) {
-        case (0, .oneSolution(_, _)), (1, .noSolution), (2, .infinitelyManySolutions):
-            true
-        default:
-            false
+        prediction == correctPredictionIndex(for: scenario)
+    }
+
+    static func correctPredictionIndex(for scenario: LinearSystemScenario) -> Int {
+        switch classify(scenario) {
+        case .oneSolution:
+            0
+        case .noSolution:
+            1
+        case .infinitelyManySolutions:
+            2
         }
     }
 }

@@ -23,6 +23,7 @@ import psutil
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 from starlette.requests import Request
 
 # ─── Поднимаем проект в sys.path — он в подпапке ───
@@ -44,6 +45,21 @@ FAKE_ANSWER = "print('Hello, world!')"
 PROC = psutil.Process(os.getpid())
 
 
+def test_chat_request_accepts_a_user_created_subject_id():
+    request = orchestrator.ChatRequest(
+        message="Teach me this topic",
+        subject="custom-123e4567-e89b-12d3-a456-426614174000",
+    )
+
+    assert request.subject == "custom-123e4567-e89b-12d3-a456-426614174000"
+
+
+@pytest.mark.parametrize("subject", ["custom subject", "../etc", "UPPER", "x" * 65, "custom-not-a-uuid"])
+def test_chat_request_rejects_an_unsafe_custom_subject_id(subject):
+    with pytest.raises(ValidationError):
+        orchestrator.ChatRequest(message="Teach me this topic", subject=subject)
+
+
 def _mock_keyring(monkeypatch):
     passwords = {}
     fake = MagicMock()
@@ -61,6 +77,8 @@ def _mock_keyring(monkeypatch):
 @pytest.fixture(autouse=True)
 def _reset_session_tracker(monkeypatch, tmp_path):
     """Сброс сессий перед каждым тестом."""
+    # Route tests should not share one minute-long HTTP bucket. / Тесты маршрута не должны делить общий HTTP-лимит на минуту.
+    monkeypatch.setattr(orchestrator.limiter, "enabled", False)
     monkeypatch.setattr(orchestrator, "AUTO_SOURCE_CHECK_ENABLED", False)
     monkeypatch.setattr(orchestrator, "GEMINI_KEY", "test-gemini-key")
     monkeypatch.setattr(orchestrator, "KIMI_KEY", "test-kimi-key")
@@ -195,6 +213,26 @@ def test_network_check_sends_gemini_key_in_header_not_url(monkeypatch):
     assert secret not in str(http_client.get.await_args.args[0])
 
 
+def test_network_check_uses_openrouter_when_gemini_is_not_configured(monkeypatch):
+    secret = "openrouter-network-check-secret"
+    response = MagicMock(status_code=200)
+    http_client = MagicMock()
+    http_client.get = AsyncMock(return_value=response)
+    monkeypatch.setattr(orchestrator.state, "http_client", http_client)
+    monkeypatch.setattr(orchestrator, "GEMINI_KEY", "")
+    monkeypatch.setattr(orchestrator, "KIMI_KEY", "")
+    monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", secret)
+
+    assert asyncio.run(orchestrator._check_network())
+
+    http_client.get.assert_awaited_once_with(
+        "https://openrouter.ai/api/v1/models",
+        headers={"Authorization": f"Bearer {secret}"},
+        timeout=orchestrator.NET_CHECK_TIMEOUT,
+    )
+    assert secret not in str(http_client.get.await_args.args[0])
+
+
 # ─── Тесты API Endpoints ───────────────────────────────
 
 
@@ -250,11 +288,189 @@ class TestAPIEndpoints:
                 "lesson_id": module_lesson_id,
                 "quality": 5,
                 "reflection": "I can convert a part between fraction and percent.",
+                "assessment": {
+                    "task_type": "knowledge_check",
+                    "attempts": 2,
+                    "first_try_correct": False,
+                    "hints_used": 0,
+                },
             },
         )
         assert module_review.status_code == 200
         assert module_review.json()["lesson_id"] == module_lesson_id
         assert module_review.json()["completed"] is True
+        assert module_review.json()["assessment"] == {
+            "task_type": "knowledge_check",
+            "attempts": 2,
+            "first_try_correct": False,
+            "hints_used": 0,
+        }
+        assert module_review.json()["assessment_count"] == 1
+
+        classified_review = client.post(
+            "/learning/reviews",
+            json={
+                "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d500",
+                "lesson_id": "physics.motion",
+                "quality": 3,
+                "assessment": {
+                    "task_type": "knowledge_check",
+                    "attempts": 3,
+                    "first_try_correct": False,
+                    "hints_used": 0,
+                    "error_categories": ["application", "foundation"],
+                },
+            },
+        )
+        assert classified_review.status_code == 200
+        assert classified_review.json()["assessment"]["error_categories"] == [
+            "application",
+            "foundation",
+        ]
+
+        invalid_error_category = client.post(
+            "/learning/reviews",
+            json={
+                "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d501",
+                "lesson_id": "physics.motion",
+                "quality": 3,
+                "assessment": {
+                    "task_type": "knowledge_check",
+                    "attempts": 2,
+                    "first_try_correct": False,
+                    "hints_used": 0,
+                    "error_categories": ["made_up"],
+                },
+            },
+        )
+        assert invalid_error_category.status_code == 422
+
+        invalid_assessment = client.post(
+            "/learning/reviews",
+            json={
+                "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d488",
+                "lesson_id": "mathematics.quadratics",
+                "quality": 4,
+                "assessment": {
+                    "task_type": "knowledge_check",
+                    "attempts": 1_001,
+                    "first_try_correct": False,
+                    "hints_used": 0,
+                },
+            },
+        )
+        assert invalid_assessment.status_code == 422
+
+    def test_learning_review_accepts_explicit_completion_separate_from_quality(self, client):
+        completed = client.post(
+            "/learning/reviews",
+            json={
+                "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d481",
+                "lesson_id": "physics.motion",
+                "quality": 2,
+                "complete_lesson": True,
+            },
+        )
+        assert completed.status_code == 200
+        assert completed.json()["completed"] is True
+        assert completed.json()["interval_days"] == 1
+
+        review_only = client.post(
+            "/learning/reviews",
+            json={
+                "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d482",
+                "lesson_id": "biology.osmosis",
+                "quality": 5,
+                "complete_lesson": False,
+            },
+        )
+        assert review_only.status_code == 200
+        assert review_only.json()["completed"] is False
+
+        conflicting_replay = client.post(
+            "/learning/reviews",
+            json={
+                "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d481",
+                "lesson_id": "physics.motion",
+                "quality": 2,
+                "complete_lesson": False,
+            },
+        )
+        assert conflicting_replay.status_code == 409
+
+        invalid_intent = client.post(
+            "/learning/reviews",
+            json={
+                "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d486",
+                "lesson_id": "physics.motion",
+                "quality": 4,
+                "complete_lesson": 1,
+            },
+        )
+        assert invalid_intent.status_code == 422
+
+    def test_interactive_assessment_endpoint_is_separate_from_review_events(self, client):
+        event = {
+            "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d495",
+            "lesson_id": "zoology.comparative_thermoregulation_and_heat_stress",
+            "assessment": {
+                "task_type": "interactive_prediction",
+                "attempts": 1,
+                "first_try_correct": False,
+                "hints_used": 0,
+            },
+        }
+
+        saved = client.post("/learning/assessments", json=event)
+        assert saved.status_code == 200
+        assert saved.json()["assessment"] == event["assessment"]
+        assert saved.json()["lesson_id"] == event["lesson_id"]
+        assert client.post("/learning/assessments", json=event).json() == saved.json()
+
+        conflicting = client.post(
+            "/learning/assessments",
+            json={
+                **event,
+                "assessment": {**event["assessment"], "attempts": 2},
+            },
+        )
+        assert conflicting.status_code == 409
+        assert client.get("/learning/progress").json()["records"] == []
+        assert client.get("/learning/progress").json()["assessment_evidence"] == [{
+            "lesson_id": event["lesson_id"],
+            "assessment_count": 1,
+            "task_type_counts": {"interactive_prediction": 1},
+            "passed_task_type_counts": {},
+            "error_category_counts": {},
+            "latest_assessment": event["assessment"],
+            "latest_at": saved.json()["created_at"],
+        }]
+
+        failed_check = {
+            "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d504",
+            "lesson_id": "biology.cell_cycle",
+            "assessment": {
+                "task_type": "knowledge_check",
+                "passed": False,
+                "error_categories": ["foundation"],
+            },
+        }
+        failed_check_response = client.post("/learning/assessments", json=failed_check)
+        assert failed_check_response.status_code == 200
+        assert failed_check_response.json()["assessment"] == failed_check["assessment"]
+        check_progress = client.get("/learning/progress").json()
+        assert check_progress["records"] == []
+        assert check_progress["assessment_evidence"][0]["passed_task_type_counts"] == {}
+        assert check_progress["assessment_evidence"][0]["error_category_counts"] == {"foundation": 1}
+        invalid = client.post(
+            "/learning/assessments",
+            json={
+                **event,
+                "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d497",
+                "assessment": {**event["assessment"], "task_type": "knowledge_check"},
+            },
+        )
+        assert invalid.status_code == 422
 
     def test_learning_progress_backup_api_exports_and_merges_local_progress(self, client):
         event = {
@@ -366,6 +582,146 @@ class TestAPIEndpoints:
         assert data["knowledge_review_due_document_count"] == 2
         assert data["knowledge_review_scheduled_document_count"] == 3
         assert data["knowledge_review_schedule_missing_document_count"] == 2
+
+    def test_health_does_not_claim_tutor_route_without_a_configured_model(self, client, monkeypatch):
+        """Network/session availability alone does not make a tutor ready.
+
+        Одной сети и доступной сессии недостаточно, чтобы считать тьютора готовым.
+        """
+        monkeypatch.setattr(orchestrator, "GEMINI_KEY", "")
+        monkeypatch.setattr(orchestrator, "KIMI_KEY", "")
+        monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "")
+        monkeypatch.setattr(orchestrator, "OPENAI_COMPATIBLE_KEY", "")
+        orchestrator.auto_cost_policy.set(False)
+        monkeypatch.setattr(
+            orchestrator,
+            "_check_network",
+            AsyncMock(return_value=True),
+        )
+        monkeypatch.setattr(
+            orchestrator,
+            "_check_ollama",
+            AsyncMock(return_value={
+                "available": False,
+                "version": None,
+                "models": [],
+                "model_ready": False,
+            }),
+        )
+
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["cloud_route_ready"] is False
+        assert data["local_route_ready"] is False
+        assert data["automatic_route_ready"] is False
+
+    def test_health_reports_local_route_only_when_the_configured_model_is_installed(self, client, monkeypatch):
+        monkeypatch.setattr(orchestrator, "_check_network", AsyncMock(return_value=False))
+        monkeypatch.setattr(
+            orchestrator,
+            "_check_ollama",
+            AsyncMock(return_value={
+                "available": True,
+                "version": "0.1.0",
+                "models": [orchestrator.OLLAMA_MODEL_RESEARCHER],
+                "model_ready": True,
+            }),
+        )
+
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["cloud_route_ready"] is False
+        assert data["local_route_ready"] is True
+        assert data["automatic_route_ready"] is True
+
+    def test_ollama_model_readiness_accepts_latest_alias_for_untagged_id(self):
+        assert orchestrator._ollama_model_is_installed(
+            "llama3",
+            {"available": True, "models": ["llama3:latest"]},
+        )
+
+    def test_health_rejects_uninstalled_selected_ollama_synthesis_model(self, client, monkeypatch):
+        orchestrator.final_synthesis_routes.set("ollama", "qwen3:8b")
+        monkeypatch.setattr(orchestrator, "_check_network", AsyncMock(return_value=True))
+        monkeypatch.setattr(
+            orchestrator,
+            "_check_ollama",
+            AsyncMock(return_value={
+                "available": True,
+                "version": "0.12.0",
+                "models": [orchestrator.OLLAMA_MODEL_RESEARCHER],
+                "model_ready": True,
+            }),
+        )
+
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["local_route_ready"] is True
+        assert data["cloud_route_ready"] is False
+        assert data["automatic_route_ready"] is True
+
+    @pytest.mark.parametrize(
+        ("installed_models", "expected_cloud_route_ready"),
+        [
+            ([orchestrator.OLLAMA_MODEL_RESEARCHER], False),
+            ([orchestrator.OLLAMA_MODEL_RESEARCHER, "qwen3:8b"], True),
+        ],
+    )
+    def test_health_checks_the_selected_ollama_subject_model(
+        self, client, monkeypatch, installed_models, expected_cloud_route_ready
+    ):
+        monkeypatch.setattr(orchestrator, "KIMI_KEY", "")
+        monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "")
+        orchestrator.auto_agent_models.set_route("gemini_draft", "ollama", "qwen3:8b")
+        orchestrator.subject_model_routes.set("biology", "ollama", "qwen3:8b")
+        orchestrator.final_synthesis_routes.set("gemini", orchestrator.GEMINI_PRO_MODEL)
+        monkeypatch.setattr(orchestrator, "_check_network", AsyncMock(return_value=True))
+        monkeypatch.setattr(
+            orchestrator,
+            "_check_ollama",
+            AsyncMock(return_value={
+                "available": True,
+                "version": "0.12.0",
+                "models": installed_models,
+                "model_ready": orchestrator.OLLAMA_MODEL_RESEARCHER in installed_models,
+            }),
+        )
+
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        assert response.json()["cloud_route_ready"] is expected_cloud_route_ready
+
+    def test_health_reports_configured_free_cloud_route(self, client, monkeypatch):
+        monkeypatch.setattr(orchestrator, "GEMINI_KEY", "")
+        monkeypatch.setattr(orchestrator, "KIMI_KEY", "")
+        monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "test-openrouter-key")
+        orchestrator.auto_cost_policy.set(False)
+        monkeypatch.setattr(orchestrator, "_check_network", AsyncMock(return_value=True))
+        monkeypatch.setattr(
+            orchestrator,
+            "_check_ollama",
+            AsyncMock(return_value={
+                "available": False,
+                "version": None,
+                "models": [],
+                "model_ready": False,
+            }),
+        )
+
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["cloud_route_ready"] is True
+        assert data["local_route_ready"] is False
+        assert data["automatic_route_ready"] is True
 
     def test_oversized_http_body_is_rejected_before_fastapi_parses_it(self, client):
         response = client.post(
@@ -735,15 +1091,23 @@ class TestSubjectModelRouting:
 
 
 class TestAutoAgentModelRouting:
-    def test_defaults_expose_local_models_for_every_agent_role(self, client):
+    def test_defaults_expose_auto_routes_for_every_agent_role(self, client):
         response = client.get("/settings/agent-models")
 
         assert response.status_code == 200
         roles = {item["role"]: item for item in response.json()["roles"]}
         assert set(roles) == set(orchestrator.AUTO_AGENT_MODEL_ROLES)
         assert all(item["model"] is None for item in roles.values())
-        assert all(item["effective_model"] == orchestrator.OLLAMA_MODEL_RESEARCHER for item in roles.values())
-        assert all(item["status"] == "model_checked_on_use" for item in roles.values())
+        assert roles["gemini_draft"]["provider"] == "auto"
+        assert all(
+            roles[role]["provider"] == "ollama"
+            for role in ("local_draft", "critic", "verifier")
+        )
+        assert roles["gemini_draft"]["effective_provider"] == "gemini"
+        assert all(
+            roles[role]["effective_provider"] == "ollama"
+            for role in ("local_draft", "critic", "verifier")
+        )
 
     def test_role_models_persist_validate_and_reset_without_credentials(self, client):
         saved = client.put("/settings/agent-models/critic", json={"model": "qwen3:8b"})
@@ -763,6 +1127,105 @@ class TestAutoAgentModelRouting:
         reset = client.delete("/settings/agent-models/critic")
         assert reset.status_code == 200
         assert reset.json()["model"] is None
+
+    def test_agent_route_accepts_cloud_provider_but_blocks_it_from_free_only_execution(self, client):
+        orchestrator.auto_cost_policy.set(False)
+
+        saved = client.put(
+            "/settings/agent-models/critic",
+            json={"provider": "gemini", "model": "gemini-3.8-flash"},
+        )
+
+        assert saved.status_code == 200
+        route = saved.json()
+        assert route["provider"] == "gemini"
+        assert route["model"] == "gemini-3.8-flash"
+        assert route["effective_provider"] == "ollama"
+        assert route["effective_model"] == orchestrator.OLLAMA_MODEL_RESEARCHER
+        assert route["paid_route_blocked"] is True
+        assert route["status"] == "blocked_by_free_only"
+
+    def test_agent_route_store_migrates_saved_local_models(self, tmp_path):
+        path = tmp_path / "auto-agent-models.json"
+        path.write_text(
+            json.dumps({"schema_version": 1, "models": {"critic": "qwen3:8b"}}),
+            encoding="utf-8",
+        )
+
+        store = orchestrator.AutoAgentModelStore(path)
+
+        assert store.get_route("critic") == {"provider": "ollama", "model": "qwen3:8b"}
+        assert store.get_route("verifier") == {"provider": "ollama", "model": None}
+        assert store.get_route("gemini_draft") == {"provider": "auto", "model": None}
+
+    def test_openrouter_free_route_is_allowed_by_default_cost_policy(self, client, monkeypatch):
+        orchestrator.auto_cost_policy.set(False)
+        monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "test-openrouter-key")
+
+        saved = client.put(
+            "/settings/agent-models/critic",
+            json={"provider": "openrouter", "model": "openrouter/free"},
+        )
+
+        assert saved.status_code == 200
+        route = saved.json()
+        assert route["effective_provider"] == "openrouter"
+        assert route["effective_model"] == "openrouter/free"
+        assert route["paid_route_blocked"] is False
+
+    def test_free_only_critic_uses_its_configured_openrouter_free_route(self, monkeypatch):
+        orchestrator.auto_cost_policy.set(False)
+        monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "test-openrouter-key")
+        orchestrator.auto_agent_models.set_route("critic", "openrouter", "openrouter/free")
+        orchestrator.auto_agent_models.set_route("verifier", "ollama", "llama3.2:3b")
+        orchestrator.final_synthesis_routes.set("ollama", "qwen3:8b")
+        engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient))
+        engine._ask_openrouter = AsyncMock(return_value="Critical review")
+        engine._ask_ollama = AsyncMock(side_effect=["Independent verification", "Final answer"])
+
+        answer = asyncio.run(engine._run_consilium("Question", "Instructions", "Candidate draft"))
+
+        assert answer == "Final answer"
+        engine._ask_openrouter.assert_awaited_once()
+        assert engine._ask_openrouter.await_args.kwargs["model"] == "openrouter/free"
+        assert engine._ask_ollama.await_args_list[0].kwargs["model"] == "llama3.2:3b"
+
+    def test_paid_agent_route_never_calls_cloud_when_free_only(self, monkeypatch):
+        orchestrator.auto_cost_policy.set(False)
+        monkeypatch.setattr(orchestrator, "GEMINI_KEY", "test-gemini-key")
+        orchestrator.auto_agent_models.set_route("critic", "gemini", "gemini-3.8-flash")
+        engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient))
+        engine._ask_gemini = AsyncMock(return_value="SHOULD NOT RUN")
+        engine._ask_ollama = AsyncMock(return_value="Local critique")
+
+        result = asyncio.run(
+            engine._ask_auto_agent_role("critic", "Question", "System", "critic")
+        )
+
+        assert result == "Local critique"
+        engine._ask_gemini.assert_not_awaited()
+        engine._ask_ollama.assert_awaited_once_with(
+            "Question", "System", "critic-free-only-local-fallback",
+            model=orchestrator.OLLAMA_MODEL_RESEARCHER,
+        )
+
+    def test_auto_agent_route_uses_openrouter_free_before_local_when_configured(self, monkeypatch):
+        orchestrator.auto_cost_policy.set(False)
+        monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "test-openrouter-key")
+        orchestrator.auto_agent_models.set_route("critic", "auto", None)
+        engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient))
+        engine._ask_openrouter = AsyncMock(return_value="Free route result")
+        engine._ask_ollama = AsyncMock(return_value="Should not run")
+
+        result = asyncio.run(
+            engine._ask_auto_agent_role("critic", "Question", "System", "critic")
+        )
+
+        assert result == "Free route result"
+        engine._ask_openrouter.assert_awaited_once_with(
+            "Question", "System", "critic", model="openrouter/free", track_specialist=False,
+        )
+        engine._ask_ollama.assert_not_awaited()
 
     def test_route_settings_are_loopback_only(self):
         with TestClient(app, client=("203.0.113.41", 50000)) as remote_client:
@@ -1148,10 +1611,10 @@ class TestAutoCostPolicy:
         assert answer == "Free router final"
         engine._ask_gemini.assert_not_awaited()
         engine._ask_kimi.assert_not_awaited()
-        engine._ask_openrouter.assert_awaited_once_with(
-            "Question", engine.agent_system("Tutor instructions"), "cloud-specialist",
-            model=orchestrator.OPENROUTER_FREE_MODEL,
-        )
+        assert engine._ask_openrouter.await_count == 2
+        assert {call.kwargs["model"] for call in engine._ask_openrouter.await_args_list} == {
+            orchestrator.OPENROUTER_FREE_MODEL,
+        }
         engine._ask_selected_specialist.assert_awaited_once()
         assert engine._ask_selected_specialist.await_args.args[:2] == (
             "openrouter", orchestrator.OPENROUTER_FREE_MODEL,
@@ -2009,6 +2472,70 @@ def _parse_sse(text: str) -> list[dict]:
 class TestStreamingChat:
     """Проверка SSE-стриминга через /chat/stream."""
 
+    def test_chat_stream_enforces_its_rate_limit(self, monkeypatch):
+        monkeypatch.setattr(orchestrator.limiter, "enabled", True)
+
+        async def capture_local_request(req, system_prompt, sources, learner_message=None):
+            return orchestrator.StreamingResponse(
+                iter([b"data: {\"type\":\"done\",\"answer\":\"ok\"}\n\n"]),
+                media_type="text/event-stream",
+            )
+
+        monkeypatch.setattr(orchestrator, "_handle_local_or_error_stream", capture_local_request)
+
+        with TestClient(app, client=("127.0.0.42", 50001)) as rate_client:
+            responses = [
+                rate_client.post(
+                    "/chat/stream",
+                    json={"message": "Rate-limit check", "mode": "local", "skip_retrieval": True},
+                )
+                for _ in range(31)
+            ]
+
+        assert [response.status_code for response in responses[:30]] == [200] * 30
+        assert responses[30].status_code == 429
+
+    def test_stream_can_skip_retrieval_for_a_private_tutor_route_probe(self, client, monkeypatch):
+        captured = {}
+
+        async def retrieval_must_not_run(*args, **kwargs):
+            raise AssertionError("A private route probe must not read learner materials")
+
+        async def capture_local_request(req, system_prompt, sources, learner_message=None):
+            captured["request"] = req
+            captured["sources"] = sources
+            captured["learner_message"] = learner_message
+            return orchestrator.StreamingResponse(
+                iter([b"data: {\"type\":\"done\",\"answer\":\"Tutor connection works\"}\n\n"]),
+                media_type="text/event-stream",
+            )
+
+        course_retrieval = AsyncMock(side_effect=retrieval_must_not_run)
+        obsidian_retrieval = AsyncMock(side_effect=retrieval_must_not_run)
+        official_retrieval = AsyncMock(side_effect=retrieval_must_not_run)
+        monkeypatch.setattr(orchestrator, "_retrieve_local_course_sources", course_retrieval)
+        monkeypatch.setattr(orchestrator, "_retrieve_obsidian_sources", obsidian_retrieval)
+        monkeypatch.setattr(orchestrator, "_retrieve_licensed_official_sources", official_retrieval)
+        monkeypatch.setattr(orchestrator, "_handle_local_or_error_stream", capture_local_request)
+
+        response = client.post(
+            "/chat/stream",
+            json={
+                "message": "Reply with a short connection check.",
+                "system_prompt": "This is a diagnostic request.",
+                "mode": "local",
+                "skip_retrieval": True,
+            },
+        )
+
+        assert response.status_code == 200
+        assert captured["sources"] == []
+        assert captured["learner_message"] == "Reply with a short connection check."
+        assert captured["request"].skip_retrieval is True
+        course_retrieval.assert_not_awaited()
+        obsidian_retrieval.assert_not_awaited()
+        official_retrieval.assert_not_awaited()
+
     def test_local_citations_are_checked_without_rewriting_code(self):
         answer = (
             "Supported [K1], unsupported [K2]. `literal [K3]`\n"
@@ -2695,8 +3222,18 @@ class TestStreamingChat:
         network_check.assert_not_awaited()
         engine_factory.assert_not_called()
 
-    def test_stream_local_mode(self, client_offline):
+    def test_stream_local_mode(self, client_offline, monkeypatch):
         """В offline-режиме стрим идёт через Digital Twin (Qwen)."""
+        monkeypatch.setattr(
+            orchestrator,
+            "_check_ollama",
+            AsyncMock(return_value={
+                "available": True,
+                "version": "0.12.0",
+                "models": [orchestrator.OLLAMA_MODEL_RESEARCHER],
+                "model_ready": True,
+            }),
+        )
         mock_answer = "Локальный ответ"
         mock_log = DebateLog()
         mock_log.add("consilium", "qwen", "Local response", 100)
@@ -2715,6 +3252,60 @@ class TestStreamingChat:
             done_events = [e for e in events if e["type"] == "done"]
             assert len(done_events) == 1
             assert done_events[0]["provider"] == "local"
+
+    def test_automatic_stream_reports_unconfigured_tutor_route(self, client, monkeypatch):
+        monkeypatch.setattr(orchestrator, "GEMINI_KEY", "")
+        monkeypatch.setattr(orchestrator, "KIMI_KEY", "")
+        monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "")
+
+        mock_engine = MagicMock()
+        mock_engine.run = AsyncMock(return_value=(
+            "⚠️ Консилиум не смог обработать запрос. Попробуйте ещё раз или переключитесь на локальный режим.",
+            DebateLog(),
+        ))
+        with patch("orchestrator.ConsiliumEngine", return_value=mock_engine) as engine_factory:
+            response = client.post("/chat/stream", json={"message": "Объясни тему"})
+
+        events = _parse_sse(response.text)
+
+        assert any(event["type"] == "error" for event in events)
+        assert not any(event["type"] == "done" for event in events)
+        engine_factory.assert_not_called()
+
+    def test_automatic_stream_uses_ready_local_route_without_cloud_configuration(
+        self, client, monkeypatch
+    ):
+        monkeypatch.setattr(orchestrator, "GEMINI_KEY", "")
+        monkeypatch.setattr(orchestrator, "KIMI_KEY", "")
+        monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "")
+        monkeypatch.setattr(
+            orchestrator,
+            "_check_ollama",
+            AsyncMock(return_value={
+                "available": True,
+                "version": "0.12.0",
+                "models": [orchestrator.OLLAMA_MODEL_RESEARCHER],
+                "model_ready": True,
+            }),
+        )
+
+        mock_engine = MagicMock()
+
+        async def local_chunks(message, system_prompt):
+            yield "Ответ локальной модели"
+
+        mock_engine.stream_local = local_chunks
+        mock_engine.log = DebateLog()
+        mock_engine.run = AsyncMock(return_value=("Cloud answer", DebateLog()))
+        with patch("orchestrator.ConsiliumEngine", return_value=mock_engine):
+            response = client.post("/chat/stream", json={"message": "Объясни тему"})
+
+        events = _parse_sse(response.text)
+        done = next(event for event in events if event["type"] == "done")
+
+        assert done["provider"] == "local"
+        assert done["answer"] == "Ответ локальной модели"
+        mock_engine.run.assert_not_awaited()
 
 
 # ─── Тесты ConsiliumEngine ─────────────────────────────
@@ -2761,6 +3352,51 @@ class TestConsiliumEngine:
 
         assert sources == []
         mock_obsidian.search.assert_not_awaited()
+
+    def test_obsidian_retrieval_adds_note_modification_metadata(self, monkeypatch):
+        mock_obsidian = MagicMock()
+        mock_obsidian.configured = True
+        mock_obsidian.base_url = "http://127.0.0.1:27123"
+        mock_obsidian.search = AsyncMock(return_value=[{
+            "filename": "Courses/Physics.md",
+            "matches": [{"context": "Force changes an object's motion."}],
+        }])
+        mock_obsidian.note_metadata = AsyncMock(return_value={
+            "modified_at": "2026-10-07T18:30:00Z",
+            "size_bytes": 128,
+        })
+        monkeypatch.setattr(orchestrator.state, "obsidian", mock_obsidian)
+
+        sources = asyncio.run(orchestrator._retrieve_obsidian_sources("force and motion"))
+
+        assert len(sources) == 1
+        assert {key: value for key, value in sources[0].items() if key != "retrieved_at"} == {
+            "id": "",
+            "title": "Courses/Physics.md",
+            "excerpt": "Force changes an object's motion.",
+            "modified_at": "2026-10-07T18:30:00Z",
+            "path": "Courses/Physics.md",
+            "source_type": "obsidian",
+        }
+        mock_obsidian.note_metadata.assert_awaited_once_with("Courses/Physics.md")
+
+    def test_obsidian_retrieval_keeps_excerpt_when_note_metadata_is_unavailable(self, monkeypatch):
+        mock_obsidian = MagicMock()
+        mock_obsidian.configured = True
+        mock_obsidian.base_url = "http://127.0.0.1:27123"
+        mock_obsidian.search = AsyncMock(return_value=[{
+            "filename": "Courses/Physics.md",
+            "matches": [{"context": "Force changes an object's motion."}],
+        }])
+        mock_obsidian.note_metadata = AsyncMock(side_effect=ConnectionError("unsupported metadata"))
+        monkeypatch.setattr(orchestrator.state, "obsidian", mock_obsidian)
+
+        sources = asyncio.run(orchestrator._retrieve_obsidian_sources("force and motion"))
+
+        assert len(sources) == 1
+        assert sources[0]["excerpt"] == "Force changes an object's motion."
+        assert "modified_at" not in sources[0]
+        mock_obsidian.note_metadata.assert_awaited_once_with("Courses/Physics.md")
 
     def test_google_grounding_keeps_only_public_http_sources_and_cites_them(self):
         candidate = {

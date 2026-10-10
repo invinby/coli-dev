@@ -9,10 +9,32 @@ import UniformTypeIdentifiers
 struct SubjectOverviewView: View {
     @EnvironmentObject private var store: LearningStore
     @State private var levels: [CurriculumLevel] = []
+    @State private var showingCustomTopicEditor = false
+    @State private var customTopicParentID: UUID?
+    @State private var pendingCustomTopicID: UUID?
+    @State private var showingCustomTopicDelete = false
 
     let subject: Subject
     let openCourseLesson: (String) -> Void
+    let openCustomTopic: (UUID) -> Void
     let startLesson: () -> Void
+
+    private var studyRoadmap: StudyRoadmap {
+        let progressionLevels = levels.map { $0.topics.compactMap(\.lessonResource) }
+        return StudyRoadmap(
+            subjectID: subject.rawValue,
+            lessonResources: progressionLevels.flatMap { $0 },
+            progressionLevels: progressionLevels
+        )
+    }
+
+    private func isCourseLessonAvailable(_ resource: String) -> Bool {
+        StudyProgressionPolicy.isAvailable(
+            StudyLessonRoute(subjectID: subject.rawValue, resource: resource),
+            in: studyRoadmap,
+            evidence: store.studyProgressionEvidence
+        )
+    }
 
     var body: some View {
         ScrollView {
@@ -67,6 +89,17 @@ struct SubjectOverviewView: View {
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
+                            if level.topics.contains(where: { topic in
+                                guard let resource = topic.lessonResource else { return false }
+                                return !isCourseLessonAvailable(resource)
+                            }) {
+                                Label(
+                                    L10n.text("roadmap.prerequisiteCheck", store.language),
+                                    systemImage: "lock.fill"
+                                )
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            }
                             ForEach(level.topics) { topic in
                                 VStack(alignment: .leading, spacing: 5) {
                                     Text(topic.name.value(in: store.language))
@@ -76,15 +109,19 @@ struct SubjectOverviewView: View {
                                         .foregroundStyle(.secondary)
                                         .fixedSize(horizontal: false, vertical: true)
                                     if let lessonResource = topic.lessonResource {
+                                        let isAvailable = isCourseLessonAvailable(lessonResource)
                                         Button { openCourseLesson(lessonResource) } label: {
                                             Label(
                                                 L10n.text("roadmap.openFullLesson", store.language),
-                                                systemImage: store.isComplete(lessonID: "\(subject.rawValue).\(lessonResource)")
-                                                    ? "checkmark.circle.fill"
-                                                    : "book.closed"
+                                                systemImage: isAvailable
+                                                    ? (store.isComplete(lessonID: "\(subject.rawValue).\(lessonResource)")
+                                                        ? "checkmark.circle.fill"
+                                                        : "book.closed")
+                                                    : "lock.fill"
                                             )
                                         }
                                         .buttonStyle(.borderless)
+                                        .disabled(!isAvailable)
                                         .padding(.top, 3)
                                     }
                                 }
@@ -98,6 +135,37 @@ struct SubjectOverviewView: View {
                         .background(subject.tint.opacity(0.07), in: RoundedRectangle(cornerRadius: 18))
                     }
                 }
+
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text(L10n.text("custom.myTopics", store.language)).font(.title2.weight(.semibold))
+                        Spacer()
+                        Button {
+                            customTopicParentID = nil
+                            showingCustomTopicEditor = true
+                        } label: {
+                            Label(L10n.text("custom.addTopic", store.language), systemImage: "plus")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    if store.customCurriculum.topics(builtInSubjectID: subject.rawValue).isEmpty {
+                        Text(L10n.text("custom.addToBuiltInHint", store.language))
+                            .font(.subheadline).foregroundStyle(.secondary)
+                    } else {
+                        ForEach(store.customCurriculum.topics(builtInSubjectID: subject.rawValue)) { topic in
+                            CustomTopicBranch(
+                                topic: topic,
+                                language: store.language,
+                                lessonID: { CustomTopicStudyRoute.builtInTopic(subjectID: subject.rawValue, topicID: $0).lessonID },
+                                open: { openCustomTopic($0) },
+                                addChild: { customTopicParentID = $0; showingCustomTopicEditor = true },
+                                delete: { pendingCustomTopicID = $0; showingCustomTopicDelete = true }
+                            )
+                        }
+                    }
+                }
+                .padding(18)
+                .background(subject.tint.opacity(0.07), in: RoundedRectangle(cornerRadius: 18))
             }
             .padding(.horizontal, 30)
             .padding(.bottom, 32)
@@ -106,6 +174,25 @@ struct SubjectOverviewView: View {
         }
         .navigationTitle(Text(subject.title(in: store.language)))
         .onAppear { levels = CurriculumCatalog.roadmap(for: subject) }
+        .sheet(isPresented: $showingCustomTopicEditor) {
+            CustomTopicEditor(builtInSubject: subject, parentTopicID: customTopicParentID) {}
+                .environmentObject(store)
+        }
+        .confirmationDialog(
+            L10n.text("custom.deleteTopic", store.language),
+            isPresented: $showingCustomTopicDelete,
+            titleVisibility: .visible
+        ) {
+            Button(L10n.text("custom.deleteTopic", store.language), role: .destructive) {
+                if let pendingCustomTopicID {
+                    store.removeCustomTopic(builtInSubject: subject, topicID: pendingCustomTopicID)
+                }
+                pendingCustomTopicID = nil
+            }
+            Button(L10n.text("common.cancel", store.language), role: .cancel) { pendingCustomTopicID = nil }
+        } message: {
+            Text(L10n.text("custom.confirmDeleteTopic", store.language))
+        }
     }
 }
 
@@ -192,46 +279,21 @@ private struct CurriculumLessonDocument {
     }
 
     func notebookSource(subject: Subject, language: AppLanguage) -> String {
-        let subjectLabel = subject.title(in: language)
-        let goalHeading = language == .ru ? "Цель" : "Learning goal"
-        let theoryHeading = language == .ru ? "Теория и механизм" : "Theory and mechanism"
-        let practiceHeading = language == .ru ? "Практика" : "Practice"
-        let checkHeading = language == .ru ? "Проверка понимания" : "Knowledge check"
-        let answerHeading = language == .ru ? "Правильный ответ и разбор" : "Correct answer and explanation"
-        let limitsHeading = language == .ru ? "Ограничения" : "Limitations"
-        let sourcesHeading = language == .ru ? "Источники" : "Sources"
-        let origin = language == .ru ? "Экспортировано из ColiDev" : "Exported from ColiDev"
-
-        var sections = [
-            "# \(title)",
-            "**\(language == .ru ? "Предмет" : "Subject"): \(subjectLabel)**",
-            "*\(origin)*",
-            "## \(goalHeading)\n\(objective)",
-            "## \(theoryHeading)\n\(theory)",
-        ]
-        if !practice.isEmpty {
-            sections.append("## \(practiceHeading)\n\(practice)")
-        }
-        if !checkQuestion.isEmpty {
-            var check = "## \(checkHeading)\n\(checkQuestion)"
-            for (index, option) in checkOptions.enumerated() {
-                check += "\n\n\(index + 1). \(option)"
-            }
-            sections.append(check)
-        }
-        if let checkAnswerIndex {
-            let answerLabel = language == .ru ? "Правильный вариант" : "Correct option"
-            sections.append("## \(answerHeading)\n\(answerLabel): \(checkAnswerIndex + 1).\n\n\(answer)")
-        } else if !answer.isEmpty {
-            sections.append("## \(answerHeading)\n\(answer)")
-        }
-        if !limitations.isEmpty {
-            sections.append("## \(limitsHeading)\n\(limitations)")
-        }
-        if !sources.isEmpty {
-            sections.append("## \(sourcesHeading)\n\(sources)")
-        }
-        return sections.joined(separator: "\n\n") + "\n"
+        NotebookLessonExport(
+            title: title,
+            subjectLabel: subject.title(in: language),
+            isRussian: language == .ru,
+            sourceCheckedOn: sourceCheckedOn,
+            objective: objective,
+            theory: theory,
+            practice: practice,
+            answer: answer,
+            checkQuestion: checkQuestion,
+            checkOptions: checkOptions,
+            checkAnswerIndex: checkAnswerIndex,
+            limitations: limitations,
+            sources: sources
+        ).markdown
     }
 
     private static func extract(_ markdown: String, headings: [String]) -> String {
@@ -265,7 +327,9 @@ struct CurriculumModuleView: View {
     @State private var learnerConfirmed = false
     @State private var reflection = ""
     @State private var recallQuality = 4
-    @State private var selectedCheckAnswer: Int?
+    @State private var checkAttempt: CurriculumCheckAttempt?
+    @State private var selectedErrorCategory = ""
+    @State private var isCheckExplanationRevealed = false
     @State private var sourceInventory: TrustedSourceInventory?
     @State private var sourceInventoryUnavailable = false
     @State private var isLoadingSourceInventory = false
@@ -330,39 +394,108 @@ struct CurriculumModuleView: View {
                                 .font(.title2.weight(.semibold))
                             Text(document.checkQuestion)
                                 .font(.headline)
-                            ForEach(document.checkOptions.indices, id: \.self) { index in
-                                Button {
-                                    selectedCheckAnswer = index
-                                } label: {
-                                    HStack(spacing: 10) {
-                                        Image(systemName: selectedCheckAnswer == index ? "largecircle.fill.circle" : "circle")
-                                        Text(document.checkOptions[index])
-                                            .multilineTextAlignment(.leading)
-                                        Spacer(minLength: 0)
+                            if let checkAttempt {
+                                ForEach(Array(checkAttempt.choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayedIndex, originalIndex in
+                                    Button {
+                                        selectCheckAnswer(displayedIndex: displayedIndex)
+                                    } label: {
+                                        HStack(spacing: 10) {
+                                            Image(systemName: checkAttempt.selectedOriginalIndex == originalIndex
+                                                ? "largecircle.fill.circle"
+                                                : "circle")
+                                            Text(document.checkOptions[originalIndex])
+                                                .multilineTextAlignment(.leading)
+                                            Spacer(minLength: 0)
+                                        }
+                                        .padding(11)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .background(.background, in: RoundedRectangle(cornerRadius: 11))
+                                        .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(.quaternary, lineWidth: 1))
                                     }
-                                    .padding(11)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(.background, in: RoundedRectangle(cornerRadius: 11))
-                                    .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(.quaternary, lineWidth: 1))
+                                    .buttonStyle(.plain)
+                                    .disabled(checkAttempt.hasAnswered)
                                 }
-                                .buttonStyle(.plain)
-                            }
-                            if let selectedCheckAnswer {
-                                let isCorrect = selectedCheckAnswer == document.checkAnswerIndex
-                                Label(
-                                    L10n.text(isCorrect ? "module.correct" : "module.incorrect", store.language),
-                                    systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
-                                )
-                                .foregroundStyle(isCorrect ? Color.green : Color.orange)
-                                if isCorrect, !document.answer.isEmpty {
-                                    Text((try? AttributedString(markdown: document.answer)) ?? AttributedString(document.answer))
-                                        .textSelection(.enabled)
-                                        .padding(.top, 2)
+
+                                if checkAttempt.hasAnswered {
+                                    let isCorrect = checkAttempt.isCorrect
+                                    let feedback = LessonAnswerFeedback.presentation(
+                                        isCorrect: isCorrect,
+                                        explanationRevealed: isCheckExplanationRevealed,
+                                        explanation: document.answer,
+                                        correctPrompt: L10n.text("module.correct", store.language),
+                                        retryPrompt: L10n.text("module.incorrect", store.language)
+                                    )
+                                    Label(
+                                        feedback.statusMessage,
+                                        systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
+                                    )
+                                    .foregroundStyle(isCorrect ? Color.green : Color.orange)
+
+                                    if !isCorrect {
+                                        Text(L10n.text("module.errorCategoryPrompt", store.language))
+                                            .font(.callout.weight(.medium))
+                                        Picker(L10n.text("module.errorCategoryLabel", store.language), selection: $selectedErrorCategory) {
+                                            Text(L10n.text("module.errorCategorySkip", store.language)).tag("")
+                                            ForEach(StudyErrorCategory.allCases) { category in
+                                                Text(L10n.text(category.titleKey, store.language)).tag(category.rawValue)
+                                            }
+                                        }
+                                        .pickerStyle(.menu)
+
+                                        if let category = StudyErrorCategory(rawValue: selectedErrorCategory) {
+                                            Text(L10n.text(category.guidanceKey, store.language))
+                                                .font(.callout)
+                                                .foregroundStyle(.secondary)
+                                        }
+
+                                        Button {
+                                            isCheckExplanationRevealed = true
+                                        } label: {
+                                            Label(L10n.text("module.showAnswer", store.language), systemImage: "eye")
+                                        }
+                                        .buttonStyle(.borderless)
+                                    }
+
+                                    if isCorrect || isCheckExplanationRevealed {
+                                        if !isCorrect {
+                                            Text(String(
+                                                format: L10n.text("module.correctOption", store.language),
+                                                document.checkOptions[checkAttempt.answerOriginalIndex]
+                                            ))
+                                                .font(.callout.weight(.medium))
+                                        }
+
+                                        if let explanation = feedback.explanation {
+                                            Text((try? AttributedString(markdown: explanation)) ?? AttributedString(explanation))
+                                                .textSelection(.enabled)
+                                                .padding(.top, 2)
+                                        } else {
+                                            Text(L10n.text("module.explanationUnavailable", store.language))
+                                                .font(.callout)
+                                                .foregroundStyle(.orange)
+                                        }
+                                    }
+
+                                    if checkAttempt.canRetry {
+                                        Button(action: retryKnowledgeCheck) {
+                                            Label(L10n.text("module.tryAgain", store.language), systemImage: "arrow.counterclockwise")
+                                        }
+                                        .buttonStyle(.bordered)
+                                    }
                                 }
+                            } else {
+                                Label(L10n.text("module.quizUnavailable", store.language), systemImage: "exclamationmark.triangle")
+                                    .foregroundStyle(.orange)
                             }
                         }
                         .padding(18)
                         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+                    } else {
+                        Label(L10n.text("module.quizUnavailable", store.language), systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(.orange)
+                            .padding(18)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
                     }
 
                     if !document.limitations.isEmpty {
@@ -463,29 +596,39 @@ struct CurriculumModuleView: View {
                             store.recordReview(
                                 lessonID: lessonID,
                                 quality: recallQuality,
-                                reflection: reflection
+                                reflection: reflection,
+                                assessment: checkAttempt?.assessmentEvidence
                             )
                         } else {
                             store.markComplete(
                                 lessonID: lessonID,
                                 quality: recallQuality,
-                                reflection: reflection
+                                reflection: reflection,
+                                assessment: checkAttempt?.assessmentEvidence
                             )
                         }
                     } label: {
                         let title = hasPendingReview
                             ? "session.reviewSaved"
                             : (isComplete
-                                ? (isReviewDue ? "session.recordReview" : "session.completed")
+                                ? (isReviewDue
+                                    ? "session.recordReview"
+                                    : (checkAttempt?.assessmentEvidence != nil
+                                        ? "session.recordPractice"
+                                        : "session.completed"))
                                 : "session.complete")
                         Label(L10n.text(title, store.language), systemImage: isComplete ? "checkmark.circle.fill" : "checkmark")
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(
                         !learnerConfirmed
-                            || selectedCheckAnswer != document.checkAnswerIndex
+                            || checkAttempt?.canComplete != true
                             || hasPendingReview
-                            || (isComplete && !isReviewDue)
+                            || !StudyReviewActionPolicy.canRecord(
+                                isComplete: isComplete,
+                                isReviewDue: isReviewDue,
+                                hasAssessment: checkAttempt?.assessmentEvidence != nil
+                            )
                     )
                     .padding(.bottom, 32)
                 } else {
@@ -501,6 +644,7 @@ struct CurriculumModuleView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .navigationTitle(Text(document?.title ?? L10n.text("module.title", store.language)))
         .onAppear { loadDocument() }
+        .onChange(of: lessonID) { _ in loadDocument() }
         .task(id: lessonID) { await loadSourceInventory() }
         .onChange(of: store.language) { _ in loadDocument() }
         .onChange(of: store.studyProgress[lessonID]?.reflection) { savedReflection in
@@ -538,11 +682,40 @@ struct CurriculumModuleView: View {
     }
 
     private func loadDocument() {
-        document = CurriculumLessonDocument.load(subject: subject, resource: resource, language: store.language)
+        let loadedDocument = CurriculumLessonDocument.load(subject: subject, resource: resource, language: store.language)
+        document = loadedDocument
+        selectedErrorCategory = ""
+        isCheckExplanationRevealed = false
+        checkAttempt = loadedDocument.flatMap { lesson in
+            guard let answerIndex = lesson.checkAnswerIndex else { return nil }
+            return CurriculumCheckAttempt(optionCount: lesson.checkOptions.count, answerOriginalIndex: answerIndex)
+        }
         learnerConfirmed = isComplete
         if reflection.isEmpty {
             reflection = store.studyProgress[lessonID]?.reflection ?? ""
         }
+    }
+
+    private func selectCheckAnswer(displayedIndex: Int) {
+        guard var attempt = checkAttempt else { return }
+        attempt.select(displayedIndex: displayedIndex)
+        if attempt.isCorrect,
+           let evidence = attempt.currentAnswerEventEvidence() {
+            store.recordStudyAssessment(lessonID: lessonID, evidence: evidence)
+        }
+        checkAttempt = attempt
+    }
+
+    private func retryKnowledgeCheck() {
+        guard var attempt = checkAttempt else { return }
+        let errorCategory = StudyErrorCategory(rawValue: selectedErrorCategory)
+        if let evidence = attempt.currentAnswerEventEvidence(errorCategory: errorCategory) {
+            store.recordStudyAssessment(lessonID: lessonID, evidence: evidence)
+        }
+        attempt.retry(errorCategory: errorCategory)
+        checkAttempt = attempt
+        selectedErrorCategory = ""
+        isCheckExplanationRevealed = false
     }
 
     @MainActor
@@ -802,6 +975,8 @@ struct LessonSessionView: View {
     let showRoadmap: () -> Void
 
     @State private var selectedAnswer: Int?
+    @State private var optionOrder = AnswerChoiceOrder(optionCount: 3)
+    @State private var isLessonFeedbackRevealed = false
     @State private var learnerConfirmed = false
     @State private var reflection = ""
     @State private var showingTutor = false
@@ -811,7 +986,11 @@ struct LessonSessionView: View {
     }
 
     private var answerIsCorrect: Bool {
-        selectedAnswer == content.answerIndex
+        guard let selectedAnswer else { return false }
+        return optionOrder.isCorrect(
+            displayedIndex: selectedAnswer,
+            answerOriginalIndex: content.answerIndex
+        )
     }
 
     var body: some View {
@@ -887,7 +1066,7 @@ struct LessonSessionView: View {
 
                 quizCard
 
-                if selectedAnswer == content.answerIndex || store.isComplete(subject) {
+                if answerIsCorrect || store.isComplete(subject) {
                     StudyReflectionFields(
                         language: store.language,
                         reflection: $reflection,
@@ -952,14 +1131,14 @@ struct LessonSessionView: View {
                 .font(.title2.weight(.semibold))
             Text(content.question)
                 .font(.headline)
-            ForEach(content.options.indices, id: \.self) { index in
+            ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
                 Button {
-                    selectedAnswer = index
+                    selectedAnswer = displayIndex
                 } label: {
                     HStack(spacing: 12) {
-                        Image(systemName: selectedAnswer == index ? "largecircle.fill.circle" : "circle")
-                            .foregroundStyle(selectedAnswer == index ? subject.tint : Color.secondary)
-                        Text(content.options[index])
+                        Image(systemName: selectedAnswer == displayIndex ? "largecircle.fill.circle" : "circle")
+                            .foregroundStyle(selectedAnswer == displayIndex ? subject.tint : Color.secondary)
+                        Text(content.options[originalIndex])
                             .multilineTextAlignment(.leading)
                         Spacer(minLength: 0)
                     }
@@ -969,14 +1148,46 @@ struct LessonSessionView: View {
                     .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.quaternary, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
+                .disabled(selectedAnswer != nil)
             }
             if selectedAnswer != nil {
-                Label { Text(answerIsCorrect ? content.feedback : L10n.text("session.wrong", store.language)) } icon: { Image(systemName: answerIsCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle") }
+                let feedback = LessonAnswerFeedback.presentation(
+                    isCorrect: answerIsCorrect,
+                    explanationRevealed: isLessonFeedbackRevealed,
+                    explanation: content.feedback,
+                    correctPrompt: L10n.text("session.right", store.language),
+                    retryPrompt: L10n.text("session.wrong", store.language)
+                )
+                Label {
+                    Text(feedback.statusMessage)
+                } icon: {
+                    Image(systemName: answerIsCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle")
+                }
                 .font(.callout)
                 .foregroundStyle(answerIsCorrect ? Color.green : Color.orange)
                 .padding(.top, 4)
+                if feedback.canRevealExplanation {
+                    Button {
+                        isLessonFeedbackRevealed = true
+                    } label: {
+                        Label(L10n.text("module.showAnswer", store.language), systemImage: "eye")
+                    }
+                    .buttonStyle(.borderless)
+                }
+                if let explanation = feedback.explanation {
+                    Text((try? AttributedString(markdown: explanation)) ?? AttributedString(explanation))
+                        .font(.callout)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 if !answerIsCorrect {
-                    Button { self.selectedAnswer = nil } label: { Text(L10n.text("session.retry", store.language)) }
+                    Button {
+                        self.selectedAnswer = nil
+                        self.isLessonFeedbackRevealed = false
+                        self.optionOrder.reshuffle()
+                    } label: {
+                        Text(L10n.text("session.retry", store.language))
+                    }
                         .buttonStyle(.link)
                 }
             }
@@ -1061,6 +1272,12 @@ private struct PracticeLab: View {
             PercentRepresentationLab()
         } else if subject == .mathematics, moduleResource == "domain_and_range" {
             DomainRangeLab()
+        } else if subject == .mathematics, moduleResource == "quadratic_functions_and_transformations" {
+            QuadraticFunctionLab()
+        } else if subject == .mathematics, moduleResource == "trigonometry_and_periodic_functions" {
+            TrigonometryUnitCircleLab()
+        } else if subject == .mathematics, moduleResource == "constrained_optimization_and_lagrange_multipliers" {
+            ConstrainedOptimizationLab()
         } else if subject == .mathematics, moduleResource == "rates_of_change_and_derivative" {
             DerivativeRateLab()
         } else if subject == .english, moduleResource == "present_simple_and_continuous" {
@@ -1073,6 +1290,8 @@ private struct PracticeLab: View {
             DailyRoutineVocabularyLab()
         } else if subject == .english, moduleResource == "reading_for_gist_and_detail" {
             ReadingStrategyLab()
+        } else if subject == .english, moduleResource == "reported_speech_questions_and_backshift" {
+            ReportedSpeechLab()
         } else if subject == .zoology, moduleResource == "animals_as_a_group" {
             AnimalGroupLab()
         } else if subject == .zoology, moduleResource == "major_animal_lineages" {
@@ -1097,6 +1316,8 @@ private struct PracticeLab: View {
             NaturalSelectionLab()
         } else if subject == .zoology, moduleResource == "animal_function_and_environment" {
             AnimalFunctionLab()
+        } else if subject == .zoology, moduleResource == "comparative_thermoregulation_and_heat_stress" {
+            ThermoregulationLab()
         } else if subject == .biology, moduleResource == "cell_cycle_and_differentiation" {
             CellCycleLab()
         } else if subject == .biology, moduleResource == "ecosystem_energy_flow" {
@@ -1105,6 +1326,8 @@ private struct PracticeLab: View {
             FoodWebLab()
         } else if subject == .physics, moduleResource == "work_and_kinetic_energy" {
             KineticEnergyLab()
+        } else if subject == .physics, moduleResource == "measurement_units_and_uncertainty" {
+            LengthMeasurementLab()
         } else if subject == .physics, moduleResource == "static_and_kinetic_friction" {
             FrictionLab()
         } else if subject == .physics, moduleResource == "impulse_and_momentum" {
@@ -1113,6 +1336,8 @@ private struct PracticeLab: View {
             MomentumCollisionLab(initialMode: .elastic)
         } else if subject == .physics, moduleResource == "projectile_motion" {
             ProjectileMotionLab()
+        } else if subject == .physics, moduleResource == "net_force_and_acceleration" {
+            ForceLab(lessonID: "physics.net_force_and_acceleration")
         } else if subject == .programming, moduleResource == "collections_and_loops" {
             CollectionsLoopsLab()
         } else if subject == .programming, moduleResource == "conditions_loops_functions" {
@@ -1166,6 +1391,10 @@ private struct ReadingStrategyLab: View {
     @State private var selection: Int?
     @State private var wasCorrect: Bool?
     @State private var complete = false
+    @State private var optionOrders = QuizAnswerOrder.balancedSequence(
+        optionCount: 3,
+        answerOriginalIndices: EnglishReadingPractice.questions.map(\.correctOption)
+    )
 
     private let questions = [
         ConditionalPracticeQuestion(id: EnglishReadingPractice.questions[0].id, promptKey: "lab.readingQuestion0", feedbackKey: "lab.readingFeedback0"),
@@ -1197,20 +1426,20 @@ private struct ReadingStrategyLab: View {
                     .font(.title3.weight(.medium))
                     .fixedSize(horizontal: false, vertical: true)
 
-                ForEach(0..<3, id: \.self) { option in
+                ForEach(Array(optionOrders[index].displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Button {
-                        selection = option
+                        selection = displayIndex
                         wasCorrect = nil
                     } label: {
                         Label(
-                            L10n.text("lab.readingOption\(index * 3 + option)", store.language),
-                            systemImage: selection == option ? "checkmark.circle.fill" : "circle"
+                            L10n.text("lab.readingOption\(index * 3 + originalIndex)", store.language),
+                            systemImage: selection == displayIndex ? "checkmark.circle.fill" : "circle"
                         )
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.bordered)
-                    .tint(selection == option ? .accentColor : .secondary)
-                    .accessibilityAddTraits(selection == option ? .isSelected : [])
+                    .tint(selection == displayIndex ? .accentColor : .secondary)
+                    .accessibilityAddTraits(selection == displayIndex ? .isSelected : [])
                 }
 
                 if let wasCorrect {
@@ -1234,7 +1463,7 @@ private struct ReadingStrategyLab: View {
                             wasCorrect = nil
                         }
                     } else if let selection {
-                        wasCorrect = EnglishReadingPractice.isCorrect(selection, for: questions[index].id)
+                        wasCorrect = optionOrders[index].isCorrect(displayedIndex: selection)
                     }
                 } label: {
                     Text(L10n.text(
@@ -1255,6 +1484,10 @@ private struct ReadingStrategyLab: View {
         selection = nil
         wasCorrect = nil
         complete = false
+        optionOrders = QuizAnswerOrder.balancedSequence(
+            optionCount: 3,
+            answerOriginalIndices: EnglishReadingPractice.questions.map(\.correctOption)
+        )
     }
 }
 
@@ -1264,8 +1497,9 @@ private struct DailyRoutineVocabularyLab: View {
     @State private var selectedOption: Int?
     @State private var lastWasCorrect: Bool?
     @State private var isComplete = false
+    @State private var optionOrders: [[Int]] = Self.makeOptionOrders()
 
-    private let questions = [
+    private static let questionSet = [
         RoutineVocabularyQuestion(
             promptKey: "lab.routinePrompt1",
             optionKeys: ["lab.routineGoToBed", "lab.routineHaveBreakfast", "lab.routineHaveDinner"],
@@ -1293,6 +1527,7 @@ private struct DailyRoutineVocabularyLab: View {
         )
     ]
 
+    private var questions: [RoutineVocabularyQuestion] { Self.questionSet }
     private var currentQuestion: RoutineVocabularyQuestion { questions[questionIndex] }
 
     var body: some View {
@@ -1322,20 +1557,20 @@ private struct DailyRoutineVocabularyLab: View {
                     .font(.title3.weight(.medium))
                     .fixedSize(horizontal: false, vertical: true)
 
-                ForEach(Array(currentQuestion.optionKeys.enumerated()), id: \.offset) { index, optionKey in
+                ForEach(Array(optionOrders[questionIndex].enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Button {
-                        selectedOption = index
+                        selectedOption = displayIndex
                         lastWasCorrect = nil
                     } label: {
                         Label(
-                            L10n.text(optionKey, store.language),
-                            systemImage: selectedOption == index ? "checkmark.circle.fill" : "circle"
+                            L10n.text(currentQuestion.optionKeys[originalIndex], store.language),
+                            systemImage: selectedOption == displayIndex ? "checkmark.circle.fill" : "circle"
                         )
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.bordered)
-                    .tint(selectedOption == index ? .accentColor : .secondary)
-                    .accessibilityAddTraits(selectedOption == index ? .isSelected : [])
+                    .tint(selectedOption == displayIndex ? .accentColor : .secondary)
+                    .accessibilityAddTraits(selectedOption == displayIndex ? .isSelected : [])
                 }
 
                 if let lastWasCorrect {
@@ -1379,7 +1614,7 @@ private struct DailyRoutineVocabularyLab: View {
         }
 
         guard let selectedOption else { return }
-        lastWasCorrect = selectedOption == currentQuestion.answerIndex
+        lastWasCorrect = optionOrders[questionIndex][selectedOption] == currentQuestion.answerIndex
     }
 
     private func reset() {
@@ -1387,6 +1622,14 @@ private struct DailyRoutineVocabularyLab: View {
         selectedOption = nil
         lastWasCorrect = nil
         isComplete = false
+        optionOrders = Self.makeOptionOrders()
+    }
+
+    private static func makeOptionOrders() -> [[Int]] {
+        QuizAnswerOrder.balancedSequence(
+            optionCount: 3,
+            answerOriginalIndices: questionSet.map(\.answerIndex)
+        ).map(\.displayedOriginalIndices)
     }
 }
 
@@ -1402,13 +1645,16 @@ private struct AnimalGroupLab: View {
     @State private var selection: Int?
     @State private var wasCorrect: Bool?
     @State private var complete = false
+    @State private var optionOrders: [[Int]] = Self.makeOptionOrders()
 
-    private let questions = [
+    private static let questionSet = [
         AnimalGroupQuestion(promptKey: "lab.animalGroupQ1", options: ["lab.animalGroupQ1A", "lab.animalGroupQ1B", "lab.animalGroupQ1C"], answerIndex: 0),
         AnimalGroupQuestion(promptKey: "lab.animalGroupQ2", options: ["lab.animalGroupQ2A", "lab.animalGroupQ2B", "lab.animalGroupQ2C"], answerIndex: 1),
         AnimalGroupQuestion(promptKey: "lab.animalGroupQ3", options: ["lab.animalGroupQ3A", "lab.animalGroupQ3B", "lab.animalGroupQ3C"], answerIndex: 2),
         AnimalGroupQuestion(promptKey: "lab.animalGroupQ4", options: ["lab.animalGroupQ4A", "lab.animalGroupQ4B", "lab.animalGroupQ4C"], answerIndex: 1)
     ]
+
+    private var questions: [AnimalGroupQuestion] { Self.questionSet }
 
     var body: some View {
         LabCard {
@@ -1425,6 +1671,7 @@ private struct AnimalGroupLab: View {
                     selection = nil
                     wasCorrect = nil
                     complete = false
+                    optionOrders = Self.makeOptionOrders()
                 }
                 .buttonStyle(.bordered)
             } else {
@@ -1436,17 +1683,20 @@ private struct AnimalGroupLab: View {
                     .font(.title3.weight(.medium))
                     .fixedSize(horizontal: false, vertical: true)
 
-                ForEach(Array(questions[index].options.enumerated()), id: \.offset) { optionIndex, key in
+                ForEach(Array(optionOrders[index].enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Button {
-                        selection = optionIndex
+                        selection = displayIndex
                         wasCorrect = nil
                     } label: {
-                        Label(L10n.text(key, store.language), systemImage: selection == optionIndex ? "checkmark.circle.fill" : "circle")
+                        Label(
+                            L10n.text(questions[index].options[originalIndex], store.language),
+                            systemImage: selection == displayIndex ? "checkmark.circle.fill" : "circle"
+                        )
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.bordered)
-                    .tint(selection == optionIndex ? .accentColor : .secondary)
-                    .accessibilityAddTraits(selection == optionIndex ? .isSelected : [])
+                    .tint(selection == displayIndex ? .accentColor : .secondary)
+                    .accessibilityAddTraits(selection == displayIndex ? .isSelected : [])
                 }
 
                 if let wasCorrect {
@@ -1468,7 +1718,7 @@ private struct AnimalGroupLab: View {
                             wasCorrect = nil
                         }
                     } else if let selection {
-                        wasCorrect = selection == questions[index].answerIndex
+                        wasCorrect = optionOrders[index][selection] == questions[index].answerIndex
                     }
                 } label: {
                     Text(L10n.text(wasCorrect == true ? (index == questions.count - 1 ? "lab.animalGroupFinish" : "lab.animalGroupNext") : "lab.animalGroupCheck", store.language))
@@ -1478,6 +1728,12 @@ private struct AnimalGroupLab: View {
             }
         }
     }
+    private static func makeOptionOrders() -> [[Int]] {
+        QuizAnswerOrder.balancedSequence(
+            optionCount: 3,
+            answerOriginalIndices: questionSet.map(\.answerIndex)
+        ).map(\.displayedOriginalIndices)
+    }
 }
 
 private struct AnimalLineageLab: View {
@@ -1486,13 +1742,16 @@ private struct AnimalLineageLab: View {
     @State private var selection: Int?
     @State private var wasCorrect: Bool?
     @State private var complete = false
+    @State private var optionOrders: [[Int]] = Self.makeOptionOrders()
 
-    private let questions = [
+    private static let questionSet = [
         AnimalGroupQuestion(promptKey: "lab.lineageQ1", options: ["lab.lineageQ1A", "lab.lineageQ1B", "lab.lineageQ1C"], answerIndex: 1),
         AnimalGroupQuestion(promptKey: "lab.lineageQ2", options: ["lab.lineageQ2A", "lab.lineageQ2B", "lab.lineageQ2C"], answerIndex: 0),
         AnimalGroupQuestion(promptKey: "lab.lineageQ3", options: ["lab.lineageQ3A", "lab.lineageQ3B", "lab.lineageQ3C"], answerIndex: 2),
         AnimalGroupQuestion(promptKey: "lab.lineageQ4", options: ["lab.lineageQ4A", "lab.lineageQ4B", "lab.lineageQ4C"], answerIndex: 1)
     ]
+
+    private var questions: [AnimalGroupQuestion] { Self.questionSet }
 
     var body: some View {
         LabCard {
@@ -1526,6 +1785,7 @@ private struct AnimalLineageLab: View {
                     selection = nil
                     wasCorrect = nil
                     complete = false
+                    optionOrders = Self.makeOptionOrders()
                 }
                 .buttonStyle(.bordered)
             } else {
@@ -1537,17 +1797,20 @@ private struct AnimalLineageLab: View {
                     .font(.title3.weight(.medium))
                     .fixedSize(horizontal: false, vertical: true)
 
-                ForEach(Array(questions[index].options.enumerated()), id: \.offset) { optionIndex, key in
+                ForEach(Array(optionOrders[index].enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Button {
-                        selection = optionIndex
+                        selection = displayIndex
                         wasCorrect = nil
                     } label: {
-                        Label(L10n.text(key, store.language), systemImage: selection == optionIndex ? "checkmark.circle.fill" : "circle")
+                        Label(
+                            L10n.text(questions[index].options[originalIndex], store.language),
+                            systemImage: selection == displayIndex ? "checkmark.circle.fill" : "circle"
+                        )
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.bordered)
-                    .tint(selection == optionIndex ? .accentColor : .secondary)
-                    .accessibilityAddTraits(selection == optionIndex ? .isSelected : [])
+                    .tint(selection == displayIndex ? .accentColor : .secondary)
+                    .accessibilityAddTraits(selection == displayIndex ? .isSelected : [])
                 }
 
                 if let wasCorrect {
@@ -1569,7 +1832,7 @@ private struct AnimalLineageLab: View {
                             wasCorrect = nil
                         }
                     } else if let selection {
-                        wasCorrect = selection == questions[index].answerIndex
+                        wasCorrect = optionOrders[index][selection] == questions[index].answerIndex
                     }
                 } label: {
                     Text(L10n.text(wasCorrect == true ? (index == questions.count - 1 ? "lab.lineageFinish" : "lab.lineageNext") : "lab.lineageCheck", store.language))
@@ -1578,6 +1841,13 @@ private struct AnimalLineageLab: View {
                 .disabled(selection == nil && wasCorrect != true)
             }
         }
+    }
+
+    private static func makeOptionOrders() -> [[Int]] {
+        QuizAnswerOrder.balancedSequence(
+            optionCount: 3,
+            answerOriginalIndices: questionSet.map(\.answerIndex)
+        ).map(\.displayedOriginalIndices)
     }
 
     private func lineageBranch(title: String, members: String) -> some View {
@@ -2224,6 +2494,145 @@ private struct DerivativeRateLab: View {
     }
 }
 
+private struct ConstrainedOptimizationLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var angleRadians = Double.pi / 8
+
+    private var point: ConstrainedOptimizationPoint {
+        ConstrainedOptimizationPoint(angleRadians: angleRadians) ??
+            ConstrainedOptimizationPoint(angleRadians: 0)!
+    }
+
+    private var statusKey: String {
+        switch point.extremum {
+        case .maximum: "lab.optimization.maximum"
+        case .minimum: "lab.optimization.minimum"
+        case .nonStationary: "lab.optimization.nonStationary"
+        }
+    }
+
+    var body: some View {
+        LabCard {
+            Text("f(x, y) = xy     subject to     x² + y² = 1")
+                .font(.system(.headline, design: .monospaced))
+
+            Text(L10n.text("lab.optimization.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            GeometryReader { geometry in
+                Canvas { context, size in
+                    guard size.width > 0, size.height > 0 else { return }
+                    let center = CGPoint(x: size.width / 2, y: size.height / 2)
+                    let radius = min(size.width, size.height) * 0.37
+                    func location(_ x: Double, _ y: Double) -> CGPoint {
+                        CGPoint(
+                            x: center.x + CGFloat(x) * radius,
+                            y: center.y - CGFloat(y) * radius
+                        )
+                    }
+
+                    var axes = Path()
+                    axes.move(to: location(-1.18, 0))
+                    axes.addLine(to: location(1.18, 0))
+                    axes.move(to: location(0, -1.18))
+                    axes.addLine(to: location(0, 1.18))
+                    context.stroke(axes, with: .color(.secondary.opacity(0.55)), lineWidth: 1.25)
+
+                    var diagonals = Path()
+                    diagonals.move(to: location(-1.1, -1.1))
+                    diagonals.addLine(to: location(1.1, 1.1))
+                    diagonals.move(to: location(-1.1, 1.1))
+                    diagonals.addLine(to: location(1.1, -1.1))
+                    context.stroke(
+                        diagonals,
+                        with: .color(.orange.opacity(0.58)),
+                        style: StrokeStyle(lineWidth: 1.5, dash: [6, 5])
+                    )
+
+                    var circle = Path()
+                    for index in 0...180 {
+                        let theta = Double(index) / 180 * 2 * Double.pi
+                        let p = location(cos(theta), sin(theta))
+                        if index == 0 { circle.move(to: p) } else { circle.addLine(to: p) }
+                    }
+                    context.stroke(circle, with: .color(.indigo), lineWidth: 3)
+
+                    let stationaryAngles: [Double] = [45, 135, 225, 315]
+                    for degrees in stationaryAngles {
+                        let theta = degrees * Double.pi / 180
+                        let p = location(cos(theta), sin(theta))
+                        let marker = CGRect(x: p.x - 4, y: p.y - 4, width: 8, height: 8)
+                        context.fill(Path(ellipseIn: marker), with: .color(.green))
+                    }
+
+                    let selected = location(point.x, point.y)
+                    let selection = CGRect(x: selected.x - 7, y: selected.y - 7, width: 14, height: 14)
+                    context.fill(Path(ellipseIn: selection), with: .color(Color.accentColor))
+                    context.stroke(Path(ellipseIn: selection), with: .color(.white), lineWidth: 1.5)
+                }
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            let center = CGPoint(x: geometry.size.width / 2, y: geometry.size.height / 2)
+                            var angle = atan2(center.y - value.location.y, value.location.x - center.x)
+                            if angle < 0 { angle += 2 * Double.pi }
+                            if angle.isFinite { angleRadians = angle }
+                        }
+                )
+            }
+            .frame(height: 250)
+            .accessibilityLabel(L10n.text("lab.optimization.graph", store.language))
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(L10n.text("lab.optimization.angle", store.language))
+                    Spacer()
+                    Text(String(format: "%.0f°", angleRadians * 180 / Double.pi))
+                        .monospacedDigit()
+                }
+                Slider(
+                    value: $angleRadians,
+                    in: 0...(2 * Double.pi - Double.pi / 180),
+                    step: Double.pi / 180
+                )
+                    .accessibilityLabel(Text(L10n.text("lab.optimization.angle", store.language)))
+            }
+
+            HStack(spacing: 14) {
+                Label(L10n.text("lab.optimization.constraint", store.language), systemImage: "circle")
+                    .foregroundStyle(.indigo)
+                Label(L10n.text("lab.optimization.candidates", store.language), systemImage: "line.diagonal")
+                    .foregroundStyle(.orange)
+                Label(L10n.text("lab.optimization.selected", store.language), systemImage: "smallcircle.filled.circle")
+                    .foregroundStyle(Color.accentColor)
+            }
+            .font(.caption)
+            .labelStyle(.titleAndIcon)
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(String(format: L10n.text("lab.optimization.point", store.language), point.x, point.y))
+                Text(String(format: L10n.text("lab.optimization.objective", store.language), point.objective))
+                Text(String(format: L10n.text("lab.optimization.derivative", store.language), point.tangentDerivative))
+                Text(L10n.text(statusKey, store.language))
+                    .fontWeight(.semibold)
+                    .foregroundStyle(point.isStationary ? Color.green : Color.secondary)
+                if let multiplier = point.lagrangeMultiplier {
+                    Text(String(format: L10n.text("lab.optimization.multiplier", store.language), multiplier))
+                }
+            }
+            .font(.callout.monospacedDigit())
+
+            Text(L10n.text("lab.optimization.limits", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
 private struct DomainRangeLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var selectedScenario = 0
@@ -2364,8 +2773,7 @@ private struct TenseContrastLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var scenario = 0
     @State private var selectedAnswer: Int?
-
-    private var correctAnswer: Int { scenario }
+    @State private var optionOrder = QuizAnswerOrder(optionCount: 2, answerOriginalIndex: 0)
 
     var body: some View {
         LabCard {
@@ -2376,19 +2784,22 @@ private struct TenseContrastLab: View {
                 Text(L10n.text("lab.tenseScenario1", store.language)).tag(1)
             }
             .pickerStyle(.segmented)
-            .onChange(of: scenario) { _ in selectedAnswer = nil }
+            .onChange(of: scenario) { newScenario in
+                selectedAnswer = nil
+                optionOrder = QuizAnswerOrder(optionCount: 2, answerOriginalIndex: newScenario)
+            }
 
             HStack(spacing: 10) {
-                ForEach(0..<2, id: \.self) { option in
+                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Button {
-                        selectedAnswer = option
+                        selectedAnswer = displayIndex
                     } label: {
-                        Text(L10n.text("lab.tenseOption\(scenario)\(option)", store.language))
+                        Text(L10n.text("lab.tenseOption\(scenario)\(originalIndex)", store.language))
                             .frame(maxWidth: .infinity)
                             .padding(10)
                             .background(
-                                selectedAnswer == option
-                                    ? (option == correctAnswer ? Color.green.opacity(0.16) : Color.orange.opacity(0.16))
+                                selectedAnswer == displayIndex
+                                    ? (optionOrder.isCorrect(displayedIndex: displayIndex) ? Color.green.opacity(0.16) : Color.orange.opacity(0.16))
                                     : Color.secondary.opacity(0.08),
                                 in: RoundedRectangle(cornerRadius: 10)
                             )
@@ -2398,11 +2809,22 @@ private struct TenseContrastLab: View {
             }
 
             if let selectedAnswer {
+                let isCorrect = optionOrder.isCorrect(displayedIndex: selectedAnswer)
                 Label(
-                    L10n.text(selectedAnswer == correctAnswer ? "lab.tenseCorrect" : "lab.tenseIncorrect", store.language),
-                    systemImage: selectedAnswer == correctAnswer ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
+                    L10n.text(isCorrect ? "lab.tenseCorrect" : "lab.tenseIncorrect", store.language),
+                    systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
                 )
-                .foregroundStyle(selectedAnswer == correctAnswer ? Color.green : Color.orange)
+                .foregroundStyle(isCorrect ? Color.green : Color.orange)
+
+                if let explanationKey = TenseContrastFeedback.explanationKey(
+                    scenario: scenario,
+                    isCorrect: isCorrect
+                ) {
+                    Text(L10n.text(explanationKey, store.language))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
     }
@@ -2414,6 +2836,7 @@ private struct PresentPerfectAspectLab: View {
     @State private var selectedAnswer: Int?
 
     private let correctAnswers = [1, 1, 0]
+    @State private var optionOrder = QuizAnswerOrder(optionCount: 2, answerOriginalIndex: 1)
 
     var body: some View {
         LabCard {
@@ -2426,7 +2849,10 @@ private struct PresentPerfectAspectLab: View {
                 }
             }
             .pickerStyle(.segmented)
-            .onChange(of: scenario) { _ in selectedAnswer = nil }
+            .onChange(of: scenario) { newScenario in
+                selectedAnswer = nil
+                optionOrder = QuizAnswerOrder(optionCount: 2, answerOriginalIndex: correctAnswers[newScenario])
+            }
 
             Text(L10n.text("lab.perfectSentence\(scenario)", store.language))
                 .font(.title3.weight(.medium))
@@ -2436,21 +2862,21 @@ private struct PresentPerfectAspectLab: View {
                 .background(Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
 
             HStack(spacing: 10) {
-                ForEach(0..<2, id: \.self) { option in
+                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Button {
-                        selectedAnswer = option
+                        selectedAnswer = displayIndex
                     } label: {
-                        Text(L10n.text("lab.perfectOption\(scenario)\(option)", store.language))
+                        Text(L10n.text("lab.perfectOption\(scenario)\(originalIndex)", store.language))
                             .frame(maxWidth: .infinity)
                             .padding(10)
-                            .background(answerColor(for: option), in: RoundedRectangle(cornerRadius: 10))
+                            .background(answerColor(forDisplayedIndex: displayIndex), in: RoundedRectangle(cornerRadius: 10))
                     }
                     .buttonStyle(.plain)
                 }
             }
 
             if let selectedAnswer {
-                let isCorrect = selectedAnswer == correctAnswers[scenario]
+                let isCorrect = optionOrder.isCorrect(displayedIndex: selectedAnswer)
                 Label(
                     L10n.text("lab.perfectFeedback\(scenario)\(isCorrect ? 1 : 0)", store.language),
                     systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
@@ -2461,11 +2887,11 @@ private struct PresentPerfectAspectLab: View {
         }
     }
 
-    private func answerColor(for option: Int) -> Color {
-        guard let selectedAnswer, selectedAnswer == option else {
+    private func answerColor(forDisplayedIndex displayIndex: Int) -> Color {
+        guard let selectedAnswer, selectedAnswer == displayIndex else {
             return Color.secondary.opacity(0.08)
         }
-        return option == correctAnswers[scenario] ? Color.green.opacity(0.16) : Color.orange.opacity(0.16)
+        return optionOrder.isCorrect(displayedIndex: displayIndex) ? Color.green.opacity(0.16) : Color.orange.opacity(0.16)
     }
 }
 
@@ -2481,6 +2907,10 @@ private struct ConditionalsLab: View {
     @State private var selection: Int?
     @State private var wasCorrect: Bool?
     @State private var complete = false
+    @State private var optionOrder = QuizAnswerOrder(
+        optionCount: EnglishConditionalForm.allCases.count,
+        answerOriginalIndex: EnglishConditionalPractice.scenarios[0].correctForm.rawValue
+    )
 
     private let questions = [
         ConditionalPracticeQuestion(id: EnglishConditionalPractice.scenarios[0].id, promptKey: "lab.conditionalScenario0", feedbackKey: "lab.conditionalFeedback0"),
@@ -2512,20 +2942,20 @@ private struct ConditionalsLab: View {
                     .font(.title3.weight(.medium))
                     .fixedSize(horizontal: false, vertical: true)
 
-                ForEach(0..<3, id: \.self) { option in
+                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Button {
-                        selection = option
+                        selection = displayIndex
                         wasCorrect = nil
                     } label: {
                         Label(
-                            L10n.text("lab.conditionalOption\(option)", store.language),
-                            systemImage: selection == option ? "checkmark.circle.fill" : "circle"
+                            L10n.text("lab.conditionalOption\(originalIndex)", store.language),
+                            systemImage: selection == displayIndex ? "checkmark.circle.fill" : "circle"
                         )
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.bordered)
-                    .tint(selection == option ? .accentColor : .secondary)
-                    .accessibilityAddTraits(selection == option ? .isSelected : [])
+                    .tint(selection == displayIndex ? .accentColor : .secondary)
+                    .accessibilityAddTraits(selection == displayIndex ? .isSelected : [])
                 }
 
                 if let wasCorrect {
@@ -2547,9 +2977,13 @@ private struct ConditionalsLab: View {
                             index += 1
                             selection = nil
                             wasCorrect = nil
+                            optionOrder = QuizAnswerOrder(
+                                optionCount: EnglishConditionalForm.allCases.count,
+                                answerOriginalIndex: EnglishConditionalPractice.scenarios[index].correctForm.rawValue
+                            )
                         }
-                    } else if let selection, let selectedForm = EnglishConditionalForm(rawValue: selection) {
-                        wasCorrect = EnglishConditionalPractice.isCorrect(selectedForm, for: questions[index].id)
+                    } else if let selection {
+                        wasCorrect = optionOrder.isCorrect(displayedIndex: selection)
                     }
                 } label: {
                     Text(L10n.text(
@@ -2570,6 +3004,135 @@ private struct ConditionalsLab: View {
         selection = nil
         wasCorrect = nil
         complete = false
+        optionOrder = QuizAnswerOrder(
+            optionCount: EnglishConditionalForm.allCases.count,
+            answerOriginalIndex: EnglishConditionalPractice.scenarios[0].correctForm.rawValue
+        )
+    }
+}
+
+private struct ReportedSpeechLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var index = 0
+    @State private var selection: Int?
+    @State private var wasCorrect: Bool?
+    @State private var complete = false
+    @State private var attemptsForQuestion = 0
+    @State private var optionOrder = QuizAnswerOrder(
+        optionCount: 3,
+        answerOriginalIndex: EnglishReportedSpeechPractice.questions[0].correctOption
+    )
+
+    private let questions = EnglishReportedSpeechPractice.questions
+    private let lessonID = "english.reported_speech_questions_and_backshift"
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.reportedHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if complete {
+                Label(L10n.text("lab.reportedComplete", store.language), systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(L10n.text("lab.reportedRestart", store.language), systemImage: "arrow.counterclockwise") {
+                    reset()
+                }
+                .buttonStyle(.bordered)
+            } else {
+                Text(String(format: L10n.text("lab.reportedProgress", store.language), index + 1, questions.count))
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                ProgressView(value: Double(index + 1), total: Double(questions.count))
+                Text(L10n.text("lab.reportedQuestion\(index)", store.language))
+                    .font(.title3.weight(.medium))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Button {
+                        selection = displayIndex
+                        wasCorrect = nil
+                    } label: {
+                        Label(
+                            L10n.text("lab.reportedOption\(index).\(originalIndex)", store.language),
+                            systemImage: selection == displayIndex ? "checkmark.circle.fill" : "circle"
+                        )
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(selection == displayIndex ? .accentColor : .secondary)
+                    .accessibilityAddTraits(selection == displayIndex ? .isSelected : [])
+                }
+
+                if let wasCorrect {
+                    Label(
+                        wasCorrect
+                            ? L10n.text("lab.reportedFeedback\(index)", store.language)
+                            : L10n.text("lab.reportedTryAgain", store.language),
+                        systemImage: wasCorrect ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath"
+                    )
+                    .foregroundStyle(wasCorrect ? Color.green : Color.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Button(action: advanceOrCheck) {
+                    Text(L10n.text(
+                        wasCorrect == true
+                            ? (index == questions.count - 1 ? "lab.reportedFinish" : "lab.reportedNext")
+                            : (attemptsForQuestion > 0 ? "lab.reportedCheckAgain" : "lab.reportedCheck"),
+                        store.language
+                    ))
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(selection == nil && wasCorrect != true)
+            }
+        }
+    }
+
+    private func advanceOrCheck() {
+        if wasCorrect == true {
+            guard index < questions.count - 1 else {
+                complete = true
+                return
+            }
+            index += 1
+            selection = nil
+            wasCorrect = nil
+            attemptsForQuestion = 0
+            optionOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: questions[index].correctOption)
+            return
+        }
+
+        guard let selectedDisplayIndex = selection else { return }
+        attemptsForQuestion += 1
+        let isCorrect = optionOrder.isCorrect(displayedIndex: selectedDisplayIndex)
+        wasCorrect = isCorrect
+        if !isCorrect {
+            selection = nil
+            optionOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: questions[index].correctOption)
+        }
+        store.recordStudyAssessment(
+            lessonID: lessonID,
+            evidence: StudyAssessmentEvidence(
+                taskType: "knowledge_check",
+                attempts: attemptsForQuestion,
+                firstTryCorrect: isCorrect && attemptsForQuestion == 1,
+                hintsUsed: 0,
+                passed: isCorrect
+            )
+        )
+    }
+
+    private func reset() {
+        index = 0
+        selection = nil
+        wasCorrect = nil
+        complete = false
+        attemptsForQuestion = 0
+        optionOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: questions[0].correctOption)
     }
 }
 
@@ -2577,11 +3140,24 @@ private struct OsmosisLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var insideConcentration = 4.0
     @State private var outsideConcentration = 6.0
+    @State private var prediction: InteractivePredictionAttempt
+    @State private var selectedDisplayIndex = -1
 
-    private var netFlowKey: String {
-        if outsideConcentration > insideConcentration { return "lab.osmosisWaterEnters" }
-        if insideConcentration > outsideConcentration { return "lab.osmosisWaterLeaves" }
-        return "lab.osmosisBalanced"
+    private let predictionOptionKeys = [
+        "lab.osmosisOptionEnters",
+        "lab.osmosisOptionLeaves",
+        "lab.osmosisOptionBalanced"
+    ]
+
+    init() {
+        _prediction = State(initialValue: Self.makePrediction(insideSolute: 4, outsideSolute: 6))
+    }
+
+    private var flow: OsmosisWaterFlow {
+        OsmosisWaterFlow.predict(
+            insideSolute: Int(insideConcentration.rounded()),
+            outsideSolute: Int(outsideConcentration.rounded())
+        )
     }
 
     var body: some View {
@@ -2595,12 +3171,13 @@ private struct OsmosisLab: View {
                     title: L10n.text("lab.osmosisOutside", store.language),
                     value: outsideConcentration
                 )
-                Image(systemName: outsideConcentration == insideConcentration
-                    ? "arrow.left.and.right"
-                    : (outsideConcentration > insideConcentration ? "arrow.right" : "arrow.left"))
+                Image(systemName: prediction.hasAnswered && prediction.isCorrect ? flow.arrowSymbol : "questionmark.circle")
                     .font(.title2.weight(.semibold))
                     .foregroundStyle(.blue)
-                    .accessibilityHidden(true)
+                    .accessibilityLabel(Text(L10n.text(
+                        prediction.hasAnswered && prediction.isCorrect ? flow.explanationKey : "lab.osmosisArrowHidden",
+                        store.language
+                    )))
                 ZStack {
                     Circle()
                         .fill(Color.cyan.opacity(0.12))
@@ -2622,15 +3199,77 @@ private struct OsmosisLab: View {
             .frame(maxWidth: .infinity)
 
             concentrationSlider(title: L10n.text("lab.osmosisOutside", store.language), value: $outsideConcentration)
+                .onChange(of: outsideConcentration) { _ in startNewPrediction() }
             concentrationSlider(title: L10n.text("lab.osmosisInside", store.language), value: $insideConcentration)
+                .onChange(of: insideConcentration) { _ in startNewPrediction() }
 
-            Label(L10n.text(netFlowKey, store.language), systemImage: "drop.fill")
-                .font(.callout.weight(.semibold))
-                .foregroundStyle(.blue)
-                .padding(10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+            Text(L10n.text("lab.osmosisPredictionPrompt", store.language))
+                .font(.callout.weight(.medium))
+                .fixedSize(horizontal: false, vertical: true)
+
+            Picker(L10n.text("lab.osmosisPredictionPrompt", store.language), selection: $selectedDisplayIndex) {
+                ForEach(Array(prediction.choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Text(L10n.text(predictionOptionKeys[originalIndex], store.language)).tag(displayIndex)
+                }
+            }
+            .pickerStyle(.segmented)
+            .disabled(prediction.hasAnswered)
+
+            Button(L10n.text("lab.osmosisCheckPrediction", store.language)) {
+                prediction.select(displayedIndex: selectedDisplayIndex)
+                guard let evidence = prediction.currentAnswerEventEvidence() else { return }
+                store.recordStudyAssessment(lessonID: "biology.passive_transport_osmosis", evidence: evidence)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(prediction.hasAnswered || selectedDisplayIndex < 0)
+
+            if prediction.hasAnswered {
+                if prediction.isCorrect {
+                    Label(L10n.text("lab.osmosisCorrect", store.language), systemImage: "checkmark.circle.fill")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.green)
+                    Label(L10n.text(flow.explanationKey, store.language), systemImage: flow.arrowSymbol)
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.blue)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(L10n.text("lab.osmosisNewPrediction", store.language)) {
+                        startNewPrediction()
+                    }
+                    .buttonStyle(.link)
+                } else {
+                    Label(L10n.text("lab.osmosisIncorrect", store.language), systemImage: "arrow.uturn.backward.circle")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.orange)
+                    Text(L10n.text("lab.osmosisHintAfterWrong", store.language))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(L10n.text("lab.osmosisRetry", store.language)) {
+                        prediction.retry()
+                        selectedDisplayIndex = -1
+                    }
+                    .buttonStyle(.link)
+                }
+            }
         }
+    }
+
+    private static func makePrediction(insideSolute: Int, outsideSolute: Int) -> InteractivePredictionAttempt {
+        guard let attempt = InteractivePredictionAttempt(
+            optionCount: 3,
+            answerOriginalIndex: OsmosisWaterFlow.predict(insideSolute: insideSolute, outsideSolute: outsideSolute).answerOriginalIndex
+        ) else {
+            preconditionFailure("An osmosis prediction must have one valid answer.")
+        }
+        return attempt
+    }
+
+    private func startNewPrediction() {
+        prediction = Self.makePrediction(
+            insideSolute: Int(insideConcentration.rounded()),
+            outsideSolute: Int(outsideConcentration.rounded())
+        )
+        selectedDisplayIndex = -1
     }
 
     private func concentrationDisplay(title: String, value: Double) -> some View {
@@ -3153,6 +3792,8 @@ private struct SentenceLab: View {
 }
 
 private struct ForceLab: View {
+    let lessonID: String?
+
     @EnvironmentObject private var store: LearningStore
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -3161,13 +3802,22 @@ private struct ForceLab: View {
     @State private var elapsed = 0.0
     @State private var elapsedAtStart = 0.0
     @State private var startedAt: ContinuousClock.Instant?
+    @State private var prediction: InteractivePredictionAttempt
     private let timer = Timer.publish(every: 1.0 / 30, on: .main, in: .common).autoconnect()
+
+    init(lessonID: String? = nil) {
+        self.lessonID = lessonID
+        _prediction = State(initialValue: Self.makePrediction())
+    }
 
     private var motion: ForceMotion { ForceMotion(force: force, mass: mass, time: elapsed) }
     private var isRunning: Bool { startedAt != nil }
 
     var body: some View {
         LabCard {
+            if lessonID != nil {
+                predictionView
+            }
             Force3DVisualization(force: force, mass: mass, displacement: motion.displacement)
                 .frame(height: 240)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
@@ -3221,6 +3871,75 @@ private struct ForceLab: View {
         .onDisappear(perform: pause)
     }
 
+    private var predictionView: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(L10n.text("lab.forcePredictionPrompt", store.language))
+                .font(.headline)
+                .fixedSize(horizontal: false, vertical: true)
+            ForEach(0..<prediction.choiceOrder.displayedOriginalIndices.count, id: \.self) { displayedIndex in
+                let optionIndex = prediction.choiceOrder.originalIndex(forDisplayedIndex: displayedIndex) ?? displayedIndex
+                Button {
+                    submitPrediction(displayedIndex: displayedIndex)
+                } label: {
+                    HStack {
+                        if prediction.selectedOriginalIndex == optionIndex {
+                            Image(systemName: prediction.isCorrect ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        }
+                        Text(L10n.text("lab.forcePredictionOption.\(optionIndex)", store.language))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .buttonStyle(.bordered)
+                .disabled(prediction.hasAnswered)
+            }
+            if prediction.hasAnswered {
+                if prediction.isCorrect {
+                    Label(L10n.text("lab.forcePredictionCorrect", store.language), systemImage: "checkmark.circle.fill")
+                        .font(.callout)
+                        .foregroundStyle(.green)
+                    Button(L10n.text("lab.forcePredictionNew", store.language), action: startNewPrediction)
+                        .buttonStyle(.link)
+                } else {
+                    Label(L10n.text("lab.forcePredictionWrong", store.language), systemImage: "arrow.counterclockwise.circle")
+                        .font(.callout)
+                        .foregroundStyle(.orange)
+                    Text(L10n.text("lab.forcePredictionHint", store.language))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(L10n.text("lab.forcePredictionRetry", store.language), action: retryPrediction)
+                        .buttonStyle(.link)
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.secondary.opacity(0.055), in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func submitPrediction(displayedIndex: Int) {
+        prediction.select(displayedIndex: displayedIndex)
+        guard let lessonID,
+              let evidence = prediction.currentAnswerEventEvidence() else { return }
+        store.recordStudyAssessment(lessonID: lessonID, evidence: evidence)
+    }
+
+    private func retryPrediction() {
+        prediction.retry()
+    }
+
+    private func startNewPrediction() {
+        prediction = Self.makePrediction()
+        reset()
+    }
+
+    private static func makePrediction() -> InteractivePredictionAttempt {
+        guard let attempt = InteractivePredictionAttempt(optionCount: 3, answerOriginalIndex: 2) else {
+            preconditionFailure("The force-law prediction must have a valid correct option.")
+        }
+        return attempt
+    }
+
     private func reading(_ key: String, value: Double, unit: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(L10n.text(key, store.language)).font(.caption).foregroundStyle(.secondary)
@@ -3266,6 +3985,89 @@ private struct ForceLab: View {
             }
             Slider(value: value, in: range, step: 1)
                 .accessibilityLabel(Text(title))
+        }
+    }
+}
+
+private struct LengthMeasurementLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var length = 12.4
+    @State private var uncertainty = 0.2
+
+    private let scaleCentimetres = 32.0
+
+    private var measurement: LengthMeasurement {
+        LengthMeasurement(centimetres: length, uncertaintyCentimetres: uncertainty)
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.measurementTitle", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.measurementHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            GeometryReader { geometry in
+                let trackWidth = max(geometry.size.width - 12, 0)
+                let lowerX = measurement.lowerCentimetres / scaleCentimetres * trackWidth
+                let centreX = measurement.centimetres / scaleCentimetres * trackWidth
+                let bandWidth = 2 * uncertainty / scaleCentimetres * trackWidth
+                ZStack(alignment: .topLeading) {
+                    Capsule()
+                        .fill(.secondary.opacity(0.5))
+                        .frame(width: trackWidth, height: 3)
+                        .offset(x: 6, y: 25)
+                    Capsule()
+                        .fill(Color.accentColor.opacity(0.35))
+                        .frame(width: bandWidth, height: 18)
+                        .offset(x: 6 + lowerX, y: 17)
+                    Circle()
+                        .fill(Color.accentColor)
+                        .frame(width: 10, height: 10)
+                        .offset(x: 1 + centreX, y: 21)
+                }
+            }
+            .frame(height: 54)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(L10n.text("lab.measurementBand", store.language)))
+            .accessibilityValue(Text(String(format: "%.1f–%.1f cm",
+                                                measurement.lowerCentimetres,
+                                                measurement.upperCentimetres)))
+
+            HStack {
+                Text("0 cm")
+                Spacer()
+                Text("32 cm")
+            }
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(.secondary)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(L10n.text("lab.measurementLength", store.language))
+                Slider(value: $length, in: 3...30, step: 0.1)
+                    .accessibilityLabel(Text(L10n.text("lab.measurementLength", store.language)))
+                    .accessibilityValue(Text(String(format: "%.1f cm", length)))
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(L10n.text("lab.measurementUncertainty", store.language))
+                Slider(value: $uncertainty, in: 0.1...2, step: 0.1)
+                    .accessibilityLabel(Text(L10n.text("lab.measurementUncertainty", store.language)))
+                    .accessibilityValue(Text(String(format: "%.1f cm", uncertainty)))
+            }
+
+            Text(String(format: "%.1f ± %.1f cm = %.3f ± %.3f m",
+                        length, uncertainty, measurement.metres, measurement.uncertaintyMetres))
+                .font(.headline.monospacedDigit())
+                .textSelection(.enabled)
+            Text(String(format: "%@: %.1f%%",
+                        L10n.text("lab.measurementRelative", store.language),
+                        measurement.relativeUncertaintyPercent))
+                .font(.callout.monospacedDigit())
+            Text(L10n.text("lab.measurementLimits", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -4220,9 +5022,14 @@ private struct GeneRegulationLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var variant = 0
     @State private var signalPresent = true
-    @State private var selectedAnswer: Int?
+    @State private var prediction = GeneRegulationPractice.makePredictionAttempt(
+        variant: 0,
+        signalPresent: true
+    )
 
-    private var productMade: Bool { variant == 0 && signalPresent }
+    private var productMade: Bool {
+        GeneRegulationPractice.isProductMade(variant: variant, signalPresent: signalPresent)
+    }
 
     var body: some View {
         LabCard {
@@ -4235,7 +5042,7 @@ private struct GeneRegulationLab: View {
                 Text(L10n.text("lab.dnaVariant1", store.language)).tag(1)
             }
             .pickerStyle(.segmented)
-            .onChange(of: variant) { _ in selectedAnswer = nil }
+            .onChange(of: variant) { _ in resetPrediction() }
 
             DNAHelixVisualization(variant: variant)
                 .frame(height: 230)
@@ -4249,19 +5056,33 @@ private struct GeneRegulationLab: View {
                 .accessibilityLabel(Text(L10n.text(variant == 0 ? "lab.dnaPairAT" : "lab.dnaPairCG", store.language)))
 
             Toggle(L10n.text("lab.dnaSignal", store.language), isOn: $signalPresent)
-                .onChange(of: signalPresent) { _ in selectedAnswer = nil }
+                .onChange(of: signalPresent) { _ in resetPrediction() }
+
+            let outcomeRevealed = prediction.isCorrect
 
             HStack(spacing: 8) {
                 flowNode(title: L10n.text("lab.dnaSequence", store.language), value: "A · T · C · G")
                 Image(systemName: "arrow.right").foregroundStyle(.secondary)
                 flowNode(
                     title: L10n.text("lab.dnaGeneActivity", store.language),
-                    value: L10n.text(productMade ? "lab.dnaGeneOn" : "lab.dnaGeneOff", store.language)
+                    value: L10n.text(
+                        GeneRegulationPractice.geneActivityKey(
+                            productMade: productMade,
+                            outcomeRevealed: outcomeRevealed
+                        ),
+                        store.language
+                    )
                 )
                 Image(systemName: "arrow.right").foregroundStyle(.secondary)
                 flowNode(
                     title: L10n.text("lab.dnaProduct", store.language),
-                    value: L10n.text(productMade ? "lab.dnaProductMade" : "lab.dnaProductAbsent", store.language)
+                    value: L10n.text(
+                        GeneRegulationPractice.productKey(
+                            productMade: productMade,
+                            outcomeRevealed: outcomeRevealed
+                        ),
+                        store.language
+                    )
                 )
             }
             .accessibilityElement(children: .combine)
@@ -4269,22 +5090,47 @@ private struct GeneRegulationLab: View {
             Text(L10n.text("lab.dnaPredict", store.language))
                 .font(.callout.weight(.medium))
             HStack {
-                answerButton(0, key: "lab.dnaPredictOption0")
-                answerButton(1, key: "lab.dnaPredictOption1")
+                ForEach(Array(prediction.choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    answerButton(
+                        displayIndex: displayIndex,
+                        originalIndex: originalIndex,
+                        key: originalIndex == 0 ? "lab.dnaPredictOption0" : "lab.dnaPredictOption1"
+                    )
+                }
             }
 
-            if let selectedAnswer {
+            if prediction.hasAnswered {
+                let isCorrect = prediction.isCorrect
                 Label(
                     L10n.text(
-                        selectedAnswer == 1 ? "lab.dnaPredictCorrect" : "lab.dnaPredictIncorrect",
+                        isCorrect ? "lab.dnaPredictCorrect" : "lab.dnaPredictIncorrect",
                         store.language
                     ),
-                    systemImage: selectedAnswer == 1 ? "checkmark.circle.fill" : "arrow.clockwise.circle"
+                    systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.clockwise.circle"
                 )
                 .font(.callout)
-                .foregroundStyle(selectedAnswer == 1 ? Color.green : Color.secondary)
+                .foregroundStyle(isCorrect ? Color.green : Color.secondary)
+
+                Text(L10n.text(GeneRegulationPractice.explanationKey(isCorrect: isCorrect), store.language))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if prediction.canRetry {
+                    Button(L10n.text("lab.dnaRetry", store.language)) {
+                        prediction.retry()
+                    }
+                    .buttonStyle(.bordered)
+                }
             }
         }
+    }
+
+    private func resetPrediction() {
+        prediction = GeneRegulationPractice.makePredictionAttempt(
+            variant: variant,
+            signalPresent: signalPresent
+        )
     }
 
     private func flowNode(title: String, value: String) -> some View {
@@ -4303,16 +5149,19 @@ private struct GeneRegulationLab: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func answerButton(_ answer: Int, key: String) -> some View {
+    private func answerButton(displayIndex: Int, originalIndex: Int, key: String) -> some View {
         Button {
-            selectedAnswer = answer
+            prediction.select(displayedIndex: displayIndex)
+            guard let evidence = prediction.currentAnswerEventEvidence() else { return }
+            store.recordStudyAssessment(lessonID: "biology.dna_genes_and_traits", evidence: evidence)
         } label: {
             Text(L10n.text(key, store.language))
                 .frame(maxWidth: .infinity, minHeight: 34)
         }
         .buttonStyle(.bordered)
-        .tint(selectedAnswer == answer ? Color.accentColor : nil)
-        .accessibilityAddTraits(selectedAnswer == answer ? .isSelected : [])
+        .tint(prediction.selectedOriginalIndex == originalIndex ? Color.accentColor : nil)
+        .disabled(prediction.hasAnswered)
+        .accessibilityAddTraits(prediction.selectedOriginalIndex == originalIndex ? .isSelected : [])
     }
 }
 
@@ -4322,6 +5171,13 @@ private struct GeneExpressionLab: View {
     @State private var selectedStage = 0
     @State private var selectedAnswer = -1
     @State private var didCheckAnswer = false
+    @State private var prediction = GeneExpressionPractice.makeStopCodonAttempt()
+
+    private let answerOptionKeys = [
+        "lab.geneExpressionOptionA",
+        "lab.geneExpressionOptionB",
+        "lab.geneExpressionOptionC"
+    ]
 
     private var snapshot: GeneExpressionSnapshot {
         GeneExpressionPractice.snapshot(promoterIsActive: transcriptionEnabled)
@@ -4336,8 +5192,7 @@ private struct GeneExpressionLab: View {
 
             Toggle(L10n.text("lab.geneExpressionRegulator", store.language), isOn: $transcriptionEnabled)
                 .onChange(of: transcriptionEnabled) { _ in
-                    selectedAnswer = -1
-                    didCheckAnswer = false
+                    resetPrediction()
                 }
 
             Picker(L10n.text("lab.geneExpressionStage", store.language), selection: $selectedStage) {
@@ -4367,28 +5222,39 @@ private struct GeneExpressionLab: View {
             Text(L10n.text("lab.geneExpressionQuiz", store.language))
                 .font(.callout.weight(.medium))
             Picker(L10n.text("lab.geneExpressionQuiz", store.language), selection: $selectedAnswer) {
-                Text(L10n.text("lab.geneExpressionOptionA", store.language)).tag(0)
-                Text(L10n.text("lab.geneExpressionOptionB", store.language)).tag(1)
-                Text(L10n.text("lab.geneExpressionOptionC", store.language)).tag(2)
+                ForEach(Array(prediction.choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Text(L10n.text(answerOptionKeys[originalIndex], store.language)).tag(displayIndex)
+                }
             }
             .pickerStyle(.radioGroup)
+            .disabled(prediction.hasAnswered)
             .onChange(of: selectedAnswer) { _ in didCheckAnswer = false }
 
             Button(L10n.text("lab.geneExpressionCheck", store.language)) {
+                prediction.select(displayedIndex: selectedAnswer)
+                guard let evidence = prediction.currentAnswerEventEvidence() else { return }
+                store.recordStudyAssessment(
+                    lessonID: "biology.gene_expression_and_regulation",
+                    evidence: evidence
+                )
                 didCheckAnswer = true
             }
             .buttonStyle(.borderedProminent)
-            .disabled(selectedAnswer < 0)
+            .disabled(selectedAnswer < 0 || prediction.hasAnswered)
 
             if didCheckAnswer {
-                let isCorrect = selectedAnswer == 1
                 Label(
-                    L10n.text(isCorrect ? "lab.geneExpressionCorrect" : "lab.geneExpressionReview", store.language),
-                    systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
+                    L10n.text(prediction.isCorrect ? "lab.geneExpressionCorrect" : "lab.geneExpressionReview", store.language),
+                    systemImage: prediction.isCorrect ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
                 )
                 .font(.callout.weight(.medium))
-                .foregroundStyle(isCorrect ? .green : .orange)
+                .foregroundStyle(prediction.isCorrect ? .green : .orange)
                 .fixedSize(horizontal: false, vertical: true)
+
+                if prediction.canRetry {
+                    Button(L10n.text("lab.geneExpressionRetry", store.language), action: retryPrediction)
+                        .buttonStyle(.link)
+                }
             }
 
             Text(L10n.text("lab.geneExpressionLimit", store.language))
@@ -4422,6 +5288,18 @@ private struct GeneExpressionLab: View {
             return peptide.joined(separator: " – ")
         }
     }
+
+    private func retryPrediction() {
+        prediction.retry()
+        selectedAnswer = -1
+        didCheckAnswer = false
+    }
+
+    private func resetPrediction() {
+        prediction = GeneExpressionPractice.makeStopCodonAttempt()
+        selectedAnswer = -1
+        didCheckAnswer = false
+    }
 }
 
 private struct CellCycleLab: View {
@@ -4429,6 +5307,13 @@ private struct CellCycleLab: View {
     @State private var selectedStage: CellCycleStage = .g1
     @State private var selectedAnswer = -1
     @State private var didCheckAnswer = false
+    @State private var prediction = CellCyclePractice.makeKnowledgeCheckAttempt()
+
+    private let answerOptionKeys = [
+        "lab.cellCycle.optionS",
+        "lab.cellCycle.optionAnaphase",
+        "lab.cellCycle.optionCytokinesis"
+    ]
 
     var body: some View {
         LabCard {
@@ -4443,10 +5328,6 @@ private struct CellCycleLab: View {
                 }
             }
             .pickerStyle(.menu)
-            .onChange(of: selectedStage) { _ in
-                selectedAnswer = -1
-                didCheckAnswer = false
-            }
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(L10n.text(selectedStage.localizationKey, store.language))
@@ -4484,28 +5365,45 @@ private struct CellCycleLab: View {
             Text(L10n.text("lab.cellCycle.quiz", store.language))
                 .font(.callout.weight(.medium))
             Picker(L10n.text("lab.cellCycle.quiz", store.language), selection: $selectedAnswer) {
-                Text(L10n.text("lab.cellCycle.optionS", store.language)).tag(0)
-                Text(L10n.text("lab.cellCycle.optionAnaphase", store.language)).tag(1)
-                Text(L10n.text("lab.cellCycle.optionCytokinesis", store.language)).tag(2)
+                ForEach(Array(prediction.choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Text(L10n.text(answerOptionKeys[originalIndex], store.language)).tag(displayIndex)
+                }
             }
             .pickerStyle(.radioGroup)
+            .disabled(prediction.hasAnswered)
             .onChange(of: selectedAnswer) { _ in didCheckAnswer = false }
 
             Button(L10n.text("lab.cellCycle.check", store.language)) {
+                prediction.select(displayedIndex: selectedAnswer)
                 didCheckAnswer = true
+                if let evidence = prediction.currentAnswerEventEvidence() {
+                    store.recordStudyAssessment(
+                        lessonID: "biology.cell_cycle_and_differentiation",
+                        evidence: evidence
+                    )
+                }
             }
             .buttonStyle(.borderedProminent)
-            .disabled(selectedAnswer < 0)
+            .disabled(selectedAnswer < 0 || prediction.hasAnswered)
 
             if didCheckAnswer {
-                let correct = selectedAnswer == 0
-                Label(
-                    L10n.text(correct ? "lab.cellCycle.correct" : "lab.cellCycle.review", store.language),
-                    systemImage: correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
-                )
-                .font(.callout.weight(.medium))
-                .foregroundStyle(correct ? .green : .orange)
-                .fixedSize(horizontal: false, vertical: true)
+                if prediction.isCorrect {
+                    Label(L10n.text("lab.cellCycle.correct", store.language), systemImage: "checkmark.circle.fill")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.green)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Label(L10n.text("lab.cellCycle.review", store.language), systemImage: "arrow.uturn.backward.circle")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(L10n.text("lab.cellCycle.retry", store.language)) {
+                        prediction.retry()
+                        selectedAnswer = -1
+                        didCheckAnswer = false
+                    }
+                    .buttonStyle(.link)
+                }
             }
 
             Text(L10n.text("lab.cellCycle.limit", store.language))
@@ -4536,6 +5434,16 @@ private struct AnimalFunctionLab: View {
     @State private var selectedFunction: AnimalFunction = .feeding
     @State private var selectedAnswer = -1
     @State private var didCheckAnswer = false
+    @State private var optionOrder = QuizAnswerOrder(
+        optionCount: 3,
+        answerOriginalIndex: AnimalFunctionPractice.correctComparisonAnswer
+    )
+
+    private let answerOptionKeys = [
+        "lab.zoology.optionA",
+        "lab.zoology.optionB",
+        "lab.zoology.optionC"
+    ]
 
     var body: some View {
         LabCard {
@@ -4553,6 +5461,10 @@ private struct AnimalFunctionLab: View {
             .onChange(of: selectedFunction) { _ in
                 selectedAnswer = -1
                 didCheckAnswer = false
+                optionOrder = QuizAnswerOrder(
+                    optionCount: 3,
+                    answerOriginalIndex: AnimalFunctionPractice.correctComparisonAnswer
+                )
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -4576,9 +5488,9 @@ private struct AnimalFunctionLab: View {
             Text(L10n.text("lab.zoology.quiz", store.language))
                 .font(.callout.weight(.medium))
             Picker(L10n.text("lab.zoology.quiz", store.language), selection: $selectedAnswer) {
-                Text(L10n.text("lab.zoology.optionA", store.language)).tag(0)
-                Text(L10n.text("lab.zoology.optionB", store.language)).tag(1)
-                Text(L10n.text("lab.zoology.optionC", store.language)).tag(2)
+                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Text(L10n.text(answerOptionKeys[originalIndex], store.language)).tag(displayIndex)
+                }
             }
             .pickerStyle(.radioGroup)
             .onChange(of: selectedAnswer) { _ in didCheckAnswer = false }
@@ -4590,7 +5502,7 @@ private struct AnimalFunctionLab: View {
             .disabled(selectedAnswer < 0)
 
             if didCheckAnswer {
-                let correct = AnimalFunctionPractice.isCorrectComparisonAnswer(selectedAnswer)
+                let correct = optionOrder.isCorrect(displayedIndex: selectedAnswer)
                 Label(
                     L10n.text(correct ? "lab.zoology.correct" : "lab.zoology.review", store.language),
                     systemImage: correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
@@ -4614,6 +5526,297 @@ private struct AnimalFunctionLab: View {
         case .movement: return "figure.walk"
         case .reproduction: return "leaf"
         }
+    }
+}
+
+private struct ThermoregulationLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var selectedRangeID = ThermoregulationPractice.operativeTemperatureRange.id
+    @State private var selectedAnswer = -1
+    @State private var didCheckAnswer = false
+    @State private var attemptCount = 0
+    @State private var firstTryCorrect: Bool?
+    @State private var answerSolved = false
+    @State private var optionOrder = QuizAnswerOrder(
+        optionCount: 3,
+        answerOriginalIndex: ThermoregulationPractice.correctThresholdInterpretationAnswer
+    )
+
+    private let answerOptionKeys = [
+        "lab.zoology.thermo.optionA",
+        "lab.zoology.thermo.optionB",
+        "lab.zoology.thermo.optionC",
+    ]
+
+    private var selectedRange: ThermalExposureRange {
+        selectedRangeID == ThermoregulationPractice.ambientAirRange.id
+            ? ThermoregulationPractice.ambientAirRange
+            : ThermoregulationPractice.operativeTemperatureRange
+    }
+
+    private var selectedRangeNameKey: String {
+        selectedRangeID == ThermoregulationPractice.ambientAirRange.id
+            ? "lab.zoology.thermo.air"
+            : "lab.zoology.thermo.operative"
+    }
+
+    private var selectedRangeValueKey: String {
+        selectedRangeID == ThermoregulationPractice.ambientAirRange.id
+            ? "lab.zoology.thermo.airRange"
+            : "lab.zoology.thermo.operativeRange"
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.zoology.thermo.intro", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(alignment: .top, spacing: 16) {
+                ThermalProxyBirdVisualization()
+                    .frame(width: 220, height: 190)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .accessibilityLabel(L10n.text("lab.zoology.thermo.modelAccessibility", store.language))
+                    .accessibilityHint(L10n.text("lab.zoology.thermo.rotate", store.language))
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Label(L10n.text("lab.zoology.thermo.rotate", store.language), systemImage: "rotate.right")
+                        .font(.callout.weight(.medium))
+                    Text(L10n.text("lab.zoology.thermo.modelLimits", store.language))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 4)
+            }
+
+            HStack(alignment: .top, spacing: 12) {
+                ForEach([ThermoregulationPractice.ambientAirRange, ThermoregulationPractice.operativeTemperatureRange]) { range in
+                    let isAir = range.id == ThermoregulationPractice.ambientAirRange.id
+                    let isSelected = range.id == selectedRangeID
+                    let nameKey = isAir ? "lab.zoology.thermo.air" : "lab.zoology.thermo.operative"
+                    let valueKey = isAir ? "lab.zoology.thermo.airRange" : "lab.zoology.thermo.operativeRange"
+                    Button {
+                        selectedRangeID = range.id
+                    } label: {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label(
+                                L10n.text(nameKey, store.language),
+                                systemImage: isSelected ? "checkmark.circle.fill" : "circle"
+                            )
+                            .font(.subheadline.weight(.semibold))
+                            Text(L10n.text(valueKey, store.language))
+                                .font(.title3.monospacedDigit().weight(.semibold))
+                            ThermalRangeBar(range: range, color: isAir ? .blue : .orange)
+                                .frame(height: 12)
+                            HStack {
+                                Text(L10n.text("lab.zoology.thermo.axisMinimum", store.language))
+                                Spacer()
+                                Text(L10n.text("lab.zoology.thermo.axisMaximum", store.language))
+                            }
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.tertiary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .background(
+                            isSelected ? Color.teal.opacity(0.12) : Color.secondary.opacity(0.07),
+                            in: RoundedRectangle(cornerRadius: 12)
+                        )
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 12)
+                                .strokeBorder(isSelected ? Color.teal.opacity(0.65) : Color.clear, lineWidth: 1)
+                        }
+                        .contentShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(L10n.text(isAir ? "lab.zoology.thermo.airAccessibility" : "lab.zoology.thermo.operativeAccessibility", store.language))
+                }
+            }
+
+            HStack(spacing: 10) {
+                Image(systemName: "thermometer.high")
+                    .foregroundStyle(selectedRangeID == ThermoregulationPractice.ambientAirRange.id ? Color.blue : Color.orange)
+                Text(L10n.text(selectedRangeNameKey, store.language))
+                    .font(.callout.weight(.medium))
+                Spacer(minLength: 8)
+                Text(L10n.text(selectedRangeValueKey, store.language))
+                    .font(.title3.monospacedDigit().weight(.semibold))
+            }
+            Text(L10n.text("lab.zoology.thermo.rangeMeaning", store.language))
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Label(L10n.text("lab.zoology.thermo.threshold", store.language), systemImage: "thermometer.sun.fill")
+                    .font(.callout.weight(.medium))
+                ProgressView(value: Double(ThermoregulationPractice.heatStressDayPercentage), total: 100)
+                    .tint(.orange)
+                Text(L10n.text("lab.zoology.thermo.stressDays", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(12)
+            .background(Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+
+            Divider()
+
+            Text(L10n.text("lab.zoology.thermo.question", store.language))
+                .font(.callout.weight(.medium))
+            Picker(L10n.text("lab.zoology.thermo.question", store.language), selection: $selectedAnswer) {
+                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Text(L10n.text(answerOptionKeys[originalIndex], store.language)).tag(displayIndex)
+                }
+            }
+            .pickerStyle(.radioGroup)
+            .disabled(answerSolved)
+            .onChange(of: selectedAnswer) { _ in didCheckAnswer = false }
+
+            Button(L10n.text("lab.zoology.thermo.check", store.language)) {
+                let correct = optionOrder.isCorrect(displayedIndex: selectedAnswer)
+                attemptCount += 1
+                if firstTryCorrect == nil { firstTryCorrect = correct }
+                store.recordStudyAssessment(
+                    lessonID: "zoology.comparative_thermoregulation_and_heat_stress",
+                    evidence: StudyAssessmentEvidence(
+                        taskType: "interactive_prediction",
+                        attempts: attemptCount,
+                        firstTryCorrect: firstTryCorrect ?? correct,
+                        hintsUsed: 0
+                    )
+                )
+                didCheckAnswer = true
+                answerSolved = correct
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(selectedAnswer < 0 || didCheckAnswer || answerSolved)
+
+            if didCheckAnswer {
+                let correct = optionOrder.isCorrect(displayedIndex: selectedAnswer)
+                Label(
+                    L10n.text(correct ? "lab.zoology.thermo.correct" : "lab.zoology.thermo.review", store.language),
+                    systemImage: correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
+                )
+                .font(.callout.weight(.medium))
+                .foregroundStyle(correct ? .green : .orange)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+}
+
+private struct ThermalRangeBar: View {
+    let range: ThermalExposureRange
+    let color: Color
+
+    var body: some View {
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            let minimum = width * CGFloat(range.minimumCelsius / ThermoregulationPractice.chartMaximumCelsius)
+            let maximum = width * CGFloat(range.maximumCelsius / ThermoregulationPractice.chartMaximumCelsius)
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.secondary.opacity(0.14))
+                Capsule()
+                    .fill(color)
+                    .frame(width: max(4, maximum - minimum))
+                    .offset(x: minimum)
+            }
+            .clipShape(Capsule())
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+private struct ThermalProxyBirdVisualization: NSViewRepresentable {
+    func makeNSView(context: Context) -> SCNView {
+        let view = SCNView()
+        view.scene = Self.makeScene()
+        view.allowsCameraControl = true
+        view.autoenablesDefaultLighting = true
+        view.backgroundColor = .controlBackgroundColor
+        return view
+    }
+
+    func updateNSView(_ view: SCNView, context: Context) {}
+
+    private static func makeScene() -> SCNScene {
+        let scene = SCNScene()
+        scene.background.contents = NSColor.controlBackgroundColor
+        let bodyMaterial = material(color: .darkGray, roughness: 0.8)
+        let wingMaterial = material(color: .gray, roughness: 0.82)
+        let beakMaterial = material(color: .systemOrange, roughness: 0.62)
+        let footMaterial = material(color: .systemOrange, roughness: 0.75)
+        let eyeMaterial = material(color: .black, roughness: 0.35)
+        let bird = SCNNode()
+
+        let body = SCNNode(geometry: SCNSphere(radius: 1))
+        body.scale = SCNVector3(0.59, 0.62, 1.05)
+        body.position = SCNVector3(0, 0.02, -0.08)
+        body.geometry?.firstMaterial = bodyMaterial
+        bird.addChildNode(body)
+
+        let head = SCNNode(geometry: SCNSphere(radius: 0.39))
+        head.position = SCNVector3(0, 0.67, 0.54)
+        head.geometry?.firstMaterial = bodyMaterial
+        bird.addChildNode(head)
+
+        let beak = SCNNode(geometry: SCNCone(topRadius: 0.015, bottomRadius: 0.12, height: 0.34))
+        beak.position = SCNVector3(0, 0.57, 0.91)
+        beak.eulerAngles.x = .pi / 2
+        beak.geometry?.firstMaterial = beakMaterial
+        bird.addChildNode(beak)
+
+        for side in [Float(-1), Float(1)] {
+            let wing = SCNNode(geometry: SCNSphere(radius: 0.58))
+            wing.scale = SCNVector3(0.77, 0.14, 0.75)
+            wing.position = SCNVector3(side * 0.46, 0.02, -0.06)
+            wing.geometry?.firstMaterial = wingMaterial
+            bird.addChildNode(wing)
+
+            let eye = SCNNode(geometry: SCNSphere(radius: 0.038))
+            eye.position = SCNVector3(side * 0.25, 0.73, 0.87)
+            eye.geometry?.firstMaterial = eyeMaterial
+            bird.addChildNode(eye)
+
+            let foot = SCNNode(geometry: SCNCylinder(radius: 0.035, height: 0.45))
+            foot.position = SCNVector3(side * 0.21, -0.66, 0.03)
+            foot.geometry?.firstMaterial = footMaterial
+            bird.addChildNode(foot)
+        }
+
+        let tail = SCNNode(geometry: SCNSphere(radius: 0.3))
+        tail.scale = SCNVector3(0.34, 0.24, 0.68)
+        tail.position = SCNVector3(0, -0.05, -0.94)
+        tail.geometry?.firstMaterial = wingMaterial
+        bird.addChildNode(tail)
+        scene.rootNode.addChildNode(bird)
+
+        let camera = SCNCamera()
+        camera.fieldOfView = 46
+        let cameraNode = SCNNode()
+        cameraNode.camera = camera
+        cameraNode.position = SCNVector3(0, 0.1, 4.5)
+        scene.rootNode.addChildNode(cameraNode)
+
+        let light = SCNLight()
+        light.type = .omni
+        light.intensity = 650
+        let lightNode = SCNNode()
+        lightNode.light = light
+        lightNode.position = SCNVector3(-2, 3, 4)
+        scene.rootNode.addChildNode(lightNode)
+        return scene
+    }
+
+    private static func material(color: NSColor, roughness: CGFloat) -> SCNMaterial {
+        let material = SCNMaterial()
+        material.diffuse.contents = color
+        material.roughness.contents = roughness
+        return material
     }
 }
 
@@ -5741,6 +6944,10 @@ private struct FileReadingLab: View {
     @State private var scenarioID = FileReadingPractice.scenarios[0].id
     @State private var selectedOutcome: FileReadingOutcome?
     @State private var hasCheckedAnswer = false
+    @State private var outcomeOrder = QuizAnswerOrder(
+        optionCount: FileReadingOutcome.allCases.count,
+        answerOriginalIndex: FileReadingPractice.scenarios[0].expectedOutcome.rawValue
+    )
 
     private var scenario: FileReadingScenario {
         FileReadingPractice.scenario(id: scenarioID) ?? FileReadingPractice.scenarios[0]
@@ -5762,6 +6969,10 @@ private struct FileReadingLab: View {
             .onChange(of: scenarioID) { _ in
                 selectedOutcome = nil
                 hasCheckedAnswer = false
+                outcomeOrder = QuizAnswerOrder(
+                    optionCount: FileReadingOutcome.allCases.count,
+                    answerOriginalIndex: scenario.expectedOutcome.rawValue
+                )
             }
 
             Text("""
@@ -5779,7 +6990,8 @@ private struct FileReadingLab: View {
                 .font(.headline)
                 .fixedSize(horizontal: false, vertical: true)
 
-            ForEach(FileReadingPractice.outcomes, id: \.self) { outcome in
+            ForEach(Array(outcomeOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                let outcome = FileReadingPractice.outcomes[originalIndex]
                 Button {
                     guard !hasCheckedAnswer else { return }
                     selectedOutcome = outcome
@@ -5921,8 +7133,12 @@ private struct TransactionLab: View {
 private struct DebuggingLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var scenarioID = DebuggingPractice.scenarios[0].id
-    @State private var selectedChoice = 0
+    @State private var selectedChoice = -1
     @State private var hasChecked = false
+    @State private var optionOrder = QuizAnswerOrder(
+        optionCount: DebuggingPractice.scenarios[0].choiceKeys.count,
+        answerOriginalIndex: DebuggingPractice.scenarios[0].correctChoice
+    )
 
     private var scenario: DebuggingScenario {
         DebuggingPractice.scenario(id: scenarioID) ?? DebuggingPractice.scenarios[0]
@@ -5941,9 +7157,15 @@ private struct DebuggingLab: View {
                 }
             }
             .pickerStyle(.menu)
-            .onChange(of: scenarioID) { _ in
-                selectedChoice = 0
+            .onChange(of: scenarioID) { newScenarioID in
+                selectedChoice = -1
                 hasChecked = false
+                if let newScenario = DebuggingPractice.scenario(id: newScenarioID) {
+                    optionOrder = QuizAnswerOrder(
+                        optionCount: newScenario.choiceKeys.count,
+                        answerOriginalIndex: newScenario.correctChoice
+                    )
+                }
             }
 
             Text(scenario.code)
@@ -5964,8 +7186,8 @@ private struct DebuggingLab: View {
                 .font(.callout.weight(.medium))
 
             Picker(L10n.text("lab.debugging.choicePicker", store.language), selection: $selectedChoice) {
-                ForEach(scenario.choiceKeys.indices, id: \.self) { index in
-                    Text(L10n.text(scenario.choiceKeys[index], store.language)).tag(index)
+                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Text(L10n.text(scenario.choiceKeys[originalIndex], store.language)).tag(displayIndex)
                 }
             }
             .pickerStyle(.radioGroup)
@@ -5974,11 +7196,11 @@ private struct DebuggingLab: View {
             if hasChecked {
                 Label(
                     L10n.text(scenario.explanationKey, store.language),
-                    systemImage: DebuggingPractice.isCorrect(selectedChoice, for: scenarioID)
+                    systemImage: optionOrder.isCorrect(displayedIndex: selectedChoice)
                         ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
                 )
                 .font(.callout)
-                .foregroundStyle(DebuggingPractice.isCorrect(selectedChoice, for: scenarioID) ? Color.green : Color.orange)
+                .foregroundStyle(optionOrder.isCorrect(displayedIndex: selectedChoice) ? Color.green : Color.orange)
                 .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -5988,7 +7210,7 @@ private struct DebuggingLab: View {
                 Label(L10n.text("lab.debugging.check", store.language), systemImage: "checkmark")
             }
             .buttonStyle(.borderedProminent)
-            .disabled(hasChecked)
+            .disabled(hasChecked || selectedChoice < 0)
         }
     }
 }
@@ -5996,8 +7218,13 @@ private struct DebuggingLab: View {
 private struct LinearSystemLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var scenarioID = LinearSystemPractice.scenarios[0].id
-    @State private var prediction = -1
-    @State private var hasChecked = false
+    @State private var selectedDisplayIndex = -1
+    @State private var prediction: InteractivePredictionAttempt
+    private let predictionOptionKeys = ["lab.linearSystemOne", "lab.linearSystemNone", "lab.linearSystemInfinite"]
+
+    init() {
+        _prediction = State(initialValue: Self.makePrediction(for: LinearSystemPractice.scenarios[0]))
+    }
 
     private var scenario: LinearSystemScenario {
         LinearSystemPractice.scenario(id: scenarioID)
@@ -6024,9 +7251,10 @@ private struct LinearSystemLab: View {
                 Text(L10n.text("lab.linearSystemSameLine", store.language)).tag("same-line")
             }
             .pickerStyle(.segmented)
-            .onChange(of: scenarioID) { _ in
-                prediction = -1
-                hasChecked = false
+            .disabled(prediction.hasAnswered)
+            .onChange(of: scenarioID) { newScenarioID in
+                selectedDisplayIndex = -1
+                prediction = Self.makePrediction(for: LinearSystemPractice.scenario(id: newScenarioID))
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -6042,37 +7270,59 @@ private struct LinearSystemLab: View {
                 .font(.title3.monospaced())
                 .accessibilityLabel(L10n.text("lab.linearSystemReduction", store.language))
 
-            Picker(L10n.text("lab.linearSystemPredict", store.language), selection: $prediction) {
-                Text(L10n.text("lab.linearSystemOne", store.language)).tag(0)
-                Text(L10n.text("lab.linearSystemNone", store.language)).tag(1)
-                Text(L10n.text("lab.linearSystemInfinite", store.language)).tag(2)
+            Picker(L10n.text("lab.linearSystemPredict", store.language), selection: $selectedDisplayIndex) {
+                ForEach(Array(prediction.choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Text(L10n.text(predictionOptionKeys[originalIndex], store.language)).tag(displayIndex)
+                }
             }
             .pickerStyle(.segmented)
+            .disabled(prediction.hasAnswered)
 
             Button(L10n.text("lab.linearSystemCheck", store.language)) {
-                hasChecked = true
+                prediction.select(displayedIndex: selectedDisplayIndex)
+                guard let evidence = prediction.currentAnswerEventEvidence() else { return }
+                store.recordStudyAssessment(lessonID: "mathematics.systems_of_linear_equations", evidence: evidence)
             }
             .buttonStyle(.borderedProminent)
-            .disabled(prediction < 0)
+            .disabled(prediction.hasAnswered || selectedDisplayIndex < 0)
 
-            if hasChecked {
-                let correct = LinearSystemPractice.isCorrectPrediction(prediction, for: scenario)
-                Label(
-                    L10n.text(correct ? "lab.linearSystemCorrect" : "lab.linearSystemReview", store.language),
-                    systemImage: correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
-                )
-                .font(.callout.weight(.medium))
-                .foregroundStyle(correct ? .green : .orange)
-                .fixedSize(horizontal: false, vertical: true)
-            }
-
-            if hasChecked {
-                Text(outcomeDescription)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+            if prediction.hasAnswered {
+                if prediction.isCorrect {
+                    Label(L10n.text("lab.linearSystemCorrect", store.language), systemImage: "checkmark.circle.fill")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.green)
+                    Text(outcomeDescription)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(L10n.text("lab.linearSystemNew", store.language)) {
+                        prediction = Self.makePrediction(for: scenario)
+                        selectedDisplayIndex = -1
+                    }
+                    .buttonStyle(.link)
+                } else {
+                    Label(L10n.text("lab.linearSystemReview", store.language), systemImage: "arrow.uturn.backward.circle")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(L10n.text("lab.linearSystemRetry", store.language)) {
+                        prediction.retry()
+                        selectedDisplayIndex = -1
+                    }
+                    .buttonStyle(.link)
+                }
             }
         }
+    }
+
+    private static func makePrediction(for scenario: LinearSystemScenario) -> InteractivePredictionAttempt {
+        guard let attempt = InteractivePredictionAttempt(
+            optionCount: 3,
+            answerOriginalIndex: LinearSystemPractice.correctPredictionIndex(for: scenario)
+        ) else {
+            preconditionFailure("A linear-system prediction must have one valid answer.")
+        }
+        return attempt
     }
 
     private var outcomeDescription: String {
@@ -6172,10 +7422,19 @@ private struct AlgorithmComplexityLab: View {
 
 private struct LoopTraceLab: View {
     @EnvironmentObject private var store: LearningStore
-    @State private var scenarioID = LoopTracePractice.scenarios[0].id
-    @State private var prediction = 0
-    @State private var hasCheckedPrediction = false
+    @State private var scenarioID: String
+    @State private var question: LoopTraceQuestion
+    @State private var prediction: InteractivePredictionAttempt
+    @State private var selectedDisplayIndex = -1
     @State private var revealedStepCount = 0
+
+    init() {
+        let initialScenario = LoopTracePractice.scenarios[0]
+        let initialQuestion = LoopTraceQuestion(scenario: initialScenario)
+        _scenarioID = State(initialValue: initialScenario.id)
+        _question = State(initialValue: initialQuestion)
+        _prediction = State(initialValue: Self.makePrediction(for: initialQuestion))
+    }
 
     private var scenario: LoopTraceScenario {
         LoopTracePractice.scenario(id: scenarioID) ?? LoopTracePractice.scenarios[0]
@@ -6193,13 +7452,18 @@ private struct LoopTraceLab: View {
                 .textSelection(.enabled)
                 .accessibilityLabel(Text(L10n.text("lab.loopTraceInput", store.language)))
 
-            Picker(L10n.text("lab.loopTraceScenario", store.language), selection: $scenarioID) {
+            Picker(
+                L10n.text("lab.loopTraceScenario", store.language),
+                selection: Binding(
+                    get: { scenarioID },
+                    set: selectScenario
+                )
+            ) {
                 ForEach(LoopTracePractice.scenarios) { item in
                     Text(L10n.text("lab.loopTraceScenario.\(item.id)", store.language)).tag(item.id)
                 }
             }
             .pickerStyle(.menu)
-            .onChange(of: scenarioID) { _ in resetPractice() }
 
             Text("""
             count = 0
@@ -6218,82 +7482,115 @@ private struct LoopTraceLab: View {
             HStack {
                 Text(L10n.text("lab.loopTracePrediction", store.language))
                 Spacer()
-                Picker(L10n.text("lab.loopTracePrediction", store.language), selection: $prediction) {
-                    ForEach(0...scenario.values.count, id: \.self) { value in
-                        Text(String(value)).tag(value)
+                Picker(L10n.text("lab.loopTracePrediction", store.language), selection: $selectedDisplayIndex) {
+                    Text(L10n.text("lab.loopTraceChoose", store.language)).tag(-1)
+                    ForEach(Array(prediction.choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                        Text(String(question.options[originalIndex])).tag(displayIndex)
                     }
                 }
-                .frame(width: 90)
-                .disabled(hasCheckedPrediction)
+                .pickerStyle(.menu)
+                .disabled(prediction.hasAnswered)
             }
 
-            if hasCheckedPrediction {
-                Label(
-                    String(format: L10n.text("lab.loopTraceFeedback", store.language), scenario.expectedCount),
-                    systemImage: LoopTracePractice.isCorrect(prediction: prediction, for: scenarioID)
-                        ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
-                )
-                .foregroundStyle(LoopTracePractice.isCorrect(prediction: prediction, for: scenarioID) ? Color.green : Color.orange)
-                .fixedSize(horizontal: false, vertical: true)
-
-                ForEach(Array(scenario.steps.prefix(revealedStepCount))) { step in
-                    HStack(alignment: .top, spacing: 10) {
-                        Text("\(step.index + 1)")
-                            .font(.caption.monospacedDigit().weight(.semibold))
-                            .foregroundStyle(.secondary)
-                            .frame(width: 22, alignment: .leading)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(String(format: L10n.text("lab.loopTraceStep", store.language), step.value))
-                                .font(.system(.callout, design: .monospaced).weight(.medium))
-                            Text(L10n.text(step.isEven ? "lab.loopTraceEven" : "lab.loopTraceOdd", store.language))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Text(String(step.countAfter))
-                            .font(.system(.callout, design: .monospaced).weight(.semibold))
-                            .accessibilityLabel(Text(L10n.text("lab.loopTraceCount", store.language)))
-                    }
-                    .padding(10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.background, in: RoundedRectangle(cornerRadius: 10))
-                    .accessibilityElement(children: .combine)
-                }
-
-                if revealedStepCount == scenario.steps.count {
+            if prediction.hasAnswered {
+                if prediction.isCorrect {
                     Label(
-                        String(format: L10n.text("lab.loopTraceReturn", store.language), scenario.expectedCount),
-                        systemImage: "arrow.uturn.backward.circle"
+                        String(format: L10n.text("lab.loopTraceFeedback", store.language), scenario.expectedCount),
+                        systemImage: "checkmark.circle.fill"
                     )
-                    .font(.callout.weight(.semibold))
-                    .foregroundStyle(.tint)
+                    .foregroundStyle(.green)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                    ForEach(Array(scenario.steps.prefix(revealedStepCount))) { step in
+                        HStack(alignment: .top, spacing: 10) {
+                            Text("\(step.index + 1)")
+                                .font(.caption.monospacedDigit().weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 22, alignment: .leading)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(String(format: L10n.text("lab.loopTraceStep", store.language), step.value))
+                                    .font(.system(.callout, design: .monospaced).weight(.medium))
+                                Text(L10n.text(step.isEven ? "lab.loopTraceEven" : "lab.loopTraceOdd", store.language))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text(String(step.countAfter))
+                                .font(.system(.callout, design: .monospaced).weight(.semibold))
+                                .accessibilityLabel(Text(L10n.text("lab.loopTraceCount", store.language)))
+                        }
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.background, in: RoundedRectangle(cornerRadius: 10))
+                        .accessibilityElement(children: .combine)
+                    }
+
+                    if revealedStepCount == scenario.steps.count {
+                        Label(
+                            String(format: L10n.text("lab.loopTraceReturn", store.language), scenario.expectedCount),
+                            systemImage: "arrow.uturn.backward.circle"
+                        )
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.tint)
+                    }
+                } else {
+                    Label(L10n.text("lab.loopTraceWrong", store.language), systemImage: "arrow.counterclockwise.circle")
+                        .foregroundStyle(.orange)
+                    Text(L10n.text("lab.loopTraceWrongHint", store.language))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(L10n.text("lab.loopTraceRetry", store.language)) {
+                        prediction.retry()
+                        selectedDisplayIndex = -1
+                        revealedStepCount = 0
+                    }
+                    .buttonStyle(.link)
                 }
             }
 
-            Button {
-                if hasCheckedPrediction {
+            if prediction.hasAnswered, prediction.isCorrect {
+                Button {
                     revealedStepCount = min(revealedStepCount + 1, scenario.steps.count)
-                } else {
-                    hasCheckedPrediction = true
-                    revealedStepCount = scenario.steps.isEmpty ? 0 : 1
+                } label: {
+                    Label(L10n.text("lab.loopTraceNextStep", store.language), systemImage: "arrow.right")
                 }
-            } label: {
-                Label(
-                    L10n.text(
-                        hasCheckedPrediction ? "lab.loopTraceNextStep" : "lab.loopTraceCheck",
-                        store.language
-                    ),
-                    systemImage: hasCheckedPrediction ? "arrow.right" : "checkmark"
-                )
+                .buttonStyle(.borderedProminent)
+                .disabled(revealedStepCount >= scenario.steps.count)
+            } else if !prediction.hasAnswered {
+                Button {
+                    prediction.select(displayedIndex: selectedDisplayIndex)
+                    guard let evidence = prediction.currentAnswerEventEvidence() else { return }
+                    store.recordStudyAssessment(lessonID: "programming.conditions_loops_functions", evidence: evidence)
+                    if prediction.isCorrect {
+                        revealedStepCount = scenario.steps.isEmpty ? 0 : 1
+                    }
+                } label: {
+                    Label(L10n.text("lab.loopTraceCheck", store.language), systemImage: "checkmark")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(selectedDisplayIndex < 0)
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(hasCheckedPrediction && revealedStepCount >= scenario.steps.count)
         }
     }
 
-    private func resetPractice() {
-        prediction = 0
-        hasCheckedPrediction = false
+    private static func makePrediction(for question: LoopTraceQuestion) -> InteractivePredictionAttempt {
+        guard let attempt = InteractivePredictionAttempt(
+            optionCount: question.options.count,
+            answerOriginalIndex: question.correctOptionIndex
+        ) else {
+            preconditionFailure("A loop-trace prediction must have one valid answer.")
+        }
+        return attempt
+    }
+
+    private func selectScenario(_ id: String) {
+        guard let nextScenario = LoopTracePractice.scenario(id: id) else { return }
+        scenarioID = nextScenario.id
+        let nextQuestion = LoopTraceQuestion(scenario: nextScenario)
+        question = nextQuestion
+        prediction = Self.makePrediction(for: nextQuestion)
+        selectedDisplayIndex = -1
         revealedStepCount = 0
     }
 }
@@ -6412,7 +7709,14 @@ private struct CollectionsLoopsLab: View {
 }
 
 
-private struct TutorChatView: View {
+private struct PendingCustomTopicOutlineReview: Identifiable {
+    let messageID: UUID
+    let proposal: CustomTopicOutlineProposal
+
+    var id: UUID { messageID }
+}
+
+struct TutorChatView: View {
     @EnvironmentObject private var store: LearningStore
     @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
     @StateObject private var chat: TutorChatModel
@@ -6421,11 +7725,66 @@ private struct TutorChatView: View {
     @State private var includeLocalSourcesInWebSearch = false
     @State private var hasConfirmedGoogleSearchAge = false
     @State private var showGoogleSearchAgeConfirmation = false
+    @State private var outlinePromptPrepared = false
+    @State private var outlineResponseMessageID: UUID?
+    @State private var pendingOutlineReview: PendingCustomTopicOutlineReview?
+    @State private var importedOutlineMessageIDs = Set<UUID>()
+    @State private var outlineErrorMessageID: UUID?
+    @State private var outlineImportError: String?
+    @State private var outlineImportSuccess: String?
     let language: AppLanguage
+    private let outlineDraftPrompt: String?
+    private let outlineDestination: CustomTopicOutlineDestination?
+    private let outlineParentTopicID: UUID?
 
     init(subject: Subject, lesson: LessonContent, language: AppLanguage, mode: AIRoutingMode) {
         self.language = language
+        outlineDraftPrompt = nil
+        outlineDestination = nil
+        outlineParentTopicID = nil
         _chat = StateObject(wrappedValue: TutorChatModel(subject: subject, lesson: lesson, language: language, mode: mode))
+    }
+
+    init(
+        customSubject: CustomLearningSubject,
+        topic: CustomLearningTopic,
+        language: AppLanguage,
+        mode: AIRoutingMode,
+        routeSubjectID: String? = nil,
+        outlineDestination: CustomTopicOutlineDestination? = nil,
+        outlineParentTopicID: UUID? = nil
+    ) {
+        self.language = language
+        self.outlineDestination = outlineDestination
+        self.outlineParentTopicID = outlineParentTopicID
+        outlineDraftPrompt = outlineDestination != nil && outlineParentTopicID != nil
+            ? CustomTopicStudyPrompt.outlineDraft(languageCode: language.rawValue)
+            : nil
+        let topicName = topic.name.value(in: language.rawValue)
+        let subjectName = customSubject.name.value(in: language.rawValue)
+        let notes = topic.notes.value(in: language.rawValue)
+        let goal = topic.learningOutcome.value(in: language.rawValue)
+        let lesson = LessonContent(
+            title: topicName,
+            objective: goal.isEmpty ? topicName : goal,
+            explanation: notes,
+            mechanism: L10n.text("custom.learnPrompt", language),
+            example: notes,
+            limitations: language == .ru
+                ? "Это пользовательский материал. Не выдавай его за подтверждённый источник; отмечай, что требует проверки."
+                : "This is learner-provided material. Do not present it as a verified source; flag claims that need checking.",
+            question: "",
+            options: [],
+            answerIndex: 0,
+            feedback: ""
+        )
+        _chat = StateObject(wrappedValue: TutorChatModel(
+            subjectID: routeSubjectID ?? "custom-\(customSubject.id.uuidString.lowercased())",
+            subjectName: subjectName,
+            lesson: lesson,
+            language: language,
+            mode: mode
+        ))
     }
 
     var body: some View {
@@ -6436,12 +7795,28 @@ private struct TutorChatView: View {
                     Text(L10n.text("tutor.subtitle", language)).font(.subheadline).foregroundStyle(.secondary)
                 }
                 Spacer()
-                if store.isCheckingAI && store.aiHealth == nil {
+                if chat.isSending {
+                    Label(L10n.text("settings.tutorProbe.checking", language), systemImage: "hourglass")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else if let completionLabel = chat.completionLabel {
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Label(L10n.text("tutor.responseVerified", language), systemImage: "checkmark.circle.fill")
+                            .font(.caption).foregroundStyle(.green)
+                        if !completionLabel.isEmpty {
+                            Text(completionLabel)
+                                .font(.caption2.monospaced()).foregroundStyle(.secondary)
+                                .multilineTextAlignment(.trailing)
+                        }
+                    }
+                } else if store.isCheckingAI && store.aiHealth == nil {
                     ProgressView().controlSize(.small)
                 } else if let health = store.aiHealth {
                     VStack(alignment: .trailing, spacing: 4) {
-                        Label(L10n.text("settings.aiConnected", language), systemImage: "checkmark.circle.fill")
-                            .font(.caption).foregroundStyle(.green)
+                        Label(L10n.text("settings.aiBackendResponding", language), systemImage: "server.rack")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Text(L10n.text("tutor.responseNotVerified", language))
+                            .font(.caption2).foregroundStyle(.secondary)
+                            .multilineTextAlignment(.trailing)
                         Text(routeDescription(for: health))
                             .font(.caption2).foregroundStyle(.secondary)
                             .multilineTextAlignment(.trailing)
@@ -6459,9 +7834,30 @@ private struct TutorChatView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 12) {
                         if chat.messages.isEmpty {
-                            Text(L10n.text("tutor.empty", language))
-                                .foregroundStyle(.secondary)
-                                .frame(maxWidth: .infinity, minHeight: 220)
+                            VStack(spacing: 12) {
+                                Text(L10n.text("tutor.empty", language))
+                                    .foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity, minHeight: outlineDraftPrompt == nil ? 220 : 140)
+                                if outlineDraftPrompt != nil {
+                                    Button {
+                                        if let outlineDraftPrompt {
+                                            draft = outlineDraftPrompt
+                                            outlinePromptPrepared = true
+                                            outlineImportSuccess = nil
+                                        }
+                                    } label: {
+                                        Label(L10n.text("custom.outlineDraftAction", language), systemImage: "list.bullet.rectangle")
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .disabled(chat.isSending || !canSend)
+                                    Text(L10n.text("custom.outlineDraftHint", language))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .multilineTextAlignment(.center)
+                                        .frame(maxWidth: 520)
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
                         }
                         ForEach(chat.messages) { message in
                             messageBubble(message)
@@ -6485,6 +7881,11 @@ private struct TutorChatView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text(L10n.text(chat.mode == .localOnly ? "tutor.localPrivacy" : "tutor.privacy", language))
                     .font(.caption).foregroundStyle(.secondary)
+                if let outlineImportSuccess {
+                    Label(outlineImportSuccess, systemImage: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                }
                 if chat.mode == .automatic {
                     if let policy = store.autoCostPolicy, !policy.allowPaidRoutes {
                         Label(L10n.text("tutor.webSearchCostBlocked", language), systemImage: "lock.fill")
@@ -6546,15 +7947,15 @@ private struct TutorChatView: View {
                     Label(L10n.text("tutor.webSearchAutoOnly", language), systemImage: "wifi.slash")
                         .font(.caption2).foregroundStyle(.secondary)
                 }
-                if store.aiHealth == nil {
-                    Text(L10n.text("tutor.unavailable", language))
-                        .font(.caption.monospaced()).foregroundStyle(.secondary)
-                } else if chat.mode == .localOnly && store.aiHealth?.hasLocalModel != true {
-                    let key = store.aiHealth?.isOllamaEndpointLocal == true
-                        ? "tutor.localUnavailable"
-                        : "tutor.localEndpointBlocked"
-                    Text(L10n.text(key, language))
-                        .font(.caption).foregroundStyle(.orange)
+                if !composerReadiness.isReady, let messageKey = composerReadiness.messageKey {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Label(L10n.text(messageKey, language), systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption).foregroundStyle(.orange)
+                        if composerReadiness == .backendNotReady {
+                            Text(L10n.text(backendSupervisor.status.localizationKey, language))
+                                .font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
                 }
                 HStack(alignment: .bottom, spacing: 10) {
                     TextField(L10n.text("tutor.placeholder", language), text: $draft, axis: .vertical)
@@ -6579,6 +7980,23 @@ private struct TutorChatView: View {
             .padding(16)
             .background(Color(nsColor: .windowBackgroundColor))
         }
+        .sheet(item: $pendingOutlineReview) { pending in
+            if let outlineDestination, let outlineParentTopicID {
+                CustomTopicOutlineReviewView(
+                    proposal: pending.proposal,
+                    destination: outlineDestination,
+                    parentTopicID: outlineParentTopicID
+                ) { count in
+                    importedOutlineMessageIDs.insert(pending.messageID)
+                    outlineImportSuccess = String(
+                        format: L10n.text("custom.outlineSaved", language),
+                        "\(count)"
+                    )
+                    outlineErrorMessageID = nil
+                    outlineImportError = nil
+                }
+            }
+        }
         .task {
             guard await backendSupervisor.ensureRunning() else { return }
             await store.refreshAIStatus()
@@ -6593,7 +8011,20 @@ private struct TutorChatView: View {
             VStack(alignment: .leading, spacing: 5) {
                 Text(L10n.text(message.role == .learner ? "tutor.learner" : "tutor.assistant", language))
                     .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                if message.isGoogleGrounded {
+                if message.role == .tutor, message.id == outlineResponseMessageID {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label(L10n.text("custom.outlineDraftReady", language), systemImage: "list.bullet.rectangle")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                        DisclosureGroup(L10n.text("custom.outlineShowRaw", language)) {
+                            Text(message.text.isEmpty && chat.isSending ? "…" : message.text)
+                                .textSelection(.enabled)
+                                .font(.caption.monospaced())
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .font(.caption)
+                    }
+                } else if message.isGoogleGrounded {
                     Text((try? AttributedString(markdown: message.text)) ?? AttributedString(message.text))
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -6601,6 +8032,25 @@ private struct TutorChatView: View {
                     Text(message.text.isEmpty && chat.isSending ? "…" : message.text)
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if message.role == .tutor, message.id == outlineResponseMessageID, !message.text.isEmpty {
+                    if importedOutlineMessageIDs.contains(message.id) {
+                        Label(L10n.text("custom.outlineImported", language), systemImage: "checkmark.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.green)
+                    } else if !chat.isSending {
+                        Button {
+                            reviewOutline(message)
+                        } label: {
+                            Label(L10n.text("custom.outlineReviewAction", language), systemImage: "list.bullet.rectangle")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    if outlineErrorMessageID == message.id, let outlineImportError {
+                        Text(outlineImportError)
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
                 }
                 if message.role == .tutor, !message.isGoogleGrounded,
                    let label = chat.completionLabel, message.id == chat.messages.last?.id {
@@ -6744,14 +8194,25 @@ private struct TutorChatView: View {
         }
     }
 
+    private var composerReadiness: TutorComposerReadiness {
+        TutorComposerReadiness.resolve(
+            backendReady: backendSupervisor.isReady,
+            routeStatusAvailable: store.aiHealth != nil,
+            isLocalOnly: chat.mode == .localOnly,
+            hasAutomaticRoute: store.aiHealth?.hasAutomaticRoute == true,
+            hasLocalModel: store.aiHealth?.hasLocalModel == true,
+            isLocalEndpointConfirmed: store.aiHealth?.isOllamaEndpointLocal == true
+        )
+    }
+
     private var canSend: Bool {
-        guard backendSupervisor.isReady, let health = store.aiHealth else { return false }
+        guard composerReadiness.isReady, let health = store.aiHealth else { return false }
         if useWebSearch {
             return chat.mode == .automatic
                 && store.autoCostPolicy?.allowPaidRoutes == true
                 && health.hasGroundedSearch
         }
-        return chat.mode == .automatic ? health.hasAutomaticRoute : health.hasLocalModel
+        return true
     }
 
     private func officialSourceURL(_ reference: TutorSourceReference) -> URL? {
@@ -6762,7 +8223,7 @@ private struct TutorChatView: View {
         if store.aiMode == .localOnly {
             return L10n.text(health.hasLocalModel ? "settings.aiLocalRoute" : "settings.aiNoLocal", language)
         }
-        if health.hasCloudSession { return L10n.text("settings.aiOnlineRoute", language) }
+        if health.hasCloudRoute { return L10n.text("settings.aiOnlineRoute", language) }
         if health.hasLocalModel { return L10n.text("settings.aiLocalRoute", language) }
         return L10n.text("settings.aiNoRoute", language)
     }
@@ -6770,6 +8231,7 @@ private struct TutorChatView: View {
     private func send() {
         guard canSend, !chat.isSending else { return }
         let message = draft
+        let isOutlineDraft = outlinePromptPrepared
         Task {
             guard await backendSupervisor.ensureRunning() else { return }
             await store.refreshAIStatus()
@@ -6782,7 +8244,57 @@ private struct TutorChatView: View {
                 groundingAgeConfirmed: hasConfirmedGoogleSearchAge,
                 includeLocalSourcesInWebSearch: includeLocalSourcesInWebSearch
             )
+            if isOutlineDraft {
+                outlineResponseMessageID = chat.messages.last?.id
+                outlineImportError = nil
+                outlineImportSuccess = nil
+            }
+            outlinePromptPrepared = false
         }
+    }
+
+    private func reviewOutline(_ message: TutorMessage) {
+        guard outlineDestination != nil, outlineParentTopicID != nil else { return }
+        do {
+            let proposal = try CustomTopicOutlineProposal.parse(message.text)
+            pendingOutlineReview = PendingCustomTopicOutlineReview(
+                messageID: message.id,
+                proposal: proposal
+            )
+            outlineImportError = nil
+            outlineErrorMessageID = nil
+        } catch let error as CustomTopicOutlineError {
+            outlineImportError = outlineErrorText(error)
+            outlineErrorMessageID = message.id
+        } catch {
+            outlineImportError = L10n.text("custom.outlineParseMalformed", language)
+            outlineErrorMessageID = message.id
+        }
+    }
+
+    private func outlineErrorText(_ error: CustomTopicOutlineError) -> String {
+        let key: String
+        switch error {
+        case .malformedJSON:
+            key = "custom.outlineParseMalformed"
+        case .unsupportedSchema, .unsupportedVersion:
+            key = "custom.outlineParseUnsupported"
+        case .invalidBilingualContent:
+            key = "custom.outlineParseIncomplete"
+        case .invalidLevel:
+            key = "custom.outlineParseLevel"
+        case .duplicateSiblingName:
+            key = "custom.outlineParseDuplicates"
+        case .emptyTopics:
+            key = "custom.outlineParseEmpty"
+        case .tooManyTopics:
+            key = "custom.outlineParseTooMany"
+        case .tooDeep:
+            key = "custom.outlineParseTooDeep"
+        case .oversizedResponse:
+            key = "custom.outlineParseTooLarge"
+        }
+        return L10n.text(key, language)
     }
 }
 

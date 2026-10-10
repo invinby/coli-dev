@@ -104,6 +104,28 @@ enum CurriculumCatalog {
         return parse(markdown)
     }
 
+    static func studyRoadmaps() -> [StudyRoadmap] {
+        Subject.allCases.map { subject in
+            let progressionLevels = roadmap(for: subject).map { level in
+                level.topics.compactMap(\.lessonResource)
+            }
+            var prerequisitesByResource: [String: [String]] = [:]
+            var earlierResources: [String] = []
+            for level in progressionLevels {
+                for resource in level {
+                    prerequisitesByResource[resource] = Array(earlierResources.reversed())
+                }
+                earlierResources.append(contentsOf: level)
+            }
+            return StudyRoadmap(
+                subjectID: subject.rawValue,
+                lessonResources: progressionLevels.flatMap { $0 },
+                progressionLevels: progressionLevels,
+                prerequisitesByResource: prerequisitesByResource
+            )
+        }
+    }
+
     static func lessonMarkdown(for subject: Subject, resource: String) -> String? {
         guard resource.range(of: "^[a-z0-9_-]{1,80}$", options: .regularExpression) != nil,
               let lessonURL = lessonFiles(for: subject).first(where: {
