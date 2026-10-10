@@ -1274,6 +1274,8 @@ private struct PracticeLab: View {
             DomainRangeLab()
         } else if subject == .mathematics, moduleResource == "quadratic_functions_and_transformations" {
             QuadraticFunctionLab()
+        } else if subject == .mathematics, moduleResource == "trigonometry_and_periodic_functions" {
+            TrigonometryUnitCircleLab()
         } else if subject == .mathematics, moduleResource == "constrained_optimization_and_lagrange_multipliers" {
             ConstrainedOptimizationLab()
         } else if subject == .mathematics, moduleResource == "rates_of_change_and_derivative" {

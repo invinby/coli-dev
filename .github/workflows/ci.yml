@@ -210,6 +210,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-quadratic-function"
           "$RUNNER_TEMP/verify-quadratic-function"
 
+      - name: Verify trigonometry unit-circle model / Проверка модели единичной окружности
+        run: |
+          swiftc macOS/ColiDev/App/TrigonometricUnitCircle.swift macOS/ColiDev/scripts/verify_trigonometry_model.swift \
+            -o "$RUNNER_TEMP/verify-trigonometry-model"
+          "$RUNNER_TEMP/verify-trigonometry-model"
+
       - name: Verify constrained optimization model / Проверка модели условной оптимизации
         run: |
           swiftc macOS/ColiDev/App/ConstrainedOptimization.swift macOS/ColiDev/scripts/verify_constrained_optimization.swift \
