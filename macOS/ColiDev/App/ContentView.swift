@@ -205,6 +205,7 @@ struct ContentView: View {
 
 private struct TodayView: View {
     @EnvironmentObject private var store: LearningStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let open: (Subject) -> Void
     let openCustom: (UUID) -> Void
     let openCourseLesson: (StudyLessonRoute) -> Void
@@ -354,6 +355,10 @@ private struct TodayView: View {
                     .trim(from: 0, to: CGFloat(courseProgress.fractionCompleted))
                     .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 8, lineCap: .round))
                     .rotationEffect(.degrees(-90))
+                    .animation(
+                        reduceMotion ? nil : .easeInOut(duration: 0.28),
+                        value: courseProgress.fractionCompleted
+                    )
                 Text(courseProgress.totalCount > 0
                     ? "\(courseProgress.completedCount)/\(courseProgress.totalCount)"
                     : "—")
@@ -480,7 +485,19 @@ private struct TodayView: View {
             .buttonStyle(.borderedProminent)
         }
         .padding(20)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+        .background(
+            LinearGradient(
+                colors: [Color.purple.opacity(0.12), Color.blue.opacity(0.09), Color.cyan.opacity(0.07)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 20)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 20)
+                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+        }
+        .coliGlassControl(cornerRadius: 20)
     }
 }
 
@@ -530,6 +547,8 @@ private struct SubjectCatalogView: View {
 
 private struct SubjectCard: View {
     @EnvironmentObject private var store: LearningStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isHovered = false
     let subject: Subject
     let complete: Bool
     let action: () -> Void
@@ -542,7 +561,18 @@ private struct SubjectCard: View {
                         .font(.title2.weight(.semibold))
                         .foregroundStyle(subject.tint)
                         .frame(width: 44, height: 44)
-                        .background(subject.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 13))
+                        .background(
+                            LinearGradient(
+                                colors: [subject.tint.opacity(0.30), subject.tint.opacity(0.13)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            in: RoundedRectangle(cornerRadius: 13)
+                        )
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 13)
+                                .strokeBorder(subject.tint.opacity(0.24), lineWidth: 1)
+                        }
                     Spacer()
                     if complete {
                         Image(systemName: "checkmark.circle.fill")
@@ -569,11 +599,29 @@ private struct SubjectCard: View {
             }
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.background, in: RoundedRectangle(cornerRadius: 18))
-            .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(.quaternary, lineWidth: 1))
+            .background(
+                LinearGradient(
+                    colors: [
+                        subject.tint.opacity(isHovered && !reduceMotion ? 0.22 : 0.15),
+                        subject.tint.opacity(0.035),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: RoundedRectangle(cornerRadius: 18)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 18)
+                    .strokeBorder(subject.tint.opacity(isHovered ? 0.34 : 0.20), lineWidth: 1)
+            }
             .contentShape(RoundedRectangle(cornerRadius: 18))
+            .scaleEffect(isHovered && !reduceMotion ? 1.012 : 1)
+            .offset(y: isHovered && !reduceMotion ? -2 : 0)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: isHovered)
+            .coliGlassControl(cornerRadius: 18)
         }
         .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
     }
 }
 
@@ -2485,28 +2533,52 @@ private struct ManagementView: View {
     }
 
     private func metric(title: String, value: String, symbol: String, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: symbol)
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(tint)
+                .frame(width: 38, height: 38)
+                .background(
+                    LinearGradient(
+                        colors: [tint.opacity(0.24), tint.opacity(0.10)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    in: RoundedRectangle(cornerRadius: 12)
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(tint.opacity(0.22), lineWidth: 1)
+                }
+            VStack(alignment: .leading, spacing: 7) {
                 Text(title)
                     .font(.callout.weight(.medium))
                     .foregroundStyle(.secondary)
-            } icon: {
-                Image(systemName: symbol)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+                Text(value)
+                    .font(.title2.weight(.semibold).monospacedDigit())
                     .foregroundStyle(tint)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
             }
-            Text(value)
-                .font(.title2.weight(.semibold).monospacedDigit())
-                .foregroundStyle(tint)
-                .lineLimit(2)
-                .minimumScaleFactor(0.8)
+            Spacer(minLength: 0)
         }
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 88, alignment: .leading)
-        .background(tint.opacity(0.075), in: RoundedRectangle(cornerRadius: 14))
+        .background(
+            LinearGradient(
+                colors: [tint.opacity(0.18), tint.opacity(0.045)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 14)
+        )
         .overlay {
             RoundedRectangle(cornerRadius: 14)
-                .strokeBorder(tint.opacity(0.16), lineWidth: 1)
+                .strokeBorder(tint.opacity(0.24), lineWidth: 1)
         }
+        .coliGlassControl(cornerRadius: 14)
     }
 
     private func statusRow(title: String, value: String, symbol: String) -> some View {
