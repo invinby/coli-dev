@@ -550,6 +550,7 @@ enum L10n {
         "lab.geneExpressionOptionB": ("Завершает трансляцию", "Stops translation"),
         "lab.geneExpressionOptionC": ("Включает транскрипцию", "Turns transcription on"),
         "lab.geneExpressionCheck": ("Проверить ответ", "Check answer"),
+        "lab.geneExpressionRetry": ("Попробовать ещё раз", "Try again"),
         "lab.geneExpressionCorrect": ("Верно: UGA — стоп-кодон, он завершает трансляцию.", "Correct: UGA is a stop codon; it ends translation."),
         "lab.geneExpressionReview": ("Посмотри на последний кодон мРНК: UGA — сигнал остановки, не аминокислота.", "Check the final mRNA codon: UGA is a stop signal, not an amino acid."),
         "lab.geneExpressionLimit": ("Одна короткая учебная последовательность; модель не предназначена для анализа реальных генов или здоровья.", "One short teaching sequence; this model is not for analyzing real genes or health."),

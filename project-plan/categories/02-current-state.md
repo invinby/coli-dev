@@ -1,5 +1,11 @@
 # 02. Текущее состояние ColiDev
 
+## Проверка попыток в учебных тренажёрах — 2026-10-11 / Practice-attempt coverage — 2026-10-11
+
+**RU:** Сверка исходников обнаружила, что README отставал от кода и противоречил сам себе: восемь встроенных тренажёров уже сохраняют интерактивные попытки. Девятый поток добавлен для биологического тренажёра экспрессии генов; теперь его ошибочный и верный ответы, первая попытка и повтор проходят через существующую очередь событий с ID `biology.gene_expression_and_regulation`. Swift-verifier расширен проверками ошибки, повтора и верного ответа с первой попытки. Все 493 backend-теста прошли. macOS CI и ручной запуск на Mac пока не подтверждены.
+
+**EN:** Source inspection found that the README lagged behind the code and contradicted itself: eight built-in labs already save interactive attempts. A ninth flow has now been added for biology gene-expression practice; incorrect and correct answers, the first attempt, and retries go through the existing event queue under `biology.gene_expression_and_regulation`. The Swift verifier now covers an incorrect answer, retry, and a correct first try. All 493 backend tests passed. macOS CI and manual Mac launch are not yet confirmed.
+
 ## Проход по интерфейсу — 2026-10-11 / Interface pass — 2026-10-11
 
 **RU:** Коммиты `6d169f9` и `3b15798` усилили цветовые карточки предметов и показатели Центра управления, добавили glass-оформление, короткое движение карточек и исправили Swift-verifier вместе с уникальными именами артефактов. Локально прошли 493 теста и `git diff --check`. GitHub Actions [38094852271](https://github.com/invinby/coli-dev/actions/runs/38094852271) успешно собрал и упаковал приложение на macOS 15 ARM, macOS 26 ARM и macOS 26 Intel; backend smoke-test и проверки карт материалов тоже прошли. Неподписанные архивы `ColiDev-macos-15-arm64`, `ColiDev-macos-26-arm64` и `ColiDev-macos-26-intel-x86_64` доступны до 24 октября 2026 года. Реальный запуск и отображение интерфейса на Mac не проверялись; причину пустого экрана Центра управления не установили.

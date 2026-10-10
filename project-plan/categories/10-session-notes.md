@@ -1,5 +1,10 @@
 # 10. Журнал обсуждений
 
+### Сохранение попыток в тренажёре экспрессии генов — 2026-10-11 / Persist attempts in gene-expression practice — 2026-10-11
+
+- **RU:** Тренажёр экспрессии генов раньше показывал проверку ответа, но не сохранял её в истории обучения. Теперь он использует общую модель интерактивной попытки: перемешивает варианты, фиксирует ошибочный или верный ответ, число попыток и результат первой попытки; после ошибки предлагает явный повтор. События отправляются под ID урока `biology.gene_expression_and_regulation` через существующую очередь оценок. Это девятый встроенный тренажёр с учётом интерактивных попыток. Все 493 backend-теста прошли; Swift-verifier и macOS CI ещё впереди. Проверки не подтверждают запуск приложения на Mac.
+- **EN:** Gene-expression practice previously showed answer feedback but did not save it to learning history. It now uses the shared interactive-attempt model: shuffles choices, records correct or incorrect answers, attempt count, and first-try outcome, then offers an explicit retry after an error. Events use lesson ID `biology.gene_expression_and_regulation` and the existing assessment queue. This is the ninth built-in lab with interactive-attempt tracking. All 493 backend tests passed; the Swift verifier and macOS CI are next. These checks do not confirm a Mac runtime launch.
+
 ### Цветовая система, Liquid Glass и звук — 2026-10-11 / Color system, Liquid Glass, and sound — 2026-10-11
 
 - **RU:** В SwiftUI добавлена общая палитра шести встроенных предметов с вариантами для светлой и тёмной темы. Вкладки Центра управления используют `glassEffect` при сборке современным Swift compiler и запуске на macOS 26; старые поддерживаемые системы получают `regularMaterial`. Переключение разделов и вкладок использует короткий fade и учитывает Reduce Motion. В Settings добавлен выключенный по умолчанию системный звук `NSSound(named: NSSound.Name("Glass"))`, который играет только при первом сохранённом завершении урока. Карточки статуса и иконки в навигации используют предметные цвета.

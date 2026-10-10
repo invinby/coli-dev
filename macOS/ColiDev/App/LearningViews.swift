@@ -5171,7 +5171,7 @@ private struct GeneExpressionLab: View {
     @State private var selectedStage = 0
     @State private var selectedAnswer = -1
     @State private var didCheckAnswer = false
-    @State private var optionOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: 1)
+    @State private var prediction = GeneExpressionPractice.makeStopCodonAttempt()
 
     private let answerOptionKeys = [
         "lab.geneExpressionOptionA",
@@ -5192,9 +5192,7 @@ private struct GeneExpressionLab: View {
 
             Toggle(L10n.text("lab.geneExpressionRegulator", store.language), isOn: $transcriptionEnabled)
                 .onChange(of: transcriptionEnabled) { _ in
-                    selectedAnswer = -1
-                    didCheckAnswer = false
-                    optionOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: 1)
+                    resetPrediction()
                 }
 
             Picker(L10n.text("lab.geneExpressionStage", store.language), selection: $selectedStage) {
@@ -5224,28 +5222,39 @@ private struct GeneExpressionLab: View {
             Text(L10n.text("lab.geneExpressionQuiz", store.language))
                 .font(.callout.weight(.medium))
             Picker(L10n.text("lab.geneExpressionQuiz", store.language), selection: $selectedAnswer) {
-                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                ForEach(Array(prediction.choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Text(L10n.text(answerOptionKeys[originalIndex], store.language)).tag(displayIndex)
                 }
             }
             .pickerStyle(.radioGroup)
+            .disabled(prediction.hasAnswered)
             .onChange(of: selectedAnswer) { _ in didCheckAnswer = false }
 
             Button(L10n.text("lab.geneExpressionCheck", store.language)) {
+                prediction.select(displayedIndex: selectedAnswer)
+                guard let evidence = prediction.currentAnswerEventEvidence() else { return }
+                store.recordStudyAssessment(
+                    lessonID: "biology.gene_expression_and_regulation",
+                    evidence: evidence
+                )
                 didCheckAnswer = true
             }
             .buttonStyle(.borderedProminent)
-            .disabled(selectedAnswer < 0)
+            .disabled(selectedAnswer < 0 || prediction.hasAnswered)
 
             if didCheckAnswer {
-                let isCorrect = optionOrder.isCorrect(displayedIndex: selectedAnswer)
                 Label(
-                    L10n.text(isCorrect ? "lab.geneExpressionCorrect" : "lab.geneExpressionReview", store.language),
-                    systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
+                    L10n.text(prediction.isCorrect ? "lab.geneExpressionCorrect" : "lab.geneExpressionReview", store.language),
+                    systemImage: prediction.isCorrect ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
                 )
                 .font(.callout.weight(.medium))
-                .foregroundStyle(isCorrect ? .green : .orange)
+                .foregroundStyle(prediction.isCorrect ? .green : .orange)
                 .fixedSize(horizontal: false, vertical: true)
+
+                if prediction.canRetry {
+                    Button(L10n.text("lab.geneExpressionRetry", store.language), action: retryPrediction)
+                        .buttonStyle(.link)
+                }
             }
 
             Text(L10n.text("lab.geneExpressionLimit", store.language))
@@ -5278,6 +5287,18 @@ private struct GeneExpressionLab: View {
             }
             return peptide.joined(separator: " – ")
         }
+    }
+
+    private func retryPrediction() {
+        prediction.retry()
+        selectedAnswer = -1
+        didCheckAnswer = false
+    }
+
+    private func resetPrediction() {
+        prediction = GeneExpressionPractice.makeStopCodonAttempt()
+        selectedAnswer = -1
+        didCheckAnswer = false
     }
 }
 

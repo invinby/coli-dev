@@ -176,7 +176,7 @@ jobs:
 
       - name: Verify gene expression model
         run: |
-          swiftc macOS/ColiDev/App/GeneExpression.swift macOS/ColiDev/scripts/verify_gene_expression.swift \
+          swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/GeneExpression.swift macOS/ColiDev/scripts/verify_gene_expression.swift \
             -o "$RUNNER_TEMP/verify-gene-expression"
           "$RUNNER_TEMP/verify-gene-expression"
 
