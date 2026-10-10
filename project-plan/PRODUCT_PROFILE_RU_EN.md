@@ -60,6 +60,10 @@
 
 **EN:** For suitable topics, use seven learning-depth milestones: familiarity with terms; explanation in one's own words; routine application; transfer to a changed or unfamiliar problem; understanding mechanisms, relationships, and limits; advanced analysis; and formal or scientific work. The final level is needed only when justified by the subject and learner's goal.
 
+**RU:** Эффективность означает меньше потраченного впустую времени при устойчивом понимании, а не пропуск необходимых шагов. Чередуй активное вспоминание, интервальное повторение, разобранные примеры и самостоятельные задачи; постепенно повышай сложность и возвращайся к знаниям, которые хуже вспоминаются. Начинай с ясного объяснения простыми словами, затем вводи профессиональные термины по мере готовности ученика. Не считай быстрое чтение или поверхностное прохождение доказательством освоения.
+
+**EN:** Efficiency means less wasted time while keeping understanding durable, not skipping necessary steps. Alternate active recall, spaced review, worked examples, and independent problems; increase difficulty gradually and revisit knowledge that is harder to recall. Start with a clear plain-language explanation, then introduce professional terms as the learner is ready. Do not treat fast reading or superficial coverage as evidence of mastery.
+
 **RU:** Полезный цикл занятия может включать диагностику, короткую цель, объяснение, визуальное исследование, пример, самостоятельную практику, усложнение, обратную связь, анализ ошибок, проверку переноса и следующий шаг или повторение. Это ориентир, а не одинаковый шаблон: последовательность должна меняться по предмету и состоянию ученика.
 
 **EN:** A useful lesson may include diagnosis, a short goal, explanation, visual exploration, an example, independent practice, increasing challenge, feedback, error analysis, a transfer check, and a next step or review. This is a guide rather than a fixed template: the sequence must adapt to the subject and learner.
@@ -85,6 +89,10 @@
 **RU:** Показывай карту знаний: какие темы являются предпосылками, как идеи связаны между предметами и что логично изучить следующим. Цель эффективности — устойчивое понимание за разумное время: не повторять очевидное, но и не ускоряться ценой поверхностного прохождения.
 
 **EN:** Show a knowledge map: which topics are prerequisites, how ideas connect across subjects, and what makes sense to study next. The efficiency goal is durable understanding in a reasonable amount of time: avoid repeating what is already clear without speeding through material superficially.
+
+**RU:** Долгосрочный прогресс оценивай по конкретным свидетельствам: насколько ученик помнит материал при повторении, объясняет его своими словами, применяет в обычных и новых задачах, рассуждает самостоятельно и какие ошибки повторяет. Скорость решения учитывай там, где она важна для цели. Отделяй завершение урока или курса от подтверждённого понимания; не показывай точный общий «уровень знаний», если данных для него недостаточно.
+
+**EN:** Assess long-term progress from concrete evidence: what the learner recalls during review, can explain in their own words, applies to routine and unfamiliar problems, reasons through independently, and tends to get wrong. Track solution speed when it matters to the goal. Separate lesson or course completion from demonstrated understanding; do not show a precise overall “knowledge level” when the evidence is insufficient.
 
 ## 6. Разные предметы — разные методы / Different subjects need different methods
 
@@ -167,3 +175,7 @@
 **RU:** Не называть приложение готовым или работающим без доказательств. Раздельно сообщать о проверках кода, CI-сборке и упаковке, ручном прохождении экранов на Mac и реальном ответе выбранного провайдера. Формулировки «без багов», «полная программа», «уроки автоматически актуализируются» и «бесплатная модель всегда доступна» допустимы только при соответствующих подтверждениях.
 
 **EN:** Do not call the app complete or working without evidence. Report code checks, CI build and packaging, hands-on Mac screen review, and a real reply from the selected provider separately. Claims such as “bug-free,” “complete curriculum,” “lessons update automatically,” and “a free model is always available” require evidence.
+
+**RU:** Любую новую функцию оценивай по тому, помогает ли она ученику лучше понимать, применять и переносить знания. Сначала устраняй критические ошибки навигации, сохранения, тьютора и статусов; визуальные улучшения и расширение программы планируй после них, если они не закрывают критичный учебный сценарий.
+
+**EN:** Evaluate every new feature by whether it helps learners understand, apply, and transfer knowledge. Fix critical problems with navigation, saving, the tutor, and status reporting first; schedule visual polish and curriculum expansion after those fixes unless they are needed to unblock a critical learning workflow.
