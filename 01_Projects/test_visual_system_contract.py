@@ -95,6 +95,12 @@ def test_ci_parses_visual_verifier_as_library():
     assert "swiftc -parse-as-library macOS/ColiDev/App/AppVisualSystem.swift" in workflow
 
 
+def test_ci_artifact_names_distinguish_macos_runner_versions():
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+
+    assert "name: ColiDev-${{ matrix.runner }}-${{ steps.package.outputs.arch }}" in workflow
+
+
 def test_completion_sound_is_opt_in_and_exposed_in_both_languages():
     visual_system = (APP / "AppVisualSystem.swift").read_text(encoding="utf-8")
     settings = (APP / "ContentView.swift").read_text(encoding="utf-8")

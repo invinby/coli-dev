@@ -293,7 +293,7 @@ jobs:
         if: steps.package.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
-          name: ColiDev-macos-${{ steps.package.outputs.arch }}
+          name: ColiDev-${{ matrix.runner }}-${{ steps.package.outputs.arch }}
           path: ${{ steps.package.outputs.archive }}
           if-no-files-found: error
           retention-days: 14
