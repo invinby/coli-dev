@@ -721,6 +721,27 @@ def test_statistics_lab_explains_correct_and_incorrect_predictions_bilingually()
     assert "if let explanation = feedback.explanation" in view
 
 
+def test_trigonometry_lab_offers_angle_specific_bilingual_feedback_after_wrong_answer() -> None:
+    project = Path(__file__).resolve().parent.parent
+    localization = (project / "macOS/ColiDev/App/L10n.swift").read_text(encoding="utf-8")
+    view = (project / "macOS/ColiDev/App/TrigonometryUnitCircleLab.swift").read_text(encoding="utf-8")
+
+    required_keys = {
+        "lab.trigonometry.showExplanation",
+        "lab.trigonometry.explanation.negative",
+        "lab.trigonometry.explanation.zero",
+        "lab.trigonometry.explanation.positive",
+    }
+    for key in required_keys:
+        match = re.search(rf'"{re.escape(key)}": \("([^\"]+)", "([^\"]+)"\)', localization)
+        assert match, f"Expected a nonempty Russian and English localization for {key}"
+
+    assert "LessonAnswerFeedback.presentation(" in view
+    assert "feedback.canRevealExplanation" in view
+    assert "if let explanation = feedback.explanation" in view
+    assert "model.sineSign.explanationKey" in view
+
+
 def test_bundled_lessons_have_a_complete_bilingual_learning_structure() -> None:
     project = Path(__file__).resolve().parent.parent
     areas = project / "02_Areas"

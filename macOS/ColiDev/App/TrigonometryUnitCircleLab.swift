@@ -5,6 +5,7 @@ struct TrigonometryUnitCircleLab: View {
     @State private var angleRadians = Double.pi / 3
     @State private var answerOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: 2)
     @State private var selectedAnswer: Int?
+    @State private var isExplanationRevealed = false
     @State private var attemptCount = 0
     @State private var firstTryCorrect: Bool?
 
@@ -81,18 +82,36 @@ struct TrigonometryUnitCircleLab: View {
 
                 if let selectedAnswer {
                     let correct = answerOrder.isCorrect(displayedIndex: selectedAnswer)
+                    let feedback = LessonAnswerFeedback.presentation(
+                        isCorrect: correct,
+                        explanationRevealed: isExplanationRevealed,
+                        explanation: answerExplanation,
+                        correctPrompt: L10n.text("lab.trigonometry.correct", store.language),
+                        retryPrompt: L10n.text("lab.trigonometry.retryHint", store.language)
+                    )
                     Label(
-                        L10n.text(correct ? "lab.trigonometry.correct" : "lab.trigonometry.retryHint", store.language),
+                        feedback.statusMessage,
                         systemImage: correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
                     )
                     .foregroundStyle(correct ? Color.green : Color.orange)
                     .fixedSize(horizontal: false, vertical: true)
 
-                    if correct {
-                        Text(L10n.text("lab.trigonometry.explanation", store.language))
+                    if feedback.canRevealExplanation {
+                        Button {
+                            isExplanationRevealed = true
+                        } label: {
+                            Label(L10n.text("lab.trigonometry.showExplanation", store.language), systemImage: "eye")
+                        }
+                        .buttonStyle(.borderless)
+                    }
+
+                    if let explanation = feedback.explanation {
+                        Text(explanation)
                             .font(.callout)
                             .fixedSize(horizontal: false, vertical: true)
-                    } else {
+                    }
+
+                    if !correct {
                         Button(L10n.text("lab.trigonometry.tryAgain", store.language), action: retry)
                             .buttonStyle(.bordered)
                     }
@@ -110,6 +129,7 @@ struct TrigonometryUnitCircleLab: View {
         .accessibilityElement(children: .contain)
         .onChange(of: angleRadians) { _ in
             selectedAnswer = nil
+            isExplanationRevealed = false
             answerOrder = QuizAnswerOrder(optionCount: answerKeys.count, answerOriginalIndex: sineSignIndex)
         }
     }
@@ -163,9 +183,17 @@ struct TrigonometryUnitCircleLab: View {
     }
 
     private var sineSignIndex: Int {
-        let sine = model.yCoordinate
-        if abs(sine) < 1e-9 { return 1 }
-        return sine < 0 ? 0 : 2
+        model.sineSign.answerOriginalIndex
+    }
+
+    private var answerExplanation: String {
+        let locale = Locale(identifier: store.language == .ru ? "ru_RU" : "en_US_POSIX")
+        let sine = String(format: "%.3f", locale: locale, model.yCoordinate)
+        return String(
+            format: L10n.text(model.sineSign.explanationKey, store.language),
+            angleDescription,
+            sine
+        )
     }
 
     private func submitAnswer(_ displayIndex: Int) {
@@ -188,6 +216,7 @@ struct TrigonometryUnitCircleLab: View {
     private func retry() {
         answerOrder = QuizAnswerOrder(optionCount: answerKeys.count, answerOriginalIndex: sineSignIndex)
         selectedAnswer = nil
+        isExplanationRevealed = false
     }
 }
 
