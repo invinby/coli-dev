@@ -228,6 +228,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-constrained-optimization"
           "$RUNNER_TEMP/verify-constrained-optimization"
 
+      - name: Verify descriptive statistics model / Проверка модели описательной статистики
+        run: |
+          swiftc macOS/ColiDev/App/DescriptiveStatistics.swift macOS/ColiDev/scripts/verify_descriptive_statistics.swift \
+            -o "$RUNNER_TEMP/verify-descriptive-statistics"
+          "$RUNNER_TEMP/verify-descriptive-statistics"
+
       - name: Verify algorithm complexity model
         run: |
           swiftc macOS/ColiDev/App/AlgorithmComplexity.swift macOS/ColiDev/scripts/verify_algorithm_complexity.swift \

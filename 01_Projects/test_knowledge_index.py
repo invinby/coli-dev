@@ -844,3 +844,22 @@ def test_ollama_embedding_provider_uses_local_embed_api_without_proxy() -> None:
         "http://127.0.0.1:11434/api/embed",
         json={"model": "embeddinggemma", "input": ["local study text"]},
     )
+
+
+def test_statistics_path_links_to_bilingual_source_cited_lesson() -> None:
+    project = Path(__file__).resolve().parent.parent
+    curriculum = (project / "02_Areas/Mathematics/curriculum.md").read_text(encoding="utf-8")
+    resource = "descriptive_statistics_and_potential_outliers"
+    lesson = project / f"02_Areas/Mathematics/lessons/{resource}.md"
+
+    assert f"lesson:{resource}" in curriculum
+    assert lesson.is_file()
+    lesson_text = lesson.read_text(encoding="utf-8")
+    assert f"lesson_id: mathematics.{resource}" in lesson_text
+    assert "## Русский" in lesson_text
+    assert "## English" in lesson_text
+    assert "### Исследуй и потренируйся" in lesson_text
+    assert "### Explore and practise" in lesson_text
+    assert "https://openstax.org/books/introductory-statistics-2e/pages/2-3-measures-of-the-location-of-the-data" in lesson_text
+    assert "https://openstax.org/books/introductory-statistics-2e/pages/2-5-measures-of-the-center-of-the-data" in lesson_text
+    assert "## Sources" in lesson_text

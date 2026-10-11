@@ -22,7 +22,7 @@
 | Тригонометрия и периодические функции / Trigonometry and periodic functions | Связывать угол на единичной окружности с координатами и графиками синуса и косинуса; применять периодичность в простых моделях. / Relate a unit-circle angle to sine and cosine coordinates and graphs; use periodicity in simple models. | lesson:trigonometry_and_periodic_functions |
 | Векторы и линейная алгебра / Vectors and linear algebra | Работать с векторами, матрицами, линейными системами и геометрическим смыслом преобразований. / Relate vectors, matrices, linear systems, and transformations. | |
 | Пределы, производные и интегралы / Limits, derivatives, integrals | Объяснять скорость изменения и накопление, связывая вычисление с графиком и единицами. / Explain rates of change and accumulation using graphs and units. | lesson:rates_of_change_and_derivative |
-| Вероятность, статистика и данные / Probability, statistics, data | Различать случайность и закономерность, описывать неопределённость и выбирать подходящую модель. / Distinguish signal from chance and communicate uncertainty. | |
+| Описание данных: центр, разброс и потенциальные выбросы / Describing data: center, spread, and potential outliers | Сравнивать среднее и медиану, находить квартильный разброс и проверять крайние наблюдения, не удаляя их без исследования. / Compare mean and median, calculate interquartile spread, and investigate extreme observations without removing them automatically. | lesson:descriptive_statistics_and_potential_outliers |
 
 ## Продвинутый уровень / Advanced
 

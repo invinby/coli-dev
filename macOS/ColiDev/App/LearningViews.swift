@@ -1278,6 +1278,8 @@ private struct PracticeLab: View {
             TrigonometryUnitCircleLab()
         } else if subject == .mathematics, moduleResource == "constrained_optimization_and_lagrange_multipliers" {
             ConstrainedOptimizationLab()
+        } else if subject == .mathematics, moduleResource == "descriptive_statistics_and_potential_outliers" {
+            StatisticsPracticeLab()
         } else if subject == .mathematics, moduleResource == "rates_of_change_and_derivative" {
             DerivativeRateLab()
         } else if subject == .english, moduleResource == "present_simple_and_continuous" {
