@@ -26,6 +26,34 @@ enum EnglishLearningModelsVerification {
             "unknown scenario IDs should fail closed"
         )
 
+        var conditionalAssessment = EnglishConditionalAssessmentTracker()
+        let firstConditionalAttempt = conditionalAssessment.recordSubmission(form: .first, for: "general-rule")!
+        precondition(
+            firstConditionalAttempt.taskType == "interactive_practice"
+                && firstConditionalAttempt.attempts == 1
+                && !firstConditionalAttempt.firstTryCorrect
+                && firstConditionalAttempt.itemID == "general-rule",
+            "save an incorrect first conditional-form attempt with its scenario identity"
+        )
+        precondition(
+            conditionalAssessment.recordSubmission(form: .first, for: "general-rule") == nil,
+            "do not count a duplicate conditional-form submission"
+        )
+        let conditionalRetry = conditionalAssessment.recordSubmission(form: .zero, for: "general-rule")!
+        precondition(
+            conditionalRetry.attempts == 2 && !conditionalRetry.firstTryCorrect,
+            "retain the first conditional result after a correct retry"
+        )
+        let otherScenarioFirstTry = conditionalAssessment.recordSubmission(form: .first, for: "real-future")!
+        precondition(
+            otherScenarioFirstTry.attempts == 1 && otherScenarioFirstTry.firstTryCorrect,
+            "track each conditional scenario independently"
+        )
+        precondition(
+            conditionalAssessment.recordSubmission(form: .zero, for: "missing-scenario") == nil,
+            "do not create assessment evidence for an unknown conditional scenario"
+        )
+
         let readingQuestions = EnglishReadingPractice.questions
         precondition(readingQuestions.count == 3, "reading practice should cover its three reading strategies")
         precondition(Set(readingQuestions.map(\.id)).count == readingQuestions.count, "reading question IDs should be unique")
