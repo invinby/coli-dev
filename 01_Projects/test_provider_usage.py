@@ -179,6 +179,15 @@ def test_cloud_call_budget_counts_attempts_and_blocks_after_limit(tmp_path):
     assert store.cloud_call_status(2) == {"used": 2, "limit": 2, "remaining": 0}
 
 
+def test_zero_cloud_call_limit_blocks_without_recording_an_attempt(tmp_path):
+    store = ProviderUsageStore(tmp_path / "usage.sqlite3")
+
+    blocked = store.reserve_cloud_call("openrouter", "openrouter/free", 0)
+
+    assert blocked == {"allowed": False, "used": 0, "limit": 0, "remaining": 0}
+    assert store.cloud_call_status(0) == {"used": 0, "limit": 0, "remaining": 0}
+
+
 def test_cloud_call_budget_is_atomic_under_concurrent_requests(tmp_path):
     store = ProviderUsageStore(tmp_path / "usage.sqlite3")
 
@@ -204,8 +213,10 @@ def test_cloud_call_budget_resets_at_next_utc_day(tmp_path):
 
 def test_model_adapter_blocks_outbound_request_after_call_budget_is_used(tmp_path, monkeypatch):
     store = ProviderUsageStore(tmp_path / "usage.sqlite3")
+    policy_store = orchestrator.AutoCostPolicyStore(tmp_path / "cost-policy.json")
+    policy_store.set(False, daily_cloud_call_limit=1)
     monkeypatch.setattr(orchestrator, "provider_usage_store", store)
-    monkeypatch.setattr(orchestrator, "CLOUD_MODEL_MAX_CALLS_PER_DAY", 1)
+    monkeypatch.setattr(orchestrator, "auto_cost_policy", policy_store)
     monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "test-key")
     outbound_requests = []
 
@@ -233,9 +244,36 @@ def test_model_adapter_blocks_outbound_request_after_call_budget_is_used(tmp_pat
     assert store.cloud_call_status(1) == {"used": 1, "limit": 1, "remaining": 0}
 
 
+def test_zero_daily_cloud_limit_stops_openrouter_before_network(tmp_path, monkeypatch):
+    usage_store = ProviderUsageStore(tmp_path / "usage.sqlite3")
+    policy_store = orchestrator.AutoCostPolicyStore(tmp_path / "cost-policy.json")
+    policy_store.set(False, daily_cloud_call_limit=0)
+    monkeypatch.setattr(orchestrator, "provider_usage_store", usage_store)
+    monkeypatch.setattr(orchestrator, "auto_cost_policy", policy_store)
+    monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "test-key")
+    outbound_requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        outbound_requests.append(request)
+        return httpx.Response(500, request=request)
+
+    async def exercise() -> str:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            engine = orchestrator.ConsiliumEngine(client, "en", client)
+            return await engine._ask_openrouter(
+                "question", "system", "test", model="openrouter/free"
+            )
+
+    reply = asyncio.run(exercise())
+
+    assert reply == "[Daily cloud model call limit reached (0/0)]"
+    assert outbound_requests == []
+    assert usage_store.cloud_call_status(0) == {"used": 0, "limit": 0, "remaining": 0}
+
+
 @pytest.mark.parametrize(
     ("provider", "limit"),
-    [("ollama", 1), ("unknown", 1), ("gemini", 0), ("gemini", True)],
+    [("ollama", 1), ("unknown", 1), ("gemini", -1), ("gemini", True)],
 )
 def test_cloud_call_budget_rejects_invalid_arguments(tmp_path, provider, limit):
     store = ProviderUsageStore(tmp_path / "usage.sqlite3")

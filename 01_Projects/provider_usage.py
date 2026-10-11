@@ -193,8 +193,8 @@ class ProviderUsageStore:
         """Atomically count one outbound cloud-model attempt before sending it."""
         if not isinstance(provider, str) or provider not in _CLOUD_PROVIDERS:
             raise ValueError("unsupported cloud provider")
-        if isinstance(daily_limit, bool) or not isinstance(daily_limit, int) or daily_limit < 1:
-            raise ValueError("daily_limit must be a positive integer")
+        if isinstance(daily_limit, bool) or not isinstance(daily_limit, int) or daily_limit < 0:
+            raise ValueError("daily_limit must be a non-negative integer")
         now = self._now()
         start_text = _timestamp(now.replace(hour=0, minute=0, second=0, microsecond=0))
         with self._lock, self._connect() as connection:
@@ -226,8 +226,8 @@ class ProviderUsageStore:
 
     def cloud_call_status(self, daily_limit: int) -> dict[str, int]:
         """Return today's local cloud-call attempts, including failed requests."""
-        if isinstance(daily_limit, bool) or not isinstance(daily_limit, int) or daily_limit < 1:
-            raise ValueError("daily_limit must be a positive integer")
+        if isinstance(daily_limit, bool) or not isinstance(daily_limit, int) or daily_limit < 0:
+            raise ValueError("daily_limit must be a non-negative integer")
         now = self._now()
         start_text = _timestamp(now.replace(hour=0, minute=0, second=0, microsecond=0))
         with self._lock, self._connect() as connection:

@@ -385,9 +385,13 @@ final class LearningStore: ObservableObject {
         }
     }
 
-    func saveAutoCostPolicy(allowPaidRoutes: Bool) async throws {
+    func saveAutoCostPolicy(
+        allowPaidRoutes: Bool,
+        dailyCloudCallLimit: Int
+    ) async throws {
         autoCostPolicy = try await OrchestratorClient.saveAutoCostPolicy(
-            allowPaidRoutes: allowPaidRoutes
+            allowPaidRoutes: allowPaidRoutes,
+            dailyCloudCallLimit: dailyCloudCallLimit
         )
     }
 
@@ -1310,9 +1314,17 @@ struct FinalSynthesisModelRoute: Decodable, Hashable {
 
 struct AutoCostPolicy: Decodable, Hashable {
     let allowPaidRoutes: Bool
+    let dailyCloudCallLimit: Int
 
     enum CodingKeys: String, CodingKey {
         case allowPaidRoutes = "allow_paid_routes"
+        case dailyCloudCallLimit = "daily_cloud_call_limit"
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        allowPaidRoutes = try values.decode(Bool.self, forKey: .allowPaidRoutes)
+        dailyCloudCallLimit = try values.decodeIfPresent(Int.self, forKey: .dailyCloudCallLimit) ?? 25
     }
 }
 
@@ -1343,9 +1355,11 @@ private struct FinalSynthesisModelRouteUpdate: Encodable {
 
 private struct AutoCostPolicyUpdate: Encodable {
     let allowPaidRoutes: Bool
+    let dailyCloudCallLimit: Int
 
     enum CodingKeys: String, CodingKey {
         case allowPaidRoutes = "allow_paid_routes"
+        case dailyCloudCallLimit = "daily_cloud_call_limit"
     }
 }
 
@@ -1958,7 +1972,10 @@ enum OrchestratorClient {
         return try JSONDecoder().decode(AutoCostPolicy.self, from: data)
     }
 
-    static func saveAutoCostPolicy(allowPaidRoutes: Bool) async throws -> AutoCostPolicy {
+    static func saveAutoCostPolicy(
+        allowPaidRoutes: Bool,
+        dailyCloudCallLimit: Int
+    ) async throws -> AutoCostPolicy {
         guard let url = URL(string: LearningStore.orchestratorBaseURL + "/settings/auto-cost-policy") else {
             throw ClientError.invalidResponse
         }
@@ -1967,7 +1984,10 @@ enum OrchestratorClient {
         request.timeoutInterval = 15
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(
-            AutoCostPolicyUpdate(allowPaidRoutes: allowPaidRoutes)
+            AutoCostPolicyUpdate(
+                allowPaidRoutes: allowPaidRoutes,
+                dailyCloudCallLimit: dailyCloudCallLimit
+            )
         )
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {

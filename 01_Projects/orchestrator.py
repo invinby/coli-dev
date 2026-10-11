@@ -391,7 +391,16 @@ MAX_REQUEST_BODY_BYTES = 1_048_576
 # Сессии
 SESSION_MAX_PER_DAY = int(os.getenv("SESSION_MAX_PER_DAY", "5"))
 SESSION_DURATION_HOURS = int(os.getenv("SESSION_DURATION_HOURS", "1"))
-CLOUD_MODEL_MAX_CALLS_PER_DAY = int(os.getenv("CLOUD_MODEL_MAX_CALLS_PER_DAY", "25"))
+MAX_CONFIGURABLE_CLOUD_CALLS_PER_DAY = 1_000
+try:
+    _configured_cloud_call_limit = int(os.getenv("CLOUD_MODEL_MAX_CALLS_PER_DAY", "25"))
+except ValueError:
+    _configured_cloud_call_limit = 25
+CLOUD_MODEL_MAX_CALLS_PER_DAY = (
+    _configured_cloud_call_limit
+    if 0 <= _configured_cloud_call_limit <= MAX_CONFIGURABLE_CLOUD_CALLS_PER_DAY
+    else 25
+)
 SESSION_FILE = session_file_path()
 _MAX_SESSION_FILE_BYTES = 1_000_000
 
@@ -528,6 +537,12 @@ class AgentModelRouteRequest(BaseModel):
 
 class AutoCostPolicyRequest(BaseModel):
     allow_paid_routes: bool = False
+    daily_cloud_call_limit: int | None = Field(
+        default=None,
+        strict=True,
+        ge=0,
+        le=MAX_CONFIGURABLE_CLOUD_CALLS_PER_DAY,
+    )
 
 
 class StudyAssessmentEvidenceRequest(BaseModel):
@@ -3090,32 +3105,83 @@ auto_agent_models = AutoAgentModelStore(app_data_dir() / "auto-agent-models.json
 
 
 class AutoCostPolicyStore:
-    """Persist whether normal Auto conversations may call potentially billed APIs."""
+    """Persist the paid-route opt-in and daily cloud request cap on this device."""
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, *, default_daily_cloud_call_limit: int | None = None) -> None:
         self.path = path.expanduser()
         self._lock = threading.RLock()
+        default_limit = (
+            CLOUD_MODEL_MAX_CALLS_PER_DAY
+            if default_daily_cloud_call_limit is None
+            else default_daily_cloud_call_limit
+        )
+        if (
+            isinstance(default_limit, bool)
+            or not isinstance(default_limit, int)
+            or not 0 <= default_limit <= MAX_CONFIGURABLE_CLOUD_CALLS_PER_DAY
+        ):
+            default_limit = 25
+        self._default_daily_cloud_call_limit = default_limit
 
-    def get(self) -> dict[str, bool]:
+    def get(self) -> dict[str, bool | int]:
+        defaults: dict[str, bool | int] = {
+            "allow_paid_routes": False,
+            "daily_cloud_call_limit": self._default_daily_cloud_call_limit,
+        }
         with self._lock:
             try:
                 payload = json.loads(self.path.read_text(encoding="utf-8"))
             except FileNotFoundError:
-                return {"allow_paid_routes": False}
+                return defaults
             except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                 logger.warning(
                     "Auto cost policy could not be read; free-only mode will be used",
                     extra={"error_type": type(exc).__name__},
                 )
-                return {"allow_paid_routes": False}
+                return defaults
             value = payload.get("allow_paid_routes") if isinstance(payload, dict) else None
-            return {"allow_paid_routes": value is True}
+            daily_limit = (
+                payload.get("daily_cloud_call_limit")
+                if isinstance(payload, dict)
+                else None
+            )
+            if (
+                isinstance(daily_limit, bool)
+                or not isinstance(daily_limit, int)
+                or not 0 <= daily_limit <= MAX_CONFIGURABLE_CLOUD_CALLS_PER_DAY
+            ):
+                daily_limit = self._default_daily_cloud_call_limit
+            return {
+                "allow_paid_routes": value is True,
+                "daily_cloud_call_limit": daily_limit,
+            }
 
-    def set(self, allow_paid_routes: bool) -> dict[str, bool]:
+    def set(
+        self,
+        allow_paid_routes: bool,
+        daily_cloud_call_limit: int | None = None,
+    ) -> dict[str, bool | int]:
         if not isinstance(allow_paid_routes, bool):
             raise ValueError("allow_paid_routes must be a boolean")
-        result = {"allow_paid_routes": allow_paid_routes}
+        if daily_cloud_call_limit is not None and (
+            isinstance(daily_cloud_call_limit, bool)
+            or not isinstance(daily_cloud_call_limit, int)
+            or not 0 <= daily_cloud_call_limit <= MAX_CONFIGURABLE_CLOUD_CALLS_PER_DAY
+        ):
+            raise ValueError(
+                "daily_cloud_call_limit must be an integer between 0 and "
+                f"{MAX_CONFIGURABLE_CLOUD_CALLS_PER_DAY}"
+            )
         with self._lock:
+            current = self.get()
+            result: dict[str, bool | int] = {
+                "allow_paid_routes": allow_paid_routes,
+                "daily_cloud_call_limit": (
+                    current["daily_cloud_call_limit"]
+                    if daily_cloud_call_limit is None
+                    else daily_cloud_call_limit
+                ),
+            }
             self.path.parent.mkdir(parents=True, exist_ok=True)
             temporary_path: Path | None = None
             try:
@@ -3124,7 +3190,7 @@ class AutoCostPolicyStore:
                     suffix=".tmp", dir=self.path.parent, delete=False,
                 ) as temporary:
                     temporary_path = Path(temporary.name)
-                    json.dump({"schema_version": 1, **result}, temporary, sort_keys=True)
+                    json.dump({"schema_version": 2, **result}, temporary, sort_keys=True)
                     temporary.write("\n")
                 try:
                     os.chmod(temporary_path, 0o600)
@@ -3419,7 +3485,7 @@ async def _reserve_cloud_model_call(provider: str, model: str) -> None:
             provider_usage_store.reserve_cloud_call,
             provider,
             model,
-            CLOUD_MODEL_MAX_CALLS_PER_DAY,
+            auto_cost_policy.get()["daily_cloud_call_limit"],
         )
     except Exception as exc:
         logger.error(
@@ -4362,7 +4428,7 @@ async def get_auto_cost_policy(request: Request):
 @app.put("/settings/auto-cost-policy")
 async def save_auto_cost_policy(policy: AutoCostPolicyRequest, request: Request):
     _require_local_settings_request(request)
-    return auto_cost_policy.set(policy.allow_paid_routes)
+    return auto_cost_policy.set(policy.allow_paid_routes, policy.daily_cloud_call_limit)
 
 
 @app.get("/api/status")
@@ -4393,11 +4459,10 @@ async def health(request: Request):
     )
     state.online = net_ok
     session_status = session_tracker.get_status()
-    route_readiness = _tutor_route_readiness(online=net_ok, ollama_info=ollama_info)
     try:
         cloud_call_status = await asyncio.to_thread(
             provider_usage_store.cloud_call_status,
-            CLOUD_MODEL_MAX_CALLS_PER_DAY,
+            auto_cost_policy.get()["daily_cloud_call_limit"],
         )
     except Exception as exc:
         logger.warning(
@@ -4405,6 +4470,16 @@ async def health(request: Request):
             extra={"error_type": type(exc).__name__},
         )
         cloud_call_status = {}
+
+    route_readiness = _tutor_route_readiness(online=net_ok, ollama_info=ollama_info)
+    cloud_calls_remaining = cloud_call_status.get("remaining")
+    if (
+        not isinstance(cloud_calls_remaining, int)
+        or isinstance(cloud_calls_remaining, bool)
+        or cloud_calls_remaining <= 0
+    ):
+        route_readiness["cloud_route_ready"] = False
+        route_readiness["automatic_route_ready"] = route_readiness["local_route_ready"]
 
     return HealthResponse(
         status="ok" if (net_ok or ollama_info["available"]) else "degraded",

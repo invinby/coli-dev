@@ -1038,6 +1038,7 @@ private struct ManagementView: View {
     @State private var compatibleModel = ""
     @State private var isSavingCompatibleSettings = false
     @State private var allowsPaidAutoRoutes = false
+    @State private var dailyCloudCallLimit = 25
     @State private var isSavingRoute = false
     @State private var isSavingCostPolicy = false
     @State private var isPreparingBackup = false
@@ -2239,6 +2240,22 @@ private struct ManagementView: View {
                             isOn: $allowsPaidAutoRoutes
                         )
 
+                        Stepper(value: $dailyCloudCallLimit, in: 0...1_000) {
+                            HStack {
+                                Text(L10n.text("management.dailyCloudCallLimitSetting", store.language))
+                                Spacer()
+                                Text(dailyCloudCallLimit.formatted())
+                                    .monospacedDigit()
+                                    .accessibilityIdentifier("control-center.daily-cloud-call-limit.value")
+                            }
+                        }
+                        .accessibilityIdentifier("control-center.daily-cloud-call-limit")
+
+                        Text(L10n.text("management.dailyCloudCallLimitHelp", store.language))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+
                         Button {
                             Task { await saveAutoCostPolicy() }
                         } label: {
@@ -2815,6 +2832,7 @@ private struct ManagementView: View {
     @MainActor
     private func syncAutoCostPolicyForm() {
         allowsPaidAutoRoutes = store.autoCostPolicy?.allowPaidRoutes ?? false
+        dailyCloudCallLimit = store.autoCostPolicy?.dailyCloudCallLimit ?? 25
     }
 
     @MainActor
@@ -2920,7 +2938,11 @@ private struct ManagementView: View {
         isSavingCostPolicy = true
         defer { isSavingCostPolicy = false }
         do {
-            try await store.saveAutoCostPolicy(allowPaidRoutes: allowsPaidAutoRoutes)
+            try await store.saveAutoCostPolicy(
+                allowPaidRoutes: allowsPaidAutoRoutes,
+                dailyCloudCallLimit: dailyCloudCallLimit
+            )
+            await store.refreshAIStatus()
             await store.refreshFinalSynthesisModelRoute()
             statusMessage = L10n.text("management.costPolicySaved", store.language)
             statusIsError = false

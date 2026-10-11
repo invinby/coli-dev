@@ -583,6 +583,39 @@ class TestAPIEndpoints:
         assert data["knowledge_review_scheduled_document_count"] == 3
         assert data["knowledge_review_schedule_missing_document_count"] == 2
 
+    def test_health_does_not_advertise_cloud_route_when_daily_limit_is_zero(self, client, monkeypatch):
+        monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "free-router-key")
+        orchestrator.auto_cost_policy.set(False, daily_cloud_call_limit=0)
+
+        response = client.get("/health")
+        data = response.json()
+
+        assert response.status_code == 200
+        assert data["cloud_model_calls_max"] == 0
+        assert data["cloud_model_calls_remaining"] == 0
+        assert data["cloud_route_ready"] is False
+        assert data["automatic_route_ready"] is False
+
+    def test_health_keeps_local_route_ready_when_cloud_limit_is_zero(self, client, monkeypatch):
+        monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "free-router-key")
+        monkeypatch.setattr(
+            orchestrator,
+            "_check_ollama",
+            AsyncMock(return_value={
+                "available": True,
+                "version": "0.12.0",
+                "models": [orchestrator.OLLAMA_MODEL_RESEARCHER],
+                "model_ready": True,
+            }),
+        )
+        orchestrator.auto_cost_policy.set(False, daily_cloud_call_limit=0)
+
+        data = client.get("/health").json()
+
+        assert data["cloud_route_ready"] is False
+        assert data["local_route_ready"] is True
+        assert data["automatic_route_ready"] is True
+
     def test_health_does_not_claim_tutor_route_without_a_configured_model(self, client, monkeypatch):
         """Network/session availability alone does not make a tutor ready.
 
@@ -1578,16 +1611,77 @@ class TestFinalSynthesisRouting:
 class TestAutoCostPolicy:
     def test_missing_policy_file_defaults_to_free_only(self, tmp_path):
         policy = orchestrator.AutoCostPolicyStore(tmp_path / "missing-policy.json")
-        assert policy.get() == {"allow_paid_routes": False}
+        assert policy.get() == {
+            "allow_paid_routes": False,
+            "daily_cloud_call_limit": orchestrator.CLOUD_MODEL_MAX_CALLS_PER_DAY,
+        }
+
+    def test_legacy_policy_keeps_paid_routes_and_adds_default_call_limit(self, tmp_path):
+        path = tmp_path / "auto-cost-policy.json"
+        path.write_text('{"schema_version": 1, "allow_paid_routes": true}\n', encoding="utf-8")
+        policy = orchestrator.AutoCostPolicyStore(path)
+
+        assert policy.get() == {
+            "allow_paid_routes": True,
+            "daily_cloud_call_limit": orchestrator.CLOUD_MODEL_MAX_CALLS_PER_DAY,
+        }
+
+    def test_daily_call_limit_is_saved_and_legacy_updates_preserve_it(self, tmp_path):
+        policy = orchestrator.AutoCostPolicyStore(tmp_path / "auto-cost-policy.json")
+
+        saved = policy.set(False, daily_cloud_call_limit=7)
+        changed_paid_setting = policy.set(True)
+
+        assert saved == {"allow_paid_routes": False, "daily_cloud_call_limit": 7}
+        assert changed_paid_setting == {"allow_paid_routes": True, "daily_cloud_call_limit": 7}
+        assert policy.get() == {"allow_paid_routes": True, "daily_cloud_call_limit": 7}
+
+    def test_loopback_settings_api_saves_zero_cloud_limit_and_preserves_it_for_old_clients(self, client):
+        orchestrator.auto_cost_policy.set(False)
+        disabled = client.put(
+            "/settings/auto-cost-policy",
+            json={"allow_paid_routes": False, "daily_cloud_call_limit": 0},
+        )
+        assert disabled.status_code == 200
+        assert disabled.json() == {"allow_paid_routes": False, "daily_cloud_call_limit": 0}
+        assert client.get("/settings/auto-cost-policy").json() == {
+            "allow_paid_routes": False,
+            "daily_cloud_call_limit": 0,
+        }
+
+        legacy_update = client.put(
+            "/settings/auto-cost-policy",
+            json={"allow_paid_routes": True},
+        )
+        assert legacy_update.status_code == 200
+        assert legacy_update.json() == {"allow_paid_routes": True, "daily_cloud_call_limit": 0}
+
+    @pytest.mark.parametrize("limit", [-1, 1001, True])
+    def test_loopback_settings_api_rejects_invalid_daily_cloud_limits(self, client, limit):
+        response = client.put(
+            "/settings/auto-cost-policy",
+            json={"allow_paid_routes": False, "daily_cloud_call_limit": limit},
+        )
+
+        assert response.status_code == 422
 
     def test_loopback_settings_api_toggles_paid_auto_routes(self, client):
         orchestrator.auto_cost_policy.set(False)
-        assert client.get("/settings/auto-cost-policy").json() == {"allow_paid_routes": False}
+        assert client.get("/settings/auto-cost-policy").json() == {
+            "allow_paid_routes": False,
+            "daily_cloud_call_limit": orchestrator.CLOUD_MODEL_MAX_CALLS_PER_DAY,
+        }
 
         enabled = client.put("/settings/auto-cost-policy", json={"allow_paid_routes": True})
         assert enabled.status_code == 200
-        assert enabled.json() == {"allow_paid_routes": True}
-        assert client.get("/settings/auto-cost-policy").json() == {"allow_paid_routes": True}
+        assert enabled.json() == {
+            "allow_paid_routes": True,
+            "daily_cloud_call_limit": orchestrator.CLOUD_MODEL_MAX_CALLS_PER_DAY,
+        }
+        assert client.get("/settings/auto-cost-policy").json() == {
+            "allow_paid_routes": True,
+            "daily_cloud_call_limit": orchestrator.CLOUD_MODEL_MAX_CALLS_PER_DAY,
+        }
 
         forbidden = client.put(
             "/settings/auto-cost-policy",
