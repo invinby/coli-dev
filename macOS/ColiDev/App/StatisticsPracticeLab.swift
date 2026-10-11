@@ -6,6 +6,7 @@ struct StatisticsPracticeLab: View {
     @State private var finalMeasurement = 20.0
     @State private var answerOrder = QuizAnswerOrder(optionCount: 2, answerOriginalIndex: 1)
     @State private var selectedAnswer: Int?
+    @State private var isExplanationRevealed = false
     @State private var attemptCount = 0
     @State private var firstTryCorrect: Bool?
 
@@ -15,12 +16,21 @@ struct StatisticsPracticeLab: View {
         DescriptiveStatistics(values: [4, 5, 5, 6, 6, finalMeasurement])!
     }
 
-    private var maximumIsBeyondUpperFence: Bool {
-        guard let maximum = model.sortedValues.last else { return false }
-        return maximum > model.upperFence
-    }
+    private var maximumIsBeyondUpperFence: Bool { model.maximumIsAboveUpperFence }
 
     private var correctAnswerIndex: Int { maximumIsBeyondUpperFence ? 1 : 0 }
+
+    private var answerExplanation: String {
+        let key = maximumIsBeyondUpperFence
+            ? "lab.statistics.explanation.above"
+            : "lab.statistics.explanation.within"
+        let maximum = model.sortedValues.last ?? 0
+        return String(
+            format: L10n.text(key, store.language),
+            number(maximum),
+            number(model.upperFence)
+        )
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -87,18 +97,36 @@ struct StatisticsPracticeLab: View {
 
                 if let selectedAnswer {
                     let correct = answerOrder.isCorrect(displayedIndex: selectedAnswer)
+                    let feedback = LessonAnswerFeedback.presentation(
+                        isCorrect: correct,
+                        explanationRevealed: isExplanationRevealed,
+                        explanation: answerExplanation,
+                        correctPrompt: L10n.text("lab.statistics.correct", store.language),
+                        retryPrompt: L10n.text("lab.statistics.retry", store.language)
+                    )
                     Label(
-                        L10n.text(correct ? "lab.statistics.correct" : "lab.statistics.retry", store.language),
+                        feedback.statusMessage,
                         systemImage: correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
                     )
                     .foregroundStyle(correct ? Color.green : Color.orange)
                     .fixedSize(horizontal: false, vertical: true)
 
-                    if correct {
-                        Text(L10n.text("lab.statistics.explanation", store.language))
+                    if feedback.canRevealExplanation {
+                        Button {
+                            isExplanationRevealed = true
+                        } label: {
+                            Label(L10n.text("lab.statistics.showExplanation", store.language), systemImage: "eye")
+                        }
+                        .buttonStyle(.borderless)
+                    }
+
+                    if let explanation = feedback.explanation {
+                        Text(explanation)
                             .font(.callout)
                             .fixedSize(horizontal: false, vertical: true)
-                    } else {
+                    }
+
+                    if !correct {
                         Button(L10n.text("lab.statistics.tryAgain", store.language), action: retry)
                             .buttonStyle(.bordered)
                     }
@@ -140,6 +168,7 @@ struct StatisticsPracticeLab: View {
         )
         .onChange(of: finalMeasurement) { _ in
             selectedAnswer = nil
+            isExplanationRevealed = false
             answerOrder = QuizAnswerOrder(optionCount: optionKeys.count, answerOriginalIndex: correctAnswerIndex)
         }
     }
@@ -179,6 +208,7 @@ struct StatisticsPracticeLab: View {
     private func retry() {
         answerOrder = QuizAnswerOrder(optionCount: optionKeys.count, answerOriginalIndex: correctAnswerIndex)
         selectedAnswer = nil
+        isExplanationRevealed = false
     }
 }
 

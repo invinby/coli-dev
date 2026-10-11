@@ -13,6 +13,7 @@ enum DescriptiveStatisticsVerification {
         precondition(close(sample.interquartileRange, 1), "IQR calculation is wrong. / Межквартильный размах вычислен неверно.")
         precondition(close(sample.lowerFence, 3.5), "Lower fence calculation is wrong. / Нижняя граница вычислена неверно.")
         precondition(close(sample.upperFence, 7.5), "Upper fence calculation is wrong. / Верхняя граница вычислена неверно.")
+        precondition(sample.maximumIsAboveUpperFence, "An extreme maximum should be above the upper fence. / Крайний максимум должен находиться выше верхней границы.")
         precondition(sample.potentialOutlierValues == [20], "Only the extreme observation should be flagged. / Помечаться должно только крайнее наблюдение.")
 
         guard let atFence = DescriptiveStatistics(values: [4, 5, 5, 6, 6, 7.5]),
@@ -20,7 +21,9 @@ enum DescriptiveStatisticsVerification {
             preconditionFailure("Finite boundary samples must be accepted. / Конечные граничные наборы должны приниматься.")
         }
         precondition(atFence.potentialOutlierValues.isEmpty, "A value exactly on a fence is not beyond it. / Значение ровно на границе не выходит за неё.")
+        precondition(!atFence.maximumIsAboveUpperFence, "A maximum exactly on the upper fence is not above it. / Максимум ровно на верхней границе не превышает её.")
         precondition(beyondFence.potentialOutlierValues == [7.51], "A value beyond the fence should be flagged. / Значение за границей должно быть помечено.")
+        precondition(beyondFence.maximumIsAboveUpperFence, "A maximum above the upper fence should be recognized. / Максимум выше верхней границы должен распознаваться.")
 
         guard let oddSample = DescriptiveStatistics(values: [1, 2, 100, 3, 4]) else {
             preconditionFailure("Odd-sized sample data must be accepted. / Нечётный набор должен приниматься.")

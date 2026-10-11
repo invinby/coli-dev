@@ -11,6 +11,11 @@ struct DescriptiveStatistics: Equatable {
     let upperFence: Double
     let potentialOutlierValues: [Double]
 
+    var maximumIsAboveUpperFence: Bool {
+        guard let maximum = sortedValues.last else { return false }
+        return maximum > upperFence
+    }
+
     init?(values: [Double]) {
         guard values.count >= 2, values.allSatisfy(\.isFinite) else { return nil }
 
