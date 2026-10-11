@@ -2166,11 +2166,18 @@ private struct PercentRepresentationLab: View {
 
 private struct LinearEquationLab: View {
     @EnvironmentObject private var store: LearningStore
-    @State private var equation = LinearEquation.random()
+    @State private var equation: LinearEquation
+    @State private var operationOrders: [QuizAnswerOrder]
     @State private var completedSteps = 0
     @State private var didCheckSolution = false
     @State private var feedbackKey: String?
     @State private var feedbackIsCorrect = false
+
+    init() {
+        let equation = LinearEquation.random()
+        _equation = State(initialValue: equation)
+        _operationOrders = State(initialValue: equation.operationChoiceOrders())
+    }
 
     private var variableTerm: String {
         equation.coefficient == 1 ? "x" : "\(equation.coefficient)x"
@@ -2200,18 +2207,7 @@ private struct LinearEquationLab: View {
     }
 
     private var operationChoices: [LinearEquationOperation] {
-        if completedSteps == 0 {
-            return [
-                .subtract(abs(equation.offset)),
-                .add(abs(equation.offset)),
-                .divide(equation.coefficient),
-            ]
-        }
-        return [
-            .divide(equation.coefficient),
-            .multiply(equation.coefficient),
-            .add(equation.coefficient),
-        ]
+        equation.operationChoices(at: completedSteps)
     }
 
     private var progressActionTitle: String {
@@ -2283,7 +2279,8 @@ private struct LinearEquationLab: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(L10n.text("lab.equation.chooseOperation", store.language))
                         .font(.callout.weight(.semibold))
-                    ForEach(Array(operationChoices.enumerated()), id: \.offset) { _, operation in
+                    ForEach(Array(operationOrders[completedSteps].displayedOriginalIndices.enumerated()), id: \.offset) { _, originalIndex in
+                        let operation = operationChoices[originalIndex]
                         Button {
                             choose(operation)
                         } label: {
@@ -2323,7 +2320,9 @@ private struct LinearEquationLab: View {
                         if !didCheckSolution {
                             didCheckSolution = true
                         } else {
-                            equation = .random()
+                            let nextEquation = LinearEquation.random()
+                            equation = nextEquation
+                            operationOrders = nextEquation.operationChoiceOrders()
                             completedSteps = 0
                             didCheckSolution = false
                             feedbackKey = nil
