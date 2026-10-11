@@ -237,24 +237,35 @@ class StudyProgressStore:
         if not isinstance(value, Mapping):
             raise ValueError("assessment must be an object")
         task_type = value.get("task_type")
-        if task_type == "interactive_prediction":
-            if set(value) != {"task_type", "attempts", "first_try_correct", "hints_used"}:
+        if task_type in ("interactive_prediction", "interactive_practice"):
+            required_fields = {"task_type", "attempts", "first_try_correct", "hints_used"}
+            if not required_fields.issubset(value) or set(value) - required_fields - {"item_id"}:
                 raise ValueError("assessment must contain exactly the supported evidence fields")
             attempts = value["attempts"]
             hints_used = value["hints_used"]
             first_try_correct = value["first_try_correct"]
+            item_id = value.get("item_id")
             if isinstance(attempts, bool) or not isinstance(attempts, int) or not 1 <= attempts <= 1_000:
                 raise ValueError("assessment attempts must be an integer between 1 and 1000")
             if isinstance(hints_used, bool) or not isinstance(hints_used, int) or not 0 <= hints_used <= 1_000:
                 raise ValueError("assessment hints_used must be an integer between 0 and 1000")
             if not isinstance(first_try_correct, bool):
                 raise ValueError("assessment first_try_correct must be a boolean")
+            if item_id is not None and (
+                not isinstance(item_id, str)
+                or not item_id
+                or len(item_id) > 120
+                or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]*", item_id) is None
+            ):
+                raise ValueError("assessment item_id must be a safe non-empty identifier of at most 120 characters")
             normalized = {
-                "task_type": "interactive_prediction",
+                "task_type": task_type,
                 "attempts": attempts,
                 "first_try_correct": first_try_correct,
                 "hints_used": hints_used,
             }
+            if item_id is not None:
+                normalized["item_id"] = item_id
         elif task_type == "knowledge_check":
             required_fields = {"task_type", "passed"}
             if not required_fields.issubset(value) or set(value) - required_fields - {"error_categories"}:
@@ -280,7 +291,9 @@ class StudyProgressStore:
             if error_categories:
                 normalized["error_categories"] = error_categories
         else:
-            raise ValueError("assessment task_type must be interactive_prediction or knowledge_check")
+            raise ValueError(
+                "assessment task_type must be interactive_prediction, interactive_practice, or knowledge_check"
+            )
         encoded = json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return normalized, encoded
 

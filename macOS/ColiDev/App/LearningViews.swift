@@ -1393,6 +1393,7 @@ private struct ReadingStrategyLab: View {
     @State private var selection: Int?
     @State private var wasCorrect: Bool?
     @State private var complete = false
+    @State private var assessmentTracker = EnglishReadingAssessmentTracker()
     @State private var optionOrders = QuizAnswerOrder.balancedSequence(
         optionCount: 3,
         answerOriginalIndices: EnglishReadingPractice.questions.map(\.correctOption)
@@ -1465,7 +1466,18 @@ private struct ReadingStrategyLab: View {
                             wasCorrect = nil
                         }
                     } else if let selection {
-                        wasCorrect = optionOrders[index].isCorrect(displayedIndex: selection)
+                        let isCorrect = optionOrders[index].isCorrect(displayedIndex: selection)
+                        wasCorrect = isCorrect
+                        let originalOption = optionOrders[index].displayedOriginalIndices[selection]
+                        if let evidence = assessmentTracker.recordSubmission(
+                            option: originalOption,
+                            for: questions[index].id
+                        ) {
+                            store.recordStudyAssessment(
+                                lessonID: "english.reading_for_gist_and_detail",
+                                evidence: evidence
+                            )
+                        }
                     }
                 } label: {
                     Text(L10n.text(
@@ -1486,6 +1498,7 @@ private struct ReadingStrategyLab: View {
         selection = nil
         wasCorrect = nil
         complete = false
+        assessmentTracker.reset()
         optionOrders = QuizAnswerOrder.balancedSequence(
             optionCount: 3,
             answerOriginalIndices: EnglishReadingPractice.questions.map(\.correctOption)

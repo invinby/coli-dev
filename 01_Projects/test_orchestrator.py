@@ -472,6 +472,27 @@ class TestAPIEndpoints:
         )
         assert invalid.status_code == 422
 
+    def test_interactive_practice_assessment_endpoint_accepts_non_prediction_tasks(self, client):
+        event = {
+            "event_id": "a47ac10b-58cc-4372-a567-0e02b2c3d502",
+            "lesson_id": "english.reading_for_gist_and_detail",
+            "assessment": {
+                "task_type": "interactive_practice",
+                "item_id": "first-pass-purpose",
+                "attempts": 2,
+                "first_try_correct": False,
+                "hints_used": 0,
+            },
+        }
+
+        saved = client.post("/learning/assessments", json=event)
+
+        assert saved.status_code == 200
+        assert saved.json()["assessment"] == event["assessment"]
+        assert client.get("/learning/progress").json()["assessment_evidence"][0]["task_type_counts"] == {
+            "interactive_practice": 1
+        }
+
     def test_learning_progress_backup_api_exports_and_merges_local_progress(self, client):
         event = {
             "event_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",

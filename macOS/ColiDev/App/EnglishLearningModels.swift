@@ -42,6 +42,46 @@ enum EnglishReadingPractice {
     }
 }
 
+struct EnglishReadingAssessmentTracker {
+    private struct QuestionState {
+        var attempts = 0
+        var firstTryCorrect: Bool?
+        var lastSubmittedOption: Int?
+    }
+
+    private var questionStates: [String: QuestionState] = [:]
+
+    mutating func recordSubmission(option: Int, for questionID: String) -> StudyAssessmentEvidence? {
+        guard (0..<3).contains(option),
+              let question = EnglishReadingPractice.questions.first(where: { $0.id == questionID }) else {
+            return nil
+        }
+
+        var state = questionStates[questionID] ?? QuestionState()
+        guard state.lastSubmittedOption != option else { return nil }
+
+        let isCorrect = option == question.correctOption
+        state.attempts += 1
+        if state.firstTryCorrect == nil {
+            state.firstTryCorrect = isCorrect
+        }
+        state.lastSubmittedOption = option
+        questionStates[questionID] = state
+
+        return StudyAssessmentEvidence(
+            taskType: "interactive_practice",
+            attempts: state.attempts,
+            firstTryCorrect: state.firstTryCorrect ?? isCorrect,
+            hintsUsed: 0,
+            itemID: questionID
+        )
+    }
+
+    mutating func reset() {
+        questionStates.removeAll()
+    }
+}
+
 struct EnglishReportedSpeechQuestion: Equatable, Identifiable {
     let id: String
     let correctOption: Int

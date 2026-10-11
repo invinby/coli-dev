@@ -43,6 +43,20 @@ enum EnglishLearningModelsVerification {
         }
         precondition(!EnglishReadingPractice.isCorrect(0, for: "missing-question"), "unknown question IDs should fail closed")
 
+        var readingAssessment = EnglishReadingAssessmentTracker()
+        let firstReadingAttempt = readingAssessment.recordSubmission(option: 0, for: "first-pass-purpose")!
+        precondition(firstReadingAttempt.taskType == "interactive_practice", "classify reading-strategy responses as interactive practice")
+        precondition(firstReadingAttempt.attempts == 1 && !firstReadingAttempt.firstTryCorrect, "save an incorrect first reading answer")
+        precondition(readingAssessment.recordSubmission(option: 0, for: "first-pass-purpose") == nil, "do not count a duplicate answer submission")
+        let readingRetry = readingAssessment.recordSubmission(option: 1, for: "first-pass-purpose")!
+        precondition(readingRetry.attempts == 2 && !readingRetry.firstTryCorrect, "retain the first result after correcting a reading answer")
+        precondition(readingRetry.itemID == "first-pass-purpose", "preserve the question identity with the reading evidence")
+        precondition(readingAssessment.recordSubmission(option: 3, for: "first-pass-purpose") == nil, "reject an out-of-range reading option")
+        precondition(readingAssessment.recordSubmission(option: 2, for: "missing-question") == nil, "reject an unknown reading question")
+
+        let anotherQuestionFirstTry = readingAssessment.recordSubmission(option: 0, for: "meeting-detail")!
+        precondition(anotherQuestionFirstTry.attempts == 1 && anotherQuestionFirstTry.firstTryCorrect, "track first-try evidence independently per question")
+
         let reportedSpeechQuestions = EnglishReportedSpeechPractice.questions
         precondition(reportedSpeechQuestions.count == 4, "reported speech practice should cover four distinct transformations / тренажёр косвенной речи должен охватывать четыре разные конструкции")
         precondition(Set(reportedSpeechQuestions.map(\.id)).count == reportedSpeechQuestions.count, "reported speech question IDs should be unique / ID вопросов косвенной речи не должны повторяться")
@@ -63,6 +77,20 @@ enum EnglishLearningModelsVerification {
 
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .useDefaultKeys
+        let readingPracticeEvent = StudyAssessmentEvent(
+            id: "00000000-0000-0000-0000-000000000002",
+            lessonID: "english.reading_for_gist_and_detail",
+            assessment: readingRetry
+        )
+        let readingEventObject = try JSONSerialization.jsonObject(with: encoder.encode(readingPracticeEvent)) as! [String: Any]
+        let readingEventAssessment = readingEventObject["assessment"] as! [String: Any]
+        precondition(
+            readingEventAssessment["task_type"] as? String == "interactive_practice"
+                && readingEventAssessment["item_id"] as? String == "first-pass-purpose"
+                && Set(readingEventAssessment.keys) == Set(["task_type", "item_id", "attempts", "first_try_correct", "hints_used"]),
+            "reading-practice evidence should serialize in the supported backend format"
+        )
+
         let knowledgeCheckEvent = StudyAssessmentEvent(
             id: "00000000-0000-0000-0000-000000000001",
             lessonID: "english.reported_speech_questions_and_backshift",

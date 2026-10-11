@@ -293,6 +293,60 @@ def test_interactive_assessment_can_record_an_incorrect_first_attempt(tmp_path: 
     assert store.get_progress()["records"] == []
 
 
+def test_interactive_practice_evidence_is_accepted_and_aggregated(tmp_path: Path) -> None:
+    store = StudyProgressStore(tmp_path / "progress.sqlite3")
+    store.initialize()
+    lesson_id = "english.reading_for_gist_and_detail"
+    evidence = {
+        "task_type": "interactive_practice",
+        "item_id": "first-pass-purpose",
+        "attempts": 2,
+        "first_try_correct": False,
+        "hints_used": 0,
+    }
+
+    recorded = store.record_assessment_event(
+        "a47ac10b-58cc-4372-a567-0e02b2c3d501", lesson_id, evidence
+    )
+
+    assert recorded["assessment"] == evidence
+    assert store.get_progress()["assessment_evidence"] == [{
+        "lesson_id": lesson_id,
+        "assessment_count": 1,
+        "task_type_counts": {"interactive_practice": 1},
+        "passed_task_type_counts": {},
+        "error_category_counts": {},
+        "latest_assessment": evidence,
+        "latest_at": recorded["created_at"],
+    }]
+
+    restored = StudyProgressStore(tmp_path / "restored.sqlite3")
+    restored.initialize()
+    restored.restore_backup(store.export_backup())
+    assert restored.get_progress()["assessment_evidence"] == store.get_progress()["assessment_evidence"]
+
+
+@pytest.mark.parametrize("task_type", [[], {"unexpected": "object"}])
+def test_unhashable_assessment_task_type_is_rejected_as_invalid_data(
+    tmp_path: Path,
+    task_type: object,
+) -> None:
+    store = StudyProgressStore(tmp_path / "progress.sqlite3")
+    store.initialize()
+
+    with pytest.raises(ValueError, match="assessment task_type"):
+        store.record_assessment_event(
+            "a47ac10b-58cc-4372-a567-0e02b2c3d503",
+            "english.reading_for_gist_and_detail",
+            {
+                "task_type": task_type,
+                "attempts": 1,
+                "first_try_correct": False,
+                "hints_used": 0,
+            },
+        )
+
+
 def test_failed_knowledge_check_event_is_persisted_but_not_counted_as_passed(tmp_path: Path) -> None:
     store = StudyProgressStore(tmp_path / "progress.sqlite3")
     store.initialize()

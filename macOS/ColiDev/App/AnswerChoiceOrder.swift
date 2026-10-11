@@ -351,6 +351,7 @@ enum OsmosisWaterFlow: Equatable {
 
 struct StudyAssessmentEvidence: Codable, Equatable {
     let taskType: String
+    let itemID: String?
     let attempts: Int
     let firstTryCorrect: Bool
     let hintsUsed: Int
@@ -363,9 +364,11 @@ struct StudyAssessmentEvidence: Codable, Equatable {
         firstTryCorrect: Bool,
         hintsUsed: Int,
         errorCategories: [StudyErrorCategory]? = nil,
-        passed: Bool? = nil
+        passed: Bool? = nil,
+        itemID: String? = nil
     ) {
         self.taskType = taskType
+        self.itemID = itemID
         self.attempts = attempts
         self.firstTryCorrect = firstTryCorrect
         self.hintsUsed = hintsUsed
@@ -375,6 +378,7 @@ struct StudyAssessmentEvidence: Codable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case taskType = "task_type"
+        case itemID = "item_id"
         case attempts
         case firstTryCorrect = "first_try_correct"
         case hintsUsed = "hints_used"

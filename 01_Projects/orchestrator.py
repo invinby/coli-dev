@@ -556,7 +556,13 @@ class StudyAssessmentEvidenceRequest(BaseModel):
 
 
 class InteractiveAssessmentEvidenceRequest(BaseModel):
-    task_type: Literal["interactive_prediction"]
+    task_type: Literal["interactive_prediction", "interactive_practice"]
+    item_id: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=120,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+    )
     attempts: int = Field(strict=True, ge=1, le=1_000)
     first_try_correct: bool = Field(strict=True)
     hints_used: int = Field(strict=True, ge=0, le=1_000)
