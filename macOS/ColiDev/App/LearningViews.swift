@@ -2922,6 +2922,7 @@ private struct ConditionalsLab: View {
     @State private var selection: Int?
     @State private var wasCorrect: Bool?
     @State private var complete = false
+    @State private var assessmentTracker = EnglishConditionalAssessmentTracker()
     @State private var optionOrder = QuizAnswerOrder(
         optionCount: EnglishConditionalForm.allCases.count,
         answerOriginalIndex: EnglishConditionalPractice.scenarios[0].correctForm.rawValue
@@ -2998,7 +2999,15 @@ private struct ConditionalsLab: View {
                             )
                         }
                     } else if let selection {
-                        wasCorrect = optionOrder.isCorrect(displayedIndex: selection)
+                        let isCorrect = optionOrder.isCorrect(displayedIndex: selection)
+                        wasCorrect = isCorrect
+                        if let form = EnglishConditionalForm(rawValue: optionOrder.displayedOriginalIndices[selection]),
+                           let evidence = assessmentTracker.recordSubmission(form: form, for: questions[index].id) {
+                            store.recordStudyAssessment(
+                                lessonID: "english.zero_first_second_conditionals",
+                                evidence: evidence
+                            )
+                        }
                     }
                 } label: {
                     Text(L10n.text(
@@ -3019,6 +3028,7 @@ private struct ConditionalsLab: View {
         selection = nil
         wasCorrect = nil
         complete = false
+        assessmentTracker.reset()
         optionOrder = QuizAnswerOrder(
             optionCount: EnglishConditionalForm.allCases.count,
             answerOriginalIndex: EnglishConditionalPractice.scenarios[0].correctForm.rawValue

@@ -24,6 +24,45 @@ enum EnglishConditionalPractice {
     }
 }
 
+struct EnglishConditionalAssessmentTracker {
+    private struct ScenarioState {
+        var attempts = 0
+        var firstTryCorrect: Bool?
+        var lastSubmittedForm: EnglishConditionalForm?
+    }
+
+    private var scenarioStates: [String: ScenarioState] = [:]
+
+    mutating func recordSubmission(form: EnglishConditionalForm, for scenarioID: String) -> StudyAssessmentEvidence? {
+        guard let scenario = EnglishConditionalPractice.scenarios.first(where: { $0.id == scenarioID }) else {
+            return nil
+        }
+
+        var state = scenarioStates[scenarioID] ?? ScenarioState()
+        guard state.lastSubmittedForm != form else { return nil }
+
+        let isCorrect = scenario.correctForm == form
+        state.attempts += 1
+        if state.firstTryCorrect == nil {
+            state.firstTryCorrect = isCorrect
+        }
+        state.lastSubmittedForm = form
+        scenarioStates[scenarioID] = state
+
+        return StudyAssessmentEvidence(
+            taskType: "interactive_practice",
+            attempts: state.attempts,
+            firstTryCorrect: state.firstTryCorrect ?? isCorrect,
+            hintsUsed: 0,
+            itemID: scenarioID
+        )
+    }
+
+    mutating func reset() {
+        scenarioStates.removeAll()
+    }
+}
+
 struct EnglishReadingQuestion: Equatable, Identifiable {
     let id: String
     let correctOption: Int
