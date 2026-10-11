@@ -40,3 +40,23 @@ struct QuadraticFunctionPractice: Equatable {
         return [horizontalShift - offset, horizontalShift + offset]
     }
 }
+
+struct QuadraticPredictionAssessment {
+    static let lessonID = "mathematics.quadratic_functions_and_transformations"
+
+    private(set) var attemptCount = 0
+    private(set) var firstTryCorrect: Bool?
+
+    mutating func recordAnswer(isCorrect: Bool) -> StudyAssessmentEvidence {
+        attemptCount += 1
+        if firstTryCorrect == nil {
+            firstTryCorrect = isCorrect
+        }
+        return StudyAssessmentEvidence(
+            taskType: "interactive_prediction",
+            attempts: attemptCount,
+            firstTryCorrect: firstTryCorrect ?? isCorrect,
+            hintsUsed: 0
+        )
+    }
+}

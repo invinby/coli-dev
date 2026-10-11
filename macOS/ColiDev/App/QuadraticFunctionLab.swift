@@ -8,6 +8,7 @@ struct QuadraticFunctionLab: View {
     @State private var opensDown = false
     @State private var selectedAnswer: Int?
     @State private var answerOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: 1)
+    @State private var assessment = QuadraticPredictionAssessment()
 
     private var function: QuadraticFunctionPractice {
         QuadraticFunctionPractice(
@@ -64,8 +65,7 @@ struct QuadraticFunctionLab: View {
             HStack(spacing: 8) {
                 ForEach(Array(answerOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Button {
-                        guard selectedAnswer == nil else { return }
-                        selectedAnswer = displayIndex
+                        submitAnswer(displayIndex)
                     } label: {
                         Text(L10n.text("lab.quadratic.option.\(originalIndex)", store.language))
                             .frame(maxWidth: .infinity)
@@ -168,6 +168,16 @@ struct QuadraticFunctionLab: View {
         return answerOrder.isCorrect(displayedIndex: displayIndex)
             ? Color.green.opacity(0.16)
             : Color.orange.opacity(0.16)
+    }
+
+    private func submitAnswer(_ displayIndex: Int) {
+        guard selectedAnswer == nil else { return }
+        let correct = answerOrder.isCorrect(displayedIndex: displayIndex)
+        selectedAnswer = displayIndex
+        store.recordStudyAssessment(
+            lessonID: QuadraticPredictionAssessment.lessonID,
+            evidence: assessment.recordAnswer(isCorrect: correct)
+        )
     }
 
     private func number(_ value: Double) -> String {

@@ -212,7 +212,7 @@ jobs:
 
       - name: Verify quadratic function model / Проверка модели квадратичной функции
         run: |
-          swiftc macOS/ColiDev/App/QuadraticFunctionPractice.swift macOS/ColiDev/scripts/verify_quadratic_function.swift \
+          swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/QuadraticFunctionPractice.swift macOS/ColiDev/scripts/verify_quadratic_function.swift \
             -o "$RUNNER_TEMP/verify-quadratic-function"
           "$RUNNER_TEMP/verify-quadratic-function"
 

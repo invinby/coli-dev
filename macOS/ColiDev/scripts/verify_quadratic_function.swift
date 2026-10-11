@@ -27,6 +27,20 @@ enum QuadraticFunctionVerification {
         precondition(QuadraticFunctionPractice(a: 0, h: 1, k: 2) == nil, "Reject a degenerate constant function. / Отклонить вырожденную постоянную функцию.")
         precondition(QuadraticFunctionPractice(a: .infinity, h: 1, k: 2) == nil, "Reject non-finite parameters. / Отклонить не конечные параметры.")
         precondition(QuadraticFunctionPractice(a: 1, h: .nan, k: 2) == nil, "Reject a non-finite vertex. / Отклонить не конечную координату вершины.")
+
+        var assessment = QuadraticPredictionAssessment()
+        let firstAttempt = assessment.recordAnswer(isCorrect: false)
+        precondition(firstAttempt.taskType == "interactive_prediction", "Classify a quadratic prediction assessment. / Определить тип проверки прогноза параболы.")
+        precondition(firstAttempt.attempts == 1 && !firstAttempt.firstTryCorrect, "Save the first incorrect prediction. / Сохранить первую неверную попытку.")
+        precondition(QuadraticPredictionAssessment.lessonID == "mathematics.quadratic_functions_and_transformations", "Link evidence to the quadratic lesson. / Связать свидетельство с уроком о квадратичной функции.")
+
+        let retry = assessment.recordAnswer(isCorrect: true)
+        precondition(retry.attempts == 2 && !retry.firstTryCorrect, "Keep first-try evidence across a successful retry. / Сохранить результат первой попытки после успешного повтора.")
+        precondition(retry.hintsUsed == 0, "Record the current hint count. / Сохранить число использованных подсказок.")
+
+        var correctOnFirstTry = QuadraticPredictionAssessment()
+        let correctEvidence = correctOnFirstTry.recordAnswer(isCorrect: true)
+        precondition(correctEvidence.attempts == 1 && correctEvidence.firstTryCorrect, "Save a correct first prediction. / Сохранить верный прогноз с первой попытки.")
         print("Quadratic function checks passed. / Проверки квадратичной функции прошли.")
     }
 
