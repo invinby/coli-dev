@@ -453,7 +453,8 @@ class TrustedSourceMonitor:
                 last_modified TEXT,
                 last_checked_at TEXT NOT NULL,
                 last_http_status INTEGER,
-                state TEXT NOT NULL
+                state TEXT NOT NULL,
+                pending_review_digest TEXT
             )"""
         )
         connection.execute(
@@ -477,11 +478,16 @@ class TrustedSourceMonitor:
             ("page_description", "TEXT"),
             ("content_digest", "TEXT"),
             ("content_checked_at", "TEXT"),
+            ("pending_review_digest", "TEXT"),
         ):
             if column not in columns:
                 connection.execute(
                     f"ALTER TABLE trusted_source_checks ADD COLUMN {column} {declaration}"
                 )
+        connection.execute(
+            "UPDATE trusted_source_checks SET pending_review_digest = content_digest "
+            "WHERE state = 'changed' AND pending_review_digest IS NULL AND content_digest IS NOT NULL"
+        )
         connection.execute(
             """CREATE TABLE IF NOT EXISTS trusted_source_editorial_reviews (
                 review_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -510,7 +516,8 @@ class TrustedSourceMonitor:
                 str(row["url"]): row
                 for row in connection.execute(
                     "SELECT url, etag, last_modified, last_checked_at, last_http_status, state, "
-                    "page_title, page_description, content_digest, content_checked_at "
+                    "page_title, page_description, content_digest, content_checked_at, "
+                    "pending_review_digest "
                     "FROM trusted_source_checks"
                 ).fetchall()
             }
@@ -631,6 +638,23 @@ class TrustedSourceMonitor:
                 ),
             })
 
+            pending_review_digest = (
+                str(previous["pending_review_digest"])
+                if previous is not None and previous["pending_review_digest"] else None
+            )
+            if pending_review_digest is not None:
+                all_lessons_reviewed = all(
+                    manual_reviews.get((reference.url, lesson.lesson_path)) is not None
+                    and str(manual_reviews[(reference.url, lesson.lesson_path)]["reviewed_digest"])
+                    == pending_review_digest
+                    for lesson in reference.lesson_reviews
+                )
+                if all_lessons_reviewed:
+                    if items[-1]["state"] == "changed":
+                        items[-1]["state"] = "unchanged"
+                else:
+                    items[-1]["state"] = "changed"
+
         states = [str(item["state"]) for item in items]
         attention_states = {
             "changed", "content_baseline", "content_unavailable", "content_too_large",
@@ -670,6 +694,37 @@ class TrustedSourceMonitor:
                     SELECT review_id FROM trusted_source_editorial_reviews
                     ORDER BY review_id DESC LIMIT 10000
                 )"""
+            )
+
+    def _clear_pending_review_if_complete(self, reference: SourceReference) -> None:
+        previous = self._previous_check(reference.url)
+        if previous is None or not previous["pending_review_digest"]:
+            return
+        pending_digest = str(previous["pending_review_digest"])
+        with self._db_lock, self._connect() as connection:
+            latest_reviews = {
+                str(row["lesson_path"]): str(row["reviewed_digest"])
+                for row in connection.execute(
+                    """SELECT review.lesson_path, review.reviewed_digest
+                    FROM trusted_source_editorial_reviews AS review
+                    WHERE review.url = ? AND review.review_id = (
+                        SELECT MAX(latest.review_id) FROM trusted_source_editorial_reviews AS latest
+                        WHERE latest.url = review.url AND latest.lesson_path = review.lesson_path
+                    )""",
+                    (reference.url,),
+                ).fetchall()
+            }
+            if not all(
+                latest_reviews.get(lesson.lesson_path) == pending_digest
+                for lesson in reference.lesson_reviews
+            ):
+                return
+            connection.execute(
+                """UPDATE trusted_source_checks
+                SET pending_review_digest = NULL,
+                    state = CASE WHEN state = 'changed' THEN 'unchanged' ELSE state END
+                WHERE url = ? AND pending_review_digest = ?""",
+                (reference.url, pending_digest),
             )
 
     def seconds_until_automatic_check(self, *, now: datetime | None = None) -> float | None:
@@ -857,8 +912,10 @@ class TrustedSourceMonitor:
             connection.execute(
                 """INSERT INTO trusted_source_checks(
                     url, etag, last_modified, last_checked_at, last_http_status, state,
-                    page_title, page_description, content_digest, content_checked_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    page_title, page_description, content_digest, content_checked_at,
+                    pending_review_digest
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    CASE WHEN ? = 'changed' THEN ? ELSE NULL END)
                 ON CONFLICT(url) DO UPDATE SET
                     etag = excluded.etag,
                     last_modified = excluded.last_modified,
@@ -868,10 +925,14 @@ class TrustedSourceMonitor:
                     page_title = CASE WHEN ? THEN trusted_source_checks.page_title ELSE excluded.page_title END,
                     page_description = CASE WHEN ? THEN trusted_source_checks.page_description ELSE excluded.page_description END,
                     content_digest = CASE WHEN ? THEN trusted_source_checks.content_digest ELSE excluded.content_digest END,
-                    content_checked_at = CASE WHEN ? THEN trusted_source_checks.content_checked_at ELSE excluded.content_checked_at END""",
+                    content_checked_at = CASE WHEN ? THEN trusted_source_checks.content_checked_at ELSE excluded.content_checked_at END,
+                    pending_review_digest = CASE
+                        WHEN excluded.state = 'changed' THEN excluded.content_digest
+                        ELSE trusted_source_checks.pending_review_digest END""",
                 (
                     reference.url, etag, last_modified, checked_at, http_status, state,
                     page_title, page_description, content_digest, content_checked_at,
+                    state, content_digest,
                     preserve_content_metadata, preserve_content_metadata,
                     preserve_content_metadata, preserve_content_metadata,
                 ),
@@ -1285,6 +1346,7 @@ class TrustedSourceMonitor:
             content_checked_at=reviewed_at,
         )
         self._save_editorial_review(reference.url, lesson_path, digest, reviewed_on, reviewed_at)
+        self._clear_pending_review_if_complete(reference)
         return {
             "status": "ok",
             "url": reference.url,

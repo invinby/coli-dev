@@ -1120,13 +1120,16 @@ def test_conditional_check_detects_unchanged_then_changed_versions(tmp_path: Pat
     version = '"v1"'
     page_text = "Inheritance basics"
     force_full_response = False
+    fail_next_response = False
 
     def respond(request: httpx.Request) -> httpx.Response:
-        nonlocal version, page_text, force_full_response
+        nonlocal version, page_text, force_full_response, fail_next_response
         requests.append(request)
+        if fail_next_response:
+            fail_next_response = False
+            return httpx.Response(503, request=request)
         if (
             request.headers.get("if-none-match") == version
-            and version == '"v1"'
             and not force_full_response
         ):
             return httpx.Response(304, headers={"ETag": version}, request=request)
@@ -1141,26 +1144,102 @@ def test_conditional_check_detects_unchanged_then_changed_versions(tmp_path: Pat
             request=request,
         )
 
-    async def run_checks() -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
-        nonlocal version, page_text, force_full_response
+    async def run_checks() -> tuple[
+        dict[str, object], dict[str, object], dict[str, object],
+        dict[str, object], dict[str, object], dict[str, object], dict[str, object],
+        dict[str, object], dict[str, object],
+    ]:
+        nonlocal version, page_text, force_full_response, fail_next_response
         async with httpx.AsyncClient(
             transport=httpx.MockTransport(respond), follow_redirects=True
         ) as client:
             first = await monitor.check_sources(client)
             second = await monitor.check_sources(client)
+            assert second["unchanged_count"] == 1
             page_text = "Inheritance and genetics"
+            version = '"v2"'
             force_full_response = True
             third = await monitor.check_sources(client)
-        return first, second, third
+            force_full_response = False
+            fourth = await monitor.check_sources(client)
+            pending_after_not_modified = monitor.inventory()
+            fail_next_response = True
+            failed = await monitor.check_sources(client)
+            pending_after_failure = monitor.inventory()
+            force_full_response = True
+            fifth = await monitor.check_sources(client)
+            pending_after_same_body = monitor.inventory()
+            preview = await monitor.preview_source(url, client)
+            reviewed = await monitor.review_source(
+                url,
+                str(third["checks"][0]["lesson_path"]),
+                str(preview["content_digest"]),
+                client,
+            )
+        return (
+            first, second, third, fourth, pending_after_not_modified,
+            failed, pending_after_failure, pending_after_same_body, reviewed,
+        )
 
-    first, second, third = asyncio.run(run_checks())
+    (
+        first, second, third, fourth, pending_after_not_modified, failed,
+        pending_after_failure, pending_after_same_body, reviewed,
+    ) = asyncio.run(run_checks())
 
     assert first["available_untracked_count"] == 1
-    assert second["unchanged_count"] == 1
     assert third["changed_count"] == 1
+    assert fourth["unchanged_count"] == 1
     assert requests[1].headers["if-none-match"] == '"v1"'
     assert requests[2].headers["if-none-match"] == '"v1"'
     assert third["checks"][0]["state"] == "changed"
+    assert requests[3].headers["if-none-match"] == '"v2"'
+    assert pending_after_not_modified["changed_count"] == 1
+    assert pending_after_not_modified["sources"][0]["state"] == "changed"
+    assert failed["checks"][0]["state"] == "unavailable"
+    assert pending_after_failure["changed_count"] == 1
+    assert pending_after_failure["sources"][0]["state"] == "changed"
+    assert pending_after_same_body["changed_count"] == 1
+    assert pending_after_same_body["sources"][0]["state"] == "changed"
+    assert reviewed["status"] == "ok"
+    assert monitor.inventory()["changed_count"] == 0
+
+
+def test_shared_source_warning_waits_for_every_linked_lesson_review(tmp_path: Path) -> None:
+    url = "https://openstax.org/books/biology-2e/pages/12-3-laws-of-inheritance"
+    _write_lesson(tmp_path, f"[Inheritance]({url})\n")
+    second_lesson = tmp_path / "02_Areas" / "Biology" / "lessons" / "inheritance.md"
+    second_lesson.parent.mkdir(parents=True)
+    second_lesson.write_text(f"[Inheritance source]({url})\n", encoding="utf-8")
+    monitor = _monitor(tmp_path, tmp_path)
+    reference = next(
+        item for item in monitor._references()[0] if item.url == url
+    )
+    first_path, second_path = (lesson.lesson_path for lesson in reference.lesson_reviews)
+    digest = "a" * 64
+
+    monitor._save_check(
+        reference,
+        etag='"v2"',
+        last_modified=None,
+        checked_at="2026-10-11T00:00:00Z",
+        http_status=200,
+        state="changed",
+        content_digest=digest,
+        content_checked_at="2026-10-11T00:00:00Z",
+    )
+    monitor._save_editorial_review(
+        url, first_path, digest, "2026-10-11", "2026-10-11T00:00:00Z"
+    )
+    monitor._clear_pending_review_if_complete(reference)
+    assert monitor.inventory()["sources"][0]["state"] == "changed"
+
+    monitor._save_editorial_review(
+        url, second_path, digest, "2026-10-11", "2026-10-11T00:01:00Z"
+    )
+    monitor._clear_pending_review_if_complete(reference)
+    inventory = monitor.inventory()
+    assert inventory["sources"][0]["state"] == "unchanged"
+    assert inventory["changed_count"] == 0
 
 
 def test_last_modified_is_used_when_etag_is_missing(tmp_path: Path) -> None:
