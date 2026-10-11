@@ -20,7 +20,13 @@ struct SeededGenerator: RandomNumberGenerator {
 enum AnswerChoiceOrderVerification {
     static func main() {
         var choiceAssessment = InteractiveChoiceAssessmentTracker(
-            itemIDs: ["routine-1", "animal-group-1", "lineage-1"]
+            itemIDs: [
+                "routine-1", "animal-group-1", "lineage-1",
+                "missing", "invalid-number", "valid-numbers",
+                "name-error", "index-error", "assertion-error",
+                "present-simple-continuous.scenario-0", "present-simple-continuous.scenario-1",
+                "present-perfect.question-0", "present-perfect.question-1", "present-perfect.question-2"
+            ]
         )
         let firstChoice = choiceAssessment.recordSubmission(
             selectedAnswerIndex: 0,
@@ -105,6 +111,55 @@ enum AnswerChoiceOrderVerification {
         precondition(
             independentChoice?.attempts == 1 && independentChoice?.firstTryCorrect == true,
             "Track independent questions separately. / Веди независимый учёт для разных вопросов."
+        )
+        let fileReadingChoice = choiceAssessment.recordSubmission(
+            selectedAnswerIndex: 0,
+            correctAnswerIndex: 1,
+            optionCount: 3,
+            itemID: "missing"
+        )
+        precondition(
+            fileReadingChoice?.taskType == "interactive_practice" && fileReadingChoice?.itemID == "missing",
+            "Accept registered file-reading scenarios. / Принимай зарегистрированные сценарии чтения файла."
+        )
+        let debuggingChoice = choiceAssessment.recordSubmission(
+            selectedAnswerIndex: 2,
+            correctAnswerIndex: 0,
+            optionCount: 3,
+            itemID: "name-error"
+        )
+        precondition(
+            debuggingChoice?.attempts == 1 && debuggingChoice?.firstTryCorrect == false,
+            "Accept registered debugging scenarios. / Принимай зарегистрированные сценарии отладки."
+        )
+        let twoChoicePractice = choiceAssessment.recordSubmission(
+            selectedAnswerIndex: 0,
+            correctAnswerIndex: 0,
+            optionCount: 2,
+            itemID: "present-simple-continuous.scenario-0"
+        )
+        precondition(
+            twoChoicePractice?.attempts == 1 && twoChoicePractice?.firstTryCorrect == true,
+            "Support binary grammar practice independently from three-choice items. / Поддерживай двухвариантные грамматические задания отдельно от тестов с тремя вариантами."
+        )
+        precondition(
+            choiceAssessment.recordSubmission(
+                selectedAnswerIndex: 1,
+                correctAnswerIndex: 1,
+                optionCount: 2,
+                itemID: "present-simple-continuous.scenario-0"
+            ) == nil,
+            "Reject a changed answer key within one active attempt. / Не принимай изменившийся ключ ответа внутри одной попытки."
+        )
+        let presentPerfectChoice = choiceAssessment.recordSubmission(
+            selectedAnswerIndex: 1,
+            correctAnswerIndex: 0,
+            optionCount: 2,
+            itemID: "present-perfect.question-0"
+        )
+        precondition(
+            presentPerfectChoice?.attempts == 1 && presentPerfectChoice?.firstTryCorrect == false,
+            "Track each present-perfect scenario independently. / Веди отдельный учёт для каждого сценария Present Perfect."
         )
         choiceAssessment.reset()
         let resetChoice = choiceAssessment.recordSubmission(

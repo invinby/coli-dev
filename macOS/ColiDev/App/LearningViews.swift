@@ -2831,6 +2831,9 @@ private struct TenseContrastLab: View {
     @State private var scenario = 0
     @State private var selectedAnswer: Int?
     @State private var optionOrder = QuizAnswerOrder(optionCount: 2, answerOriginalIndex: 0)
+    @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(
+        itemIDs: ["present-simple-continuous.scenario-0", "present-simple-continuous.scenario-1"]
+    )
 
     var body: some View {
         LabCard {
@@ -2850,6 +2853,18 @@ private struct TenseContrastLab: View {
                 ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Button {
                         selectedAnswer = displayIndex
+                        if let selectedOriginalIndex = optionOrder.originalIndex(forDisplayedIndex: displayIndex),
+                           let evidence = assessmentTracker.recordSubmission(
+                            selectedAnswerIndex: selectedOriginalIndex,
+                            correctAnswerIndex: scenario,
+                            optionCount: 2,
+                            itemID: "present-simple-continuous.scenario-\(scenario)"
+                           ) {
+                            store.recordStudyAssessment(
+                                lessonID: "english.present_simple_and_continuous",
+                                evidence: evidence
+                            )
+                        }
                     } label: {
                         Text(L10n.text("lab.tenseOption\(scenario)\(originalIndex)", store.language))
                             .frame(maxWidth: .infinity)
@@ -2893,7 +2908,13 @@ private struct PresentPerfectAspectLab: View {
     @State private var selectedAnswer: Int?
 
     private let correctAnswers = [1, 1, 0]
+    private static let questionIDs = [
+        "present-perfect.question-0",
+        "present-perfect.question-1",
+        "present-perfect.question-2"
+    ]
     @State private var optionOrder = QuizAnswerOrder(optionCount: 2, answerOriginalIndex: 1)
+    @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(itemIDs: Self.questionIDs)
 
     var body: some View {
         LabCard {
@@ -2922,6 +2943,18 @@ private struct PresentPerfectAspectLab: View {
                 ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Button {
                         selectedAnswer = displayIndex
+                        if let selectedOriginalIndex = optionOrder.originalIndex(forDisplayedIndex: displayIndex),
+                           let evidence = assessmentTracker.recordSubmission(
+                            selectedAnswerIndex: selectedOriginalIndex,
+                            correctAnswerIndex: correctAnswers[scenario],
+                            optionCount: 2,
+                            itemID: Self.questionIDs[scenario]
+                           ) {
+                            store.recordStudyAssessment(
+                                lessonID: "english.present_perfect_simple_continuous",
+                                evidence: evidence
+                            )
+                        }
                     } label: {
                         Text(L10n.text("lab.perfectOption\(scenario)\(originalIndex)", store.language))
                             .frame(maxWidth: .infinity)
@@ -7024,6 +7057,7 @@ private struct FileReadingLab: View {
     @State private var scenarioID = FileReadingPractice.scenarios[0].id
     @State private var selectedOutcome: FileReadingOutcome?
     @State private var hasCheckedAnswer = false
+    @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(itemIDs: FileReadingPractice.scenarios.map(\.id))
     @State private var outcomeOrder = QuizAnswerOrder(
         optionCount: FileReadingOutcome.allCases.count,
         answerOriginalIndex: FileReadingPractice.scenarios[0].expectedOutcome.rawValue
@@ -7110,6 +7144,18 @@ private struct FileReadingLab: View {
             }
 
             Button {
+                if let selectedOutcome,
+                   let evidence = assessmentTracker.recordSubmission(
+                    selectedAnswerIndex: selectedOutcome.rawValue,
+                    correctAnswerIndex: scenario.expectedOutcome.rawValue,
+                    optionCount: FileReadingOutcome.allCases.count,
+                    itemID: scenario.id
+                   ) {
+                    store.recordStudyAssessment(
+                        lessonID: "programming.strings_files_and_exceptions",
+                        evidence: evidence
+                    )
+                }
                 hasCheckedAnswer = true
             } label: {
                 Label(L10n.text("lab.fileTrace.check", store.language), systemImage: "checkmark")
@@ -7215,6 +7261,7 @@ private struct DebuggingLab: View {
     @State private var scenarioID = DebuggingPractice.scenarios[0].id
     @State private var selectedChoice = -1
     @State private var hasChecked = false
+    @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(itemIDs: DebuggingPractice.scenarios.map(\.id))
     @State private var optionOrder = QuizAnswerOrder(
         optionCount: DebuggingPractice.scenarios[0].choiceKeys.count,
         answerOriginalIndex: DebuggingPractice.scenarios[0].correctChoice
@@ -7286,6 +7333,19 @@ private struct DebuggingLab: View {
 
             Button {
                 hasChecked = true
+                guard let selectedOriginalIndex = optionOrder.originalIndex(forDisplayedIndex: selectedChoice),
+                      let evidence = assessmentTracker.recordSubmission(
+                        selectedAnswerIndex: selectedOriginalIndex,
+                        correctAnswerIndex: scenario.correctChoice,
+                        optionCount: scenario.choiceKeys.count,
+                        itemID: scenario.id
+                      ) else {
+                    return
+                }
+                store.recordStudyAssessment(
+                    lessonID: "programming.debugging_tests_and_git",
+                    evidence: evidence
+                )
             } label: {
                 Label(L10n.text("lab.debugging.check", store.language), systemImage: "checkmark")
             }
