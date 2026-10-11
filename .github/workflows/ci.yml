@@ -83,7 +83,7 @@ jobs:
 
       - name: Verify shared linear equation model
         run: |
-          swiftc macOS/ColiDev/App/LinearEquation.swift macOS/ColiDev/scripts/verify_linear_equation_model.swift \
+          swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/LinearEquation.swift macOS/ColiDev/scripts/verify_linear_equation_model.swift \
             -o "$RUNNER_TEMP/verify-linear-equation-model"
           "$RUNNER_TEMP/verify-linear-equation-model"
 
