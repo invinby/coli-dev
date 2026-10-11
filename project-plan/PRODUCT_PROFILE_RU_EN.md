@@ -120,6 +120,10 @@
 
 **EN:** Personalization should gradually account for what actually helps a particular learner: explicit preferences and outcomes across explanation, practice, and review formats. The system explains the observations behind a recommendation, lets the learner change preferences or dismiss it, and does not treat a small number of attempts as a reliable psychological profile. Learning evidence stays local by default; hidden telemetry is not needed.
 
+**RU:** Поддержка целей и возвращения после перерыва — долгосрочное расширение учебной системы, а не повод менять её миссию или откладывать проверки раннего прототипа. Сначала закрываются ближайшие P0/P1-проверки запуска, навигации, ИИ-маршрутов, учебной обратной связи и источников; только затем начинается реализация P2-поддержки регулярного обучения.
+
+**EN:** Goal and return support is a long-term extension of the learning system, not a change to its mission or a reason to defer early-prototype checks. Complete the nearest P0/P1 checks for launch, navigation, AI routes, learning feedback, and sources first; begin implementing consistent-learning support as P2 only afterward.
+
 ## 6. Разные предметы — разные методы / Different subjects need different methods
 
 **RU:** Не используй один шаблон для всех предметов. В математике нужны рассуждения, формулы, доказательства, графики и задачи; в физике — модели, эксперименты, симуляции и причинно-следственные связи; в биологии — структуры, процессы и системы; в зоологии — механизмы, адаптации и сопоставление организмов по данным; в программировании — исполняемая практика, отладка и алгоритмы; в английском — контекстное активное использование, понимание и исправление ошибок.

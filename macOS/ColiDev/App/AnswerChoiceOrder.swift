@@ -387,6 +387,68 @@ struct StudyAssessmentEvidence: Codable, Equatable {
     }
 }
 
+struct InteractiveChoiceAssessmentTracker {
+    private struct ItemState {
+        var attempts = 0
+        var firstTryCorrect: Bool?
+        var lastSubmittedAnswerIndex: Int?
+        var correctAnswerIndex: Int?
+        var optionCount: Int?
+    }
+
+    private let itemIDs: Set<String>
+    private var itemStates: [String: ItemState] = [:]
+
+    init(itemIDs: [String]) {
+        self.itemIDs = Set(itemIDs.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
+    }
+
+    mutating func recordSubmission(
+        selectedAnswerIndex: Int,
+        correctAnswerIndex: Int,
+        optionCount: Int,
+        itemID: String
+    ) -> StudyAssessmentEvidence? {
+        guard itemIDs.contains(itemID),
+              optionCount > 1,
+              (0..<optionCount).contains(selectedAnswerIndex),
+              (0..<optionCount).contains(correctAnswerIndex) else {
+            return nil
+        }
+
+        var state = itemStates[itemID] ?? ItemState()
+        if let knownCorrectAnswer = state.correctAnswerIndex, knownCorrectAnswer != correctAnswerIndex {
+            return nil
+        }
+        if let knownOptionCount = state.optionCount, knownOptionCount != optionCount {
+            return nil
+        }
+        guard state.lastSubmittedAnswerIndex != selectedAnswerIndex else { return nil }
+
+        let isCorrect = selectedAnswerIndex == correctAnswerIndex
+        state.attempts += 1
+        if state.firstTryCorrect == nil {
+            state.firstTryCorrect = isCorrect
+        }
+        state.lastSubmittedAnswerIndex = selectedAnswerIndex
+        state.correctAnswerIndex = correctAnswerIndex
+        state.optionCount = optionCount
+        itemStates[itemID] = state
+
+        return StudyAssessmentEvidence(
+            taskType: "interactive_practice",
+            attempts: state.attempts,
+            firstTryCorrect: state.firstTryCorrect ?? isCorrect,
+            hintsUsed: 0,
+            itemID: itemID
+        )
+    }
+
+    mutating func reset() {
+        itemStates.removeAll()
+    }
+}
+
 struct StudyAssessmentEvent: Codable, Identifiable {
     let id: String
     let lessonID: String

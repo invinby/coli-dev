@@ -59,6 +59,25 @@ enum AnswerChoiceOrderVerification {
                 && choiceRetry?.itemID == "routine-1",
             "Keep the first result after a correct retry. / Сохраняй результат первой попытки после верного повтора."
         )
+        let choiceEvent = StudyAssessmentEvent(
+            id: "00000000-0000-0000-0000-000000000003",
+            lessonID: "english.daily_routines_and_collocations",
+            assessment: choiceRetry!
+        )
+        let choiceEventData = try! JSONEncoder().encode(choiceEvent)
+        let choiceEventObject = try! JSONSerialization.jsonObject(with: choiceEventData) as! [String: Any]
+        let choiceAssessmentObject = choiceEventObject["assessment"] as! [String: Any]
+        precondition(
+            choiceAssessmentObject["task_type"] as? String == "interactive_practice"
+                && choiceAssessmentObject["item_id"] as? String == "routine-1"
+                && Set(choiceAssessmentObject.keys) == Set(["task_type", "item_id", "attempts", "first_try_correct", "hints_used"]),
+            "Choice evidence must use the backend's persisted practice-event contract. / Результат выбора должен соответствовать формату сохраняемого события тренажёра."
+        )
+        let restoredChoiceEvent = try! JSONDecoder().decode(StudyAssessmentEvent.self, from: choiceEventData)
+        precondition(
+            restoredChoiceEvent.assessment.itemID == "routine-1" && restoredChoiceEvent.assessment.attempts == 2,
+            "Restoring a queued choice event must preserve its question and attempt count. / Восстановление события должно сохранять вопрос и число попыток."
+        )
         precondition(
             choiceAssessment.recordSubmission(
                 selectedAnswerIndex: 1,

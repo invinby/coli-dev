@@ -1382,6 +1382,7 @@ private struct PracticeLab: View {
 }
 
 private struct RoutineVocabularyQuestion {
+    let id: String
     let promptKey: String
     let optionKeys: [String]
     let answerIndex: Int
@@ -1513,29 +1514,35 @@ private struct DailyRoutineVocabularyLab: View {
     @State private var lastWasCorrect: Bool?
     @State private var isComplete = false
     @State private var optionOrders: [[Int]] = Self.makeOptionOrders()
+    @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(itemIDs: Self.questionSet.map(\.id))
 
     private static let questionSet = [
         RoutineVocabularyQuestion(
+            id: "daily-routines.question-1",
             promptKey: "lab.routinePrompt1",
             optionKeys: ["lab.routineGoToBed", "lab.routineHaveBreakfast", "lab.routineHaveDinner"],
             answerIndex: 1
         ),
         RoutineVocabularyQuestion(
+            id: "daily-routines.question-2",
             promptKey: "lab.routinePrompt2",
             optionKeys: ["lab.routineHaveDinner", "lab.routineWakeUp", "lab.routineGoToBed"],
             answerIndex: 1
         ),
         RoutineVocabularyQuestion(
+            id: "daily-routines.question-3",
             promptKey: "lab.routinePrompt3",
             optionKeys: ["lab.routineHaveLunch", "lab.routineGoToBed", "lab.routineGetDressed"],
             answerIndex: 2
         ),
         RoutineVocabularyQuestion(
+            id: "daily-routines.question-4",
             promptKey: "lab.routinePrompt4",
             optionKeys: ["lab.routineHaveBreakfast", "lab.routineWakeUp", "lab.routineHaveLunch"],
             answerIndex: 2
         ),
         RoutineVocabularyQuestion(
+            id: "daily-routines.question-5",
             promptKey: "lab.routinePrompt5",
             optionKeys: ["lab.routineWakeUp", "lab.routineGoToBed", "lab.routineGetDressed"],
             answerIndex: 1
@@ -1629,7 +1636,16 @@ private struct DailyRoutineVocabularyLab: View {
         }
 
         guard let selectedOption else { return }
-        lastWasCorrect = optionOrders[questionIndex][selectedOption] == currentQuestion.answerIndex
+        let selectedOriginalIndex = optionOrders[questionIndex][selectedOption]
+        lastWasCorrect = selectedOriginalIndex == currentQuestion.answerIndex
+        if let evidence = assessmentTracker.recordSubmission(
+            selectedAnswerIndex: selectedOriginalIndex,
+            correctAnswerIndex: currentQuestion.answerIndex,
+            optionCount: currentQuestion.optionKeys.count,
+            itemID: currentQuestion.id
+        ) {
+            store.recordStudyAssessment(lessonID: "english.daily_routines_and_collocations", evidence: evidence)
+        }
     }
 
     private func reset() {
@@ -1638,6 +1654,7 @@ private struct DailyRoutineVocabularyLab: View {
         lastWasCorrect = nil
         isComplete = false
         optionOrders = Self.makeOptionOrders()
+        assessmentTracker.reset()
     }
 
     private static func makeOptionOrders() -> [[Int]] {
@@ -1649,6 +1666,7 @@ private struct DailyRoutineVocabularyLab: View {
 }
 
 private struct AnimalGroupQuestion {
+    let id: String
     let promptKey: String
     let options: [String]
     let answerIndex: Int
@@ -1661,12 +1679,13 @@ private struct AnimalGroupLab: View {
     @State private var wasCorrect: Bool?
     @State private var complete = false
     @State private var optionOrders: [[Int]] = Self.makeOptionOrders()
+    @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(itemIDs: Self.questionSet.map(\.id))
 
     private static let questionSet = [
-        AnimalGroupQuestion(promptKey: "lab.animalGroupQ1", options: ["lab.animalGroupQ1A", "lab.animalGroupQ1B", "lab.animalGroupQ1C"], answerIndex: 0),
-        AnimalGroupQuestion(promptKey: "lab.animalGroupQ2", options: ["lab.animalGroupQ2A", "lab.animalGroupQ2B", "lab.animalGroupQ2C"], answerIndex: 1),
-        AnimalGroupQuestion(promptKey: "lab.animalGroupQ3", options: ["lab.animalGroupQ3A", "lab.animalGroupQ3B", "lab.animalGroupQ3C"], answerIndex: 2),
-        AnimalGroupQuestion(promptKey: "lab.animalGroupQ4", options: ["lab.animalGroupQ4A", "lab.animalGroupQ4B", "lab.animalGroupQ4C"], answerIndex: 1)
+        AnimalGroupQuestion(id: "animals-as-a-group.question-1", promptKey: "lab.animalGroupQ1", options: ["lab.animalGroupQ1A", "lab.animalGroupQ1B", "lab.animalGroupQ1C"], answerIndex: 0),
+        AnimalGroupQuestion(id: "animals-as-a-group.question-2", promptKey: "lab.animalGroupQ2", options: ["lab.animalGroupQ2A", "lab.animalGroupQ2B", "lab.animalGroupQ2C"], answerIndex: 1),
+        AnimalGroupQuestion(id: "animals-as-a-group.question-3", promptKey: "lab.animalGroupQ3", options: ["lab.animalGroupQ3A", "lab.animalGroupQ3B", "lab.animalGroupQ3C"], answerIndex: 2),
+        AnimalGroupQuestion(id: "animals-as-a-group.question-4", promptKey: "lab.animalGroupQ4", options: ["lab.animalGroupQ4A", "lab.animalGroupQ4B", "lab.animalGroupQ4C"], answerIndex: 1)
     ]
 
     private var questions: [AnimalGroupQuestion] { Self.questionSet }
@@ -1687,6 +1706,7 @@ private struct AnimalGroupLab: View {
                     wasCorrect = nil
                     complete = false
                     optionOrders = Self.makeOptionOrders()
+                    assessmentTracker.reset()
                 }
                 .buttonStyle(.bordered)
             } else {
@@ -1733,7 +1753,17 @@ private struct AnimalGroupLab: View {
                             wasCorrect = nil
                         }
                     } else if let selection {
-                        wasCorrect = optionOrders[index][selection] == questions[index].answerIndex
+                        let question = questions[index]
+                        let selectedOriginalIndex = optionOrders[index][selection]
+                        wasCorrect = selectedOriginalIndex == question.answerIndex
+                        if let evidence = assessmentTracker.recordSubmission(
+                            selectedAnswerIndex: selectedOriginalIndex,
+                            correctAnswerIndex: question.answerIndex,
+                            optionCount: question.options.count,
+                            itemID: question.id
+                        ) {
+                            store.recordStudyAssessment(lessonID: "zoology.animals_as_a_group", evidence: evidence)
+                        }
                     }
                 } label: {
                     Text(L10n.text(wasCorrect == true ? (index == questions.count - 1 ? "lab.animalGroupFinish" : "lab.animalGroupNext") : "lab.animalGroupCheck", store.language))
@@ -1758,12 +1788,13 @@ private struct AnimalLineageLab: View {
     @State private var wasCorrect: Bool?
     @State private var complete = false
     @State private var optionOrders: [[Int]] = Self.makeOptionOrders()
+    @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(itemIDs: Self.questionSet.map(\.id))
 
     private static let questionSet = [
-        AnimalGroupQuestion(promptKey: "lab.lineageQ1", options: ["lab.lineageQ1A", "lab.lineageQ1B", "lab.lineageQ1C"], answerIndex: 1),
-        AnimalGroupQuestion(promptKey: "lab.lineageQ2", options: ["lab.lineageQ2A", "lab.lineageQ2B", "lab.lineageQ2C"], answerIndex: 0),
-        AnimalGroupQuestion(promptKey: "lab.lineageQ3", options: ["lab.lineageQ3A", "lab.lineageQ3B", "lab.lineageQ3C"], answerIndex: 2),
-        AnimalGroupQuestion(promptKey: "lab.lineageQ4", options: ["lab.lineageQ4A", "lab.lineageQ4B", "lab.lineageQ4C"], answerIndex: 1)
+        AnimalGroupQuestion(id: "major-animal-lineages.question-1", promptKey: "lab.lineageQ1", options: ["lab.lineageQ1A", "lab.lineageQ1B", "lab.lineageQ1C"], answerIndex: 1),
+        AnimalGroupQuestion(id: "major-animal-lineages.question-2", promptKey: "lab.lineageQ2", options: ["lab.lineageQ2A", "lab.lineageQ2B", "lab.lineageQ2C"], answerIndex: 0),
+        AnimalGroupQuestion(id: "major-animal-lineages.question-3", promptKey: "lab.lineageQ3", options: ["lab.lineageQ3A", "lab.lineageQ3B", "lab.lineageQ3C"], answerIndex: 2),
+        AnimalGroupQuestion(id: "major-animal-lineages.question-4", promptKey: "lab.lineageQ4", options: ["lab.lineageQ4A", "lab.lineageQ4B", "lab.lineageQ4C"], answerIndex: 1)
     ]
 
     private var questions: [AnimalGroupQuestion] { Self.questionSet }
@@ -1801,6 +1832,7 @@ private struct AnimalLineageLab: View {
                     wasCorrect = nil
                     complete = false
                     optionOrders = Self.makeOptionOrders()
+                    assessmentTracker.reset()
                 }
                 .buttonStyle(.bordered)
             } else {
@@ -1847,7 +1879,17 @@ private struct AnimalLineageLab: View {
                             wasCorrect = nil
                         }
                     } else if let selection {
-                        wasCorrect = optionOrders[index][selection] == questions[index].answerIndex
+                        let question = questions[index]
+                        let selectedOriginalIndex = optionOrders[index][selection]
+                        wasCorrect = selectedOriginalIndex == question.answerIndex
+                        if let evidence = assessmentTracker.recordSubmission(
+                            selectedAnswerIndex: selectedOriginalIndex,
+                            correctAnswerIndex: question.answerIndex,
+                            optionCount: question.options.count,
+                            itemID: question.id
+                        ) {
+                            store.recordStudyAssessment(lessonID: "zoology.major_animal_lineages", evidence: evidence)
+                        }
                     }
                 } label: {
                     Text(L10n.text(wasCorrect == true ? (index == questions.count - 1 ? "lab.lineageFinish" : "lab.lineageNext") : "lab.lineageCheck", store.language))
