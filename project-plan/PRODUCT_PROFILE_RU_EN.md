@@ -42,9 +42,9 @@
 
 ## 3. Архитектура приложения и основные экраны / Application architecture and core screens
 
-**RU:** ColiDev — нативное macOS-приложение, где интерфейс, учебный движок, курсы, источники, локальный backend, ИИ-маршруты, визуализации и прогресс работают как одна система. Главный экран — учебная панель: предметы и темы, «Продолжить обучение», сроки повторения, следующая рекомендация с краткой причиной, а также два раздельных показателя — завершение курса и подтверждения понимания по проверкам. Не подменяй один показатель другим.
+**RU:** ColiDev — нативное macOS-приложение, где интерфейс, учебный движок, курсы, источники, локальный backend, ИИ-маршруты, визуализации и прогресс работают как одна система. Главный экран — учебная панель: предметы и темы, одно главное действие «Продолжить обучение» с краткой причиной и доступным небольшим стартом, сроки повторения, а также два раздельных показателя — завершение курса и подтверждения понимания по проверкам. Не подменяй один показатель другим и не превращай панель в перегруженный список дел.
 
-**EN:** ColiDev is a native macOS app in which the interface, learning engine, courses, sources, local backend, AI routes, visual activities, and progress work as one system. The home screen is a learning dashboard with subjects and topics, Continue learning, due reviews, a next-step recommendation with a short reason, and two separate measures: course completion and evidence of understanding from checks. Never present one measure as the other.
+**EN:** ColiDev is a native macOS app in which the interface, learning engine, courses, sources, local backend, AI routes, visual activities, and progress work as one system. The home screen is a learning dashboard with subjects and topics, one primary Continue learning action with a short reason and an optional small first step, due reviews, and two separate measures: course completion and evidence of understanding from checks. Never present one measure as the other or turn the dashboard into an overloaded to-do list.
 
 **RU:** Рабочее пространство урока связывает теорию, подходящую предмету визуализацию или видео, практику, источники, обратную связь и сохранение попытки с переходом к следующему шагу. Отдельно находимый Центр управления содержит экран «Локальные модели», настройку провайдера и модели по каждой роли, статусы backend и оркестратора, курсы и пользовательский каталог, источники и очередь редакторской проверки, состояние RAG и диагностику. Ключи API хранятся в Keychain. Все переходы должны разрешать встроенные и созданные учеником темы; удалённый или недоступный материал показывает понятное состояние восстановления, а существующая тема не должна вести в пустой экран.
 
@@ -101,6 +101,24 @@
 **RU:** Долгосрочный прогресс оценивай по конкретным свидетельствам: насколько ученик помнит материал при повторении, объясняет его своими словами, применяет в обычных и новых задачах, рассуждает самостоятельно и какие ошибки повторяет. Скорость решения учитывай там, где она важна для цели. Отделяй завершение урока или курса от подтверждённого понимания; не показывай точный общий «уровень знаний», если данных для него недостаточно.
 
 **EN:** Assess long-term progress from concrete evidence: what the learner recalls during review, can explain in their own words, applies to routine and unfamiliar problems, reasons through independently, and tends to get wrong. Track solution speed when it matters to the goal. Separate lesson or course completion from demonstrated understanding; do not show a precise overall “knowledge level” when the evidence is insufficient.
+
+### Регулярное обучение без давления / Consistent learning without pressure
+
+**RU:** Система должна помогать ученику двигаться к выбранным им образовательным целям внутри существующих курсов и учебных планов, а не вводить отдельный менеджер задач. На панели показывается одно приоритетное действие с понятной причиной; небольшой необязательный старт снижает порог начала, но не меняет и не обрезает конечную глубину курса. Остальные маршруты остаются доступны, но не конкурируют с главным действием визуально.
+
+**EN:** The system should help learners move toward goals they choose within existing courses and study plans, rather than add a separate task manager. The dashboard presents one prioritized action with a clear reason. An optional small start lowers the barrier to beginning without changing or reducing the course's eventual depth. Other paths remain available but do not visually compete with the primary action.
+
+**RU:** Большая цель раскладывается на небольшие завершённые этапы, привязанные к реальным темам, урокам, практике и проверкам. У каждого этапа есть проверяемый результат; панель объясняет, как завершённые этапы связаны с целью. Факт прохождения, свидетельства понимания и предположение системы о подходящем следующем шаге показываются раздельно.
+
+**EN:** A large goal is divided into small, finishable milestones linked to real topics, lessons, practice, and checks. Each milestone has a verifiable outcome, and the dashboard explains how completed milestones support the goal. Completion, evidence of understanding, and the system's suggested next action are shown separately.
+
+**RU:** После перерыва ученик получает спокойное восстановление контекста: где остановился, какие этапы уже завершил и какое одно действие разумно сделать сейчас. Перерыв не сбрасывает путь, не создаёт «долг» из пропущенных дней и не сопровождается упрёками, наказаниями или обязательной серией занятий. Напоминания — только по желанию ученика; непрерывность серии не считается результатом обучения.
+
+**EN:** After a break, the learner gets a calm context-restoration cue: where they stopped, which milestones they completed, and one reasonable action to take now. A break does not reset the path, create a backlog of missed days, or trigger guilt, penalties, or a required study streak. Reminders are opt-in; maintaining a streak is not treated as a learning outcome.
+
+**RU:** Персонализация должна постепенно учитывать то, что действительно помогает конкретному ученику: явные предпочтения и результаты разных объяснений, форматов практики и повторений. Система сообщает, на каких наблюдениях основана рекомендация, позволяет изменить предпочтения или отказаться от неё и не выдаёт малое число попыток за надёжный психологический профиль. По умолчанию учебные свидетельства остаются локальными; скрытая телеметрия для этого не нужна.
+
+**EN:** Personalization should gradually account for what actually helps a particular learner: explicit preferences and outcomes across explanation, practice, and review formats. The system explains the observations behind a recommendation, lets the learner change preferences or dismiss it, and does not treat a small number of attempts as a reliable psychological profile. Learning evidence stays local by default; hidden telemetry is not needed.
 
 ## 6. Разные предметы — разные методы / Different subjects need different methods
 
