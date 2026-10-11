@@ -1,5 +1,10 @@
 import Foundation
 
+enum AppLanguage {
+    case ru
+    case en
+}
+
 @main
 enum InteractiveChoiceFeedbackVerification {
     static func main() {
