@@ -108,6 +108,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-answer-choice-order"
           "$RUNNER_TEMP/verify-answer-choice-order"
 
+      - name: Verify interactive answer feedback / Проверка разбора интерактивных ответов
+        run: |
+          swiftc macOS/ColiDev/App/L10n.swift macOS/ColiDev/scripts/verify_interactive_choice_feedback.swift \
+            -o "$RUNNER_TEMP/verify-interactive-choice-feedback"
+          "$RUNNER_TEMP/verify-interactive-choice-feedback"
+
       - name: Verify English tense feedback / Проверка объяснений по английским временам
         run: |
           swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/L10n.swift macOS/ColiDev/scripts/verify_tense_contrast_feedback.swift \

@@ -1386,6 +1386,7 @@ private struct RoutineVocabularyQuestion {
     let promptKey: String
     let optionKeys: [String]
     let answerIndex: Int
+    let explanationKey: String
 }
 
 private struct ReadingStrategyLab: View {
@@ -1521,31 +1522,36 @@ private struct DailyRoutineVocabularyLab: View {
             id: "daily-routines.question-1",
             promptKey: "lab.routinePrompt1",
             optionKeys: ["lab.routineGoToBed", "lab.routineHaveBreakfast", "lab.routineHaveDinner"],
-            answerIndex: 1
+            answerIndex: 1,
+            explanationKey: "lab.routineExplanation1"
         ),
         RoutineVocabularyQuestion(
             id: "daily-routines.question-2",
             promptKey: "lab.routinePrompt2",
             optionKeys: ["lab.routineHaveDinner", "lab.routineWakeUp", "lab.routineGoToBed"],
-            answerIndex: 1
+            answerIndex: 1,
+            explanationKey: "lab.routineExplanation2"
         ),
         RoutineVocabularyQuestion(
             id: "daily-routines.question-3",
             promptKey: "lab.routinePrompt3",
             optionKeys: ["lab.routineHaveLunch", "lab.routineGoToBed", "lab.routineGetDressed"],
-            answerIndex: 2
+            answerIndex: 2,
+            explanationKey: "lab.routineExplanation3"
         ),
         RoutineVocabularyQuestion(
             id: "daily-routines.question-4",
             promptKey: "lab.routinePrompt4",
             optionKeys: ["lab.routineHaveBreakfast", "lab.routineWakeUp", "lab.routineHaveLunch"],
-            answerIndex: 2
+            answerIndex: 2,
+            explanationKey: "lab.routineExplanation4"
         ),
         RoutineVocabularyQuestion(
             id: "daily-routines.question-5",
             promptKey: "lab.routinePrompt5",
             optionKeys: ["lab.routineWakeUp", "lab.routineGoToBed", "lab.routineGetDressed"],
-            answerIndex: 1
+            answerIndex: 1,
+            explanationKey: "lab.routineExplanation5"
         )
     ]
 
@@ -1603,6 +1609,10 @@ private struct DailyRoutineVocabularyLab: View {
                     .font(.callout)
                     .foregroundStyle(lastWasCorrect ? Color.green : Color.orange)
                     .fixedSize(horizontal: false, vertical: true)
+                    Text(L10n.text(currentQuestion.explanationKey, store.language))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Button {
@@ -1670,6 +1680,7 @@ private struct AnimalGroupQuestion {
     let promptKey: String
     let options: [String]
     let answerIndex: Int
+    let explanationKey: String
 }
 
 private struct AnimalGroupLab: View {
@@ -1682,10 +1693,10 @@ private struct AnimalGroupLab: View {
     @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(itemIDs: Self.questionSet.map(\.id))
 
     private static let questionSet = [
-        AnimalGroupQuestion(id: "animals-as-a-group.question-1", promptKey: "lab.animalGroupQ1", options: ["lab.animalGroupQ1A", "lab.animalGroupQ1B", "lab.animalGroupQ1C"], answerIndex: 0),
-        AnimalGroupQuestion(id: "animals-as-a-group.question-2", promptKey: "lab.animalGroupQ2", options: ["lab.animalGroupQ2A", "lab.animalGroupQ2B", "lab.animalGroupQ2C"], answerIndex: 1),
-        AnimalGroupQuestion(id: "animals-as-a-group.question-3", promptKey: "lab.animalGroupQ3", options: ["lab.animalGroupQ3A", "lab.animalGroupQ3B", "lab.animalGroupQ3C"], answerIndex: 2),
-        AnimalGroupQuestion(id: "animals-as-a-group.question-4", promptKey: "lab.animalGroupQ4", options: ["lab.animalGroupQ4A", "lab.animalGroupQ4B", "lab.animalGroupQ4C"], answerIndex: 1)
+        AnimalGroupQuestion(id: "animals-as-a-group.question-1", promptKey: "lab.animalGroupQ1", options: ["lab.animalGroupQ1A", "lab.animalGroupQ1B", "lab.animalGroupQ1C"], answerIndex: 0, explanationKey: "lab.animalGroupExplanation1"),
+        AnimalGroupQuestion(id: "animals-as-a-group.question-2", promptKey: "lab.animalGroupQ2", options: ["lab.animalGroupQ2A", "lab.animalGroupQ2B", "lab.animalGroupQ2C"], answerIndex: 1, explanationKey: "lab.animalGroupExplanation2"),
+        AnimalGroupQuestion(id: "animals-as-a-group.question-3", promptKey: "lab.animalGroupQ3", options: ["lab.animalGroupQ3A", "lab.animalGroupQ3B", "lab.animalGroupQ3C"], answerIndex: 2, explanationKey: "lab.animalGroupExplanation3"),
+        AnimalGroupQuestion(id: "animals-as-a-group.question-4", promptKey: "lab.animalGroupQ4", options: ["lab.animalGroupQ4A", "lab.animalGroupQ4B", "lab.animalGroupQ4C"], answerIndex: 1, explanationKey: "lab.animalGroupExplanation4")
     ]
 
     private var questions: [AnimalGroupQuestion] { Self.questionSet }
@@ -1741,6 +1752,10 @@ private struct AnimalGroupLab: View {
                     )
                     .foregroundStyle(wasCorrect ? Color.green : Color.orange)
                     .fixedSize(horizontal: false, vertical: true)
+                    Text(L10n.text(questions[index].explanationKey, store.language))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Button {
@@ -1791,10 +1806,10 @@ private struct AnimalLineageLab: View {
     @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(itemIDs: Self.questionSet.map(\.id))
 
     private static let questionSet = [
-        AnimalGroupQuestion(id: "major-animal-lineages.question-1", promptKey: "lab.lineageQ1", options: ["lab.lineageQ1A", "lab.lineageQ1B", "lab.lineageQ1C"], answerIndex: 1),
-        AnimalGroupQuestion(id: "major-animal-lineages.question-2", promptKey: "lab.lineageQ2", options: ["lab.lineageQ2A", "lab.lineageQ2B", "lab.lineageQ2C"], answerIndex: 0),
-        AnimalGroupQuestion(id: "major-animal-lineages.question-3", promptKey: "lab.lineageQ3", options: ["lab.lineageQ3A", "lab.lineageQ3B", "lab.lineageQ3C"], answerIndex: 2),
-        AnimalGroupQuestion(id: "major-animal-lineages.question-4", promptKey: "lab.lineageQ4", options: ["lab.lineageQ4A", "lab.lineageQ4B", "lab.lineageQ4C"], answerIndex: 1)
+        AnimalGroupQuestion(id: "major-animal-lineages.question-1", promptKey: "lab.lineageQ1", options: ["lab.lineageQ1A", "lab.lineageQ1B", "lab.lineageQ1C"], answerIndex: 1, explanationKey: "lab.lineageExplanation1"),
+        AnimalGroupQuestion(id: "major-animal-lineages.question-2", promptKey: "lab.lineageQ2", options: ["lab.lineageQ2A", "lab.lineageQ2B", "lab.lineageQ2C"], answerIndex: 0, explanationKey: "lab.lineageExplanation2"),
+        AnimalGroupQuestion(id: "major-animal-lineages.question-3", promptKey: "lab.lineageQ3", options: ["lab.lineageQ3A", "lab.lineageQ3B", "lab.lineageQ3C"], answerIndex: 2, explanationKey: "lab.lineageExplanation3"),
+        AnimalGroupQuestion(id: "major-animal-lineages.question-4", promptKey: "lab.lineageQ4", options: ["lab.lineageQ4A", "lab.lineageQ4B", "lab.lineageQ4C"], answerIndex: 1, explanationKey: "lab.lineageExplanation4")
     ]
 
     private var questions: [AnimalGroupQuestion] { Self.questionSet }
@@ -1867,6 +1882,10 @@ private struct AnimalLineageLab: View {
                     )
                     .foregroundStyle(wasCorrect ? Color.green : Color.orange)
                     .fixedSize(horizontal: false, vertical: true)
+                    Text(L10n.text(questions[index].explanationKey, store.language))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Button {
