@@ -19,6 +19,86 @@ struct SeededGenerator: RandomNumberGenerator {
 @main
 enum AnswerChoiceOrderVerification {
     static func main() {
+        var choiceAssessment = InteractiveChoiceAssessmentTracker(
+            itemIDs: ["routine-1", "animal-group-1", "lineage-1"]
+        )
+        let firstChoice = choiceAssessment.recordSubmission(
+            selectedAnswerIndex: 0,
+            correctAnswerIndex: 1,
+            optionCount: 3,
+            itemID: "routine-1"
+        )
+        precondition(
+            firstChoice == StudyAssessmentEvidence(
+                taskType: "interactive_practice",
+                attempts: 1,
+                firstTryCorrect: false,
+                hintsUsed: 0,
+                itemID: "routine-1"
+            ),
+            "Record a wrong first choice with stable item identity. / Записывай неверный первый ответ со стабильным ID вопроса."
+        )
+        precondition(
+            choiceAssessment.recordSubmission(
+                selectedAnswerIndex: 0,
+                correctAnswerIndex: 1,
+                optionCount: 3,
+                itemID: "routine-1"
+            ) == nil,
+            "Do not inflate attempts when the same answer is submitted twice. / Не накручивай попытки повторной отправкой того же ответа."
+        )
+        let choiceRetry = choiceAssessment.recordSubmission(
+            selectedAnswerIndex: 1,
+            correctAnswerIndex: 1,
+            optionCount: 3,
+            itemID: "routine-1"
+        )
+        precondition(
+            choiceRetry?.attempts == 2
+                && choiceRetry?.firstTryCorrect == false
+                && choiceRetry?.itemID == "routine-1",
+            "Keep the first result after a correct retry. / Сохраняй результат первой попытки после верного повтора."
+        )
+        precondition(
+            choiceAssessment.recordSubmission(
+                selectedAnswerIndex: 1,
+                correctAnswerIndex: 1,
+                optionCount: 3,
+                itemID: "missing-item"
+            ) == nil,
+            "Reject unregistered item identities. / Отклоняй незарегистрированные ID вопросов."
+        )
+        precondition(
+            choiceAssessment.recordSubmission(
+                selectedAnswerIndex: 3,
+                correctAnswerIndex: 1,
+                optionCount: 3,
+                itemID: "animal-group-1"
+            ) == nil,
+            "Reject answer indices outside the option range. / Отклоняй номер ответа вне диапазона вариантов."
+        )
+        let independentChoice = choiceAssessment.recordSubmission(
+            selectedAnswerIndex: 2,
+            correctAnswerIndex: 2,
+            optionCount: 3,
+            itemID: "animal-group-1"
+        )
+        precondition(
+            independentChoice?.attempts == 1 && independentChoice?.firstTryCorrect == true,
+            "Track independent questions separately. / Веди независимый учёт для разных вопросов."
+        )
+        choiceAssessment.reset()
+        let resetChoice = choiceAssessment.recordSubmission(
+            selectedAnswerIndex: 2,
+            correctAnswerIndex: 2,
+            optionCount: 3,
+            itemID: "routine-1"
+        )
+        precondition(
+            resetChoice?.attempts == 1 && resetChoice?.firstTryCorrect == true,
+            "A restarted activity begins a fresh in-memory attempt. / После перезапуска тренажёра начинается новая серия попыток."
+        )
+
         let osmosisScenarios: [(inside: Int, outside: Int, expected: OsmosisWaterFlow, optionIndex: Int)] = [
             (inside: 4, outside: 6, expected: .waterEntersCell, optionIndex: 0),
             (inside: 6, outside: 4, expected: .waterLeavesCell, optionIndex: 1),
