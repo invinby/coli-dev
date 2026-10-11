@@ -411,6 +411,7 @@ struct StudyAssessmentEvent: Codable, Identifiable {
 
         let assessmentContainer = try container.nestedContainer(keyedBy: AssessmentCodingKeys.self, forKey: .assessment)
         let taskType = try assessmentContainer.decode(String.self, forKey: .taskType)
+        let itemID = try assessmentContainer.decodeIfPresent(String.self, forKey: .itemID)
         if assessmentContainer.contains(.attempts) {
             assessment = StudyAssessmentEvidence(
                 taskType: taskType,
@@ -418,7 +419,8 @@ struct StudyAssessmentEvent: Codable, Identifiable {
                 firstTryCorrect: try assessmentContainer.decode(Bool.self, forKey: .firstTryCorrect),
                 hintsUsed: try assessmentContainer.decode(Int.self, forKey: .hintsUsed),
                 errorCategories: try assessmentContainer.decodeIfPresent([StudyErrorCategory].self, forKey: .errorCategories),
-                passed: try assessmentContainer.decodeIfPresent(Bool.self, forKey: .passed)
+                passed: try assessmentContainer.decodeIfPresent(Bool.self, forKey: .passed),
+                itemID: itemID
             )
         } else if taskType == "knowledge_check" {
             let passed = try assessmentContainer.decode(Bool.self, forKey: .passed)
@@ -454,10 +456,11 @@ struct StudyAssessmentEvent: Codable, Identifiable {
             }
             try assessmentContainer.encode(passed, forKey: .passed)
             try assessmentContainer.encodeIfPresent(assessment.errorCategories, forKey: .errorCategories)
-        } else if assessment.taskType == "interactive_prediction" {
+        } else if assessment.taskType == "interactive_prediction" || assessment.taskType == "interactive_practice" {
             try assessmentContainer.encode(assessment.attempts, forKey: .attempts)
             try assessmentContainer.encode(assessment.firstTryCorrect, forKey: .firstTryCorrect)
             try assessmentContainer.encode(assessment.hintsUsed, forKey: .hintsUsed)
+            try assessmentContainer.encodeIfPresent(assessment.itemID, forKey: .itemID)
             try assessmentContainer.encodeIfPresent(assessment.errorCategories, forKey: .errorCategories)
         } else {
             throw EncodingError.invalidValue(
@@ -469,6 +472,7 @@ struct StudyAssessmentEvent: Codable, Identifiable {
 
     private enum AssessmentCodingKeys: String, CodingKey {
         case taskType = "task_type"
+        case itemID = "item_id"
         case attempts
         case firstTryCorrect = "first_try_correct"
         case hintsUsed = "hints_used"

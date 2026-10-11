@@ -82,13 +82,19 @@ enum EnglishLearningModelsVerification {
             lessonID: "english.reading_for_gist_and_detail",
             assessment: readingRetry
         )
-        let readingEventObject = try JSONSerialization.jsonObject(with: encoder.encode(readingPracticeEvent)) as! [String: Any]
+        let readingPracticeEventData = try encoder.encode(readingPracticeEvent)
+        let readingEventObject = try JSONSerialization.jsonObject(with: readingPracticeEventData) as! [String: Any]
         let readingEventAssessment = readingEventObject["assessment"] as! [String: Any]
         precondition(
             readingEventAssessment["task_type"] as? String == "interactive_practice"
                 && readingEventAssessment["item_id"] as? String == "first-pass-purpose"
                 && Set(readingEventAssessment.keys) == Set(["task_type", "item_id", "attempts", "first_try_correct", "hints_used"]),
             "reading-practice evidence should serialize in the supported backend format"
+        )
+        let restoredReadingPracticeEvent = try JSONDecoder().decode(StudyAssessmentEvent.self, from: readingPracticeEventData)
+        precondition(
+            restoredReadingPracticeEvent.assessment.itemID == "first-pass-purpose",
+            "offline reading-practice evidence should preserve its question identity"
         )
 
         let knowledgeCheckEvent = StudyAssessmentEvent(
