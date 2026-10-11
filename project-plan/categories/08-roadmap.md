@@ -6,6 +6,23 @@
 
 **RU:** Соблюдать порядок замечаний команды от 8 октября: сначала провести аудит и устранить P0-сбои готовности тьютора/модели и навигации/загрузки уроков; затем проверить перемешивание ответов, объяснения и достоверность источников; после этого развивать адаптивные планы и предметную визуализацию; расширять покрытие курсов и распространение после исправления основных путей. Не тратить первую итерацию на косметику с низким влиянием.
 
+## Аудит по мастер-промпту — 12.10.2026 / Master-prompt audit — 2026-10-12
+
+**RU:** В репозитории уже есть нативное macOS-приложение SwiftUI, встроенный Python/FastAPI backend, шесть предметных направлений, 53 двуязычных маршрута уроков, локальный прогресс и повторение, 11 предметных интерактивных практик, маршрутизация AI и ограниченный мониторинг официальных источников. Монитор проверяет только разрешённый список адресов; он не обновляет текст уроков автоматически и не подтверждает научную точность их утверждений. Эти элементы — прототип, а не доказательство полного курса или освоения предметов. Ещё не завершена единая модель знаний, которая сопоставляет результаты разных заданий, повторяющиеся ошибки, перенос навыков и устойчивость памяти; не проверена полная работа приложения, реального провайдера и навигации на Mac.
+
+**EN:** The repository already contains a native SwiftUI macOS app, a bundled Python/FastAPI backend, six subject areas, 53 bilingual lesson routes, local progress and review, 11 subject-specific interactive activities, AI routing, and a bounded monitor for official sources. The monitor checks only an approved list of URLs; it does not automatically update lesson text or verify the scientific accuracy of lesson claims. These are prototype capabilities, not proof of a complete course or subject mastery. A unified knowledge model that combines different assessment types, recurring errors, transfer, and retention is not complete; the full app, live provider, and navigation have not been accepted hands-on on a Mac.
+
+**RU:** Первый узкий участок P1 завершён в коммите `fcc772d`: статистический тренажёр объясняет правильный ответ и позволяет запросить разбор после ошибки. Swift verifier, полный backend suite и сборки macOS 15 ARM, macOS 26 ARM и macOS 26 Intel прошли в [GitHub Actions 38169754953](https://github.com/invinby/coli-dev/actions/runs/38169754953). Это подтверждает компиляцию и автоматические сценарии, но не ручную проверку UI или живого AI на Mac.
+
+**EN:** The first narrow P1 slice is complete in commit `fcc772d`: the statistics lab explains correct answers and lets learners request an explanation after an incorrect answer. The Swift verifier, full backend suite, and macOS 15 ARM, macOS 26 ARM, and macOS 26 Intel builds passed in [GitHub Actions 38169754953](https://github.com/invinby/coli-dev/actions/runs/38169754953). This confirms compilation and automated paths, not hands-on UI or live AI acceptance on a Mac.
+
+**Ближайшие приоритеты:**
+
+1. **P0 — RU:** На реальном Mac вручную пройти запуск, навигацию по предметам и урокам, локальный ответ модели, разрешённый облачный маршрут, полезные ошибки при недоступности и сохранение прогресса после перезапуска. **EN:** On a real Mac, manually verify launch, subject and lesson navigation, a local-model reply, an allowed cloud route, useful unavailable-route errors, and progress persistence after relaunch.
+2. **P1 — RU:** Завершить учебный цикл по типам упражнений: проверять оценку, адресный разбор верного и неверного ответа, сохранение свидетельств и точность привязанных источников. **EN:** Complete the learning loop by activity type: verify scoring, targeted feedback for correct and incorrect answers, evidence persistence, and accuracy of linked sources.
+3. **P2 — RU:** Объединить результаты проверок, тренажёров и повторений в объяснимые рекомендации; не показывать общий процент мастерства без достаточных данных. **EN:** Combine checks, practice, and review results into explainable recommendations; do not show an overall mastery percentage without sufficient evidence.
+4. **P3 — RU:** Углублять проверенные траектории и предметные визуализации после устойчивой работы основных сценариев; добавлять темы только с подходящими объяснениями, практикой и источниками. **EN:** Deepen reviewed pathways and subject-specific visual learning after core journeys are stable; add topics only with suitable explanations, practice, and sources.
+
 Подробные критерии приёмки и ограничения указаны в [категории 11](11-feedback-and-acceptance.md).
 
 ## Этап 0 — зафиксировать продукт

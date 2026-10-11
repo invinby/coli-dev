@@ -58,6 +58,10 @@ flowchart TD
 
 Обновлять нужную категорию после обсуждений. Отмечать каждый пункт как **подтверждённое требование**, **факт из текущего кода**, **предложение**, **не проверено** или **открытый вопрос**. Архитектурные решения фиксировать после согласования; не выдавать планы за реализованные функции.
 
+Структура уже покрывает документы непрерывности из мастер-промпта; отдельные дубли не создавать: [профиль продукта](PRODUCT_PROFILE_RU_EN.md) хранит видение, категории [02](categories/02-current-state.md), [08](categories/08-roadmap.md), [09](categories/09-decisions.md) и [10](categories/10-session-notes.md) — текущее состояние, дорожную карту, решения и журнал изменений соответственно, а [11](categories/11-feedback-and-acceptance.md) — задачи и критерии завершения.
+
+**EN:** The existing structure already covers the continuity documents requested by the master prompt; do not create duplicate files. The [product profile](PRODUCT_PROFILE_RU_EN.md) records the vision; categories [02](categories/02-current-state.md), [08](categories/08-roadmap.md), [09](categories/09-decisions.md), and [10](categories/10-session-notes.md) record current status, roadmap, decisions, and change history; [11](categories/11-feedback-and-acceptance.md) records tasks and completion criteria.
+
 Новый авторский текст на английском в README, профилях, плане, журнале и описаниях продукта сразу сопровождать полным переводом на русский. В учебных материалах для английского языка сами примеры оставлять на английском, но рядом давать полный перевод или пояснение по-русски. Названия API, моделей, файлов, команд и кода сохранять в исходном виде; переводить их механически нельзя.
 
 
