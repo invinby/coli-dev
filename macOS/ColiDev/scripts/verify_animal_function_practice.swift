@@ -15,6 +15,25 @@ enum AnimalFunctionPracticeVerification {
         precondition(!AnimalFunctionPractice.isCorrectComparisonAnswer(0))
         precondition(AnimalFunctionPractice.isCorrectComparisonAnswer(1))
         precondition(!AnimalFunctionPractice.isCorrectComparisonAnswer(2))
+
+        var prediction = AnimalFunctionPractice.makeComparisonAttempt()
+        precondition(prediction.currentAnswerEventEvidence() == nil)
+        let wrongDisplayIndex = prediction.choiceOrder.displayedOriginalIndices.firstIndex(of: 0)!
+        prediction.select(displayedIndex: wrongDisplayIndex)
+        let failedEvidence = prediction.currentAnswerEventEvidence()
+        precondition(failedEvidence?.taskType == "interactive_prediction")
+        precondition(failedEvidence?.attempts == 1)
+        precondition(failedEvidence?.firstTryCorrect == false)
+        precondition(prediction.canRetry)
+
+        prediction.retry()
+        let correctDisplayIndex = prediction.choiceOrder.displayedOriginalIndices.firstIndex(of: 1)!
+        prediction.select(displayedIndex: correctDisplayIndex)
+        let recoveredEvidence = prediction.currentAnswerEventEvidence()
+        precondition(recoveredEvidence?.attempts == 2)
+        precondition(recoveredEvidence?.firstTryCorrect == false)
+        precondition(!prediction.canRetry)
+
         print("Animal function practice checks passed.")
     }
 }

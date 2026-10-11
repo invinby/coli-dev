@@ -5434,10 +5434,7 @@ private struct AnimalFunctionLab: View {
     @State private var selectedFunction: AnimalFunction = .feeding
     @State private var selectedAnswer = -1
     @State private var didCheckAnswer = false
-    @State private var optionOrder = QuizAnswerOrder(
-        optionCount: 3,
-        answerOriginalIndex: AnimalFunctionPractice.correctComparisonAnswer
-    )
+    @State private var prediction = AnimalFunctionPractice.makeComparisonAttempt()
 
     private let answerOptionKeys = [
         "lab.zoology.optionA",
@@ -5458,14 +5455,7 @@ private struct AnimalFunctionLab: View {
                 }
             }
             .pickerStyle(.menu)
-            .onChange(of: selectedFunction) { _ in
-                selectedAnswer = -1
-                didCheckAnswer = false
-                optionOrder = QuizAnswerOrder(
-                    optionCount: 3,
-                    answerOriginalIndex: AnimalFunctionPractice.correctComparisonAnswer
-                )
-            }
+            .onChange(of: selectedFunction) { _ in resetPrediction() }
 
             VStack(alignment: .leading, spacing: 8) {
                 Label(L10n.text(selectedFunction.titleKey, store.language), systemImage: systemSymbol)
@@ -5488,28 +5478,39 @@ private struct AnimalFunctionLab: View {
             Text(L10n.text("lab.zoology.quiz", store.language))
                 .font(.callout.weight(.medium))
             Picker(L10n.text("lab.zoology.quiz", store.language), selection: $selectedAnswer) {
-                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                ForEach(Array(prediction.choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Text(L10n.text(answerOptionKeys[originalIndex], store.language)).tag(displayIndex)
                 }
             }
             .pickerStyle(.radioGroup)
+            .disabled(prediction.hasAnswered)
             .onChange(of: selectedAnswer) { _ in didCheckAnswer = false }
 
             Button(L10n.text("lab.zoology.check", store.language)) {
+                prediction.select(displayedIndex: selectedAnswer)
+                guard let evidence = prediction.currentAnswerEventEvidence() else { return }
+                store.recordStudyAssessment(
+                    lessonID: "zoology.animal_function_and_environment",
+                    evidence: evidence
+                )
                 didCheckAnswer = true
             }
             .buttonStyle(.borderedProminent)
-            .disabled(selectedAnswer < 0)
+            .disabled(selectedAnswer < 0 || prediction.hasAnswered)
 
             if didCheckAnswer {
-                let correct = optionOrder.isCorrect(displayedIndex: selectedAnswer)
                 Label(
-                    L10n.text(correct ? "lab.zoology.correct" : "lab.zoology.review", store.language),
-                    systemImage: correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
+                    L10n.text(prediction.isCorrect ? "lab.zoology.correct" : "lab.zoology.review", store.language),
+                    systemImage: prediction.isCorrect ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
                 )
                 .font(.callout.weight(.medium))
-                .foregroundStyle(correct ? .green : .orange)
+                .foregroundStyle(prediction.isCorrect ? .green : .orange)
                 .fixedSize(horizontal: false, vertical: true)
+
+                if prediction.canRetry {
+                    Button(L10n.text("lab.zoology.retry", store.language), action: retryPrediction)
+                        .buttonStyle(.link)
+                }
             }
 
             Text(L10n.text("lab.zoology.limit", store.language))
@@ -5526,6 +5527,18 @@ private struct AnimalFunctionLab: View {
         case .movement: return "figure.walk"
         case .reproduction: return "leaf"
         }
+    }
+
+    private func retryPrediction() {
+        prediction.retry()
+        selectedAnswer = -1
+        didCheckAnswer = false
+    }
+
+    private func resetPrediction() {
+        prediction = AnimalFunctionPractice.makeComparisonAttempt()
+        selectedAnswer = -1
+        didCheckAnswer = false
     }
 }
 

@@ -616,6 +616,7 @@ enum L10n {
         "lab.zoology.optionB": ("Связать строение с задачей и средой, учитывая границы примера", "Relate structure to task and environment, then check the example's limits"),
         "lab.zoology.optionC": ("Считать, что отдельное животное намеренно меняет наследуемое строение", "Assume an individual deliberately changes its inherited structure"),
         "lab.zoology.check": ("Проверить ответ", "Check answer"),
+        "lab.zoology.retry": ("Попробовать ещё раз", "Try again"),
         "lab.zoology.correct": ("Верно: сравнивай функцию и строение в контексте среды и вида.", "Correct: compare function and structure in the context of an environment and species."),
         "lab.zoology.review": ("Проверь пример: он показывает связь функции и строения, но не универсальный закон.", "Review the example: it shows a structure-function link, not a universal law."),
         "lab.zoology.limit": ("Примеры выборочные: внутри одной группы животных есть исключения и разные стратегии.", "Examples are selective: groups contain exceptions and different strategies."),

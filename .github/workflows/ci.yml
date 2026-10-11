@@ -188,7 +188,7 @@ jobs:
 
       - name: Verify animal function practice model
         run: |
-          swiftc macOS/ColiDev/App/AnimalFunctionPractice.swift macOS/ColiDev/scripts/verify_animal_function_practice.swift \
+          swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/AnimalFunctionPractice.swift macOS/ColiDev/scripts/verify_animal_function_practice.swift \
             -o "$RUNNER_TEMP/verify-animal-function-practice"
           "$RUNNER_TEMP/verify-animal-function-practice"
 
