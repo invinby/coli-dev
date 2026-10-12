@@ -69,25 +69,31 @@ enum StudyRecommendationVerification {
                 && lessonWithoutPassedCheck?.milestones.first?.isVerified == false,
             "A completed lesson without a passed knowledge check must not count as a verified goal milestone. / Завершённый урок без успешно пройденной самопроверки не считается подтверждённым этапом цели."
         )
-        let goalRecommendation = StudyGoalPlanner.recommendation(
-            for: goal,
-            in: [goalRoadmap],
-            completedLessonIDs: ["mathematics.fractions", "mathematics.geometry"],
-            resume: goal.target,
-            recallEvidence: [:],
-            assessmentEvidence: [:]
-        )
-        precondition(
-            goalRecommendation?.route.lessonID == "mathematics.geometry"
-                && goalRecommendation?.reason == .prerequisiteCheck,
-            "The goal route must ask for the missing prerequisite check before opening its target. / Маршрут цели должен запросить недостающую проверку предпосылки до открытия целевой темы."
-        )
         let earlyCheck = StudyAssessmentEvidence(
             taskType: "knowledge_check",
             attempts: 1,
             firstTryCorrect: true,
             hintsUsed: 0,
             passed: true
+        )
+        let goalRecommendation = StudyGoalPlanner.recommendation(
+            for: goal,
+            in: [goalRoadmap],
+            completedLessonIDs: ["mathematics.fractions", "mathematics.geometry"],
+            resume: goal.target,
+            recallEvidence: [
+                "mathematics.fractions": StudyRecallEvidence(
+                    quality: 4,
+                    reviewedAt: "2026-10-12T00:00:00Z",
+                    assessment: earlyCheck
+                ),
+            ],
+            assessmentEvidence: [:]
+        )
+        precondition(
+            goalRecommendation?.route.lessonID == "mathematics.geometry"
+                && goalRecommendation?.reason == .prerequisiteCheck,
+            "The goal route must ask for the missing prerequisite check before opening its target. / Маршрут цели должен запросить недостающую проверку предпосылки до открытия целевой темы."
         )
         let skippedStepRecommendation = StudyGoalPlanner.recommendation(
             for: StudyGoal(target: StudyLessonRoute(subjectID: "mathematics", resource: "linear")),
