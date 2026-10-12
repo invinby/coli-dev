@@ -6433,17 +6433,17 @@ private struct NaturalSelectionLab: View {
                 "lab.naturalSelection.environment",
                 value: $environmentOptimum,
                 range: 0...100,
-                onChange: startNewPrediction
+                onChange: { startNewPrediction() }
             )
             parameterSlider(
                 "lab.naturalSelection.strength",
                 value: $selectionStrength,
-                onChange: startNewPrediction
+                onChange: { startNewPrediction() }
             )
             parameterSlider(
                 "lab.naturalSelection.heritable",
                 value: $heritability,
-                onChange: startNewPrediction
+                onChange: { startNewPrediction() }
             )
         }
     }
