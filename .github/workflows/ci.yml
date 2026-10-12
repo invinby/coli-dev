@@ -201,6 +201,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-animal-function-practice"
           "$RUNNER_TEMP/verify-animal-function-practice"
 
+      - name: Verify natural-selection practice model
+        run: |
+          swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/NaturalSelectionPractice.swift macOS/ColiDev/scripts/verify_natural_selection_practice.swift \
+            -o "$RUNNER_TEMP/verify-natural-selection-practice"
+          "$RUNNER_TEMP/verify-natural-selection-practice"
+
       - name: Verify zoology thermoregulation evidence model / Проверить модель данных терморегуляции
         run: |
           swiftc macOS/ColiDev/App/ThermoregulationPractice.swift macOS/ColiDev/scripts/verify_thermoregulation_practice.swift \
