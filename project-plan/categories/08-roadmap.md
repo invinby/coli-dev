@@ -6,6 +6,12 @@
 
 **RU:** Сохранять порядок замечаний команды от 8 октября и текущие этапы проверки: сначала завершить P0-сквозной тест готовности тьютора/модели и навигации/загрузки материалов на реальном Mac; затем закрыть P1-проверки обратной связи, порядка вариантов ответа и точности источников. Только после этого расширять адаптивную поддержку обучения и предметную визуализацию; покрытие курсов и распространение расширять после стабилизации основных сценариев. Не тратить первую итерацию на косметику с низким влиянием.
 
+## P1 source audit: projectile motion — 2026-10-12 / P1-аудит источников: движение тела, брошенного под углом — 2026-10-12
+
+**RU:** Формулы компонент, ограничения равной высоты, свойства дополнительных углов, NIST-значение `g` и расчёты примера сверены с OpenStax *College Physics 2e* §3.4 и NIST. Формулы и ключ верны. В RU/EN текст добавлено явное указание, что начало координат выбрано в точке запуска (`x₀ = y₀ = 0`). Подробный разбор: `project-plan/research/projectile-motion-source-audit.md`. Это аудит одного урока, а не всего курса или ручная приёмка приложения; P0-тест UI/live AI на Mac остаётся открытым.
+
+**EN:** Component equations, equal-height limits, complementary-angle behavior, the NIST value for `g`, and the worked calculations were checked against OpenStax *College Physics 2e* §3.4 and NIST. Equations and answer key are correct. The RU/EN lesson now explicitly sets the coordinate origin at the launch point (`x₀ = y₀ = 0`). Full findings: `project-plan/research/projectile-motion-source-audit.md`. This covers one lesson, not the entire course or hands-on app acceptance; the P0 UI/live-AI check on a Mac remains open.
+
 ## P1 source check: trigonometry answer key — 2026-10-12 / P1-проверка источника: ключ тригонометрии — 2026-10-12
 
 **RU:** Сверены RU/EN утверждения и пример `5π/6` с OpenStax §§5.2 и 6.1. Исправлен неверный английский ключ `2` → `3`; регрессионный тест связывает номер ответа с текстом выбранного варианта. GitHub Actions [38197592930](https://github.com/invinby/coli-dev/actions/runs/38197592930) прошёл 515 backend-тестов, все Swift-verifier’ы, сборки и упаковку для macOS 15 ARM, macOS 26 ARM и macOS 26 Intel, smoke-check backend и проверку 53 маршрутов. Неподписанные архивы доступны на странице Actions до 26 октября 2026 года. Это один проверенный урок, а не завершение проверки всей учебной базы и не автоматическое обновление текстов через RAG. Дальше продолжаются P1-аудиты уроков и P0-проверка приложения на реальном Mac.

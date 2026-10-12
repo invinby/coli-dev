@@ -3,7 +3,7 @@ subject: physics
 lesson_id: physics.projectile_motion
 level: intermediate
 languages: ru, en
-source_checked: 2026-10-06
+source_checked: 2026-10-12
 source_review_interval_days: 365
 ---
 
@@ -17,7 +17,7 @@ source_review_interval_days: 365
 
 ### Идея и механизм
 
-Выбираем оси: x — горизонтально, y — вверх. Если сопротивлением воздуха можно пренебречь, ускорение по горизонтали равно нулю, а вертикальное ускорение равно `−g`. Начальную скорость `v₀` раскладываем на компоненты: `vₓ = v₀ cos θ` и `vᵧ = v₀ sin θ`. Поэтому горизонтальная координата меняется равномерно, а вертикальная — как при постоянном ускорении:
+Выбираем начало координат в точке запуска: x — горизонтально, y — вверх. Поэтому в формулах ниже `x₀ = y₀ = 0`; для другой начальной точки к соответствующим координатам нужно добавить их начальные значения. Если сопротивлением воздуха можно пренебречь, ускорение по горизонтали равно нулю, а вертикальное ускорение равно `−g`. Начальную скорость `v₀` раскладываем на компоненты: `vₓ = v₀ cos θ` и `vᵧ = v₀ sin θ`. Поэтому горизонтальная координата меняется равномерно, а вертикальная — как при постоянном ускорении:
 
 `x(t) = v₀ cos θ · t`
 
@@ -65,7 +65,7 @@ Separate horizontal and vertical motion, then predict flight time, range, and ma
 
 ### Idea and mechanism
 
-Choose axes with x horizontal and y upward. When air resistance is negligible, horizontal acceleration is zero and vertical acceleration is `−g`. Resolve the launch velocity `v₀` into `vₓ = v₀ cos θ` and `vᵧ = v₀ sin θ`. Horizontal position changes uniformly, while vertical position follows constant-acceleration motion:
+Choose the launch point as the coordinate origin, with x horizontal and y upward. Thus `x₀ = y₀ = 0` in the equations below; for another starting point, add its initial coordinates. When air resistance is negligible, horizontal acceleration is zero and vertical acceleration is `−g`. Resolve the launch velocity `v₀` into `vₓ = v₀ cos θ` and `vᵧ = v₀ sin θ`. Horizontal position changes uniformly, while vertical position follows constant-acceleration motion:
 
 `x(t) = v₀ cos θ · t`
 
