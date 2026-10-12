@@ -24,7 +24,8 @@ enum CellCyclePractice {
     static func makeKnowledgeCheckAttempt() -> InteractivePredictionAttempt {
         guard let attempt = InteractivePredictionAttempt(
             optionCount: 3,
-            answerOriginalIndex: knowledgeCheckAnswerOriginalIndex
+            answerOriginalIndex: knowledgeCheckAnswerOriginalIndex,
+            itemID: "biology.cell_cycle.dna_replication_stage"
         ) else {
             preconditionFailure(
                 "The cell-cycle knowledge check must have a valid answer. / Проверочная попытка по клеточному циклу должна иметь допустимый ответ."
