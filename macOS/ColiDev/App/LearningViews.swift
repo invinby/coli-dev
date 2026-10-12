@@ -4337,6 +4337,11 @@ private struct FrictionLab: View {
                     .fixedSize(horizontal: false, vertical: true)
                 }
 
+                let buttonTitleKey = predictionPractice.feedback == .correct
+                    ? (question.id == FrictionPredictionPracticeSession.questions.last?.id
+                        ? "lab.frictionPredictionFinish"
+                        : "lab.frictionPredictionNext")
+                    : "lab.frictionPredictionCheck"
                 Button {
                     if predictionPractice.feedback == .correct {
                         predictionPractice.advance()
@@ -4347,15 +4352,7 @@ private struct FrictionLab: View {
                         )
                     }
                 } label: {
-                    let titleKey: String
-                    if predictionPractice.feedback == .correct {
-                        titleKey = question.id == FrictionPredictionPracticeSession.questions.last?.id
-                            ? "lab.frictionPredictionFinish"
-                            : "lab.frictionPredictionNext"
-                    } else {
-                        titleKey = "lab.frictionPredictionCheck"
-                    }
-                    Text(L10n.text(titleKey, store.language))
+                    Text(L10n.text(buttonTitleKey, store.language))
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(predictionPractice.selectedDisplayedIndex == nil && predictionPractice.feedback != .correct)
