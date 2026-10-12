@@ -358,9 +358,11 @@ def test_failed_knowledge_check_event_is_persisted_but_not_counted_as_passed(tmp
             "task_type": "knowledge_check",
             "passed": False,
             "error_categories": ["foundation"],
+            "item_id": "reported-speech.question-1",
         },
     )
     assert failed["assessment"]["passed"] is False
+    assert failed["assessment"]["item_id"] == "reported-speech.question-1"
     assert store.get_progress()["records"] == []
     assert store.get_progress()["assessment_evidence"] == [{
         "lesson_id": lesson_id,
@@ -372,6 +374,7 @@ def test_failed_knowledge_check_event_is_persisted_but_not_counted_as_passed(tmp
             "task_type": "knowledge_check",
             "passed": False,
             "error_categories": ["foundation"],
+            "item_id": "reported-speech.question-1",
         },
         "latest_at": failed["created_at"],
     }]
@@ -387,10 +390,30 @@ def test_failed_knowledge_check_event_is_persisted_but_not_counted_as_passed(tmp
     assert summary["error_category_counts"] == {"foundation": 1}
     assert summary["latest_assessment"] == passed["assessment"]
 
+    backup = store.export_backup()
+    assert any(
+        event["event_id"] == failed["event_id"]
+        and event["assessment"].get("item_id") == "reported-speech.question-1"
+        for event in backup["assessment_events"]
+    )
+
     restored = StudyProgressStore(tmp_path / "restored-assessments.sqlite3")
     restored.initialize()
-    restored.restore_backup(store.export_backup())
+    restored.restore_backup(backup)
     assert restored.get_progress()["assessment_evidence"] == store.get_progress()["assessment_evidence"]
+
+
+@pytest.mark.parametrize("item_id", ["", "reported speech", "x" * 121])
+def test_knowledge_check_event_rejects_invalid_item_id(tmp_path: Path, item_id: str) -> None:
+    store = StudyProgressStore(tmp_path / "progress.sqlite3")
+    store.initialize()
+
+    with pytest.raises(ValueError, match="assessment item_id must be a safe non-empty identifier"):
+        store.record_assessment_event(
+            "f47ac10b-58cc-4372-a567-0e02b2c3d504",
+            "english.reported_speech_questions_and_backshift",
+            {"task_type": "knowledge_check", "passed": False, "item_id": item_id},
+        )
 
 
 def test_learning_backup_round_trips_interactive_assessment_events(tmp_path: Path) -> None:

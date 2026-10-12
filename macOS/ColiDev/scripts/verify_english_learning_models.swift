@@ -134,15 +134,24 @@ enum EnglishLearningModelsVerification {
                 firstTryCorrect: false,
                 hintsUsed: 0,
                 errorCategories: [.understanding],
-                passed: false
+                passed: false,
+                itemID: "reported-speech.question-1"
             )
         )
         let eventObject = try JSONSerialization.jsonObject(with: encoder.encode(knowledgeCheckEvent)) as! [String: Any]
         let assessment = eventObject["assessment"] as! [String: Any]
-        precondition(Set(assessment.keys) == Set(["task_type", "passed", "error_categories"]), "knowledge-check events must match the backend event schema / событие проверки должно соответствовать схеме backend")
+        precondition(
+            Set(assessment.keys) == Set(["task_type", "passed", "error_categories", "item_id"])
+                && assessment["item_id"] as? String == "reported-speech.question-1",
+            "knowledge-check events must preserve the individual question ID / события проверки должны сохранять ID отдельного вопроса"
+        )
         let restoredEvent = try JSONDecoder().decode(StudyAssessmentEvent.self, from: encoder.encode(knowledgeCheckEvent))
         precondition(restoredEvent.assessment.taskType == "knowledge_check", "offline queued checks should restore after app restart / ожидающая офлайн-запись должна восстановиться после перезапуска")
         precondition(restoredEvent.assessment.passed == false, "restored offline checks should preserve their result / восстановленная запись должна сохранять результат проверки")
+        precondition(restoredEvent.assessment.itemID == "reported-speech.question-1", "offline queued checks should preserve the individual question ID / офлайн-событие должно сохранять ID отдельного вопроса")
+        let legacyKnowledgeCheck = Data(#"{"event_id":"00000000-0000-0000-0000-000000000002","lesson_id":"english.reported_speech_questions_and_backshift","assessment":{"task_type":"knowledge_check","passed":false}}"#.utf8)
+        let restoredLegacyCheck = try JSONDecoder().decode(StudyAssessmentEvent.self, from: legacyKnowledgeCheck)
+        precondition(restoredLegacyCheck.assessment.itemID == nil, "older knowledge-check events without an item ID must remain readable / старые события без ID вопроса должны читаться")
 
         print("English conditionals, reading, reported speech, and assessment event checks passed. / Проверки условных конструкций, чтения, косвенной речи и событий результатов пройдены.")
     }
