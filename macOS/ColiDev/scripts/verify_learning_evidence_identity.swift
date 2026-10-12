@@ -72,7 +72,7 @@ enum LearningEvidenceIdentityVerification {
         require(checkAttempt, "itemID: itemID", "curriculum check answer evidence wiring", into: &missingRequirements)
         require(
             learningViews,
-            "itemID: \\(lessonID).knowledge_check",
+            "itemID: \"\\(lessonID).knowledge_check\"",
             "Markdown lesson check ID wiring",
             into: &missingRequirements
         )
