@@ -4205,6 +4205,7 @@ private struct FrictionLab: View {
     @State private var staticCoefficient = 0.4
     @State private var kineticCoefficient = 0.3
     @State private var time = 2.0
+    @State private var predictionPractice = FrictionPredictionPracticeSession()
 
     private var motion: FrictionMotion {
         FrictionMotion(
@@ -4280,6 +4281,7 @@ private struct FrictionLab: View {
 
             Text(L10n.text("lab.frictionPrediction", store.language))
                 .font(.callout)
+            predictionPracticeView
             Text(L10n.text("lab.frictionLimits", store.language))
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -4287,6 +4289,87 @@ private struct FrictionLab: View {
         .onChange(of: staticCoefficient) { newValue in
             kineticCoefficient = min(kineticCoefficient, newValue)
         }
+    }
+
+    private var predictionPracticeView: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Divider()
+            if let question = predictionPractice.currentQuestion {
+                Text(L10n.text("lab.frictionPredictionTitle", store.language))
+                    .font(.subheadline.weight(.semibold))
+                Text(String(format: L10n.text("lab.frictionPredictionQuestion", store.language), question.appliedForce))
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ForEach(predictionPractice.currentOptionOriginalIndices.indices, id: \.self) { displayedIndex in
+                    let originalIndex = predictionPractice.currentOptionOriginalIndices[displayedIndex]
+                    let isSelected = predictionPractice.selectedDisplayedIndex == displayedIndex
+                    Button {
+                        predictionPractice.selectOption(at: displayedIndex)
+                    } label: {
+                        HStack {
+                            Text(L10n.text(
+                                originalIndex == 0 ? "lab.frictionPredictionRest" : "lab.frictionPredictionSlide",
+                                store.language
+                            ))
+                            Spacer(minLength: 8)
+                            if isSelected {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .accessibilityHidden(true)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(isSelected ? .accentColor : nil)
+                    .disabled(predictionPractice.feedback == .correct)
+                }
+
+                if let feedback = predictionPractice.feedback {
+                    let caseKey = question.expectedSliding ? "slide" : "rest"
+                    let resultKey = feedback == .correct ? "correct" : "review"
+                    Label(
+                        L10n.text("lab.frictionPrediction.\(caseKey).\(resultKey)", store.language),
+                        systemImage: feedback == .correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle.fill"
+                    )
+                    .font(.callout)
+                    .foregroundStyle(feedback == .correct ? Color.green : Color.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Button {
+                    if predictionPractice.feedback == .correct {
+                        predictionPractice.advance()
+                    } else if let evidence = predictionPractice.checkAnswer() {
+                        store.recordStudyAssessment(
+                            lessonID: "physics.static_and_kinetic_friction",
+                            evidence: evidence
+                        )
+                    }
+                } label: {
+                    let titleKey: String
+                    if predictionPractice.feedback == .correct {
+                        titleKey = question.id == FrictionPredictionPracticeSession.questions.last?.id
+                            ? "lab.frictionPredictionFinish"
+                            : "lab.frictionPredictionNext"
+                    } else {
+                        titleKey = "lab.frictionPredictionCheck"
+                    }
+                    Text(L10n.text(titleKey, store.language))
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(predictionPractice.selectedDisplayedIndex == nil && predictionPractice.feedback != .correct)
+            } else {
+                Text(L10n.text("lab.frictionPredictionComplete", store.language))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Button(L10n.text("lab.frictionPredictionRestart", store.language)) {
+                    predictionPractice.restart()
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding(.top, 4)
     }
 
     private func slider(

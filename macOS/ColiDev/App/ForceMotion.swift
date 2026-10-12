@@ -47,6 +47,103 @@ struct FrictionMotion {
     var displacement: Double { 0.5 * acceleration * time * time }
 }
 
+struct FrictionPredictionQuestion: Equatable, Identifiable {
+    let id: String
+    let appliedForce: Double
+    let expectedSliding: Bool
+
+    var correctOptionIndex: Int { expectedSliding ? 1 : 0 }
+}
+
+enum FrictionPredictionFeedback: Equatable {
+    case correct
+    case review
+}
+
+struct FrictionPredictionPracticeSession {
+    static let questions = [
+        FrictionPredictionQuestion(id: "friction.at-15n", appliedForce: 15, expectedSliding: false),
+        FrictionPredictionQuestion(id: "friction.at-25n", appliedForce: 25, expectedSliding: true)
+    ]
+
+    private(set) var questionIndex = 0
+    private(set) var selectedDisplayedIndex: Int?
+    private(set) var feedback: FrictionPredictionFeedback?
+    private(set) var isComplete = false
+
+    private var optionOrders: [QuizAnswerOrder]
+    private var assessmentTracker: InteractiveChoiceAssessmentTracker
+
+    init() {
+        optionOrders = Self.makeOptionOrders()
+        assessmentTracker = InteractiveChoiceAssessmentTracker(itemIDs: Self.questions.map(\.id))
+    }
+
+    var currentQuestion: FrictionPredictionQuestion? {
+        guard !isComplete, Self.questions.indices.contains(questionIndex) else { return nil }
+        return Self.questions[questionIndex]
+    }
+
+    var currentOptionOriginalIndices: [Int] {
+        guard currentQuestion != nil else { return [] }
+        return optionOrders[questionIndex].displayedOriginalIndices
+    }
+
+    mutating func selectOption(at displayedIndex: Int) {
+        guard feedback != .correct,
+              currentOptionOriginalIndices.indices.contains(displayedIndex) else {
+            return
+        }
+        selectedDisplayedIndex = displayedIndex
+        feedback = nil
+    }
+
+    mutating func checkAnswer() -> StudyAssessmentEvidence? {
+        guard feedback != .correct,
+              let question = currentQuestion,
+              let selectedDisplayedIndex,
+              currentOptionOriginalIndices.indices.contains(selectedDisplayedIndex) else {
+            return nil
+        }
+
+        let selectedOriginalIndex = currentOptionOriginalIndices[selectedDisplayedIndex]
+        feedback = selectedOriginalIndex == question.correctOptionIndex ? .correct : .review
+        return assessmentTracker.recordSubmission(
+            selectedAnswerIndex: selectedOriginalIndex,
+            correctAnswerIndex: question.correctOptionIndex,
+            optionCount: 2,
+            itemID: question.id
+        )
+    }
+
+    mutating func advance() {
+        guard feedback == .correct, currentQuestion != nil else { return }
+        if questionIndex == Self.questions.count - 1 {
+            isComplete = true
+        } else {
+            questionIndex += 1
+        }
+        selectedDisplayedIndex = nil
+        feedback = nil
+    }
+
+    mutating func restart() {
+        questionIndex = 0
+        selectedDisplayedIndex = nil
+        feedback = nil
+        isComplete = false
+        optionOrders = Self.makeOptionOrders()
+        assessmentTracker.reset()
+    }
+
+    private static func makeOptionOrders() -> [QuizAnswerOrder] {
+        QuizAnswerOrder.balancedSequence(
+            optionCount: 2,
+            answerOriginalIndices: questions.map(\.correctOptionIndex)
+        )
+    }
+}
+
 /// One-dimensional motion from rest under a constant net force, without friction.
 /// The two-second experiment fits the fixed -60...60 metre scene for the UI limits.
 struct ForceMotion {
