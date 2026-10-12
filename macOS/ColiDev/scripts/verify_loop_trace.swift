@@ -30,23 +30,32 @@ enum LoopTraceVerification {
             ) else {
                 preconditionFailure("prediction attempt must have a valid answer for \(id)")
             }
-            let wrongDisplayedIndex = attempt.choiceOrder.displayedOriginalIndices
-                .firstIndex { $0 != question.correctOptionIndex }!
-            attempt.select(displayedIndex: wrongDisplayedIndex)
-            precondition(
-                attempt.currentAnswerEventEvidence()?.itemID == expectedItemID
-                    && attempt.currentAnswerEventEvidence()?.firstTryCorrect == false,
-                "incorrect answer evidence must retain the scenario identity for \(id)"
-            )
-            attempt.retry()
-            let correctDisplayedIndex = attempt.choiceOrder.displayedOriginalIndices
-                .firstIndex(of: question.correctOptionIndex)!
-            attempt.select(displayedIndex: correctDisplayedIndex)
-            precondition(
-                attempt.currentAnswerEventEvidence()?.itemID == expectedItemID
-                    && attempt.currentAnswerEventEvidence()?.attempts == 2,
-                "retry evidence must retain the scenario identity for \(id)"
-            )
+            if question.options.count > 1 {
+                let wrongDisplayedIndex = attempt.choiceOrder.displayedOriginalIndices
+                    .firstIndex { $0 != question.correctOptionIndex }!
+                attempt.select(displayedIndex: wrongDisplayedIndex)
+                precondition(
+                    attempt.currentAnswerEventEvidence()?.itemID == expectedItemID
+                        && attempt.currentAnswerEventEvidence()?.firstTryCorrect == false,
+                    "incorrect answer evidence must retain the scenario identity for \(id)"
+                )
+                attempt.retry()
+                let correctDisplayedIndex = attempt.choiceOrder.displayedOriginalIndices
+                    .firstIndex(of: question.correctOptionIndex)!
+                attempt.select(displayedIndex: correctDisplayedIndex)
+                precondition(
+                    attempt.currentAnswerEventEvidence()?.itemID == expectedItemID
+                        && attempt.currentAnswerEventEvidence()?.attempts == 2,
+                    "retry evidence must retain the scenario identity for \(id)"
+                )
+            } else {
+                attempt.select(displayedIndex: 0)
+                precondition(
+                    attempt.currentAnswerEventEvidence()?.itemID == expectedItemID
+                        && attempt.currentAnswerEventEvidence()?.firstTryCorrect == true,
+                    "single-option evidence must retain the scenario identity for \(id)"
+                )
+            }
             precondition(question.options == Array(0...values.count), "prediction choices should cover every possible count for \(id)")
             precondition(question.options[question.correctOptionIndex] == answer, "randomized prediction should map to the correct count for \(id)")
             precondition(scenario.steps.count == values.count, "trace length should match input length for \(id)")
