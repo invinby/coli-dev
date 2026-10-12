@@ -54,7 +54,15 @@ enum StudyRecommendationVerification {
             goalProgress?.verifiedCount == 2
                 && goalProgress?.totalCount == 3
                 && goalProgress?.lastVerifiedMilestone?.route.lessonID == "mathematics.geometry"
-                && goalProgress?.nextMilestone?.route.lessonID == "mathematics.linear",
+                && goalProgress?.nextMilestone?.route.lessonID == "mathematics.linear"
+                && goalProgress?.milestone(for: StudyLessonRoute(
+                    subjectID: "mathematics",
+                    resource: "geometry"
+                ))?.route.lessonID == "mathematics.geometry"
+                && goalProgress?.milestone(for: StudyLessonRoute(
+                    subjectID: "mathematics",
+                    resource: "outside_goal"
+                )) == nil,
             "Goal progress must show verified milestones, the last completed step, and one next step. / Прогресс цели должен показывать подтверждённые этапы, последний завершённый шаг и один следующий шаг."
         )
         let lessonWithoutPassedCheck = StudyGoalPlanner.progress(

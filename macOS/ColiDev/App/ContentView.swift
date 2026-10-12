@@ -510,6 +510,14 @@ private struct TodayView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                if let lastOpened = progress.milestone(for: store.lastOpenedCourseRoute),
+                   lastOpened.id != progress.lastVerifiedMilestone?.id,
+                   lastOpened.id != progress.nextMilestone?.id {
+                    Text(L10n.text("home.goal.lastOpened", store.language)
+                        .replacingOccurrences(of: "%@", with: goalStepTitle(lastOpened.route)))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 if let next = progress.nextMilestone {
                     Text(L10n.text("home.goal.nextStep", store.language)
                         .replacingOccurrences(of: "%@", with: goalStepTitle(next.route)))

@@ -33,6 +33,7 @@ enum L10n {
         "home.goal.pathExplanation": ("Этапы следуют учебному пути к выбранной теме; каждый подтверждается прохождением урока и самопроверкой.", "The milestones follow the learning path to your chosen topic; each is verified by completing its lesson and knowledge check."),
         "home.goal.verifiedProgress": ("Подтверждено этапов: %d из %d", "Verified milestones: %d of %d"),
         "home.goal.lastVerified": ("Последний завершённый этап: %@", "Last completed milestone: %@"),
+        "home.goal.lastOpened": ("Ты остановился на: %@", "You last opened: %@"),
         "home.goal.nextStep": ("Следующий шаг: %@", "Next step: %@"),
         "home.goal.microstart": ("Небольшой старт: открой «%@» и прочитай только объяснение. К практике и проверке можно вернуться позже — полный путь останется.", "Small start: open “%@” and read only the explanation. You can do the practice and check later; the full learning path stays intact."),
         "home.goal.completed": ("Все этапы этой цели подтверждены. Можно выбрать следующую цель или вернуться позже.", "All milestones for this goal are verified. Choose another goal or come back later."),

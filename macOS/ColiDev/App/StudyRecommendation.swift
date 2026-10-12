@@ -632,6 +632,11 @@ struct StudyGoalProgress: Equatable {
     }
     var nextMilestone: StudyGoalMilestone? { milestones.first(where: { !$0.isVerified }) }
     var lastVerifiedMilestone: StudyGoalMilestone? { milestones.last(where: \.isVerified) }
+
+    func milestone(for route: StudyLessonRoute?) -> StudyGoalMilestone? {
+        guard let route else { return nil }
+        return milestones.first(where: { $0.route == route })
+    }
 }
 
 enum StudyGoalPlanner {

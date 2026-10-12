@@ -43,6 +43,11 @@ require(
     '"home.goal.title": (',
     "bilingual dashboard copy for study goals",
 )
+require(
+    "macOS/ColiDev/App/L10n.swift",
+    '"home.goal.lastOpened": (',
+    "bilingual saved stop-point copy for returning learners",
+)
 
 l10n = (ROOT / "macOS/ColiDev/App/L10n.swift").read_text(encoding="utf-8")
 content_view = (ROOT / "macOS/ColiDev/App/ContentView.swift").read_text(encoding="utf-8")
