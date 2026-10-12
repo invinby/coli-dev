@@ -2,7 +2,7 @@ import Foundation
 
 @main
 enum StudyRecommendationVerification {
-    static func main() {
+    static func main() throws {
         let roadmaps = [
             StudyRoadmap(subjectID: "mathematics", lessonResources: ["fractions", "geometry", "algebra"]),
             StudyRoadmap(subjectID: "english", lessonResources: ["verbs", "conditionals"]),
@@ -25,6 +25,122 @@ enum StudyRecommendationVerification {
         precondition(
             emptyProgress.totalCount == 0 && emptyProgress.fractionCompleted == 0,
             "An empty curriculum must report zero completion without division errors. / Для пустого учебного плана нужно показывать нулевой прогресс без ошибки деления."
+        )
+        let goalRoadmap = StudyRoadmap(
+            subjectID: "mathematics",
+            lessonResources: ["fractions", "geometry", "linear", "quadratic"],
+            progressionLevels: [["fractions"], ["geometry"], ["linear", "quadratic"]],
+            prerequisitesByResource: [
+                "geometry": ["fractions"],
+                "linear": ["geometry", "fractions"],
+                "quadratic": ["geometry", "fractions"],
+            ]
+        )
+        let goal = StudyGoal(target: StudyLessonRoute(subjectID: "mathematics", resource: "linear"))
+        let goalRoutes = StudyGoalPlanner.milestoneRoutes(for: goal, in: [goalRoadmap]) ?? []
+        precondition(
+            goalRoutes.map(\.lessonID) == [
+                "mathematics.fractions", "mathematics.geometry", "mathematics.linear",
+            ],
+            "Goal milestones must follow the curriculum's actual prerequisite path to the learner's chosen target. / Этапы цели должны идти по реальному пути предпосылок учебного плана к выбранной теме."
+        )
+        let goalProgress = StudyGoalPlanner.progress(
+            for: goal,
+            in: [goalRoadmap],
+            completedLessonIDs: ["mathematics.fractions", "mathematics.geometry"],
+            successfulKnowledgeCheckLessonIDs: ["mathematics.fractions", "mathematics.geometry"]
+        )
+        precondition(
+            goalProgress?.verifiedCount == 2
+                && goalProgress?.totalCount == 3
+                && goalProgress?.lastVerifiedMilestone?.route.lessonID == "mathematics.geometry"
+                && goalProgress?.nextMilestone?.route.lessonID == "mathematics.linear",
+            "Goal progress must show verified milestones, the last completed step, and one next step. / Прогресс цели должен показывать подтверждённые этапы, последний завершённый шаг и один следующий шаг."
+        )
+        let lessonWithoutPassedCheck = StudyGoalPlanner.progress(
+            for: goal,
+            in: [goalRoadmap],
+            completedLessonIDs: ["mathematics.fractions"],
+            successfulKnowledgeCheckLessonIDs: []
+        )
+        precondition(
+            lessonWithoutPassedCheck?.verifiedCount == 0
+                && lessonWithoutPassedCheck?.milestones.first?.lessonCompleted == true
+                && lessonWithoutPassedCheck?.milestones.first?.isVerified == false,
+            "A completed lesson without a passed knowledge check must not count as a verified goal milestone. / Завершённый урок без успешно пройденной самопроверки не считается подтверждённым этапом цели."
+        )
+        let goalRecommendation = StudyGoalPlanner.recommendation(
+            for: goal,
+            in: [goalRoadmap],
+            completedLessonIDs: ["mathematics.fractions", "mathematics.geometry"],
+            resume: goal.target,
+            recallEvidence: [:],
+            assessmentEvidence: [:]
+        )
+        precondition(
+            goalRecommendation?.route.lessonID == "mathematics.geometry"
+                && goalRecommendation?.reason == .prerequisiteCheck,
+            "The goal route must ask for the missing prerequisite check before opening its target. / Маршрут цели должен запросить недостающую проверку предпосылки до открытия целевой темы."
+        )
+        let earlyCheck = StudyAssessmentEvidence(
+            taskType: "knowledge_check",
+            attempts: 1,
+            firstTryCorrect: true,
+            hintsUsed: 0,
+            passed: true
+        )
+        let skippedStepRecommendation = StudyGoalPlanner.recommendation(
+            for: StudyGoal(target: StudyLessonRoute(subjectID: "mathematics", resource: "linear")),
+            in: [goalRoadmap],
+            completedLessonIDs: ["mathematics.fractions"],
+            resume: StudyLessonRoute(subjectID: "mathematics", resource: "linear"),
+            recallEvidence: [
+                "mathematics.fractions": StudyRecallEvidence(
+                    quality: 3,
+                    reviewedAt: "2026-10-12T00:00:00Z",
+                    assessment: earlyCheck
+                ),
+            ],
+            assessmentEvidence: [:]
+        )
+        precondition(
+            skippedStepRecommendation?.route.lessonID == "mathematics.geometry"
+                && skippedStepRecommendation?.reason == .nextLesson,
+            "Returning learners must be directed to the earliest unfinished milestone, even if the saved resume route is later. / При возвращении после перерыва нужно предлагать самый ранний незавершённый этап, даже если сохранённый маршрут ведёт дальше."
+        )
+        let oneStepRoadmap = StudyRoadmap(
+            subjectID: "english",
+            lessonResources: ["reported_speech"],
+            progressionLevels: [["reported_speech"]]
+        )
+        let oneStepGoal = StudyGoal(
+            target: StudyLessonRoute(subjectID: "english", resource: "reported_speech")
+        )
+        let oneStepRecommendation = StudyGoalPlanner.recommendation(
+            for: oneStepGoal,
+            in: [oneStepRoadmap],
+            completedLessonIDs: ["english.reported_speech"],
+            resume: nil
+        )
+        precondition(
+            oneStepRecommendation?.route.lessonID == "english.reported_speech"
+                && oneStepRecommendation?.reason == .prerequisiteCheck,
+            "A one-step goal must still offer its knowledge check after the lesson is marked complete. / Для цели из одного этапа после отметки о завершении урока всё равно нужно предложить самопроверку."
+        )
+        let invalidGoal = StudyGoal(target: StudyLessonRoute(subjectID: "mathematics", resource: "unknown"))
+        precondition(
+            StudyGoalPlanner.progress(
+                for: invalidGoal,
+                in: [goalRoadmap],
+                completedLessonIDs: [],
+                successfulKnowledgeCheckLessonIDs: []
+            ) == nil,
+            "A goal whose lesson is missing from the current curriculum must be reported as unavailable. / Цель, урок которой отсутствует в текущем учебном плане, должна считаться недоступной."
+        )
+        let decodedGoal = try JSONDecoder().decode(StudyGoal.self, from: JSONEncoder().encode(goal))
+        precondition(
+            decodedGoal == goal,
+            "A selected goal must survive local Codable persistence. / Выбранная цель должна сохраняться и восстанавливаться через Codable."
         )
         let checkCoverage = StudyKnowledgeEvidenceCoverage(
             roadmaps: roadmaps,

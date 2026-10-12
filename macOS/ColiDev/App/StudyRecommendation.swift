@@ -606,3 +606,128 @@ enum StudyRecommendationSelector {
         let latestAt: String
     }
 }
+
+struct StudyGoal: Codable, Equatable {
+    let target: StudyLessonRoute
+}
+
+struct StudyGoalMilestone: Equatable, Identifiable {
+    let route: StudyLessonRoute
+    let lessonCompleted: Bool
+    let knowledgeCheckPassed: Bool
+
+    var id: String { route.lessonID }
+    var isVerified: Bool { lessonCompleted && knowledgeCheckPassed }
+}
+
+struct StudyGoalProgress: Equatable {
+    let milestones: [StudyGoalMilestone]
+
+    var verifiedCount: Int { milestones.filter(\.isVerified).count }
+    var totalCount: Int { milestones.count }
+    var isComplete: Bool { totalCount > 0 && verifiedCount == totalCount }
+    var fractionVerified: Double {
+        guard totalCount > 0 else { return 0 }
+        return Double(verifiedCount) / Double(totalCount)
+    }
+    var nextMilestone: StudyGoalMilestone? { milestones.first(where: { !$0.isVerified }) }
+    var lastVerifiedMilestone: StudyGoalMilestone? { milestones.last(where: \.isVerified) }
+}
+
+enum StudyGoalPlanner {
+    static func milestoneRoutes(
+        for goal: StudyGoal,
+        in roadmaps: [StudyRoadmap]
+    ) -> [StudyLessonRoute]? {
+        guard let roadmap = roadmaps.first(where: { $0.subjectID == goal.target.subjectID }),
+              let targetIndex = roadmap.lessonResources.firstIndex(of: goal.target.resource) else {
+            return nil
+        }
+
+        let orderedPrerequisites = Array(
+            (roadmap.prerequisitesByResource[goal.target.resource] ?? []).reversed()
+        )
+        let progressionPrerequisites: [String]
+        if let targetLevelIndex = roadmap.progressionLevels.firstIndex(where: {
+            $0.contains(goal.target.resource)
+        }) {
+            progressionPrerequisites = roadmap.progressionLevels.prefix(targetLevelIndex).flatMap { $0 }
+        } else if !roadmap.progressionLevels.isEmpty {
+            progressionPrerequisites = Array(roadmap.lessonResources.prefix(targetIndex))
+        } else {
+            progressionPrerequisites = []
+        }
+        let prerequisites = orderedPrerequisites.isEmpty
+            ? progressionPrerequisites
+            : orderedPrerequisites
+        var seen = Set<String>()
+        let resources = (prerequisites + [goal.target.resource]).filter { resource in
+            roadmap.lessonResources.contains(resource) && seen.insert(resource).inserted
+        }
+        guard resources.last == goal.target.resource else { return nil }
+        return resources.map { StudyLessonRoute(subjectID: roadmap.subjectID, resource: $0) }
+    }
+
+    static func progress(
+        for goal: StudyGoal,
+        in roadmaps: [StudyRoadmap],
+        completedLessonIDs: Set<String>,
+        successfulKnowledgeCheckLessonIDs: Set<String>
+    ) -> StudyGoalProgress? {
+        guard let routes = milestoneRoutes(for: goal, in: roadmaps) else { return nil }
+        return StudyGoalProgress(milestones: routes.map { route in
+            StudyGoalMilestone(
+                route: route,
+                lessonCompleted: completedLessonIDs.contains(route.lessonID),
+                knowledgeCheckPassed: successfulKnowledgeCheckLessonIDs.contains(route.lessonID)
+            )
+        })
+    }
+
+    static func recommendation(
+        for goal: StudyGoal,
+        in roadmaps: [StudyRoadmap],
+        completedLessonIDs: Set<String>,
+        resume: StudyLessonRoute?,
+        recallEvidence: [String: StudyRecallEvidence] = [:],
+        assessmentEvidence: [String: StudyAssessmentEvidenceSummary] = [:]
+    ) -> StudyRecommendation? {
+        guard let routes = milestoneRoutes(for: goal, in: roadmaps),
+              let sourceRoadmap = roadmaps.first(where: { $0.subjectID == goal.target.subjectID }) else {
+            return nil
+        }
+        let resources = routes.map(\.resource)
+        var prerequisites: [String: [String]] = [:]
+        for (index, resource) in resources.enumerated() where index > 0 {
+            prerequisites[resource] = Array(resources[..<index])
+        }
+        let goalRoadmap = StudyRoadmap(
+            subjectID: sourceRoadmap.subjectID,
+            lessonResources: resources,
+            progressionLevels: resources.map { [$0] },
+            prerequisitesByResource: prerequisites
+        )
+        let goalResume = resume.flatMap { routes.contains($0) ? $0 : nil }
+        let successfulKnowledgeCheckLessonIDs = StudyProgressionEvidence(
+            completedLessonIDs: completedLessonIDs,
+            recallEvidence: recallEvidence,
+            assessmentEvidence: assessmentEvidence
+        ).successfulKnowledgeCheckLessonIDs
+        if let recommendation = StudyRecommendationSelector.recommendation(
+            roadmaps: [goalRoadmap],
+            completedLessonIDs: completedLessonIDs,
+            resume: goalResume,
+            recallEvidence: recallEvidence,
+            assessmentEvidence: assessmentEvidence
+        ) {
+            return recommendation
+        }
+        if let completedButUnverified = routes.first(where: {
+            completedLessonIDs.contains($0.lessonID)
+                && !successfulKnowledgeCheckLessonIDs.contains($0.lessonID)
+        }) {
+            return StudyRecommendation(route: completedButUnverified, reason: .prerequisiteCheck)
+        }
+        return nil
+    }
+}

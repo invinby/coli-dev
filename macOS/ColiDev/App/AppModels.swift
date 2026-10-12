@@ -173,6 +173,16 @@ final class LearningStore: ObservableObject {
             UserDefaults.standard.set(data, forKey: "colidev.lastOpenedCourseRoute")
         }
     }
+    @Published private(set) var activeStudyGoal: StudyGoal? {
+        didSet {
+            guard let activeStudyGoal,
+                  let data = try? JSONEncoder().encode(activeStudyGoal) else {
+                UserDefaults.standard.removeObject(forKey: "colidev.activeStudyGoal")
+                return
+            }
+            UserDefaults.standard.set(data, forKey: "colidev.activeStudyGoal")
+        }
+    }
     @Published private(set) var aiHealth: OrchestratorHealth?
     @Published private(set) var isCheckingAI = false
     @Published private(set) var providerSecretStatuses: [String: ProviderSecretStatus] = [:]
@@ -244,6 +254,12 @@ final class LearningStore: ObservableObject {
             lastOpenedCourseRoute = savedRoute
         } else {
             lastOpenedCourseRoute = nil
+        }
+        if let data = UserDefaults.standard.data(forKey: "colidev.activeStudyGoal"),
+           let savedGoal = try? JSONDecoder().decode(StudyGoal.self, from: data) {
+            activeStudyGoal = savedGoal
+        } else {
+            activeStudyGoal = nil
         }
         if let data = UserDefaults.standard.data(forKey: "colidev.customCurriculum"),
            let savedCurriculum = try? JSONDecoder().decode(CustomCurriculum.self, from: data) {
@@ -442,6 +458,10 @@ final class LearningStore: ObservableObject {
 
     func rememberStudyRoute(_ route: StudyLessonRoute) {
         lastOpenedCourseRoute = route
+    }
+
+    func setActiveStudyGoal(_ goal: StudyGoal?) {
+        activeStudyGoal = goal
     }
 
     func markComplete(_ subject: Subject, reflection: String = "") {

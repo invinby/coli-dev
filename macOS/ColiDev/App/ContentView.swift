@@ -211,6 +211,17 @@ struct ContentView: View {
     }
 }
 
+private struct StudyGoalOption: Identifiable {
+    let route: StudyLessonRoute
+    let subjectID: String
+    let subjectTitle: String
+    let levelTitle: String
+    let topicTitle: String
+    let learningOutcome: String
+
+    var id: String { route.lessonID }
+}
+
 private struct TodayView: View {
     @EnvironmentObject private var store: LearningStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -220,10 +231,88 @@ private struct TodayView: View {
     let openDueReview: (StudyLessonRoute) -> Void
 
     @State private var builtInStudyRoadmaps = CurriculumCatalog.studyRoadmaps()
+    @State private var showingGoalPicker = false
     private let columns = [GridItem(.adaptive(minimum: 210), spacing: 16)]
 
     private var recommendationRoadmaps: [StudyRoadmap] {
         builtInStudyRoadmaps + CustomTopicStudyRoute.roadmaps(from: store.customCurriculum)
+    }
+
+    private var studyGoalOptions: [StudyGoalOption] {
+        var options: [StudyGoalOption] = []
+        for subject in Subject.allCases {
+            for level in CurriculumCatalog.roadmap(for: subject) {
+                for topic in level.topics {
+                    guard let resource = topic.lessonResource else { continue }
+                    options.append(StudyGoalOption(
+                        route: StudyLessonRoute(subjectID: subject.rawValue, resource: resource),
+                        subjectID: subject.rawValue,
+                        subjectTitle: subject.title(in: store.language),
+                        levelTitle: level.title.value(in: store.language),
+                        topicTitle: topic.name.value(in: store.language),
+                        learningOutcome: topic.learningOutcome.value(in: store.language)
+                    ))
+                }
+            }
+        }
+
+        func appendCustomTopics(
+            _ topics: [CustomLearningTopic],
+            subjectID: String,
+            subjectTitle: String,
+            routeForTopic: (UUID) -> StudyLessonRoute
+        ) {
+            for topic in topics {
+                options.append(StudyGoalOption(
+                    route: routeForTopic(topic.id),
+                    subjectID: subjectID,
+                    subjectTitle: subjectTitle,
+                    levelTitle: L10n.text("home.goal.customLevel", store.language),
+                    topicTitle: topic.name.value(in: store.language.rawValue),
+                    learningOutcome: topic.learningOutcome.value(in: store.language.rawValue)
+                ))
+                appendCustomTopics(
+                    topic.subtopics,
+                    subjectID: subjectID,
+                    subjectTitle: subjectTitle,
+                    routeForTopic: routeForTopic
+                )
+            }
+        }
+
+        for subject in store.customCurriculum.subjects {
+            appendCustomTopics(
+                subject.topics,
+                subjectID: "custom-user:\(subject.id.uuidString.lowercased())",
+                subjectTitle: subject.name.value(in: store.language.rawValue),
+                routeForTopic: { CustomTopicStudyRoute.userTopic(subjectID: subject.id, topicID: $0) }
+            )
+        }
+        for subject in Subject.allCases {
+            let topics = store.customCurriculum.topics(builtInSubjectID: subject.rawValue)
+            appendCustomTopics(
+                topics,
+                subjectID: "custom-builtin:\(subject.rawValue)",
+                subjectTitle: subject.title(in: store.language),
+                routeForTopic: { CustomTopicStudyRoute.builtInTopic(subjectID: subject.rawValue, topicID: $0) }
+            )
+        }
+        return options
+    }
+
+    private var activeGoalOption: StudyGoalOption? {
+        guard let goal = store.activeStudyGoal else { return nil }
+        return studyGoalOptions.first { $0.id == goal.target.lessonID }
+    }
+
+    private var goalProgress: StudyGoalProgress? {
+        guard let goal = store.activeStudyGoal else { return nil }
+        return StudyGoalPlanner.progress(
+            for: goal,
+            in: recommendationRoadmaps,
+            completedLessonIDs: store.completedLessonIDs,
+            successfulKnowledgeCheckLessonIDs: store.studyProgressionEvidence.successfulKnowledgeCheckLessonIDs
+        )
     }
 
     private var addressableRoutesByLessonID: [String: StudyLessonRoute] {
@@ -287,7 +376,17 @@ private struct TodayView: View {
     }
 
     private var studyRecommendation: StudyRecommendation? {
-        StudyRecommendationSelector.recommendation(
+        if let goal = store.activeStudyGoal {
+            return StudyGoalPlanner.recommendation(
+                for: goal,
+                in: recommendationRoadmaps,
+                completedLessonIDs: store.completedLessonIDs,
+                resume: store.lastOpenedCourseRoute,
+                recallEvidence: recallEvidence,
+                assessmentEvidence: store.studyAssessmentEvidence
+            )
+        }
+        return StudyRecommendationSelector.recommendation(
             roadmaps: recommendationRoadmaps,
             completedLessonIDs: store.completedLessonIDs,
             resume: store.lastOpenedCourseRoute,
@@ -321,6 +420,7 @@ private struct TodayView: View {
                 .padding(.top, 28)
 
                 progressCard
+                studyGoalCard
 
                 VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 4) {
@@ -353,6 +453,142 @@ private struct TodayView: View {
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .background(Color(nsColor: .windowBackgroundColor))
+        .sheet(isPresented: $showingGoalPicker) {
+            StudyGoalPickerView(
+                options: studyGoalOptions,
+                currentGoal: store.activeStudyGoal
+            ) { goal in
+                store.setActiveStudyGoal(goal)
+            }
+            .environmentObject(store)
+        }
+    }
+
+    private var studyGoalCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Label(L10n.text("home.goal.title", store.language), systemImage: "scope")
+                    .font(.headline)
+                Spacer()
+                Button(L10n.text(
+                    store.activeStudyGoal == nil ? "home.goal.choose" : "home.goal.change",
+                    store.language
+                )) {
+                    showingGoalPicker = true
+                }
+                .buttonStyle(.bordered)
+            }
+
+            if store.activeStudyGoal != nil,
+               let option = activeGoalOption,
+               let progress = goalProgress {
+                Text(option.topicTitle)
+                    .font(.title3.weight(.semibold))
+                if !option.learningOutcome.isEmpty {
+                    Text(option.learningOutcome)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Text(L10n.text("home.goal.pathExplanation", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 12) {
+                    ProgressView(value: progress.fractionVerified)
+                        .tint(Color.accentColor)
+                    Text(String(
+                        format: L10n.text("home.goal.verifiedProgress", store.language),
+                        progress.verifiedCount,
+                        progress.totalCount
+                    ))
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                }
+                if let lastVerified = progress.lastVerifiedMilestone {
+                    Text(L10n.text("home.goal.lastVerified", store.language)
+                        .replacingOccurrences(of: "%@", with: goalStepTitle(lastVerified.route)))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if let next = progress.nextMilestone {
+                    Text(L10n.text("home.goal.nextStep", store.language)
+                        .replacingOccurrences(of: "%@", with: goalStepTitle(next.route)))
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Color.accentColor)
+                    if !hasAddressableDueReview, let recommendation = studyRecommendation {
+                        Text(L10n.text("home.goal.microstart", store.language)
+                            .replacingOccurrences(of: "%@", with: goalStepTitle(recommendation.route)))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                } else if progress.isComplete {
+                    Text(L10n.text("home.goal.completed", store.language))
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Color.accentColor)
+                }
+
+                DisclosureGroup(L10n.text("home.goal.showPath", store.language)) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(Array(progress.milestones.enumerated()), id: \.element.id) { index, milestone in
+                            HStack(alignment: .top, spacing: 9) {
+                                Image(systemName: milestone.isVerified
+                                    ? "checkmark.circle.fill"
+                                    : milestone.lessonCompleted ? "checkmark.circle" : "circle")
+                                    .foregroundStyle(milestone.isVerified ? Color.green : Color.secondary)
+                                    .frame(width: 18)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("\(index + 1). \(goalStepTitle(milestone.route))")
+                                        .font(.callout)
+                                    if milestone.lessonCompleted && !milestone.knowledgeCheckPassed {
+                                        Text(L10n.text("home.goal.checkNeeded", store.language))
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(.top, 8)
+                }
+                .font(.callout)
+                Text(L10n.text("home.goal.noPressure", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            } else if store.activeStudyGoal != nil {
+                Text(L10n.text("home.goal.unavailable", store.language))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Text(L10n.text("home.goal.progressPreserved", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            } else {
+                Text(L10n.text("home.goal.empty", store.language))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(
+                colors: [Color.teal.opacity(0.12), Color.blue.opacity(0.08)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 18)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 18)
+                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+        }
+        .coliGlassControl(cornerRadius: 18)
+    }
+
+    private func goalStepTitle(_ route: StudyLessonRoute) -> String {
+        studyGoalOptions.first { $0.id == route.lessonID }?.topicTitle
+            ?? route.resource.replacingOccurrences(of: "_", with: " ")
     }
 
     private var progressCard: some View {
@@ -479,13 +715,22 @@ private struct TodayView: View {
                     openDueReview(nextDueReviewRoute)
                 } else if let nextLessonRoute {
                     openCourseLesson(nextLessonRoute)
+                } else if store.activeStudyGoal != nil {
+                    showingGoalPicker = true
                 } else {
                     let next = Subject.allCases.first(where: { !store.isComplete($0) }) ?? .mathematics
                     open(next)
                 }
             } label: {
+                let actionTitle = hasAddressableDueReview
+                    ? "home.reviewNow"
+                    : store.activeStudyGoal == nil
+                        ? "home.continue"
+                        : goalProgress?.isComplete == true || goalProgress == nil
+                            ? "home.goal.chooseNext"
+                            : "home.goal.startSmall"
                 Label {
-                    Text(L10n.text(hasAddressableDueReview ? "home.reviewNow" : "home.continue", store.language))
+                    Text(L10n.text(actionTitle, store.language))
                 } icon: {
                     Image(systemName: hasAddressableDueReview ? "arrow.counterclockwise" : "arrow.right")
                 }
@@ -506,6 +751,95 @@ private struct TodayView: View {
                 .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
         }
         .coliGlassControl(cornerRadius: 20)
+    }
+}
+
+private struct StudyGoalPickerView: View {
+    @EnvironmentObject private var store: LearningStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var searchText = ""
+
+    let options: [StudyGoalOption]
+    let currentGoal: StudyGoal?
+    let onSelect: (StudyGoal?) -> Void
+
+    private var filteredOptions: [StudyGoalOption] {
+        guard !searchText.isEmpty else { return options }
+        return options.filter {
+            $0.topicTitle.localizedCaseInsensitiveContains(searchText)
+                || $0.subjectTitle.localizedCaseInsensitiveContains(searchText)
+                || $0.learningOutcome.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
+    private var groupedSubjectIDs: [String] {
+        Array(Set(filteredOptions.map(\.subjectID))).sorted()
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(groupedSubjectIDs, id: \.self) { subjectID in
+                    let group = filteredOptions.filter { $0.subjectID == subjectID }
+                    Section(header: Text(group.first?.subjectTitle ?? subjectID)) {
+                        ForEach(group) { option in
+                            Button {
+                                onSelect(StudyGoal(target: option.route))
+                                dismiss()
+                            } label: {
+                                HStack(alignment: .top, spacing: 12) {
+                                    Image(systemName: option.id == currentGoal?.target.lessonID
+                                        ? "scope"
+                                        : "circle")
+                                        .foregroundStyle(option.id == currentGoal?.target.lessonID
+                                            ? Color.accentColor
+                                            : Color.secondary)
+                                        .frame(width: 18)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(option.topicTitle)
+                                            .font(.headline)
+                                            .foregroundStyle(.primary)
+                                        Text(option.levelTitle)
+                                            .font(.caption.weight(.medium))
+                                            .foregroundStyle(.secondary)
+                                        if !option.learningOutcome.isEmpty {
+                                            Text(option.learningOutcome)
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                                .fixedSize(horizontal: false, vertical: true)
+                                        }
+                                    }
+                                    Spacer(minLength: 8)
+                                }
+                                .padding(.vertical, 4)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+            .searchable(text: $searchText, prompt: Text(L10n.text("home.goal.search", store.language)))
+            .navigationTitle(L10n.text("home.goal.pickerTitle", store.language))
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L10n.text("home.goal.cancel", store.language)) { dismiss() }
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                if currentGoal != nil {
+                    Button(L10n.text("home.goal.remove", store.language)) {
+                        onSelect(nil)
+                        dismiss()
+                    }
+                    .buttonStyle(.bordered)
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .background(.ultraThinMaterial)
+                }
+            }
+        }
+        .frame(minWidth: 520, minHeight: 480)
     }
 }
 
