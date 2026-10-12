@@ -128,6 +128,10 @@
 
 **EN:** Goal and return support is a long-term extension of the learning system, not a change to its mission or a reason to defer early-prototype checks. Complete the nearest P0/P1 checks for launch, navigation, AI routes, learning feedback, and sources first; begin implementing consistent-learning support as P2 only afterward.
 
+**RU — статус требования:** это подтверждённое направление продукта, а не описание готовой функции. Оно должно использовать существующие учебную панель, дорожные карты, историю прогресса и рекомендации; отдельный планировщик, обязательные серии, задолженность за пропущенные дни и навязчивые напоминания не входят в замысел. Развитие функции начинается после текущих P0/P1-ворот.
+
+**EN — requirement status:** this is a confirmed product direction, not a description of a shipped feature. It should use the existing learning dashboard, roadmaps, progress history, and recommendations; a separate planner, mandatory streaks, missed-day debt, and intrusive reminders are outside the design. Implementation starts only after the current P0/P1 gates.
+
 ## 6. Разные предметы — разные методы / Different subjects need different methods
 
 **RU:** Не используй один шаблон для всех предметов. В математике нужны рассуждения, формулы, доказательства, графики и задачи; в физике — модели, эксперименты, симуляции и причинно-следственные связи; в биологии — структуры, процессы и системы; в зоологии — механизмы, адаптации и сопоставление организмов по данным; в программировании — исполняемая практика, отладка и алгоритмы; в английском — контекстное активное использование, понимание и исправление ошибок.
