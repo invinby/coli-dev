@@ -111,6 +111,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-answer-choice-order"
           "$RUNNER_TEMP/verify-answer-choice-order"
 
+      - name: Verify osmosis prediction feedback / Проверка обратной связи в тренажёре осмоса
+        run: |
+          swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/scripts/verify_osmosis_practice.swift \
+            -o "$RUNNER_TEMP/verify-osmosis-practice"
+          "$RUNNER_TEMP/verify-osmosis-practice"
+
       - name: Verify interactive answer feedback / Проверка разбора интерактивных ответов
         run: |
           swiftc macOS/ColiDev/App/L10n.swift macOS/ColiDev/scripts/verify_interactive_choice_feedback.swift \
