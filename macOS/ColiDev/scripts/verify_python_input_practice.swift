@@ -1,3 +1,5 @@
+import Foundation
+
 @main
 struct VerifyPythonInputPractice {
     static func main() {
