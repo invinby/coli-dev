@@ -75,17 +75,17 @@ jobs:
             -o "$RUNNER_TEMP/verify-force-prediction-identity"
           "$RUNNER_TEMP/verify-force-prediction-identity"
 
-      - name: Verify thermoregulation question identity / Проверка идентификатора вопроса о терморегуляции
-        run: |
-          swiftc -parse-as-library macOS/ColiDev/scripts/verify_thermoregulation_question_identity.swift \
-            -o "$RUNNER_TEMP/verify-thermoregulation-question-identity"
-          "$RUNNER_TEMP/verify-thermoregulation-question-identity"
-
       - name: Verify learning evidence question identity / Проверка идентификаторов учебных ответов
         run: |
           swiftc -parse-as-library macOS/ColiDev/scripts/verify_learning_evidence_identity.swift \
             -o "$RUNNER_TEMP/verify-learning-evidence-identity"
           "$RUNNER_TEMP/verify-learning-evidence-identity"
+
+      - name: Verify thermoregulation question identity / Проверка идентификатора вопроса о терморегуляции
+        run: |
+          swiftc -parse-as-library macOS/ColiDev/scripts/verify_thermoregulation_question_identity.swift \
+            -o "$RUNNER_TEMP/verify-thermoregulation-question-identity"
+          "$RUNNER_TEMP/verify-thermoregulation-question-identity"
 
       - name: Verify shared physics calculation models
         run: |
