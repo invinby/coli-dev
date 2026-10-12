@@ -81,6 +81,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-thermoregulation-question-identity"
           "$RUNNER_TEMP/verify-thermoregulation-question-identity"
 
+      - name: Verify learning evidence question identity / Проверка идентификаторов учебных ответов
+        run: |
+          swiftc -parse-as-library macOS/ColiDev/scripts/verify_learning_evidence_identity.swift \
+            -o "$RUNNER_TEMP/verify-learning-evidence-identity"
+          "$RUNNER_TEMP/verify-learning-evidence-identity"
+
       - name: Verify shared physics calculation models
         run: |
           swiftc macOS/ColiDev/App/ForceMotion.swift macOS/ColiDev/scripts/verify_physics_models.swift \
