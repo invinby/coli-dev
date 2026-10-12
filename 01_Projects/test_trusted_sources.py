@@ -292,6 +292,14 @@ def test_python_while_language_reference_is_an_exact_approved_rag_path() -> None
     assert TrustedSourceMonitor._canonical_url("https://docs.python.org/3/reference/expressions.html") is None
 
 
+def test_pro_git_recording_changes_reference_is_metadata_only() -> None:
+    url = "https://git-scm.com/book/en/v2/Git-Basics-Recording-Changes-to-the-Repository"
+
+    assert TrustedSourceMonitor._canonical_url(url) == url
+    assert TrustedSourceMonitor._rag_policy(url) is None
+    assert TrustedSourceMonitor._canonical_url("https://git-scm.com/book/en/v2/Git-Basics-Undoing-Things") is None
+
+
 def test_python_bisect_library_page_is_monitored_and_licensed_for_rag(tmp_path: Path) -> None:
     url = "https://docs.python.org/3/library/bisect.html"
     _write_lesson(tmp_path, f"[Python bisect reference]({url})")

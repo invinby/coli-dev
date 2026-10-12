@@ -54,6 +54,7 @@ _TRUSTED_HOSTS = frozenset(
         "animaldiversity.org",
         "csrc.nist.gov",
         "docs.python.org",
+        "git-scm.com",
         "learnenglish.britishcouncil.org",
         "legacy.bas.ac.uk",
         "medlineplus.gov",
@@ -73,6 +74,9 @@ _ALLOWED_PATHS = {
     "docs.python.org": re.compile(
         r"^(?:/3/tutorial/[A-Za-z0-9_.-]+\.html|/3/reference/(?:simple_stmts|compound_stmts)\.html|/3/library/bisect\.html|"
         r"/3\.14/library/(?:functions|exceptions)\.html)$"
+    ),
+    "git-scm.com": re.compile(
+        r"^/book/en/v2/Git-Basics-Recording-Changes-to-the-Repository$"
     ),
     "learnenglish.britishcouncil.org": re.compile(
         r"^/(?:free-resources/(?:grammar/(?:english-grammar-reference|b1-b2)/[A-Za-z0-9-]+|"

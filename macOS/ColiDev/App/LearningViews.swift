@@ -7819,86 +7819,270 @@ private struct DebuggingLab: View {
     }
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            LabCard {
+                Text(L10n.text("lab.debugging.hint", store.language))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Picker(L10n.text("lab.debugging.scenarioPicker", store.language), selection: $scenarioID) {
+                    ForEach(DebuggingPractice.scenarios) { item in
+                        Text(L10n.text(item.promptKey, store.language)).tag(item.id)
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: scenarioID) { newScenarioID in
+                    selectedChoice = -1
+                    hasChecked = false
+                    if let newScenario = DebuggingPractice.scenario(id: newScenarioID) {
+                        optionOrder = QuizAnswerOrder(
+                            optionCount: newScenario.choiceKeys.count,
+                            answerOriginalIndex: newScenario.correctChoice
+                        )
+                    }
+                }
+
+                Text(scenario.code)
+                    .font(.system(.callout, design: .monospaced))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 12))
+                    .accessibilityLabel(Text(L10n.text("lab.debugging.code", store.language)))
+
+                Label(scenario.traceback, systemImage: "exclamationmark.triangle.fill")
+                    .font(.system(.callout, design: .monospaced))
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityLabel(Text(L10n.text("lab.debugging.traceback", store.language)))
+
+                Text(L10n.text("lab.debugging.choose", store.language))
+                    .font(.callout.weight(.medium))
+
+                Picker(L10n.text("lab.debugging.choicePicker", store.language), selection: $selectedChoice) {
+                    ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                        Text(L10n.text(scenario.choiceKeys[originalIndex], store.language)).tag(displayIndex)
+                    }
+                }
+                .pickerStyle(.radioGroup)
+                .disabled(hasChecked)
+
+                if hasChecked {
+                    Label(
+                        L10n.text(scenario.explanationKey, store.language),
+                        systemImage: optionOrder.isCorrect(displayedIndex: selectedChoice)
+                            ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
+                    )
+                    .font(.callout)
+                    .foregroundStyle(optionOrder.isCorrect(displayedIndex: selectedChoice) ? Color.green : Color.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Button {
+                    hasChecked = true
+                    guard let selectedOriginalIndex = optionOrder.originalIndex(forDisplayedIndex: selectedChoice),
+                          let evidence = assessmentTracker.recordSubmission(
+                            selectedAnswerIndex: selectedOriginalIndex,
+                            correctAnswerIndex: scenario.correctChoice,
+                            optionCount: scenario.choiceKeys.count,
+                            itemID: scenario.id
+                          ) else {
+                        return
+                    }
+                    store.recordStudyAssessment(
+                        lessonID: "programming.debugging_tests_and_git",
+                        evidence: evidence
+                    )
+                } label: {
+                    Label(L10n.text("lab.debugging.check", store.language), systemImage: "checkmark")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(hasChecked || selectedChoice < 0)
+            }
+
+            GitWorkflowLab()
+        }
+    }
+}
+
+private struct GitWorkflowLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var stepIndex = 0
+    @State private var selectedDisplayIndex = -1
+    @State private var feedbackCorrect: Bool?
+    @State private var optionOrder = QuizAnswerOrder(
+        optionCount: GitWorkflowPractice.steps[0].commandKeys.count,
+        answerOriginalIndex: GitWorkflowPractice.steps[0].correctCommandIndex
+    )
+    @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(
+        itemIDs: GitWorkflowPractice.steps.map(\.id)
+    )
+
+    private var currentStep: GitWorkflowStep? {
+        guard GitWorkflowPractice.steps.indices.contains(stepIndex) else { return nil }
+        return GitWorkflowPractice.steps[stepIndex]
+    }
+
+    private var snapshotKey: String {
+        switch GitWorkflowPractice.snapshotState(afterCompletedSteps: stepIndex) {
+        case .unstaged:
+            return "lab.git.snapshot.unstaged"
+        case .staged:
+            return "lab.git.snapshot.staged"
+        case .committedWithUntrackedFile:
+            return "lab.git.snapshot.committed"
+        }
+    }
+
+    private var snapshotInfoKey: String {
+        switch GitWorkflowPractice.snapshotState(afterCompletedSteps: stepIndex) {
+        case .unstaged:
+            return "lab.git.snapshotInfo.unstaged"
+        case .staged:
+            return "lab.git.snapshotInfo.staged"
+        case .committedWithUntrackedFile:
+            return "lab.git.snapshotInfo.committed"
+        }
+    }
+
+    var body: some View {
         LabCard {
-            Text(L10n.text("lab.debugging.hint", store.language))
+            Text(L10n.text("lab.git.title", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.git.hint", store.language))
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            Text(L10n.text("lab.git.files", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
-            Picker(L10n.text("lab.debugging.scenarioPicker", store.language), selection: $scenarioID) {
-                ForEach(DebuggingPractice.scenarios) { item in
-                    Text(L10n.text(item.promptKey, store.language)).tag(item.id)
-                }
+            VStack(alignment: .leading, spacing: 6) {
+                Text(L10n.text("lab.git.snapshotLabel", store.language))
+                    .font(.caption.weight(.medium))
+                Text(L10n.text(snapshotKey, store.language))
+                    .font(.system(.callout, design: .monospaced))
+                    .textSelection(.enabled)
+                Text(L10n.text(snapshotInfoKey, store.language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .pickerStyle(.menu)
-            .onChange(of: scenarioID) { newScenarioID in
-                selectedChoice = -1
-                hasChecked = false
-                if let newScenario = DebuggingPractice.scenario(id: newScenarioID) {
-                    optionOrder = QuizAnswerOrder(
-                        optionCount: newScenario.choiceKeys.count,
-                        answerOriginalIndex: newScenario.correctChoice
-                    )
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(.background, in: RoundedRectangle(cornerRadius: 12))
+
+            if let step = currentStep {
+                Text(String(format: L10n.text("lab.git.progress", store.language), stepIndex + 1, GitWorkflowPractice.steps.count))
+                    .font(.caption.weight(.medium).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                Text(L10n.text(step.promptKey, store.language))
+                    .font(.callout.weight(.medium))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Picker(L10n.text("lab.debugging.choicePicker", store.language), selection: $selectedDisplayIndex) {
+                    ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                        Text(L10n.text(step.commandKeys[originalIndex], store.language))
+                            .font(.system(.callout, design: .monospaced))
+                            .tag(displayIndex)
+                    }
                 }
+                .pickerStyle(.radioGroup)
+                .disabled(feedbackCorrect == true)
+                .onChange(of: selectedDisplayIndex) { _ in
+                    if feedbackCorrect == false {
+                        feedbackCorrect = nil
+                    }
+                }
+
+                if let feedbackCorrect {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label(
+                            L10n.text(feedbackCorrect ? "lab.git.correct" : "lab.git.incorrect", store.language),
+                            systemImage: feedbackCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
+                        )
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(feedbackCorrect ? Color.green : Color.orange)
+                        Text(L10n.text(step.explanationKey, store.language))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                HStack(spacing: 10) {
+                    Button {
+                        check(step: step)
+                    } label: {
+                        Label(L10n.text("lab.git.check", store.language), systemImage: "checkmark")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(selectedDisplayIndex < 0 || feedbackCorrect == true)
+
+                    if feedbackCorrect == true {
+                        Button {
+                            advance()
+                        } label: {
+                            Label(L10n.text("lab.git.next", store.language), systemImage: "arrow.right.circle")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+            } else {
+                Label(L10n.text("lab.git.complete", store.language), systemImage: "checkmark.circle.fill")
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(.green)
+                Button {
+                    restart()
+                } label: {
+                    Label(L10n.text("lab.git.restart", store.language), systemImage: "arrow.counterclockwise")
+                }
+                .buttonStyle(.bordered)
             }
 
-            Text(scenario.code)
-                .font(.system(.callout, design: .monospaced))
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(12)
-                .background(.background, in: RoundedRectangle(cornerRadius: 12))
-                .accessibilityLabel(Text(L10n.text("lab.debugging.code", store.language)))
-
-            Label(scenario.traceback, systemImage: "exclamationmark.triangle.fill")
-                .font(.system(.callout, design: .monospaced))
-                .foregroundStyle(.orange)
+            Text(L10n.text("lab.git.limit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-                .accessibilityLabel(Text(L10n.text("lab.debugging.traceback", store.language)))
-
-            Text(L10n.text("lab.debugging.choose", store.language))
-                .font(.callout.weight(.medium))
-
-            Picker(L10n.text("lab.debugging.choicePicker", store.language), selection: $selectedChoice) {
-                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
-                    Text(L10n.text(scenario.choiceKeys[originalIndex], store.language)).tag(displayIndex)
-                }
-            }
-            .pickerStyle(.radioGroup)
-            .disabled(hasChecked)
-
-            if hasChecked {
-                Label(
-                    L10n.text(scenario.explanationKey, store.language),
-                    systemImage: optionOrder.isCorrect(displayedIndex: selectedChoice)
-                        ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
-                )
-                .font(.callout)
-                .foregroundStyle(optionOrder.isCorrect(displayedIndex: selectedChoice) ? Color.green : Color.orange)
-                .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Button {
-                hasChecked = true
-                guard let selectedOriginalIndex = optionOrder.originalIndex(forDisplayedIndex: selectedChoice),
-                      let evidence = assessmentTracker.recordSubmission(
-                        selectedAnswerIndex: selectedOriginalIndex,
-                        correctAnswerIndex: scenario.correctChoice,
-                        optionCount: scenario.choiceKeys.count,
-                        itemID: scenario.id
-                      ) else {
-                    return
-                }
-                store.recordStudyAssessment(
-                    lessonID: "programming.debugging_tests_and_git",
-                    evidence: evidence
-                )
-            } label: {
-                Label(L10n.text("lab.debugging.check", store.language), systemImage: "checkmark")
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(hasChecked || selectedChoice < 0)
         }
+    }
+
+    private func check(step: GitWorkflowStep) {
+        guard let selectedOriginalIndex = optionOrder.originalIndex(forDisplayedIndex: selectedDisplayIndex) else { return }
+        let isCorrect = GitWorkflowPractice.isCorrect(selectedOriginalIndex, for: step.id)
+        feedbackCorrect = isCorrect
+        guard let evidence = assessmentTracker.recordSubmission(
+            selectedAnswerIndex: selectedOriginalIndex,
+            correctAnswerIndex: step.correctCommandIndex,
+            optionCount: step.commandKeys.count,
+            itemID: step.id
+        ) else {
+            return
+        }
+        store.recordStudyAssessment(lessonID: "programming.debugging_tests_and_git", evidence: evidence)
+    }
+
+    private func advance() {
+        stepIndex += 1
+        selectedDisplayIndex = -1
+        feedbackCorrect = nil
+        guard let step = currentStep else { return }
+        optionOrder = QuizAnswerOrder(
+            optionCount: step.commandKeys.count,
+            answerOriginalIndex: step.correctCommandIndex
+        )
+    }
+
+    private func restart() {
+        stepIndex = 0
+        selectedDisplayIndex = -1
+        feedbackCorrect = nil
+        optionOrder = QuizAnswerOrder(
+            optionCount: GitWorkflowPractice.steps[0].commandKeys.count,
+            answerOriginalIndex: GitWorkflowPractice.steps[0].correctCommandIndex
+        )
+        assessmentTracker.reset()
     }
 }
 

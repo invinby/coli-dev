@@ -481,6 +481,24 @@ def test_programming_collections_lesson_rag_returns_official_python_tutorial_pag
     } in lesson["official_references"]
 
 
+def test_programming_git_workflow_lesson_rag_returns_pro_git_reference(tmp_path: Path) -> None:
+    project = Path(__file__).resolve().parent.parent
+    index = KnowledgeIndex(project, tmp_path / "knowledge.sqlite3")
+
+    results = index.refresh_and_search("git status diff stage staging index commit local history")
+
+    assert results
+    lesson = next(
+        source for source in results
+        if source["path"] == "02_Areas/Programming/lessons/debugging_tests_and_git.md"
+    )
+    assert lesson["source_checked_at"] == "2026-10-13"
+    assert {
+        "title": "Pro Git: Recording Changes to the Repository — Git Project / Pro Git: сохранение изменений в репозитории — проект Git",
+        "url": "https://git-scm.com/book/en/v2/Git-Basics-Recording-Changes-to-the-Repository",
+    } in lesson["official_references"]
+
+
 def test_bundled_biology_lesson_links_official_genetics_basics(tmp_path: Path) -> None:
     project = Path(__file__).resolve().parent.parent
     index = KnowledgeIndex(project, tmp_path / "knowledge.sqlite3")
