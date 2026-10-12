@@ -1,5 +1,10 @@
 # 10. Журнал обсуждений
 
+### 2026-10-12 — P1: аудит урока о равнодействующей / Net-force lesson audit
+
+- **RU:** Сверил `net_force_and_acceleration` с OpenStax: формулы, примеры и ключи RU/EN верны. Уточнил, что правило вычитания противоположных сил применяется к силам на одной прямой в одном измерении; обновил дату источников и добавил ссылки на векторное сложение, второй закон Ньютона, инерциальные системы и область классической механики. Добавил двуязычный аудит с лицензией: тела страниц OpenStax без разрешения нельзя загружать в RAG. Целевые проверки `test_knowledge_index.py` и `test_curriculum_routes.py`: 60 passed; `git diff --check` прошёл. Полный CI ожидается после отправки.
+- **EN:** Checked `net_force_and_acceleration` against OpenStax: equations, examples, and RU/EN answer keys are correct. Clarified that subtracting opposite-force magnitudes applies to collinear one-dimensional forces; refreshed source metadata and added citations for vector addition, Newton's second law, inertial frames, and the classical-mechanics domain. Added a bilingual audit with the license condition: OpenStax page bodies must not be ingested into RAG without permission. Focused `test_knowledge_index.py` and `test_curriculum_routes.py`: 60 passed; `git diff --check` passed. Full CI is pending the push.
+
 ### 2026-10-12 — P1: источники движения и тригонометрии / Motion and trigonometry sources
 
 - **RU:** Для урока `motion_with_constant_acceleration` подтвердил расчёты и ключи, но нашёл неполную поддержку источниками: §2.5 подтверждал только кинематику, не `a = F_net/m` и ограничения модели. Добавил официальные OpenStax ссылки §§2.2, 4.3, введение к главе 4 и §4.5, обновил дату проверки до 2026-10-12. Целевые проверки маршрутов и доверенных источников: 66 passed. GitHub Actions [38199002794](https://github.com/invinby/coli-dev/actions/runs/38199002794) прошёл 515 тестов backend, все Swift-verifier’ы и упаковку для macOS 15 ARM, macOS 26 ARM и macOS 26 Intel; также прошли smoke-check и проверка 53 маршрутов. Есть одно предупреждение Starlette/httpx. Учебный текст не менялся; ручной запуск UI/AI на Mac остаётся открытым.

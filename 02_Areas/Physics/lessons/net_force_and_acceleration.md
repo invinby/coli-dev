@@ -3,7 +3,7 @@ subject: physics
 lesson_id: physics.net_force_and_acceleration
 level: foundations
 languages: ru, en
-source_checked: 2026-10-05
+source_checked: 2026-10-12
 source_review_interval_days: 365
 ---
 
@@ -17,7 +17,7 @@ source_review_interval_days: 365
 
 ### Идея и механизм
 
-Второй закон Ньютона в форме для постоянной массы: `F_net = m a`, или в векторной форме `a = F_net / m`. Равнодействующая — векторная сумма внешних сил, действующих на выбранное тело. Силы в противоположных направлениях вычитаются по величинам, а направление результата указывает, куда направлено ускорение.
+Второй закон Ньютона в форме для постоянной массы: `F_net = m a`, или в векторной форме `a = F_net / m`. Равнодействующая — векторная сумма внешних сил, действующих на выбранное тело. В одномерном случае силы, направленные вдоль одной прямой в противоположные стороны, вычитаются по величинам; направление равнодействующей указывает направление ускорения.
 
 Перед вычислением нарисуй свободное тело: выбери одно тело, изобрази на нём каждую внешнюю силу стрелкой и задай оси. Не включай в диаграмму силы, которые это тело оказывает на другие объекты.
 
@@ -59,7 +59,7 @@ Draw a force diagram, find the net force, and predict the acceleration of a cons
 
 ### Idea and mechanism
 
-For constant mass, Newton's second law is `F_net = m a`, or in vector form `a = F_net / m`. The net force is the vector sum of external forces on the chosen object. Opposite directions subtract by magnitude; the direction of the result is the direction of acceleration.
+For constant mass, Newton's second law is `F_net = m a`, or in vector form `a = F_net / m`. The net force is the vector sum of external forces on the chosen object. In one dimension, forces along the same line in opposite directions subtract by magnitude; the net-force direction is the acceleration direction.
 
 Before calculating, draw a free-body diagram: choose one object, draw an arrow for each external force on it, and define axes. Do not include forces that this object exerts on other objects.
 
@@ -95,4 +95,9 @@ This introductory form assumes an inertial reference frame and constant mass. In
 
 ## Sources
 
-- OpenStax, *College Physics 2e*, “Newton's Second Law of Motion: Concept of a System”: <https://openstax.org/books/college-physics-2e/pages/4-3-newtons-second-law-of-motion-concept-of-a-system>
+- OpenStax, *College Physics 2e*, §2.2, “Vectors, Scalars, and Coordinate Systems”: <https://openstax.org/books/college-physics-2e/pages/2-2-vectors-scalars-and-coordinate-systems> — vectors, components, and coordinate directions / векторы, компоненты и направления координат.
+- OpenStax, *College Physics 2e*, §4.3, “Newton's Second Law of Motion: Concept of a System”: <https://openstax.org/books/college-physics-2e/pages/4-3-newtons-second-law-of-motion-concept-of-a-system> — net external force as a vector sum, defining the system, free-body diagrams, `a = F_net/m`, and the SI newton / равнодействующая внешних сил как векторная сумма, выбор системы, диаграммы сил, `a = F_net/m` и ньютон в СИ.
+- OpenStax, *College Physics 2e*, §4.5, “Normal, Tension, and Other Examples of Forces”: <https://openstax.org/books/college-physics-2e/pages/4-5-normal-tension-and-other-examples-of-forces> — inertial frames, in which Newton's laws take their simple form / инерциальные системы, в которых законы Ньютона имеют простую форму.
+- OpenStax, *College Physics 2e*, Chapter 4 introduction, “Dynamics: Newton's Laws of Motion”: <https://openstax.org/books/college-physics-2e/pages/4-introduction-to-dynamics-newtons-laws-of-motion> — classical-mechanics limits at relativistic speeds and molecular scales / границы применимости классической механики при релятивистских скоростях и молекулярных масштабах.
+
+Lesson wording and exercise are original; no textbook passage, figure, worked example, or assessment has been copied. OpenStax states that the book is CC BY-NC-SA and prohibits ingestion of its content into generative-AI offerings without prior written permission. Do not include the linked page bodies in AI/RAG ingestion unless rights have been cleared.
