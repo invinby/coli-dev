@@ -75,6 +75,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-force-prediction-identity"
           "$RUNNER_TEMP/verify-force-prediction-identity"
 
+      - name: Verify thermoregulation question identity / Проверка идентификатора вопроса о терморегуляции
+        run: |
+          swiftc -parse-as-library macOS/ColiDev/scripts/verify_thermoregulation_question_identity.swift \
+            -o "$RUNNER_TEMP/verify-thermoregulation-question-identity"
+          "$RUNNER_TEMP/verify-thermoregulation-question-identity"
+
       - name: Verify shared physics calculation models
         run: |
           swiftc macOS/ColiDev/App/ForceMotion.swift macOS/ColiDev/scripts/verify_physics_models.swift \
