@@ -39,6 +39,23 @@ enum GeneRegulationFeedbackVerification {
             )
         }
 
+        let scenarioIDs: [(variant: Int, signalPresent: Bool, expectedID: String)] = [
+            (0, true, "biology.gene_regulation.variant-0.signal-present"),
+            (0, false, "biology.gene_regulation.variant-0.signal-absent"),
+            (1, true, "biology.gene_regulation.variant-1.signal-present"),
+            (1, false, "biology.gene_regulation.variant-1.signal-absent")
+        ]
+        var observedScenarioIDs = Set<String>()
+        for scenario in scenarioIDs {
+            let attempt = GeneRegulationPractice.makePredictionAttempt(
+                variant: scenario.variant,
+                signalPresent: scenario.signalPresent
+            )
+            precondition(attempt.itemID == scenario.expectedID)
+            observedScenarioIDs.insert(attempt.itemID ?? "")
+        }
+        precondition(observedScenarioIDs.count == scenarioIDs.count)
+
         for productMade in [false, true] {
             precondition(
                 GeneRegulationPractice.geneActivityKey(
@@ -105,22 +122,15 @@ enum GeneRegulationFeedbackVerification {
             )
         }
 
-        guard var prediction = InteractivePredictionAttempt(
-            optionCount: 2,
-            answerOriginalIndex: GeneRegulationPractice.correctPredictionAnswerOriginalIndex(
-                variant: 0,
-                signalPresent: false
-            )
-        ) else {
-            preconditionFailure("A valid gene-regulation scenario must start a prediction. / Для корректного сценария регуляции гена должен создаваться прогноз.")
-        }
+        var prediction = GeneRegulationPractice.makePredictionAttempt(variant: 0, signalPresent: false)
         let firstOrder = prediction.choiceOrder.displayedOriginalIndices
         let wrongDisplayedIndex = firstOrder.firstIndex(where: { $0 != prediction.answerOriginalIndex })!
         prediction.select(displayedIndex: wrongDisplayedIndex)
         precondition(
             prediction.currentAnswerEventEvidence()?.taskType == "interactive_prediction"
                 && prediction.currentAnswerEventEvidence()?.attempts == 1
-                && prediction.currentAnswerEventEvidence()?.firstTryCorrect == false,
+                && prediction.currentAnswerEventEvidence()?.firstTryCorrect == false
+                && prediction.currentAnswerEventEvidence()?.itemID == "biology.gene_regulation.variant-0.signal-absent",
             "A wrong gene-regulation prediction must be saved as learning evidence. / Неверный прогноз по регуляции гена должен сохраняться как учебный результат."
         )
         prediction.retry()
@@ -129,7 +139,8 @@ enum GeneRegulationFeedbackVerification {
         precondition(
             prediction.isCorrect
                 && prediction.currentAnswerEventEvidence()?.attempts == 2
-                && prediction.currentAnswerEventEvidence()?.firstTryCorrect == false,
+                && prediction.currentAnswerEventEvidence()?.firstTryCorrect == false
+                && prediction.currentAnswerEventEvidence()?.itemID == "biology.gene_regulation.variant-0.signal-absent",
             "A correct retry must preserve the first-attempt result and cumulative count. / Правильный повтор должен сохранять результат первой попытки и общее число попыток."
         )
     }
