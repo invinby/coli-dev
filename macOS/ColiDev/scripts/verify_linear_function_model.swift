@@ -12,9 +12,9 @@ enum LinearFunctionModelVerification {
         let constant = LinearFunctionModel(slope: 0, intercept: 2)!
         precondition(close(constant.value(at: -3)!, 2), "Keep the output constant when the slope is zero. / Сохранять постоянный выход при нулевом наклоне.")
 
-        precondition(LinearFunctionModel(slope: .infinity, intercept: 1) == nil, "Reject a non-finite slope. / Отклонить бесконечный наклон.")
-        precondition(LinearFunctionModel(slope: 1, intercept: .nan) == nil, "Reject a non-finite intercept. / Отклонить нечисловой intercept.")
-        precondition(function.value(at: .infinity) == nil, "Reject a non-finite input. / Отклонить бесконечный вход.")
+        precondition(LinearFunctionModel(slope: Double.infinity, intercept: 1) == nil, "Reject a non-finite slope. / Отклонить бесконечный наклон.")
+        precondition(LinearFunctionModel(slope: 1, intercept: Double.nan) == nil, "Reject a non-finite intercept. / Отклонить нечисловой intercept.")
+        precondition(function.value(at: Double.infinity) == nil, "Reject a non-finite input. / Отклонить бесконечный вход.")
 
         precondition(
             LinearFunctionPracticeRoute.matches(subjectID: "mathematics", resource: "functions_as_models"),
@@ -42,7 +42,7 @@ enum LinearFunctionModelVerification {
         precondition(correctFirstTry.evidence?.firstTryCorrect == true, "Record a correct first try. / Записать верный первый ответ.")
 
         var invalidGuess = LinearFunctionPredictionRound(function: function, input: 3)
-        precondition(invalidGuess.submit(answer: .infinity) == nil && invalidGuess.evidence == nil, "Do not record non-finite answers. / Не записывать бесконечные ответы.")
+        precondition(invalidGuess.submit(answer: Double.infinity) == nil && invalidGuess.evidence == nil, "Do not record non-finite answers. / Не записывать бесконечные ответы.")
 
         print("Linear function model checks passed. / Проверки линейной функции прошли.")
     }

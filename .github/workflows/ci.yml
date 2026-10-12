@@ -257,7 +257,7 @@ jobs:
 
       - name: Verify linear-function model and prediction feedback / Проверить линейную функцию и обратную связь
         run: |
-          swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/scripts/verify_linear_function_model.swift \
+          swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/LinearFunctionModel.swift macOS/ColiDev/scripts/verify_linear_function_model.swift \
             -o "$RUNNER_TEMP/verify-linear-function-model"
           "$RUNNER_TEMP/verify-linear-function-model"
 

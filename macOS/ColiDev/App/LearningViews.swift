@@ -1266,6 +1266,8 @@ private struct PracticeLab: View {
     var body: some View {
         if subject == .mathematics, moduleResource == "solving_linear_equations" {
             LinearEquationLab()
+        } else if LinearFunctionPracticeRoute.matches(subjectID: subject.rawValue, resource: moduleResource) {
+            LinearFunctionLab()
         } else if subject == .mathematics, moduleResource == "systems_of_linear_equations" {
             LinearSystemLab()
         } else if subject == .mathematics, moduleResource == "rational_expressions_and_restrictions" {
@@ -3839,6 +3841,222 @@ private struct LabCard<Content: View>: View {
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+    }
+}
+
+private struct LinearFunctionLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var slope = 2.0
+    @State private var intercept = -1.0
+    @State private var input = 3.0
+    @State private var predictionText = ""
+    @State private var round = LinearFunctionPredictionRound(
+        function: LinearFunctionModel(slope: 2, intercept: -1)!,
+        input: 3
+    )
+
+    private var function: LinearFunctionModel {
+        LinearFunctionModel(slope: slope, intercept: intercept)!
+    }
+
+    private var formula: String {
+        let slopeTerm = slope < 0 ? "− \(format(abs(slope)))x" : "\(format(slope))x"
+        let interceptTerm = intercept < 0 ? "− \(format(abs(intercept)))" : "+ \(format(intercept))"
+        return "y = \(slopeTerm) \(interceptTerm)"
+    }
+
+    private var parsedAnswer: Double? {
+        let normalized = predictionText
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: ",", with: ".")
+        return Double(normalized)
+    }
+
+    private var solutionText: String {
+        String(
+            format: L10n.text("lab.linear.solution", store.language),
+            format(slope),
+            format(input),
+            format(intercept),
+            format(function.value(at: input)!)
+        )
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.linear.prompt", store.language))
+                .font(.headline)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(formula)
+                .font(.system(.title2, design: .monospaced, weight: .semibold))
+                .accessibilityLabel(Text(String(format: L10n.text("lab.linear.formula", store.language), formula)))
+
+            LinearFunctionPlot(function: function, input: input, language: store.language)
+                .frame(height: 230)
+
+            Text(String(format: L10n.text("lab.linear.currentInput", store.language), format(input)))
+                .font(.callout.monospacedDigit())
+                .foregroundStyle(.secondary)
+
+            VStack(spacing: 10) {
+                parameterRow("lab.linear.slope", value: $slope, range: -2...2, step: 0.5)
+                parameterRow("lab.linear.intercept", value: $intercept, range: -4...4, step: 0.5)
+                parameterRow("lab.linear.input", value: $input, range: -3...3, step: 0.5)
+            }
+
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                TextField(L10n.text("lab.linear.placeholder", store.language), text: $predictionText)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(maxWidth: 240)
+                    .accessibilityLabel(Text(L10n.text("lab.linear.prediction", store.language)))
+                    .onSubmit { checkPrediction() }
+                    .disabled(round.lastAnswerCorrect == true || round.attempts >= 2)
+
+                if round.submittedAnswer == nil {
+                    Button(L10n.text("lab.linear.check", store.language)) {
+                        checkPrediction()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(parsedAnswer == nil)
+                } else if round.lastAnswerCorrect == false && round.attempts < 2 {
+                    Button(L10n.text("lab.linear.retry", store.language)) {
+                        retryPrediction()
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+
+            if let isCorrect = round.lastAnswerCorrect {
+                Label(
+                    L10n.text(isCorrect ? "lab.linear.correct" : "lab.linear.incorrect", store.language),
+                    systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
+                )
+                .foregroundStyle(isCorrect ? Color.green : Color.orange)
+                .fixedSize(horizontal: false, vertical: true)
+
+                if isCorrect || round.attempts >= 2 {
+                    Text(solutionText)
+                        .font(.callout.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text(L10n.text("lab.linear.hint", store.language))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .onChange(of: slope) { _ in resetPrediction() }
+        .onChange(of: intercept) { _ in resetPrediction() }
+        .onChange(of: input) { _ in resetPrediction() }
+    }
+
+    private func parameterRow(
+        _ labelKey: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double>,
+        step: Double
+    ) -> some View {
+        HStack(spacing: 10) {
+            Text(L10n.text(labelKey, store.language))
+                .frame(width: 146, alignment: .leading)
+            Slider(value: value, in: range, step: step)
+                .accessibilityLabel(Text(L10n.text(labelKey, store.language)))
+            Text(format(value.wrappedValue))
+                .font(.callout.monospacedDigit())
+                .frame(width: 54, alignment: .trailing)
+        }
+    }
+
+    private func checkPrediction() {
+        guard let answer = parsedAnswer,
+              round.submit(answer: answer) != nil,
+              let evidence = round.evidence else { return }
+        store.recordStudyAssessment(lessonID: LinearFunctionPredictionRound.lessonID, evidence: evidence)
+    }
+
+    private func retryPrediction() {
+        round.retry()
+        predictionText = ""
+    }
+
+    private func resetPrediction() {
+        round = LinearFunctionPredictionRound(function: function, input: input)
+        predictionText = ""
+    }
+
+    private func format(_ value: Double) -> String {
+        value.formatted(
+            .number
+                .locale(Locale(identifier: store.language == .ru ? "ru_RU" : "en_US"))
+                .precision(.fractionLength(0...2))
+        )
+    }
+}
+
+private struct LinearFunctionPlot: View {
+    let function: LinearFunctionModel
+    let input: Double
+    let language: AppLanguage
+
+    private let xRange: ClosedRange<Double> = -4...4
+    private let yRange: ClosedRange<Double> = -12...12
+
+    var body: some View {
+        Canvas { context, size in
+            let plot = CGRect(x: 34, y: 10, width: max(0, size.width - 46), height: max(0, size.height - 26))
+            guard plot.width > 0, plot.height > 0 else { return }
+
+            var clippingPath = Path()
+            clippingPath.addRect(plot)
+            context.clip(to: clippingPath)
+
+            func location(_ x: Double, _ y: Double) -> CGPoint {
+                CGPoint(
+                    x: plot.minX + CGFloat((x - xRange.lowerBound) / (xRange.upperBound - xRange.lowerBound)) * plot.width,
+                    y: plot.maxY - CGFloat((y - yRange.lowerBound) / (yRange.upperBound - yRange.lowerBound)) * plot.height
+                )
+            }
+
+            var grid = Path()
+            for xTick in -4...4 {
+                let x = location(Double(xTick), 0).x
+                grid.move(to: CGPoint(x: x, y: plot.minY))
+                grid.addLine(to: CGPoint(x: x, y: plot.maxY))
+            }
+            for yTick in stride(from: -12, through: 12, by: 4) {
+                let y = location(0, Double(yTick)).y
+                grid.move(to: CGPoint(x: plot.minX, y: y))
+                grid.addLine(to: CGPoint(x: plot.maxX, y: y))
+            }
+            context.stroke(grid, with: .color(.secondary.opacity(0.16)), lineWidth: 1)
+
+            var axes = Path()
+            axes.move(to: location(xRange.lowerBound, 0))
+            axes.addLine(to: location(xRange.upperBound, 0))
+            axes.move(to: location(0, yRange.lowerBound))
+            axes.addLine(to: location(0, yRange.upperBound))
+            context.stroke(axes, with: .color(.secondary.opacity(0.65)), lineWidth: 1.5)
+
+            var line = Path()
+            for index in 0...160 {
+                let x = xRange.lowerBound + Double(index) / 160 * (xRange.upperBound - xRange.lowerBound)
+                guard let y = function.value(at: x) else { continue }
+                let point = location(x, y)
+                if index == 0 { line.move(to: point) } else { line.addLine(to: point) }
+            }
+            context.stroke(line, with: .color(.indigo), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+
+            if let output = function.value(at: input), yRange.contains(output) {
+                let point = location(input, output)
+                let marker = Path(ellipseIn: CGRect(x: point.x - 6, y: point.y - 6, width: 12, height: 12))
+                context.fill(marker, with: .color(.teal))
+                context.stroke(marker, with: .color(.primary.opacity(0.9)), lineWidth: 1.5)
+            }
+        }
+        .accessibilityLabel(L10n.text("lab.linear.graph", language))
     }
 }
 
