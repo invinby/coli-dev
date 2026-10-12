@@ -41,6 +41,31 @@ enum QuadraticFunctionVerification {
         var correctOnFirstTry = QuadraticPredictionAssessment()
         let correctEvidence = correctOnFirstTry.recordAnswer(isCorrect: true)
         precondition(correctEvidence.attempts == 1 && correctEvidence.firstTryCorrect, "Save a correct first prediction. / Сохранить верный прогноз с первой попытки.")
+
+        let firstRoundOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: 1)
+        var round = QuadraticPredictionRound(answerOrder: firstRoundOrder)
+        let wrongDisplayIndex = firstRoundOrder.displayedOriginalIndices.firstIndex(where: { $0 != 1 })!
+        precondition(
+            round.submit(displayedIndex: wrongDisplayIndex) == false
+                && round.selectedDisplayedIndex == wrongDisplayIndex,
+            "A wrong prediction must show its result for the current graph. / Неверный прогноз должен показать результат для текущего графика."
+        )
+        precondition(
+            round.submit(displayedIndex: firstRoundOrder.correctDisplayedIndex) == nil
+                && round.selectedDisplayedIndex == wrongDisplayIndex,
+            "Do not replace the submitted answer before the next graph. / Не заменяй отправленный ответ до перехода к следующему графику."
+        )
+
+        let nextRoundOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: 1)
+        round.beginNewQuestion(answerOrder: nextRoundOrder)
+        precondition(
+            round.answerOrder == nextRoundOrder && round.selectedDisplayedIndex == nil,
+            "Changing the function parameters must clear stale feedback and start a fresh prediction. / После изменения параметров функции старый разбор должен исчезнуть и начаться новый прогноз."
+        )
+        precondition(
+            round.submit(displayedIndex: nextRoundOrder.correctDisplayedIndex) == true,
+            "A fresh prediction must use the updated answer order. / Новый прогноз должен использовать обновлённый порядок ответов."
+        )
         print("Quadratic function checks passed. / Проверки квадратичной функции прошли.")
     }
 
