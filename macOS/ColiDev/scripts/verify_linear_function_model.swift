@@ -21,6 +21,10 @@ enum LinearFunctionModelVerification {
             "Route the Functions as Models lesson to its matching practice. / Направлять урок «Функции как модели» в соответствующий тренажёр."
         )
         precondition(
+            LinearFunctionPracticeRoute.lessonID(subjectID: "mathematics", resource: "intro") == "intro.mathematics",
+            "Route the mathematics intro to the same trainer while keeping its legacy progress ID. / Открывать математический вводный урок в том же тренажёре и сохранять его прежний ID прогресса."
+        )
+        precondition(
             !LinearFunctionPracticeRoute.matches(subjectID: "physics", resource: "functions_as_models")
                 && !LinearFunctionPracticeRoute.matches(subjectID: "mathematics", resource: nil),
             "Do not route unrelated or missing resources to the function trainer. / Не направлять в тренажёр функции несвязанные или пустые ресурсы."

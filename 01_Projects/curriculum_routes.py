@@ -8,9 +8,11 @@ accuracy or licensing of the linked source.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Iterable
 
@@ -148,6 +150,85 @@ def _audit_lesson(subject: str, resource: str, markdown: str) -> list[str]:
     return errors
 
 
+def _intro_route_frontmatter(markdown: str) -> dict[str, str]:
+    parts = markdown.replace("\r\n", "\n").split("---", 2)
+    if len(parts) != 3 or parts[0].strip():
+        return {}
+    fields: dict[str, str] = {}
+    for line in parts[1].splitlines():
+        key, separator, value = line.partition(":")
+        if separator:
+            fields[key.strip()] = value.strip().strip("\"'")
+    return fields
+
+
+def _audit_intro_lesson_routes(areas_root: Path) -> list[str]:
+    errors: list[str] = []
+    manifest_path = areas_root / "intro_lesson_routes.json"
+    if not manifest_path.is_file():
+        return ["intro_lesson_routes.json: missing bundled intro route manifest / отсутствует манифест вводных маршрутов"]
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return ["intro_lesson_routes.json: unreadable JSON manifest / манифест JSON не читается"]
+
+    if not isinstance(manifest, dict) or manifest.get("schema_version") != 1:
+        errors.append("intro_lesson_routes.json: unsupported schema version / неподдерживаемая версия схемы")
+    routes = manifest.get("routes") if isinstance(manifest, dict) else None
+    if not isinstance(routes, list):
+        return errors + ["intro_lesson_routes.json: routes must be an array / routes должен быть массивом"]
+
+    subject_directories = {subject.casefold(): subject for subject in BUILT_IN_SUBJECTS}
+    seen_subjects: set[str] = set()
+    seen_progress_ids: set[str] = set()
+    for index, route in enumerate(routes):
+        label = f"intro_lesson_routes.json: route {index + 1}"
+        if not isinstance(route, dict):
+            errors.append(f"{label} must be an object / маршрут должен быть объектом")
+            continue
+        subject_id = route.get("subject_id")
+        resource = route.get("resource")
+        progress_lesson_id = route.get("progress_lesson_id")
+        if not isinstance(subject_id, str) or subject_id not in subject_directories:
+            errors.append(f"{label} has an unknown subject_id / неизвестный subject_id")
+            continue
+        if subject_id in seen_subjects:
+            errors.append(f"{label} duplicates subject_id {subject_id} / повторяется subject_id {subject_id}")
+        seen_subjects.add(subject_id)
+        expected_progress_id = f"intro.{subject_id}"
+        if progress_lesson_id != expected_progress_id or progress_lesson_id in seen_progress_ids:
+            errors.append(
+                f"{label} must preserve {expected_progress_id} / маршрут должен сохранить {expected_progress_id}"
+            )
+        if isinstance(progress_lesson_id, str):
+            seen_progress_ids.add(progress_lesson_id)
+        if not isinstance(resource, str) or not RESOURCE_ID.fullmatch(resource):
+            errors.append(f"{label} has an invalid resource / некорректный resource")
+            continue
+
+        directory = subject_directories[subject_id]
+        lesson_path = areas_root / directory / "lessons" / f"{resource}.md"
+        if not lesson_path.is_file():
+            errors.append(f"{directory}/{resource}.md: intro lesson target is missing / нет файла вводного урока")
+            continue
+        markdown = lesson_path.read_text(encoding="utf-8")
+        metadata = _intro_route_frontmatter(markdown)
+        if metadata.get("subject", "").casefold() != subject_id:
+            errors.append(f"{directory}/{resource}.md: subject metadata mismatch / не совпадает предмет в метаданных")
+        if metadata.get("lesson_id") != progress_lesson_id:
+            errors.append(f"{directory}/{resource}.md: lesson_id must match the preserved progress ID / lesson_id должен совпадать с сохранённым ID прогресса")
+        try:
+            date.fromisoformat(metadata.get("source_checked", ""))
+        except ValueError:
+            errors.append(f"{directory}/{resource}.md: missing valid source_checked date / нет корректной даты source_checked")
+        errors.extend(_audit_lesson(directory, resource, markdown))
+
+    missing_subjects = set(subject_directories) - seen_subjects
+    for subject_id in sorted(missing_subjects):
+        errors.append(f"intro_lesson_routes.json: missing route for {subject_id} / отсутствует маршрут {subject_id}")
+    return errors
+
+
 def audit_curriculum_routes(
     areas_root: Path,
     subjects: Iterable[str] = BUILT_IN_SUBJECTS,
@@ -225,6 +306,9 @@ def audit_curriculum_routes(
                 f"{subject}/curriculum.md: missing roadmap levels {', '.join(sorted(missing_levels))} "
                 f"/ отсутствуют уровни учебного плана: {', '.join(sorted(missing_levels))}"
             )
+
+    if set(subject_names) == set(BUILT_IN_SUBJECTS):
+        errors.extend(_audit_intro_lesson_routes(areas_root))
 
     return CurriculumRouteAudit(
         subject_count=len(subject_names),

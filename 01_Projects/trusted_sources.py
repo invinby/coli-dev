@@ -34,7 +34,7 @@ _MARKDOWN_LINK_RE = re.compile(r"\[([^\]]{1,200})\]\(\s*(https://[^)\s]+)\s*\)",
 _TRAILING_PUNCTUATION = ".,;:!?"
 _MAX_LESSON_FILES = 200
 _MAX_LESSON_FILE_BYTES = 256 * 1024
-_MAX_SOURCES = 104
+_MAX_SOURCES = 112
 _MAX_CONCURRENT_REQUESTS = 5
 _MAX_TITLE_LENGTH = 200
 _MAX_PAGE_DESCRIPTION_LENGTH = 500
@@ -55,6 +55,7 @@ _TRUSTED_HOSTS = frozenset(
         "csrc.nist.gov",
         "docs.python.org",
         "learnenglish.britishcouncil.org",
+        "legacy.bas.ac.uk",
         "medlineplus.gov",
         "raw.githubusercontent.com",
         "www.nist.gov",
@@ -76,6 +77,9 @@ _ALLOWED_PATHS = {
         r"^/(?:free-resources/(?:grammar/(?:english-grammar-reference|b1-b2)/[A-Za-z0-9-]+|"
         r"vocabulary/a1-a2(?:/daily-routine-vocabulary-a1-beginner-english-vocabulary-lesson)?|reading/a1)|"
         r"level/improve-your-english-level/how-start-reading-english)/?$"
+    ),
+    "legacy.bas.ac.uk": re.compile(
+        r"^/about_antarctica/wildlife/birds/penguins/(?:emperor\.php|index\.php)$"
     ),
     "medlineplus.gov": re.compile(
         r"^/genetics/understanding/(?:basics/(?:dna|gene)|howgeneswork/makingprotein)/?$"

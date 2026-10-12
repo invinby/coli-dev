@@ -24,6 +24,21 @@ def test_advanced_math_optimization_route_has_a_complete_lesson():
     assert audit.errors == (), "\n".join(audit.errors)
 
 
+def test_full_catalog_audit_requires_bundled_intro_route_manifest(tmp_path):
+    areas = tmp_path / "02_Areas"
+    for subject in ("Mathematics", "English", "Physics", "Biology", "Zoology", "Programming"):
+        subject_dir = areas / subject
+        subject_dir.mkdir(parents=True)
+        (subject_dir / "curriculum.md").write_text(
+            "## Foundations\n\n## Intermediate\n\n## Advanced\n",
+            encoding="utf-8",
+        )
+
+    audit = audit_curriculum_routes(areas)
+
+    assert any("intro_lesson_routes.json" in issue for issue in audit.errors)
+
+
 def test_trigonometry_answer_keys_match_the_explained_sine_sign():
     lesson = (
         REPOSITORY_ROOT

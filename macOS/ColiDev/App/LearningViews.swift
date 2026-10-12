@@ -342,11 +342,18 @@ struct CurriculumModuleView: View {
 
     let subject: Subject
     let resource: String
+    let progressLessonID: String?
 
-    private var lessonID: String { "\(subject.rawValue).\(resource)" }
+    private var lessonID: String { progressLessonID ?? "\(subject.rawValue).\(resource)" }
     private var isComplete: Bool { store.isComplete(lessonID: lessonID) }
     private var isReviewDue: Bool { store.isReviewDue(lessonID: lessonID) }
     private var hasPendingReview: Bool { store.hasPendingReview(lessonID: lessonID) }
+
+    init(subject: Subject, resource: String, progressLessonID: String? = nil) {
+        self.subject = subject
+        self.resource = resource
+        self.progressLessonID = progressLessonID
+    }
 
     var body: some View {
         ScrollView {
@@ -1266,8 +1273,11 @@ private struct PracticeLab: View {
     var body: some View {
         if subject == .mathematics, moduleResource == "solving_linear_equations" {
             LinearEquationLab()
-        } else if LinearFunctionPracticeRoute.matches(subjectID: subject.rawValue, resource: moduleResource) {
-            LinearFunctionLab()
+        } else if let lessonID = LinearFunctionPracticeRoute.lessonID(
+            subjectID: subject.rawValue,
+            resource: moduleResource
+        ) {
+            LinearFunctionLab(lessonID: lessonID)
         } else if subject == .mathematics, moduleResource == "systems_of_linear_equations" {
             LinearSystemLab()
         } else if subject == .mathematics, moduleResource == "rational_expressions_and_restrictions" {
@@ -1304,6 +1314,8 @@ private struct PracticeLab: View {
             AnimalGroupLab()
         } else if subject == .zoology, moduleResource == "major_animal_lineages" {
             AnimalLineageLab()
+        } else if subject == .biology, moduleResource == "intro" {
+            EukaryoticCellLab()
         } else if subject == .biology, moduleResource == "passive_transport_osmosis" {
             OsmosisLab()
         } else if subject == .biology, moduleResource == "mendelian_inheritance" {
@@ -1346,6 +1358,8 @@ private struct PracticeLab: View {
             MomentumCollisionLab(initialMode: .elastic)
         } else if subject == .physics, moduleResource == "projectile_motion" {
             ProjectileMotionLab()
+        } else if subject == .physics, moduleResource == "intro" {
+            ForceLab(lessonID: "intro.physics")
         } else if subject == .physics, moduleResource == "net_force_and_acceleration" {
             ForceLab(lessonID: "physics.net_force_and_acceleration")
         } else if subject == .programming, moduleResource == "collections_and_loops" {
@@ -3846,6 +3860,7 @@ private struct LabCard<Content: View>: View {
 
 private struct LinearFunctionLab: View {
     @EnvironmentObject private var store: LearningStore
+    let lessonID: String
     @State private var slope = 2.0
     @State private var intercept = -1.0
     @State private var input = 3.0
@@ -3854,6 +3869,10 @@ private struct LinearFunctionLab: View {
         function: LinearFunctionModel(slope: 2, intercept: -1)!,
         input: 3
     )
+
+    init(lessonID: String = LinearFunctionPredictionRound.lessonID) {
+        self.lessonID = lessonID
+    }
 
     private var function: LinearFunctionModel {
         LinearFunctionModel(slope: slope, intercept: intercept)!
@@ -3974,7 +3993,7 @@ private struct LinearFunctionLab: View {
         guard let answer = parsedAnswer,
               round.submit(answer: answer) != nil,
               let evidence = round.evidence else { return }
-        store.recordStudyAssessment(lessonID: LinearFunctionPredictionRound.lessonID, evidence: evidence)
+        store.recordStudyAssessment(lessonID: lessonID, evidence: evidence)
     }
 
     private func retryPrediction() {

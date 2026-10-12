@@ -41,6 +41,20 @@ struct CurriculumLessonStructureIssue: Identifiable {
     var id: String { resource }
 }
 
+struct IntroLessonRoute: Decodable, Identifiable {
+    let subjectID: String
+    let resource: String
+    let progressLessonID: String
+
+    var id: String { subjectID }
+
+    enum CodingKeys: String, CodingKey {
+        case subjectID = "subject_id"
+        case resource
+        case progressLessonID = "progress_lesson_id"
+    }
+}
+
 struct SubjectCurriculumCoverage: Identifiable {
     let subject: Subject
     let levels: [CurriculumLevelCoverage]
@@ -56,6 +70,40 @@ struct SubjectCurriculumCoverage: Identifiable {
 }
 
 enum CurriculumCatalog {
+    private struct IntroLessonRouteManifest: Decodable {
+        let schemaVersion: Int
+        let routes: [IntroLessonRoute]
+
+        enum CodingKeys: String, CodingKey {
+            case schemaVersion = "schema_version"
+            case routes
+        }
+    }
+
+    private static let introRoutesBySubject: [String: IntroLessonRoute] = {
+        guard let resourcesURL = Bundle.main.resourceURL,
+              let data = try? Data(contentsOf: resourcesURL
+                .appendingPathComponent("02_Areas", isDirectory: true)
+                .appendingPathComponent("intro_lesson_routes.json")),
+              let manifest = try? JSONDecoder().decode(IntroLessonRouteManifest.self, from: data),
+              manifest.schemaVersion == 1,
+              Set(manifest.routes.map(\.subjectID)).count == manifest.routes.count,
+              Set(manifest.routes.map(\.progressLessonID)).count == manifest.routes.count else {
+            return [:]
+        }
+        return Dictionary(uniqueKeysWithValues: manifest.routes.map { ($0.subjectID, $0) })
+    }()
+
+    static func introLessonRoute(for subject: Subject) -> IntroLessonRoute? {
+        guard let route = introRoutesBySubject[subject.rawValue],
+              route.progressLessonID == subject.lessonID,
+              route.resource.range(of: "^[a-z0-9_-]{1,80}$", options: .regularExpression) != nil,
+              lessonMarkdown(for: subject, resource: route.resource) != nil else {
+            return nil
+        }
+        return route
+    }
+
     static func coverage(for subject: Subject) -> SubjectCurriculumCoverage {
         let levels = roadmap(for: subject)
         let lessonFiles = lessonFiles(for: subject)

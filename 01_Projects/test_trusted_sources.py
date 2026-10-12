@@ -1381,3 +1381,11 @@ def test_unexpected_304_without_a_saved_validator_needs_attention(tmp_path: Path
 
     assert result["needs_attention_count"] == 1
     assert result["checks"][0]["state"] == "unexpected_not_modified"
+
+
+def test_british_antarctic_survey_emperor_penguin_source_is_exact_metadata_only() -> None:
+    url = "https://legacy.bas.ac.uk/about_antarctica/wildlife/birds/penguins/emperor.php"
+
+    assert TrustedSourceMonitor._canonical_url(url) == url
+    assert TrustedSourceMonitor._rag_policy(url) is None
+    assert TrustedSourceMonitor._canonical_url(url + "/unreviewed-page") is None

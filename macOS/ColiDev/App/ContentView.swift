@@ -96,8 +96,16 @@ struct ContentView: View {
                         selection = .lesson(subject)
                     }
                 case .lesson(let subject):
-                    LessonSessionView(subject: subject) {
-                        selection = .subject(subject)
+                    if let route = CurriculumCatalog.introLessonRoute(for: subject) {
+                        CurriculumModuleView(
+                            subject: subject,
+                            resource: route.resource,
+                            progressLessonID: route.progressLessonID
+                        )
+                    } else {
+                        LessonSessionView(subject: subject) {
+                            selection = .subject(subject)
+                        }
                     }
                 case .courseLesson(let subject, let resource):
                     CurriculumModuleView(subject: subject, resource: resource)

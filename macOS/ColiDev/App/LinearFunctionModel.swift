@@ -23,7 +23,14 @@ enum LinearFunctionPracticeRoute {
     static let lessonID = "mathematics.functions_as_models"
 
     static func matches(subjectID: String, resource: String?) -> Bool {
-        subjectID == Self.subjectID && resource == Self.lessonResource
+        lessonID(subjectID: subjectID, resource: resource) != nil
+    }
+
+    static func lessonID(subjectID: String, resource: String?) -> String? {
+        guard subjectID == Self.subjectID else { return nil }
+        if resource == Self.lessonResource { return Self.lessonID }
+        if resource == "intro" { return "intro.mathematics" }
+        return nil
     }
 }
 
