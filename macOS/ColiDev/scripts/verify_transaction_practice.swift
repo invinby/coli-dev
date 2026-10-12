@@ -37,6 +37,7 @@ enum TransactionPracticeVerification {
         precondition(interrupted.committedTotal == 100 && interrupted.workingTotal == 100)
         precondition(TransactionPractice.rollback(interrupted) == interrupted)
         precondition(TransactionPractice.nextActionKey(for: interrupted, scenario: .rollbackAfterDebit) == nil)
+
         print("Transaction practice model checks passed")
     }
 }

@@ -1371,7 +1371,10 @@ private struct PracticeLab: View {
         } else if subject == .programming, moduleResource == "debugging_tests_and_git" {
             DebuggingLab()
         } else if subject == .programming, moduleResource == "sql_transactions" {
-            TransactionLab()
+            VStack(alignment: .leading, spacing: 14) {
+                SQLSchemaQueryLab()
+                TransactionLab()
+            }
         } else if subject == .programming, moduleResource == "search_and_complexity" {
             AlgorithmComplexityLab()
         } else if subject == .programming, moduleResource == "variables_and_types" {
@@ -7800,6 +7803,154 @@ private struct TransactionLab: View {
 
     private func resetPractice() {
         snapshot = TransactionPractice.initialSnapshot()
+    }
+}
+
+private struct SQLSchemaQueryLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var stepIndex = 0
+    @State private var selectedDisplayIndex = -1
+    @State private var feedbackCorrect: Bool?
+    @State private var optionOrder = QuizAnswerOrder(
+        optionCount: SQLQueryPractice.steps[0].optionKeys.count,
+        answerOriginalIndex: SQLQueryPractice.steps[0].correctOptionIndex
+    )
+    @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(
+        itemIDs: SQLQueryPractice.steps.map(\.id)
+    )
+
+    private var currentStep: SQLQueryStep? {
+        guard SQLQueryPractice.steps.indices.contains(stepIndex) else { return nil }
+        return SQLQueryPractice.steps[stepIndex]
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.sql.title", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.sql.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(L10n.text("lab.sql.sampleTable", store.language))
+                    .font(.caption.weight(.medium))
+                Text(SQLQueryPractice.sampleSessions.map { "\($0.topic) | \($0.minutes)" }.joined(separator: "\n"))
+                    .font(.system(.caption, design: .monospaced))
+                    .textSelection(.enabled)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(.background, in: RoundedRectangle(cornerRadius: 12))
+
+            if let step = currentStep {
+                Text(String(format: L10n.text("lab.sql.progress", store.language), stepIndex + 1, SQLQueryPractice.steps.count))
+                    .font(.caption.weight(.medium).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                Text(L10n.text(step.promptKey, store.language))
+                    .font(.callout.weight(.medium))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Picker(L10n.text("lab.debugging.choicePicker", store.language), selection: $selectedDisplayIndex) {
+                    ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                        Text(L10n.text(step.optionKeys[originalIndex], store.language))
+                            .tag(displayIndex)
+                    }
+                }
+                .pickerStyle(.radioGroup)
+                .disabled(feedbackCorrect == true)
+                .onChange(of: selectedDisplayIndex) { _ in
+                    if feedbackCorrect == false { feedbackCorrect = nil }
+                }
+
+                if let feedbackCorrect {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label(
+                            L10n.text(feedbackCorrect ? "lab.sql.correct" : "lab.sql.incorrect", store.language),
+                            systemImage: feedbackCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
+                        )
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(feedbackCorrect ? Color.green : Color.orange)
+                        Text(L10n.text(step.explanationKey, store.language))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(L10n.text(step.sqlKey, store.language))
+                            .font(.system(.caption, design: .monospaced))
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(10)
+                            .background(.background, in: RoundedRectangle(cornerRadius: 10))
+                        if step.id == "programming.sql_queries.filter_and_order" && feedbackCorrect {
+                            Text(SQLQueryPractice.filteredSessions(minimumMinutes: 30).map { "\($0.topic) | \($0.minutes)" }.joined(separator: "\n"))
+                                .font(.system(.caption, design: .monospaced))
+                                .accessibilityIdentifier("sql-query-result")
+                        }
+                    }
+                }
+
+                HStack(spacing: 10) {
+                    Button {
+                        check(step: step)
+                    } label: {
+                        Label(L10n.text("lab.sql.check", store.language), systemImage: "checkmark")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(selectedDisplayIndex < 0 || feedbackCorrect == true)
+
+                    if feedbackCorrect == true {
+                        Button(action: advance) {
+                            Label(L10n.text("lab.sql.next", store.language), systemImage: "arrow.right.circle")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+            } else {
+                Label(L10n.text("lab.sql.complete", store.language), systemImage: "checkmark.circle.fill")
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(.green)
+                Button(action: restart) {
+                    Label(L10n.text("lab.sql.restart", store.language), systemImage: "arrow.counterclockwise")
+                }
+                .buttonStyle(.bordered)
+            }
+
+            Text(L10n.text("lab.sql.limit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func check(step: SQLQueryStep) {
+        guard let selectedOriginalIndex = optionOrder.originalIndex(forDisplayedIndex: selectedDisplayIndex) else { return }
+        let isCorrect = SQLQueryPractice.isCorrect(selectedOriginalIndex, for: step.id)
+        feedbackCorrect = isCorrect
+        guard let evidence = assessmentTracker.recordSubmission(
+            selectedAnswerIndex: selectedOriginalIndex,
+            correctAnswerIndex: step.correctOptionIndex,
+            optionCount: step.optionKeys.count,
+            itemID: step.id
+        ) else { return }
+        store.recordStudyAssessment(lessonID: "programming.sql_transactions", evidence: evidence)
+    }
+
+    private func advance() {
+        stepIndex += 1
+        selectedDisplayIndex = -1
+        feedbackCorrect = nil
+        guard let step = currentStep else { return }
+        optionOrder = QuizAnswerOrder(optionCount: step.optionKeys.count, answerOriginalIndex: step.correctOptionIndex)
+    }
+
+    private func restart() {
+        stepIndex = 0
+        selectedDisplayIndex = -1
+        feedbackCorrect = nil
+        let firstStep = SQLQueryPractice.steps[0]
+        optionOrder = QuizAnswerOrder(optionCount: firstStep.optionKeys.count, answerOriginalIndex: firstStep.correctOptionIndex)
+        assessmentTracker.reset()
     }
 }
 

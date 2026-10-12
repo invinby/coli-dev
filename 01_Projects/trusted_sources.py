@@ -34,7 +34,7 @@ _MARKDOWN_LINK_RE = re.compile(r"\[([^\]]{1,200})\]\(\s*(https://[^)\s]+)\s*\)",
 _TRAILING_PUNCTUATION = ".,;:!?"
 _MAX_LESSON_FILES = 200
 _MAX_LESSON_FILE_BYTES = 256 * 1024
-_MAX_SOURCES = 112
+_MAX_SOURCES = 120
 _MAX_CONCURRENT_REQUESTS = 5
 _MAX_TITLE_LENGTH = 200
 _MAX_PAGE_DESCRIPTION_LENGTH = 500
@@ -63,6 +63,7 @@ _TRUSTED_HOSTS = frozenset(
         "www.genome.gov",
         "www.ncbi.nlm.nih.gov",
         "www.sqlite.org",
+        "sqlite.org",
         "openstax.org",
         "www.sciencedirect.com",
         "pubmed.ncbi.nlm.nih.gov",
@@ -99,7 +100,10 @@ _ALLOWED_PATHS = {
         r"^(?:/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/"
         r"nist-guide-si-appendix-b9|/pml/owm/metric-si-prefixes)$"
     ),
-    "www.sqlite.org": re.compile(r"^/lang_transaction\.html$"),
+    "www.sqlite.org": re.compile(
+        r"^/(?:lang_createtable|lang_select|queryplanner|lang_transaction)\.html$"
+    ),
+    "sqlite.org": re.compile(r"^/copyright\.html$"),
     "openstax.org": re.compile(r"^/books/[a-z0-9-]+/pages/[a-z0-9-]+/?$"),
     "www.sciencedirect.com": re.compile(r"^/science/article/pii/S1095643325000789$"),
     "pubmed.ncbi.nlm.nih.gov": re.compile(r"^/40393560/$"),
@@ -119,6 +123,17 @@ _RAG_SOURCE_POLICIES = {
         "license": "Python Software Foundation License Version 2",
         "license_url": "https://docs.python.org/3/license.html",
         "attribution": "Copyright © 2001 Python Software Foundation; All Rights Reserved. Python 3 documentation; PSF License Version 2.",
+    },
+    "www.sqlite.org": {
+        "path": re.compile(
+            r"^/(?:lang_createtable|lang_select|queryplanner|lang_transaction)\.html$"
+        ),
+        "license": "SQLite documentation dedicated to the public domain",
+        "license_url": "https://sqlite.org/copyright.html",
+        "attribution": (
+            "Source: SQLite documentation. The authors dedicated SQLite code and documentation "
+            "to the public domain."
+        ),
     },
     "medlineplus.gov": {
         "path": re.compile(r"^/genetics/understanding/basics/(?:dna|gene)/?$"),

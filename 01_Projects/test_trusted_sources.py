@@ -321,11 +321,55 @@ def test_python_314_input_and_value_error_references_are_exact_and_licensed() ->
         assert policy["license"] == "Python Software Foundation License Version 2"
 
 
-def test_sqlite_transaction_reference_is_exact_and_metadata_only() -> None:
-    url = "https://www.sqlite.org/lang_transaction.html"
-    assert TrustedSourceMonitor._canonical_url(url) == url
-    assert TrustedSourceMonitor._rag_policy(url) is None
-    assert TrustedSourceMonitor._canonical_url("https://www.sqlite.org/lang_select.html") is None
+def test_sqlite_schema_query_planner_and_transaction_docs_are_exact_and_public_domain() -> None:
+    urls = (
+        "https://www.sqlite.org/lang_createtable.html",
+        "https://www.sqlite.org/lang_select.html",
+        "https://www.sqlite.org/queryplanner.html",
+        "https://www.sqlite.org/lang_transaction.html",
+    )
+
+    for url in urls:
+        assert TrustedSourceMonitor._canonical_url(url) == url
+        policy = TrustedSourceMonitor._rag_policy(url)
+        assert policy is not None
+        assert policy["license"] == "SQLite documentation dedicated to the public domain"
+        assert policy["license_url"] == "https://sqlite.org/copyright.html"
+
+    assert TrustedSourceMonitor._canonical_url("https://www.sqlite.org/lang_update.html") is None
+    copyright_url = "https://sqlite.org/copyright.html"
+    assert TrustedSourceMonitor._canonical_url(copyright_url) == copyright_url
+    assert TrustedSourceMonitor._rag_policy(copyright_url) is None
+
+
+def test_approved_sqlite_query_planner_page_is_cached_for_rag(tmp_path: Path) -> None:
+    url = "https://www.sqlite.org/queryplanner.html"
+    _write_lesson(tmp_path, f"[SQLite query planner]({url})")
+    monitor = _monitor(tmp_path, tmp_path)
+    page_text = "SQLite indexes can help locate matching rows. The query planner chooses a search strategy."
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/html; charset=utf-8", "etag": '"v1"'},
+            text=(
+                "<html><head><title>Query Planning</title></head><body>"
+                f"<main><article><p>{page_text}</p></article></main></body></html>"
+            ),
+        )
+
+    async def check() -> dict[str, object]:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await monitor.check_sources(client)
+
+    result = asyncio.run(check())
+    found = monitor.search_rag_sources("SQLite indexes matching rows query planner strategy")
+
+    assert result["checks"][0]["state"] == "available_untracked"
+    assert len(found) == 1
+    assert found[0]["license"] == "SQLite documentation dedicated to the public domain"
+    assert found[0]["license_url"] == "https://sqlite.org/copyright.html"
+    assert "query planner chooses a search strategy" in found[0]["excerpt"].casefold()
 
 
 def test_public_domain_medlineplus_genetics_basics_are_cached_for_rag(tmp_path: Path) -> None:

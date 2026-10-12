@@ -216,6 +216,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-transaction-practice"
           "$RUNNER_TEMP/verify-transaction-practice"
 
+      - name: Verify programming SQL query practice model
+        run: |
+          swiftc macOS/ColiDev/App/SQLQueryPractice.swift macOS/ColiDev/scripts/verify_sql_query_practice.swift \
+            -o "$RUNNER_TEMP/verify-sql-query-practice"
+          "$RUNNER_TEMP/verify-sql-query-practice"
+
       - name: Verify biology experiment and food-web models
         run: |
           swiftc macOS/ColiDev/App/BiologyInvestigation.swift macOS/ColiDev/scripts/verify_biology_investigation.swift \
