@@ -23,6 +23,7 @@ struct LoopTraceScenario: Equatable, Identifiable {
 }
 
 struct LoopTraceQuestion: Equatable {
+    let itemID: String
     let options: [Int]
     let correctOptionIndex: Int
 
@@ -31,6 +32,7 @@ struct LoopTraceQuestion: Equatable {
         guard let correctOptionIndex = options.firstIndex(of: scenario.expectedCount) else {
             preconditionFailure("A loop-trace result must be one of the possible counts.")
         }
+        self.itemID = "programming.loop_trace.\(scenario.id).final_count"
         self.options = options
         self.correctOptionIndex = correctOptionIndex
     }

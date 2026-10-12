@@ -7956,7 +7956,8 @@ private struct LoopTraceLab: View {
     private static func makePrediction(for question: LoopTraceQuestion) -> InteractivePredictionAttempt {
         guard let attempt = InteractivePredictionAttempt(
             optionCount: question.options.count,
-            answerOriginalIndex: question.correctOptionIndex
+            answerOriginalIndex: question.correctOptionIndex,
+            itemID: question.itemID
         ) else {
             preconditionFailure("A loop-trace prediction must have one valid answer.")
         }
