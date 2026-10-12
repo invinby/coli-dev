@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from curriculum_routes import audit_curriculum_routes
+from curriculum_routes import _section_body, audit_curriculum_routes
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -22,6 +22,31 @@ def test_advanced_math_optimization_route_has_a_complete_lesson():
 
     audit = audit_curriculum_routes(REPOSITORY_ROOT / "02_Areas", subjects=("Mathematics",))
     assert audit.errors == (), "\n".join(audit.errors)
+
+
+def test_trigonometry_answer_keys_match_the_explained_sine_sign():
+    lesson = (
+        REPOSITORY_ROOT
+        / "02_Areas/Mathematics/lessons/trigonometry_and_periodic_functions.md"
+    ).read_text(encoding="utf-8")
+
+    for language, options_heading, answer_heading, expected in (
+        ("Русский", "Варианты", "Ответ", "Положительный"),
+        ("English", "Options", "Answer", "Positive"),
+    ):
+        options = _section_body(lesson, language, options_heading)
+        answer = _section_body(lesson, language, answer_heading)
+        assert options is not None
+        assert answer is not None
+        choices = [
+            line[2:].strip()
+            for line in options.splitlines()
+            if line.strip().startswith("- ")
+        ]
+
+        answer_index = int(answer.strip())
+        assert 1 <= answer_index <= len(choices)
+        assert choices[answer_index - 1] == expected
 
 
 def test_missing_lesson_file_is_reported(tmp_path):

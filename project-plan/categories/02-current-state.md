@@ -1,5 +1,11 @@
 # 02. Текущее состояние ColiDev
 
+## P1: проверка тригонометрии и ключа ответа — 2026-10-12 / P1: trigonometry and answer-key check — 2026-10-12
+
+**RU:** Аудит урока по первичным разделам OpenStax §§5.2 и 6.1 подтвердил формулы, диапазон и период синуса/косинуса, а также пример `5π/6`. Найдена и исправлена ошибка английского ключа: `Answer 2` выбирал `Zero`, хотя разбор говорит `Positive`; теперь указан третий вариант. Дата проверки источника обновлена. Добавлен регрессионный RU/EN тест, который до правки упал на `Zero` вместо `Positive`, а после прошёл. Полный локальный набор CI: **515 passed**. Удалённая macOS-сборка ещё не проверена; интерфейс и живой AI на Mac требуют ручной приёмки.
+
+**EN:** The lesson audit against primary OpenStax §§5.2 and 6.1 confirmed the sine/cosine formulas, range, period, and `5π/6` example. It found and corrected the English answer key: `Answer 2` selected `Zero` although the explanation says `Positive`; the key now selects option three. The source-check date was updated. A RU/EN regression test was added; it failed before the fix (`Zero` instead of `Positive`) and passed afterward. The full local CI test suite passed: **515 passed**. The remote macOS build is still pending; hands-on UI and live-AI acceptance on a Mac remain open.
+
 ## P1: предсказание трения — 2026-10-12 / P1: friction prediction practice — 2026-10-12
 
 **RU:** В `FrictionLab` добавлены две интерактивные проверки на примере 5 кг и `μₛ = 0,4`: при 15 Н блок остаётся в покое, при 25 Н начинает скользить. Разбор отдельно объясняет каждый случай; неправильный ответ можно исправить, повторная отправка того же варианта не увеличивает число попыток, а событие сохраняет ID вопроса и результат первой попытки. GitHub Actions [38195839597](https://github.com/invinby/coli-dev/actions/runs/38195839597) полностью прошёл backend, Swift-verifier’ы, сборки и упаковку macOS 15 ARM, macOS 26 ARM и macOS 26 Intel, smoke-check встроенного backend и проверку учебных маршрутов. Это автоматическая проверка; ручная приёмка интерфейса и живого ИИ на Mac остаётся открытой.

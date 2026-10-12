@@ -3,7 +3,7 @@ subject: mathematics
 lesson_id: mathematics.trigonometry_and_periodic_functions
 level: intermediate
 languages: ru, en
-source_checked: 2026-10-09
+source_checked: 2026-10-12
 source_review_interval_days: 365
 ---
 
@@ -89,7 +89,7 @@ At `θ = 5π/6`, what is the sign of `sin θ`?
 
 ### Answer
 
-2
+3
 
 ### Explanation
 
