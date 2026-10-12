@@ -7396,6 +7396,7 @@ private struct VariablesTypesLab: View {
     @State private var reassignToText = false
     @State private var inputText = "12"
     @State private var conversionResult: PythonInputPracticeResult?
+    @State private var practiceTracker = PythonInputPracticeTracker()
 
     var body: some View {
         LabCard {
@@ -7436,6 +7437,10 @@ private struct VariablesTypesLab: View {
             Text(L10n.text("lab.input.title", store.language))
                 .font(.headline)
             Text(L10n.text("lab.input.explanation", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(L10n.text("lab.input.practiceHint", store.language))
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -7480,6 +7485,9 @@ private struct VariablesTypesLab: View {
 
     private func convertInput() {
         conversionResult = PythonInputPractice.convert(inputText)
+        if let evidence = practiceTracker.recordSubmission(text: inputText) {
+            store.recordStudyAssessment(lessonID: "programming.variables_and_types", evidence: evidence)
+        }
     }
 }
 

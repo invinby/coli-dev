@@ -125,7 +125,7 @@ jobs:
 
       - name: Verify Python input conversion practice / Проверка тренажёра преобразования ввода Python
         run: |
-          swiftc macOS/ColiDev/App/PythonInputPractice.swift macOS/ColiDev/scripts/verify_python_input_practice.swift \
+          swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/PythonInputPractice.swift macOS/ColiDev/scripts/verify_python_input_practice.swift \
             -o "$RUNNER_TEMP/verify-python-input-practice"
           "$RUNNER_TEMP/verify-python-input-practice"
 

@@ -718,6 +718,7 @@ enum L10n {
         "lab.variableBefore": ("До переприсваивания score связано с целым числом.", "Before reassignment, score refers to an integer."),
         "lab.input.title": ("Ввод и преобразование типа", "Input and type conversion"),
         "lab.input.explanation": ("input() возвращает текст (str), даже если введены цифры. int() превращает допустимую строку целого числа в int.", "input() returns text (str), even when the learner types digits. int() converts a valid whole-number string to int."),
+        "lab.input.practiceHint": ("Попробуй сначала 12. Затем можешь ввести слово или десятичную дробь и посмотреть, когда возникает ValueError.", "Try 12 first. Then you can enter a word or decimal and see when ValueError occurs."),
         "lab.input.codeRead": ("raw_text = input(\"Введите целое число: \")", "raw_text = input(\"Enter a whole number: \")"),
         "lab.input.placeholder": ("Например, 12 или -12", "For example, 12 or -12"),
         "lab.input.accessibility": ("Текст, который возвращает input()", "Text returned by input()"),

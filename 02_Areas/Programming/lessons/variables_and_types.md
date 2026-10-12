@@ -60,7 +60,7 @@ else:
     print(count + 1)
 ```
 
-В тренажёре попробуй `12`, `-12`, `twelve`, `3.5` и пустой ввод. Он проверяет только простое текстовое преобразование и не запускает введённый код.
+В тренажёре сначала попробуй `12`, затем при желании `-12`, `twelve`, `3.5` и пустой ввод. Результаты попыток преобразования сохраняются для этого урока без отправки введённой строки. Тренажёр проверяет только простое текстовое преобразование и не запускает введённый код.
 
 ### Вопрос
 
@@ -153,7 +153,7 @@ else:
     print(count + 1)
 ```
 
-Try `12`, `-12`, `twelve`, `3.5`, and empty input in the trainer. It checks only simple text conversion and does not run learner-entered code.
+Try `12` first, then optionally `-12`, `twelve`, `3.5`, and empty input. Conversion attempts are saved for this lesson without sending the entered text. The trainer checks only simple text conversion and does not run learner-entered code.
 
 ### Limits of the inference
 
