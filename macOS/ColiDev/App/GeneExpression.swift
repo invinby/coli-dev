@@ -10,7 +10,11 @@ enum GeneExpressionPractice {
     static let templateStrand = "TAC GGA ACT"
 
     static func makeStopCodonAttempt() -> InteractivePredictionAttempt {
-        guard let attempt = InteractivePredictionAttempt(optionCount: 3, answerOriginalIndex: 1) else {
+        guard let attempt = InteractivePredictionAttempt(
+            optionCount: 3,
+            answerOriginalIndex: 1,
+            itemID: "biology.gene_expression.uga_stop_codon"
+        ) else {
             preconditionFailure("The stop-codon question must have one valid answer.")
         }
         return attempt
