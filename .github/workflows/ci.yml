@@ -71,7 +71,7 @@ jobs:
 
       - name: Verify force prediction identity / Проверка идентификатора прогноза силы
         run: |
-          swiftc macOS/ColiDev/scripts/verify_force_prediction_identity.swift \
+          swiftc -parse-as-library macOS/ColiDev/scripts/verify_force_prediction_identity.swift \
             -o "$RUNNER_TEMP/verify-force-prediction-identity"
           "$RUNNER_TEMP/verify-force-prediction-identity"
 
