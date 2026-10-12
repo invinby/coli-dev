@@ -48,6 +48,7 @@ A10000000000000000000038 /* TrigonometryUnitCircleLab.swift in Sources */ = {isa
 		A10000000000000000000043 /* LinearFunctionModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000043 /* LinearFunctionModel.swift */; };
 		A10000000000000000000044 /* BiomoleculePractice.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000044 /* BiomoleculePractice.swift */; };
 		A10000000000000000000045 /* PythonInputPractice.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000045 /* PythonInputPractice.swift */; };
+		A10000000000000000000046 /* SQLQueryPractice.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000046 /* SQLQueryPractice.swift */; };
 		A10000000000000000000040 /* DescriptiveStatistics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000040 /* DescriptiveStatistics.swift */; };
 		A10000000000000000000041 /* StatisticsPracticeLab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000041 /* StatisticsPracticeLab.swift */; };
 /* End PBXBuildFile section */
@@ -99,6 +100,7 @@ A20000000000000000000038 /* TrigonometryUnitCircleLab.swift */ = {isa = PBXFileR
 		A20000000000000000000043 /* LinearFunctionModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinearFunctionModel.swift; sourceTree = "<group>"; };
 		A20000000000000000000044 /* BiomoleculePractice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiomoleculePractice.swift; sourceTree = "<group>"; };
 		A20000000000000000000045 /* PythonInputPractice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PythonInputPractice.swift; sourceTree = "<group>"; };
+		A20000000000000000000046 /* SQLQueryPractice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SQLQueryPractice.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
