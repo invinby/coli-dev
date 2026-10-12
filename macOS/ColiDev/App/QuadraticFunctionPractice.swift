@@ -60,3 +60,27 @@ struct QuadraticPredictionAssessment {
         )
     }
 }
+
+struct QuadraticPredictionRound: Equatable {
+    private(set) var answerOrder: QuizAnswerOrder
+    private(set) var selectedDisplayedIndex: Int?
+
+    init(answerOrder: QuizAnswerOrder) {
+        self.answerOrder = answerOrder
+    }
+
+    mutating func submit(displayedIndex: Int) -> Bool? {
+        guard selectedDisplayedIndex == nil,
+              answerOrder.displayedOriginalIndices.indices.contains(displayedIndex) else {
+            return nil
+        }
+
+        selectedDisplayedIndex = displayedIndex
+        return answerOrder.isCorrect(displayedIndex: displayedIndex)
+    }
+
+    mutating func beginNewQuestion(answerOrder: QuizAnswerOrder) {
+        self.answerOrder = answerOrder
+        selectedDisplayedIndex = nil
+    }
+}

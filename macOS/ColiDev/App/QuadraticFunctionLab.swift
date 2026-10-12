@@ -6,9 +6,15 @@ struct QuadraticFunctionLab: View {
     @State private var horizontalShift = -1.0
     @State private var verticalShift = 1.0
     @State private var opensDown = false
-    @State private var selectedAnswer: Int?
-    @State private var answerOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: 1)
+    @State private var predictionRound = QuadraticPredictionRound(
+        answerOrder: QuizAnswerOrder(optionCount: 3, answerOriginalIndex: 1)
+    )
+    @State private var answerOrderSequence = QuizAnswerOrderSequence(optionCount: 3)
     @State private var assessment = QuadraticPredictionAssessment()
+    @State private var hasStartedExperiment = false
+
+    private var answerOrder: QuizAnswerOrder { predictionRound.answerOrder }
+    private var selectedAnswer: Int? { predictionRound.selectedDisplayedIndex }
 
     private var function: QuadraticFunctionPractice {
         QuadraticFunctionPractice(
@@ -94,8 +100,7 @@ struct QuadraticFunctionLab: View {
 
                 if !isCorrect {
                     Button(L10n.text("lab.quadratic.retry", store.language)) {
-                        answerOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: 1)
-                        selectedAnswer = nil
+                        beginNextPrediction()
                     }
                     .buttonStyle(.bordered)
                 }
@@ -133,7 +138,7 @@ struct QuadraticFunctionLab: View {
             Toggle(L10n.text("lab.quadratic.opensDown", store.language), isOn: $opensDown)
                 .toggleStyle(.switch)
                 .accessibilityHint(Text(L10n.text("lab.quadratic.opensDownHint", store.language)))
-                .disabled(selectedAnswer == nil)
+                .disabled(!hasStartedExperiment)
             parameterRow("lab.quadratic.horizontal", value: $horizontalShift, range: -3...3, step: 0.5, number: number(horizontalShift))
             parameterRow("lab.quadratic.vertical", value: $verticalShift, range: -3...3, step: 0.5, number: number(verticalShift))
 
@@ -141,6 +146,9 @@ struct QuadraticFunctionLab: View {
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
+        }
+        .onChange(of: function) { _ in
+            beginNextPrediction()
         }
     }
 
@@ -160,7 +168,7 @@ struct QuadraticFunctionLab: View {
                 .font(.body.monospacedDigit())
                 .frame(width: 42, alignment: .trailing)
         }
-        .disabled(selectedAnswer == nil)
+        .disabled(!hasStartedExperiment)
     }
 
     private func answerColor(for displayIndex: Int) -> Color {
@@ -171,13 +179,20 @@ struct QuadraticFunctionLab: View {
     }
 
     private func submitAnswer(_ displayIndex: Int) {
-        guard selectedAnswer == nil else { return }
-        let correct = answerOrder.isCorrect(displayedIndex: displayIndex)
-        selectedAnswer = displayIndex
+        guard let correct = predictionRound.submit(displayedIndex: displayIndex) else { return }
+        hasStartedExperiment = true
         store.recordStudyAssessment(
             lessonID: QuadraticPredictionAssessment.lessonID,
             evidence: assessment.recordAnswer(isCorrect: correct)
         )
+    }
+
+    private func beginNextPrediction() {
+        let nextOrder = answerOrderSequence.nextOrder(
+            answerOriginalIndex: 1,
+            following: predictionRound.answerOrder
+        )
+        predictionRound.beginNewQuestion(answerOrder: nextOrder)
     }
 
     private func number(_ value: Double) -> String {
