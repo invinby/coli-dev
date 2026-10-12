@@ -101,7 +101,7 @@ jobs:
 
       - name: Verify programming loop trace model
         run: |
-          swiftc macOS/ColiDev/App/LoopTrace.swift macOS/ColiDev/scripts/verify_loop_trace.swift \
+          swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/LoopTrace.swift macOS/ColiDev/scripts/verify_loop_trace.swift \
             -o "$RUNNER_TEMP/verify-loop-trace"
           "$RUNNER_TEMP/verify-loop-trace"
 
