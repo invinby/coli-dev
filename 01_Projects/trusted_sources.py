@@ -74,7 +74,7 @@ _ALLOWED_PATHS = {
     "csrc.nist.gov": re.compile(r"^/glossary/term/algorithm$"),
     "docs.python.org": re.compile(
         r"^(?:/3/tutorial/[A-Za-z0-9_.-]+\.html|/3/reference/(?:simple_stmts|compound_stmts)\.html|/3/library/bisect\.html|"
-        r"/3\.14/library/(?:functions|exceptions)\.html)$"
+        r"/3\.14/library/(?:functions|exceptions|sys)\.html)$"
     ),
     "git-scm.com": re.compile(
         r"^/book/en/v2/Git-Basics-Recording-Changes-to-the-Repository$"
@@ -118,7 +118,7 @@ _RAG_SOURCE_POLICIES = {
     "docs.python.org": {
         "path": re.compile(
             r"^(?:/3/tutorial/[A-Za-z0-9_.-]+\.html|/3/reference/(?:simple_stmts|compound_stmts)\.html|/3/library/bisect\.html|"
-            r"/3\.14/library/(?:functions|exceptions)\.html)$"
+            r"/3\.14/library/(?:functions|exceptions|sys)\.html)$"
         ),
         "license": "Python Software Foundation License Version 2",
         "license_url": "https://docs.python.org/3/license.html",

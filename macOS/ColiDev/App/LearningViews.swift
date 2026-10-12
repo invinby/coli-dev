@@ -1377,6 +1377,7 @@ private struct PracticeLab: View {
             }
         } else if subject == .programming, moduleResource == "search_and_complexity" {
             AlgorithmComplexityLab()
+            DataStructureChoiceLab()
         } else if subject == .programming, moduleResource == "variables_and_types" {
             VariablesTypesLab()
         } else if subject == .programming, moduleResource == "computational_thinking" {
@@ -8440,6 +8441,131 @@ private struct AlgorithmComplexityLab: View {
                 .frame(width: 82, alignment: .trailing)
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+private struct DataStructureChoiceLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var stepIndex = 0
+    @State private var selectedDisplayIndex = -1
+    @State private var feedbackCorrect: Bool?
+    @State private var optionOrder = QuizAnswerOrder(
+        optionCount: DataStructureChoicePractice.scenarios[0].optionKeys.count,
+        answerOriginalIndex: DataStructureChoicePractice.scenarios[0].correctOptionIndex
+    )
+    @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(
+        itemIDs: DataStructureChoicePractice.scenarios.map(\.id)
+    )
+
+    private var currentScenario: DataStructureChoiceScenario? {
+        guard DataStructureChoicePractice.scenarios.indices.contains(stepIndex) else { return nil }
+        return DataStructureChoicePractice.scenarios[stepIndex]
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.dataStructures.title", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.dataStructures.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let scenario = currentScenario {
+                Text(String(format: L10n.text("lab.dataStructures.progress", store.language), stepIndex + 1, DataStructureChoicePractice.scenarios.count))
+                    .font(.caption.weight(.medium).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                Text(L10n.text(scenario.promptKey, store.language))
+                    .font(.callout.weight(.medium))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Picker(L10n.text("lab.dataStructures.choicePicker", store.language), selection: $selectedDisplayIndex) {
+                    Text(L10n.text("lab.dataStructures.choose", store.language)).tag(-1)
+                    ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                        Text(L10n.text(scenario.optionKeys[originalIndex], store.language))
+                            .tag(displayIndex)
+                    }
+                }
+                .pickerStyle(.radioGroup)
+                .disabled(feedbackCorrect == true)
+                .onChange(of: selectedDisplayIndex) { _ in
+                    if feedbackCorrect == false { feedbackCorrect = nil }
+                }
+
+                if let feedbackCorrect {
+                    Label(
+                        L10n.text(feedbackCorrect ? "lab.dataStructures.correct" : "lab.dataStructures.incorrect", store.language),
+                        systemImage: feedbackCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
+                    )
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(feedbackCorrect ? Color.green : Color.orange)
+                    Text(L10n.text(scenario.explanationKey, store.language))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                HStack(spacing: 10) {
+                    Button {
+                        check(scenario: scenario)
+                    } label: {
+                        Label(L10n.text("lab.dataStructures.check", store.language), systemImage: "checkmark")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(selectedDisplayIndex < 0 || feedbackCorrect == true)
+
+                    if feedbackCorrect == true {
+                        Button(action: advance) {
+                            Label(L10n.text("lab.dataStructures.next", store.language), systemImage: "arrow.right.circle")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+            } else {
+                Label(L10n.text("lab.dataStructures.complete", store.language), systemImage: "checkmark.circle.fill")
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(.green)
+                Button(action: restart) {
+                    Label(L10n.text("lab.dataStructures.restart", store.language), systemImage: "arrow.counterclockwise")
+                }
+                .buttonStyle(.bordered)
+            }
+
+            Text(L10n.text("lab.dataStructures.limit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func check(scenario: DataStructureChoiceScenario) {
+        guard let answerIndex = optionOrder.originalIndex(forDisplayedIndex: selectedDisplayIndex) else { return }
+        let isAnswerCorrect = DataStructureChoicePractice.isCorrect(answerIndex, for: scenario.id)
+        feedbackCorrect = isAnswerCorrect
+        guard let evidence = assessmentTracker.recordSubmission(
+            selectedAnswerIndex: answerIndex,
+            correctAnswerIndex: scenario.correctOptionIndex,
+            optionCount: scenario.optionKeys.count,
+            itemID: scenario.id
+        ) else { return }
+        store.recordStudyAssessment(lessonID: "programming.search_and_complexity", evidence: evidence)
+    }
+
+    private func advance() {
+        stepIndex += 1
+        selectedDisplayIndex = -1
+        feedbackCorrect = nil
+        guard let scenario = currentScenario else { return }
+        optionOrder = QuizAnswerOrder(optionCount: scenario.optionKeys.count, answerOriginalIndex: scenario.correctOptionIndex)
+    }
+
+    private func restart() {
+        stepIndex = 0
+        selectedDisplayIndex = -1
+        feedbackCorrect = nil
+        let firstScenario = DataStructureChoicePractice.scenarios[0]
+        optionOrder = QuizAnswerOrder(optionCount: firstScenario.optionKeys.count, answerOriginalIndex: firstScenario.correctOptionIndex)
+        assessmentTracker.reset()
     }
 }
 
