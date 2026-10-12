@@ -3,6 +3,10 @@ import Foundation
 @main
 enum TrigonometryModelVerification {
     static func main() {
+        precondition(
+            TrigonometricUnitCircle.sineSignQuestionID == "mathematics.trigonometry_and_periodic_functions.unit_circle_sine_sign",
+            "The sine-sign practice must keep its stable question identity. / Тренажёр знака синуса должен сохранять постоянный идентификатор вопроса."
+        )
         let quarterTurn = TrigonometricUnitCircle(angleRadians: .pi / 2)!
         precondition(close(quarterTurn.xCoordinate, 0), "At pi/2 the unit-circle x coordinate is zero. / При pi/2 координата x на единичной окружности равна нулю.")
         precondition(close(quarterTurn.yCoordinate, 1), "At pi/2 the unit-circle y coordinate is one. / При pi/2 координата y на единичной окружности равна единице.")

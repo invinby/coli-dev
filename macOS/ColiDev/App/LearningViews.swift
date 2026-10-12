@@ -688,7 +688,11 @@ struct CurriculumModuleView: View {
         isCheckExplanationRevealed = false
         checkAttempt = loadedDocument.flatMap { lesson in
             guard let answerIndex = lesson.checkAnswerIndex else { return nil }
-            return CurriculumCheckAttempt(optionCount: lesson.checkOptions.count, answerOriginalIndex: answerIndex)
+            return CurriculumCheckAttempt(
+                optionCount: lesson.checkOptions.count,
+                answerOriginalIndex: answerIndex,
+                itemID: "\(lessonID).knowledge_check"
+            )
         }
         learnerConfirmed = isComplete
         if reflection.isEmpty {
@@ -5912,7 +5916,8 @@ private struct ThermoregulationLab: View {
                         taskType: "interactive_prediction",
                         attempts: attemptCount,
                         firstTryCorrect: firstTryCorrect ?? correct,
-                        hintsUsed: 0
+                        hintsUsed: 0,
+                        itemID: ThermoregulationPractice.heatStressThresholdQuestionID
                     )
                 )
                 didCheckAnswer = true

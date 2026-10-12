@@ -1,6 +1,8 @@
 import Foundation
 
 struct DescriptiveStatistics: Equatable {
+    static let potentialOutlierQuestionID = "mathematics.descriptive_statistics_and_potential_outliers.maximum_outlier_classification"
+
     let sortedValues: [Double]
     let mean: Double
     let median: Double

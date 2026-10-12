@@ -229,6 +229,7 @@ enum StudyErrorCategory: String, CaseIterable, Codable, Equatable, Identifiable 
 
 struct CurriculumCheckAttempt: Equatable {
     let answerOriginalIndex: Int
+    let itemID: String
     private(set) var choiceOrder: AnswerChoiceOrder
     private(set) var selectedOriginalIndex: Int?
     private(set) var attemptCount: Int
@@ -246,7 +247,8 @@ struct CurriculumCheckAttempt: Equatable {
             attempts: attemptCount,
             firstTryCorrect: firstTryCorrect,
             hintsUsed: 0,
-            errorCategories: reportedErrorCategories.isEmpty ? nil : reportedErrorCategories
+            errorCategories: reportedErrorCategories.isEmpty ? nil : reportedErrorCategories,
+            itemID: itemID
         )
     }
 
@@ -258,22 +260,25 @@ struct CurriculumCheckAttempt: Equatable {
             firstTryCorrect: isCorrect,
             hintsUsed: 0,
             errorCategories: errorCategory.map { [$0] },
-            passed: isCorrect
+            passed: isCorrect,
+            itemID: itemID
         )
     }
 
-    init?(optionCount: Int, answerOriginalIndex: Int) {
+    init?(optionCount: Int, answerOriginalIndex: Int, itemID: String) {
         var generator = SystemRandomNumberGenerator()
-        self.init(optionCount: optionCount, answerOriginalIndex: answerOriginalIndex, using: &generator)
+        self.init(optionCount: optionCount, answerOriginalIndex: answerOriginalIndex, itemID: itemID, using: &generator)
     }
 
     init?<Generator: RandomNumberGenerator>(
         optionCount: Int,
         answerOriginalIndex: Int,
+        itemID: String,
         using generator: inout Generator
     ) {
         guard optionCount > 0, (0..<optionCount).contains(answerOriginalIndex) else { return nil }
         self.answerOriginalIndex = answerOriginalIndex
+        self.itemID = itemID
         choiceOrder = AnswerChoiceOrder(optionCount: optionCount, using: &generator)
         selectedOriginalIndex = nil
         attemptCount = 0

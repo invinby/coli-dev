@@ -29,6 +29,7 @@ enum TrigonometricSineSign: Equatable {
 
 struct TrigonometricUnitCircle: Equatable {
     static let periodRadians = 2 * Double.pi
+    static let sineSignQuestionID = "mathematics.trigonometry_and_periodic_functions.unit_circle_sine_sign"
 
     let angleRadians: Double
 

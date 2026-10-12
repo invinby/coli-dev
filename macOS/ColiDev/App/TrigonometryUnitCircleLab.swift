@@ -212,7 +212,8 @@ struct TrigonometryUnitCircleLab: View {
                 taskType: "interactive_prediction",
                 attempts: attemptCount,
                 firstTryCorrect: firstTryCorrect ?? correct,
-                hintsUsed: 0
+                hintsUsed: 0,
+                itemID: TrigonometricUnitCircle.sineSignQuestionID
             )
         )
     }

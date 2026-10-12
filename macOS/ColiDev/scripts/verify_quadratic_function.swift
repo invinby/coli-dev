@@ -32,6 +32,7 @@ enum QuadraticFunctionVerification {
         let firstAttempt = assessment.recordAnswer(isCorrect: false)
         precondition(firstAttempt.taskType == "interactive_prediction", "Classify a quadratic prediction assessment. / Определить тип проверки прогноза параболы.")
         precondition(firstAttempt.attempts == 1 && !firstAttempt.firstTryCorrect, "Save the first incorrect prediction. / Сохранить первую неверную попытку.")
+        precondition(firstAttempt.itemID == "mathematics.quadratic_functions_and_transformations.parabola_width_prediction", "Retain the quadratic prediction question identity. / Сохранить идентификатор вопроса о ширине параболы.")
         precondition(QuadraticPredictionAssessment.lessonID == "mathematics.quadratic_functions_and_transformations", "Link evidence to the quadratic lesson. / Связать свидетельство с уроком о квадратичной функции.")
 
         let retry = assessment.recordAnswer(isCorrect: true)

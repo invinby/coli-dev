@@ -24,6 +24,7 @@ enum ThermoregulationPractice {
     static let heatStressDayPercentage = 61
     static let heatStressDayRange = 24...85
 
+    static let heatStressThresholdQuestionID = "zoology.comparative_thermoregulation_and_heat_stress.heat_stress_threshold_interpretation"
     static let correctThresholdInterpretationAnswer = 0
 
     static func isCorrectThresholdInterpretationAnswer(_ answer: Int) -> Bool {

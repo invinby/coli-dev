@@ -3,6 +3,10 @@ import Foundation
 @main
 enum DescriptiveStatisticsVerification {
     static func main() {
+        precondition(
+            DescriptiveStatistics.potentialOutlierQuestionID == "mathematics.descriptive_statistics_and_potential_outliers.maximum_outlier_classification",
+            "The statistics prediction must keep its stable question identity. / Прогноз в статистике должен сохранять постоянный идентификатор вопроса."
+        )
         guard let sample = DescriptiveStatistics(values: [4, 5, 5, 6, 6, 20]) else {
             preconditionFailure("Finite sample data must be accepted. / Конечные данные выборки должны приниматься.")
         }

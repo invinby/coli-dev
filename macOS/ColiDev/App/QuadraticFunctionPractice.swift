@@ -43,6 +43,7 @@ struct QuadraticFunctionPractice: Equatable {
 
 struct QuadraticPredictionAssessment {
     static let lessonID = "mathematics.quadratic_functions_and_transformations"
+    static let predictionQuestionID = "mathematics.quadratic_functions_and_transformations.parabola_width_prediction"
 
     private(set) var attemptCount = 0
     private(set) var firstTryCorrect: Bool?
@@ -56,7 +57,8 @@ struct QuadraticPredictionAssessment {
             taskType: "interactive_prediction",
             attempts: attemptCount,
             firstTryCorrect: firstTryCorrect ?? isCorrect,
-            hintsUsed: 0
+            hintsUsed: 0,
+            itemID: Self.predictionQuestionID
         )
     }
 }

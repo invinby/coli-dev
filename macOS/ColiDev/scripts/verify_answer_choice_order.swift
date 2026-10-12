@@ -368,9 +368,11 @@ enum AnswerChoiceOrderVerification {
         }
 
         var attemptGenerator = SeededGenerator(seed: 19)
+        let curriculumQuestionID = "biology.passive_transport_osmosis.knowledge_check"
         guard var attempt = CurriculumCheckAttempt(
             optionCount: 3,
             answerOriginalIndex: 2,
+            itemID: curriculumQuestionID,
             using: &attemptGenerator
         ) else {
             preconditionFailure("A valid answer index must start a quiz attempt. / Допустимый индекс ответа должен создавать попытку.")
@@ -394,7 +396,8 @@ enum AnswerChoiceOrderVerification {
                 firstTryCorrect: false,
                 hintsUsed: 0,
                 errorCategories: [.foundation],
-                passed: false
+                passed: false,
+                itemID: curriculumQuestionID
             ),
             "A failed check event must remain distinct from a pass. / Событие неудачной проверки должно оставаться отдельно от успешной."
         )
@@ -428,7 +431,8 @@ enum AnswerChoiceOrderVerification {
                 attempts: 2,
                 firstTryCorrect: false,
                 hintsUsed: 0,
-                errorCategories: [.understanding]
+                errorCategories: [.understanding],
+                itemID: curriculumQuestionID
             ),
             "A completed check must expose its attempt evidence without changing the answer result. / Завершённая проверка должна передавать число попыток, не меняя правильность ответа."
         )
@@ -448,9 +452,11 @@ enum AnswerChoiceOrderVerification {
         )
 
         var firstTryGenerator = SeededGenerator(seed: 99)
+        let firstTryQuestionID = "physics.net_force_and_acceleration.knowledge_check"
         guard var firstTryAttempt = CurriculumCheckAttempt(
             optionCount: 3,
             answerOriginalIndex: 1,
+            itemID: firstTryQuestionID,
             using: &firstTryGenerator
         ) else {
             preconditionFailure("A valid answer index must start a quiz attempt. / Допустимый индекс ответа должен создавать попытку.")
@@ -462,7 +468,8 @@ enum AnswerChoiceOrderVerification {
                 taskType: "knowledge_check",
                 attempts: 1,
                 firstTryCorrect: true,
-                hintsUsed: 0
+                hintsUsed: 0,
+                itemID: firstTryQuestionID
             ),
             "A first-try correct answer must be recorded as independent check evidence. / Правильный ответ с первой попытки должен сохраняться как результат проверки без повторов."
         )
