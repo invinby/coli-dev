@@ -3,7 +3,7 @@ subject: programming
 lesson_id: programming.conditions_loops_functions
 level: foundations
 languages: ru, en
-source_checked: 2026-10-05
+source_checked: 2026-10-12
 source_review_interval_days: 90
 ---
 
@@ -34,7 +34,7 @@ def count_even(numbers):
 
 Перед запуском предскажи значение `number` и `count` после каждого шага. Затем поменяй список, включая пустой список и числа `0`, `-2`, `3`. Проверь, что результат равен числу элементов, которые прошли условие.
 
-Задача: измени функцию так, чтобы она считала числа больше 10. Ответ: условие цикла можно заменить на `if number > 10:`; логика накопления остаётся такой же.
+Задача: измени функцию так, чтобы она считала числа больше 10. Замени условие внутри `if` на `if number > 10:` и переименуй функцию в `count_above_ten`. Цикл и логика накопления остаются прежними.
 
 ### Вопрос
 
@@ -56,7 +56,7 @@ def count_even(numbers):
 
 ### Границы и безопасный запуск
 
-Этот пример проходит список один раз, поэтому число проверок растёт вместе с длиной списка (`O(n)`). Он не проверяет, что каждый элемент — целое число; реальные функции должны либо документировать ожидаемый тип, либо валидировать вход. Код урока анализируй или запускай только в изолированной среде: произвольный код из чата нельзя исполнять без ограничений.
+Для списка из `n` целых чисел фиксированного размера цикл делает `n` итераций и проверок; при обычном учебном предположении, что арифметические операции и сравнения стоят `O(1)`, время работы равно `O(n)`. У целых чисел произвольной длины стоимость `%` может зависеть от размера числа. Пример ожидает целые числа и не проверяет тип входных элементов; реальные функции должны явно документировать поддерживаемые типы или проверять вход. Код урока анализируй или запускай только в изолированной среде: произвольный код из чата нельзя исполнять без ограничений.
 
 ## English
 
@@ -83,7 +83,7 @@ For `[2, 5, 8]`, the function returns `2`: the loop checks each number, `number 
 
 Before running the code, predict `number` and `count` after each step. Then change the list, including an empty list and the values `0`, `-2`, and `3`. Check that the result equals the number of items that pass the condition.
 
-Try changing the function to count values greater than 10. Use `if number > 10:`; the accumulation logic stays the same.
+Change the function to count values greater than 10. Replace the condition inside `if` with `if number > 10:` and rename the function to `count_above_ten`. The loop and accumulation logic stay the same.
 
 ### Question
 
@@ -105,9 +105,11 @@ The even numbers are `2` and `8`, so the function returns `2`. If it only prints
 
 ### Limits and safe execution
 
-This example makes one pass through the list, so the number of checks grows with list length (`O(n)`). It does not check that every item is an integer; real functions should document or validate expected input. Analyse or run lesson code only in an isolated environment; never execute arbitrary chat code without restrictions.
+For a list of `n` fixed-size integers, the loop makes `n` iterations and checks; under the usual introductory assumption that arithmetic operations and comparisons cost `O(1)`, its runtime is `O(n)`. For arbitrary-precision integers, the cost of `%` may depend on the number's size. The example expects integers and does not validate item types; real functions should document supported types or validate input. Analyse or run lesson code only in an isolated environment; never execute arbitrary chat code without restrictions.
 
 ## Sources
 
-- Python 3 Tutorial, “More Control Flow Tools”: <https://docs.python.org/3/tutorial/controlflow.html>
-- Python 3 Tutorial, “Defining Functions”: <https://docs.python.org/3/tutorial/controlflow.html#defining-functions>
+- Python Tutorial, “More Control Flow Tools” / Учебник Python, «Дополнительные средства управления потоком» — statements / операторы `if`, `for` and function definitions / и определения функций: <https://docs.python.org/3/tutorial/controlflow.html#if-statements>, <https://docs.python.org/3/tutorial/controlflow.html#for-statements>, <https://docs.python.org/3/tutorial/controlflow.html#defining-functions>
+- Python Standard Types / Стандартные типы Python — truth-value testing / проверка истинности и numeric types, including `%` / числовые типы, включая `%`: <https://docs.python.org/3/library/stdtypes.html#truth-value-testing>, <https://docs.python.org/3/library/stdtypes.html#numeric-types-int-float-complex>
+- Python Built-in Functions, `print()` / Встроенные функции Python, `print()`: <https://docs.python.org/3/library/functions.html#print>
+- Python Language Reference, the `return` statement / Справочник языка Python, оператор `return`: <https://docs.python.org/3/reference/simple_stmts.html#the-return-statement>
