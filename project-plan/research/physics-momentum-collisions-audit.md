@@ -1,7 +1,7 @@
 # Physics: momentum and collisions audit / Физика: аудит импульса и столкновений
 
-**Review date / Дата проверки:** 2026-10-12  
-**Lessons / Уроки:** [`impulse_and_momentum.md`](../../02_Areas/Physics/lessons/impulse_and_momentum.md), [`elastic_collisions.md`](../../02_Areas/Physics/lessons/elastic_collisions.md)  
+**Review date / Дата проверки:** 2026-10-12
+**Lessons / Уроки:** [`impulse_and_momentum.md`](../../02_Areas/Physics/lessons/impulse_and_momentum.md), [`elastic_collisions.md`](../../02_Areas/Physics/lessons/elastic_collisions.md)
 **Scope / Объём:** Factual claims, assumptions, worked arithmetic, and whether each existing citation directly supports the claim. No lesson text, app behavior, or runtime was changed or tested. / Проверены фактические утверждения, допущения, арифметика примеров и то, подтверждает ли каждая существующая ссылка соответствующее утверждение. Тексты уроков, работу приложения и выполнение кода не меняли и не проверяли.
 
 ## Overall result / Общий результат
