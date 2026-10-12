@@ -3,7 +3,7 @@ subject: English
 lesson_id: english.reported_speech_questions_and_backshift
 level: intermediate
 languages: ru, en
-source_checked: 2026-10-09
+source_checked: 2026-10-12
 source_review_interval_days: 180
 ---
 
@@ -17,11 +17,12 @@ source_review_interval_days: 180
 
 ### Идея и механизм
 
-Косвенная речь передаёт чужие слова без точной цитаты. Если вводный глагол стоит в прошедшем времени (*said, told, asked*), время часто сдвигается назад (**backshift**): *am working → was working*, *do/does → did*, *have done → had done*. Это частый шаблон, но не механический закон. Если факт всё ещё верен или важен сейчас, настоящее время можно сохранить: *The teacher said the Earth orbits the Sun*. Время выбирают по смыслу и точке отсчёта.
+Косвенная речь передаёт чужие слова без точной цитаты. Если вводный глагол стоит в прошедшем времени (*said, told, asked*), время часто сдвигается назад (**backshift**): *am working → was working* и *have done → had done*. В вопросах вспомогательный *do/does* исчезает при переходе к порядку слов утверждения; при backshift основной глагол переходит в прошедшее время: *“Where does the lab keep the samples?” → Mira asked where the lab kept the samples.* Это частый шаблон, но не механический закон. Если факт всё ещё верен или важен сейчас, настоящее время можно сохранить: *The teacher said the Earth orbits the Sun*. Время выбирают по смыслу и точке отсчёта.
 
 - В косвенном специальном вопросе сохраняется вопросительное слово, но прямой порядок слов меняется на порядок утверждения: *“Where does the lab keep the samples?” → Mira asked where the lab kept the samples.* Не добавляй вспомогательное *did* после *where*.
 - Вопрос с ответом «да/нет» вводится через *if* или *whether*: *“Are you available?” → Sam asked whether I was available.* Внутри придаточной части порядок слов утвердительный: *I was*, а не *was I*.
-- Местоимения и слова вроде *today, tomorrow, here* меняются только если изменился говорящий или контекст времени и места: *today* в пересказе на следующий день может стать *that day*.
+- Выбирай местоимения по тому, кого они обозначают, и по точке зрения пересказывающего: например, *I* может стать *she*, если речь идёт о словах Лили.
+- Слова времени и места (*today, tomorrow, here*) меняются, если исходная точка отсчёта больше не подходит: *today* при пересказе на следующий день может стать *that day*.
 - Обычная просьба часто строится как *ask + человек + to + глагол*: *“Could you send me the notes?” → The tutor asked me to send the notes.*
 
 Различай *say* и *tell*: обычно говорят *Lily said that…*, а если называют собеседника — *Lily told me that…*. В этой конструкции после *tell* укажи, кому сообщили.
@@ -34,7 +35,7 @@ source_review_interval_days: 180
 
 ### Вопрос
 
-Во вторник ты пересказываешь вопрос, который Мира задала в понедельник: *“Where does the lab keep the samples?”* Какой вариант сохраняет вопросительное слово и использует порядок слов утверждения?
+Во вторник ты пересказываешь вопрос, который Мира задала в понедельник: *“Where does the lab keep the samples?”* Выбери распространённую форму с backshift, которая сохраняет вопросительное слово и использует порядок слов утверждения.
 
 ### Варианты
 
@@ -48,7 +49,7 @@ source_review_interval_days: 180
 
 ### Разбор
 
-Вариант 1 сохраняет *where*, меняет *does keep* на *kept* при пересказе после *asked* и использует порядок слов утверждения: *the lab kept*. Во втором варианте остался порядок прямого вопроса; третий превращает специальный вопрос в вопрос с ответом «да/нет».
+Вариант 1 сохраняет *where* и использует распространённую форму с backshift: *does* исчезает, основной глагол меняется на *kept*, а порядок слов становится утвердительным: *the lab kept*. Во втором варианте остался порядок прямого вопроса; третий превращает специальный вопрос в вопрос с ответом «да/нет». Если сообщаемый факт остаётся актуальным, настоящее время тоже может быть уместно, но здесь проверяется именно форма с backshift.
 
 ### Границы модели
 
@@ -62,11 +63,12 @@ Report statements, wh-questions, yes/no questions, and requests. Choose word ord
 
 ### Idea and mechanism
 
-Reported speech conveys someone else's words without quoting them exactly. When the reporting verb is in the past (*said, told, asked*), tense often shifts back (**backshift**): *am working → was working*, *do/does → did*, and *have done → had done*. This is a common pattern, not a mechanical rule. If a fact is still true or relevant, the present tense can remain: *The teacher said the Earth orbits the Sun*. Choose tense for meaning and time reference.
+Reported speech conveys someone else's words without quoting them exactly. When the reporting verb is in the past (*said, told, asked*), tense often shifts back (**backshift**): *am working → was working* and *have done → had done*. In questions, auxiliary *do/does* is dropped when the clause changes to statement word order; with backshift, the main verb moves to the past: *“Where does the lab keep the samples?” → Mira asked where the lab kept the samples.* This is a common pattern, not a mechanical rule. If a fact is still true or relevant, the present tense can remain: *The teacher said the Earth orbits the Sun*. Choose tense for meaning and time reference.
 
 - In a reported wh-question, keep the question word but use statement word order: *“Where does the lab keep the samples?” → Mira asked where the lab kept the samples.* Do not add auxiliary *did* after *where*.
 - Introduce a yes/no question with *if* or *whether*: *“Are you available?” → Sam asked whether I was available.* The clause uses statement order: *I was*, not *was I*.
-- Pronouns and words such as *today, tomorrow,* and *here* change only when the speaker or time/place context changes. If a Monday statement is reported on Tuesday, *today* may become *that day*.
+- Choose pronouns for their intended referents and the reporter's point of view: for example, *I* may become *she* when reporting Lily's words.
+- Change time and place words such as *today, tomorrow,* and *here* when the original reference no longer applies. If a Monday statement is reported on Tuesday, *today* may become *that day*.
 - A common request pattern is *ask + person + to + verb*: *“Could you send me the notes?” → The tutor asked me to send the notes.*
 
 Distinguish *say* and *tell*: normally use *Lily said that…*, and name the listener with *Lily told me that…*. In this pattern, specify who was told.
@@ -79,7 +81,7 @@ Then report this question aloud without answer choices: *“Where are you going 
 
 ### Question
 
-On Tuesday, you report a question Mira asked on Monday: *“Where does the lab keep the samples?”* Which option keeps the wh-word and uses statement word order?
+On Tuesday, you report a question Mira asked on Monday: *“Where does the lab keep the samples?”* Choose the common backshifted form that keeps the wh-word and uses statement word order.
 
 ### Options
 
@@ -93,7 +95,7 @@ On Tuesday, you report a question Mira asked on Monday: *“Where does the lab k
 
 ### Explanation
 
-Option 1 keeps *where*, backshifts *does keep* to *kept* after *asked*, and uses statement order: *the lab kept*. Option 2 retains direct-question order; option 3 turns a wh-question into a yes/no question.
+Option 1 keeps *where* and uses the common backshifted form: *does* is dropped, the main verb changes to *kept*, and the clause uses statement order: *the lab kept*. Option 2 retains direct-question order; option 3 turns a wh-question into a yes/no question. If the reported fact is still current, the present tense may also be appropriate, but this question specifically practises backshift.
 
 ### Limits
 
@@ -101,5 +103,6 @@ Backshift is common after a past reporting verb, but it is not required in every
 
 ## Sources
 
-- British Council LearnEnglish, “Reported speech: questions” (B1–B2; consulted 2026-10-09): <https://learnenglish.britishcouncil.org/free-resources/grammar/b1-b2/reported-speech-questions>
-- British Council LearnEnglish, “Reported speech: statements” (B1–B2; consulted 2026-10-09): <https://learnenglish.britishcouncil.org/free-resources/grammar/b1-b2/reported-speech-statements>
+- British Council LearnEnglish, “Reported speech: questions” (B1–B2; consulted 2026-10-12): <https://learnenglish.britishcouncil.org/free-resources/grammar/b1-b2/reported-speech-questions>
+- British Council LearnEnglish, “Reported speech: statements” (B1–B2; consulted 2026-10-12): <https://learnenglish.britishcouncil.org/free-resources/grammar/b1-b2/reported-speech-statements>
+- Cambridge Dictionary, English Grammar Today, “Reporting clauses” (consulted 2026-10-12): <https://dictionary.cambridge.org/grammar/british-grammar/reporting-clauses>

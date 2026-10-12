@@ -11,6 +11,12 @@ enum InteractiveChoiceFeedbackVerification {
         let keys = (1...5).map { "lab.routineExplanation\($0)" }
             + (1...4).map { "lab.animalGroupExplanation\($0)" }
             + (1...4).map { "lab.lineageExplanation\($0)" }
+            + [
+                "lab.reportedWrong0.0", "lab.reportedWrong0.2",
+                "lab.reportedWrong1.1", "lab.reportedWrong1.2",
+                "lab.reportedWrong2.0", "lab.reportedWrong2.1",
+                "lab.reportedWrong3.0", "lab.reportedWrong3.2"
+            ]
 
         for key in keys {
             let russian = L10n.text(key, .ru)

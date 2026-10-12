@@ -3134,6 +3134,7 @@ private struct ReportedSpeechLab: View {
     @State private var index = 0
     @State private var selection: Int?
     @State private var wasCorrect: Bool?
+    @State private var incorrectAnswerOption: Int?
     @State private var complete = false
     @State private var attemptsForQuestion = 0
     @State private var optionOrder = QuizAnswerOrder(
@@ -3172,6 +3173,7 @@ private struct ReportedSpeechLab: View {
                     Button {
                         selection = displayIndex
                         wasCorrect = nil
+                        incorrectAnswerOption = nil
                     } label: {
                         Label(
                             L10n.text("lab.reportedOption\(index).\(originalIndex)", store.language),
@@ -3186,10 +3188,16 @@ private struct ReportedSpeechLab: View {
                 }
 
                 if let wasCorrect {
+                    let feedbackKey: String
+                    if wasCorrect {
+                        feedbackKey = "lab.reportedFeedback\(index)"
+                    } else if let incorrectAnswerOption {
+                        feedbackKey = "lab.reportedWrong\(index).\(incorrectAnswerOption)"
+                    } else {
+                        feedbackKey = "lab.reportedTryAgain"
+                    }
                     Label(
-                        wasCorrect
-                            ? L10n.text("lab.reportedFeedback\(index)", store.language)
-                            : L10n.text("lab.reportedTryAgain", store.language),
+                        L10n.text(feedbackKey, store.language),
                         systemImage: wasCorrect ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath"
                     )
                     .foregroundStyle(wasCorrect ? Color.green : Color.orange)
@@ -3229,8 +3237,11 @@ private struct ReportedSpeechLab: View {
         let isCorrect = optionOrder.isCorrect(displayedIndex: selectedDisplayIndex)
         wasCorrect = isCorrect
         if !isCorrect {
+            incorrectAnswerOption = optionOrder.displayedOriginalIndices[selectedDisplayIndex]
             selection = nil
             optionOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: questions[index].correctOption)
+        } else {
+            incorrectAnswerOption = nil
         }
         store.recordStudyAssessment(
             lessonID: lessonID,
@@ -3249,6 +3260,7 @@ private struct ReportedSpeechLab: View {
         index = 0
         selection = nil
         wasCorrect = nil
+        incorrectAnswerOption = nil
         complete = false
         attemptsForQuestion = 0
         optionOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: questions[0].correctOption)
