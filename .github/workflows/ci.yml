@@ -263,7 +263,7 @@ jobs:
 
       - name: Verify linear system practice model
         run: |
-          swiftc macOS/ColiDev/App/LinearSystemPractice.swift macOS/ColiDev/scripts/verify_linear_system_practice.swift \
+          swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/LinearSystemPractice.swift macOS/ColiDev/scripts/verify_linear_system_practice.swift \
             -o "$RUNNER_TEMP/verify-linear-system-practice"
           "$RUNNER_TEMP/verify-linear-system-practice"
 
