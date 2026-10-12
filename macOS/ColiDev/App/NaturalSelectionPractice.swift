@@ -59,7 +59,8 @@ enum NaturalSelectionPractice {
     static func makePredictionAttempt(for trend: NaturalSelectionTrend) -> InteractivePredictionAttempt {
         guard let attempt = InteractivePredictionAttempt(
             optionCount: NaturalSelectionTrend.allCases.count,
-            answerOriginalIndex: trend.rawValue
+            answerOriginalIndex: trend.rawValue,
+            itemID: "biology.zoology.natural_selection.trait_mean_direction"
         ) else {
             preconditionFailure("Natural selection prediction must have at least one answer option.")
         }
