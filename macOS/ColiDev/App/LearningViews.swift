@@ -7697,7 +7697,8 @@ private struct LinearSystemLab: View {
     private static func makePrediction(for scenario: LinearSystemScenario) -> InteractivePredictionAttempt {
         guard let attempt = InteractivePredictionAttempt(
             optionCount: 3,
-            answerOriginalIndex: LinearSystemPractice.correctPredictionIndex(for: scenario)
+            answerOriginalIndex: LinearSystemPractice.correctPredictionIndex(for: scenario),
+            itemID: scenario.itemID
         ) else {
             preconditionFailure("A linear-system prediction must have one valid answer.")
         }

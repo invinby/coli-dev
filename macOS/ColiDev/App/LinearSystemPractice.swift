@@ -8,6 +8,7 @@ enum LinearSystemOutcome: Equatable {
 
 struct LinearSystemScenario: Identifiable {
     let id: String
+    let itemID: String
     let first: (x: Int, y: Int, result: Int)
     let second: (x: Int, y: Int, result: Int)
     let outcome: LinearSystemOutcome
@@ -18,6 +19,7 @@ enum LinearSystemPractice {
     static let scenarios: [LinearSystemScenario] = [
         LinearSystemScenario(
             id: "unique",
+            itemID: "mathematics.systems_of_linear_equations.unique.solution_classification",
             first: (2, 1, 11),
             second: (1, -1, 1),
             outcome: .oneSolution(x: 4, y: 3),
@@ -25,6 +27,7 @@ enum LinearSystemPractice {
         ),
         LinearSystemScenario(
             id: "parallel",
+            itemID: "mathematics.systems_of_linear_equations.parallel.solution_classification",
             first: (1, 1, 8),
             second: (-1, -1, -10),
             outcome: .noSolution,
@@ -32,6 +35,7 @@ enum LinearSystemPractice {
         ),
         LinearSystemScenario(
             id: "same-line",
+            itemID: "mathematics.systems_of_linear_equations.same-line.solution_classification",
             first: (1, 1, 4),
             second: (-2, -2, -8),
             outcome: .infinitelyManySolutions,
