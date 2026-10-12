@@ -49,6 +49,31 @@ def test_trigonometry_answer_keys_match_the_explained_sine_sign():
         assert choices[answer_index - 1] == expected
 
 
+def test_domain_and_range_answer_keys_match_the_explained_inequality():
+    lesson = (
+        REPOSITORY_ROOT
+        / "02_Areas/Mathematics/lessons/domain_and_range.md"
+    ).read_text(encoding="utf-8")
+
+    for language, options_heading, answer_heading, expected in (
+        ("Русский", "Варианты", "Ответ", "x ≤ 8"),
+        ("English", "Options", "Answer", "x ≤ 8"),
+    ):
+        options = _section_body(lesson, language, options_heading)
+        answer = _section_body(lesson, language, answer_heading)
+        assert options is not None
+        assert answer is not None
+        choices = [
+            line[2:].strip()
+            for line in options.splitlines()
+            if line.strip().startswith("- ")
+        ]
+
+        answer_index = int(answer.strip())
+        assert 1 <= answer_index <= len(choices)
+        assert choices[answer_index - 1] == expected
+
+
 def test_missing_lesson_file_is_reported(tmp_path):
     areas = tmp_path / "02_Areas"
     subject = areas / "Biology"
