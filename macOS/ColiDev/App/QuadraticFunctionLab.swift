@@ -147,9 +147,6 @@ struct QuadraticFunctionLab: View {
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .onChange(of: function) { _ in
-            beginNextPrediction()
-        }
     }
 
     private func parameterRow(

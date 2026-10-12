@@ -60,7 +60,7 @@ enum QuadraticFunctionVerification {
         round.beginNewQuestion(answerOrder: nextRoundOrder)
         precondition(
             round.answerOrder == nextRoundOrder && round.selectedDisplayedIndex == nil,
-            "Changing the function parameters must clear stale feedback and start a fresh prediction. / После изменения параметров функции старый разбор должен исчезнуть и начаться новый прогноз."
+            "Retrying after feedback must clear the submitted choice and start a fresh prediction. / При повторе после обратной связи нужно сбросить отправленный выбор и начать новый прогноз."
         )
         precondition(
             round.submit(displayedIndex: nextRoundOrder.correctDisplayedIndex) == true,
