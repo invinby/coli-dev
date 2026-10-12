@@ -64,3 +64,60 @@ enum LoopTracePractice {
         return prediction == scenario.expectedCount
     }
 }
+
+struct WhileLoopTraceStep: Equatable, Identifiable {
+    let checkNumber: Int
+    let valueBeforeCheck: Int
+    let conditionTrue: Bool
+    let valueAfterBody: Int?
+
+    var id: Int { checkNumber }
+}
+
+struct WhileLoopTrace {
+    static let initialValueRange = 0...9
+    static let decrementRange = 1...3
+
+    let initialValue: Int
+    let decrement: Int
+    private(set) var currentValue: Int
+    private(set) var steps: [WhileLoopTraceStep] = []
+    private(set) var isComplete = false
+
+    var printedValues: [Int] {
+        steps.compactMap { $0.conditionTrue ? $0.valueBeforeCheck : nil }
+    }
+
+    init(initialValue: Int, decrement: Int) {
+        let boundedInitialValue = min(max(initialValue, Self.initialValueRange.lowerBound), Self.initialValueRange.upperBound)
+        let boundedDecrement = min(max(decrement, Self.decrementRange.lowerBound), Self.decrementRange.upperBound)
+        self.initialValue = boundedInitialValue
+        self.decrement = boundedDecrement
+        currentValue = boundedInitialValue
+    }
+
+    @discardableResult
+    mutating func checkNextStep() -> WhileLoopTraceStep? {
+        guard !isComplete else { return nil }
+
+        let valueBeforeCheck = currentValue
+        let conditionTrue = valueBeforeCheck > 0
+        let valueAfterBody: Int?
+        if conditionTrue {
+            currentValue -= decrement
+            valueAfterBody = currentValue
+        } else {
+            valueAfterBody = nil
+            isComplete = true
+        }
+
+        let step = WhileLoopTraceStep(
+            checkNumber: steps.count + 1,
+            valueBeforeCheck: valueBeforeCheck,
+            conditionTrue: conditionTrue,
+            valueAfterBody: valueAfterBody
+        )
+        steps.append(step)
+        return step
+    }
+}

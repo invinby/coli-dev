@@ -74,6 +74,42 @@ enum LoopTraceVerification {
 
         precondition(LoopTracePractice.scenario(id: "unknown") == nil, "unknown scenarios should fail closed")
         precondition(!LoopTracePractice.isCorrect(prediction: 0, for: "unknown"), "unknown scenarios should reject answers")
+
+        var whileTrace = WhileLoopTrace(initialValue: 5, decrement: 2)
+        let expectedWhileSteps = [
+            WhileLoopTraceStep(checkNumber: 1, valueBeforeCheck: 5, conditionTrue: true, valueAfterBody: 3),
+            WhileLoopTraceStep(checkNumber: 2, valueBeforeCheck: 3, conditionTrue: true, valueAfterBody: 1),
+            WhileLoopTraceStep(checkNumber: 3, valueBeforeCheck: 1, conditionTrue: true, valueAfterBody: -1),
+            WhileLoopTraceStep(checkNumber: 4, valueBeforeCheck: -1, conditionTrue: false, valueAfterBody: nil)
+        ]
+        for expectedStep in expectedWhileSteps {
+            precondition(
+                whileTrace.checkNextStep() == expectedStep,
+                "while must check the condition before each body and stop before executing a false branch"
+            )
+        }
+        precondition(whileTrace.isComplete, "a false condition should finish the bounded while trace")
+        precondition(whileTrace.checkNextStep() == nil, "a finished trace must not execute another body")
+        precondition(whileTrace.steps == expectedWhileSteps, "a finished trace must retain its exact execution history")
+        precondition(whileTrace.printedValues == [5, 3, 1], "only values from executed while bodies should be printed")
+
+        var initiallyFalseTrace = WhileLoopTrace(initialValue: 0, decrement: 3)
+        precondition(
+            initiallyFalseTrace.checkNextStep() == WhileLoopTraceStep(
+                checkNumber: 1,
+                valueBeforeCheck: 0,
+                conditionTrue: false,
+                valueAfterBody: nil
+            ),
+            "a false condition on the first check must skip the loop body"
+        )
+        precondition(initiallyFalseTrace.printedValues.isEmpty, "a skipped loop body must produce no printed values")
+
+        var maximumTeachingTrace = WhileLoopTrace(initialValue: 9, decrement: 1)
+        while maximumTeachingTrace.checkNextStep() != nil {}
+        precondition(maximumTeachingTrace.isComplete && maximumTeachingTrace.steps.count == 10, "fixed positive decrement must bound the longest teaching trace")
+        let boundedInputs = WhileLoopTrace(initialValue: 12, decrement: 0)
+        precondition(boundedInputs.initialValue == 9 && boundedInputs.decrement == 1, "out-of-range settings must be clamped to the terminating teaching limits")
         print("Loop trace model checks passed")
     }
 }

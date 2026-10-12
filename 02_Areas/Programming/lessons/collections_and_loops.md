@@ -3,17 +3,17 @@ subject: programming
 lesson_id: programming.collections_and_loops
 level: foundations
 languages: ru, en
-source_checked: 2026-10-06
+source_checked: 2026-10-13
 source_review_interval_days: 90
 ---
 
-# Коллекции и цикл for / Collections and the for Loop
+# Коллекции и циклы / Collections and Loops
 
 ## Русский
 
 ### Цель
 
-Объяснять порядок и индексы элементов списка, изменять список добавлением и выбирать между обходом значений и обходом пар «индекс — значение».
+Объяснять порядок и индексы элементов списка, изменять список добавлением, выбирать между обходом значений и пар «индекс — значение», а также трассировать цикл `while` с изменяющимся условием.
 
 ### Идея и механизм
 
@@ -32,6 +32,19 @@ for index, task in enumerate(tasks):
 ### Исследуй и потренируйся
 
 В тренажёре добавляй задачи в список и удаляй последнюю. Переключай режим обхода: только значения или пары с индексами. Следи, как операция меняет длину списка и строки результата; после удаления последнего элемента проверь, что пустой список не вызывает обращение по индексу.
+
+#### Цикл `while`: повторение по условию
+
+`while` перед каждым проходом проверяет условие. Если `remaining > 0`, тело выполняется и уменьшает значение; затем Python проверяет условие снова:
+
+```python
+remaining = 5
+while remaining > 0:
+    print(remaining)
+    remaining -= 2
+```
+
+Будут напечатаны `5`, `3`, `1`. После третьего шага `remaining` станет `-1`; при следующей проверке условие ложно, поэтому тело уже не запустится. Если тело не приближает программу к ложному условию, цикл может продолжаться бесконечно. В тренажёре меняй старт от `0` до `9` и уменьшение от `1` до `3`, а затем выполняй ровно одну проверку за раз: так видны и каждый проход, и финальная проверка, которая останавливает цикл.
 
 Практика: список `steps = ["measure", "calculate"]`; добавь `"check"`, затем предскажи длину и вывод `for index, step in enumerate(steps): print(index, step)`. После этого объясни, почему первый индекс — `0`, а последний — `len(steps) - 1`.
 
@@ -68,7 +81,7 @@ for index, item in enumerate(items):
 
 ### Goal
 
-Explain list order and indexes, change a list by appending items, and choose between iterating over values and iterating over index–value pairs.
+Explain list order and indexes, change a list by appending items, choose between value iteration and index–value iteration, and trace a `while` loop with a changing condition.
 
 ### Idea and mechanism
 
@@ -87,6 +100,19 @@ The output is `0: docs`, `1: tests`, `2: build`. A simple value-only loop does n
 ### Explore and practise
 
 Add tasks to the trainer's list and remove the last one. Switch between value-only iteration and index–value pairs. Watch how each operation changes the list length and output; after removing the last item, check that an empty list is not indexed.
+
+#### The `while` loop: repeat while a condition holds
+
+`while` checks its condition before every iteration. If `remaining > 0`, the body runs and decreases the value; Python then checks the condition again:
+
+```python
+remaining = 5
+while remaining > 0:
+    print(remaining)
+    remaining -= 2
+```
+
+The loop prints `5`, `3`, and `1`. After the third step, `remaining` becomes `-1`; the next check is false, so the body does not run again. If the body never moves the program toward a false condition, the loop can run forever. In the trainer, choose a start from `0` to `9` and a decrement from `1` to `3`, then advance one condition check at a time to see each iteration and the final check that stops the loop.
 
 Practice: start with `steps = ["measure", "calculate"]`, append `"check"`, then predict the length and the output of `for index, step in enumerate(steps): print(index, step)`. Explain why the first index is `0` and the last one is `len(steps) - 1`.
 
@@ -121,5 +147,6 @@ The trainer shows a small, bounded teaching model of a list and a loop; it does 
 
 ## Sources
 
-- [Python Tutorial: Lists and sequences — Python Software Foundation](https://docs.python.org/3/tutorial/introduction.html)
-- [Python Tutorial: for Statements and range — Python Software Foundation](https://docs.python.org/3/tutorial/controlflow.html)
+- [Python Tutorial: Lists and sequences — Python Software Foundation / Учебник Python: списки и последовательности — Фонд Python](https://docs.python.org/3/tutorial/introduction.html)
+- [Python Tutorial: `for` Statements and `range` — Python Software Foundation / Учебник Python: оператор `for` и `range` — Фонд Python](https://docs.python.org/3/tutorial/controlflow.html)
+- [Python Tutorial: while statement — Python Software Foundation / Учебник Python: оператор while — Фонд Python](https://docs.python.org/3/tutorial/introduction.html#first-steps-towards-programming)

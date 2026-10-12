@@ -8289,6 +8289,9 @@ private struct CollectionsLoopsLab: View {
     @State private var tasks = ["docs", "tests", "app"]
     @State private var nextTask = 0
     @State private var includesIndexes = true
+    @State private var whileInitialValue = 5
+    @State private var whileDecrement = 2
+    @State private var whileTrace = WhileLoopTrace(initialValue: 5, decrement: 2)
 
     private let additions = ["build", "review", "ship", "notes", "measure"]
 
@@ -8393,7 +8396,100 @@ private struct CollectionsLoopsLab: View {
             Text(L10n.text("lab.collectionsCount", store.language) + ": \(tasks.count)")
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text(L10n.text("lab.collectionsWhileTitle", store.language))
+                    .font(.headline)
+                Text(L10n.text("lab.collectionsWhileHint", store.language))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("remaining = \(whileTrace.initialValue)\nwhile remaining > 0:\n    print(remaining)\n    remaining -= \(whileTrace.decrement)")
+                    .font(.system(.callout, design: .monospaced))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 12))
+
+                Stepper(value: $whileInitialValue, in: WhileLoopTrace.initialValueRange) {
+                    Text(String(format: L10n.text("lab.collectionsWhileInitial", store.language), whileInitialValue))
+                        .font(.callout.monospacedDigit())
+                }
+                .onChange(of: whileInitialValue) { _ in resetWhileTrace() }
+
+                Stepper(value: $whileDecrement, in: WhileLoopTrace.decrementRange) {
+                    Text(String(format: L10n.text("lab.collectionsWhileDecrement", store.language), whileDecrement))
+                        .font(.callout.monospacedDigit())
+                }
+                .onChange(of: whileDecrement) { _ in resetWhileTrace() }
+
+                Label(
+                    String(format: L10n.text("lab.collectionsWhileCurrent", store.language), whileTrace.currentValue),
+                    systemImage: whileTrace.isComplete ? "checkmark.circle.fill" : "repeat"
+                )
+                .font(.callout.weight(.medium).monospacedDigit())
+                .foregroundStyle(whileTrace.isComplete ? Color.green : Color.primary)
+
+                Text(L10n.text("lab.collectionsWhileOutput", store.language) + ": [\(whileTrace.printedValues.map(String.init).joined(separator: ", "))]")
+                    .font(.callout.monospacedDigit())
+                    .foregroundStyle(.secondary)
+
+                ForEach(whileTrace.steps) { step in
+                    VStack(alignment: .leading, spacing: 4) {
+                        let feedbackKey = step.conditionTrue
+                            ? "lab.collectionsWhileConditionTrue"
+                            : "lab.collectionsWhileConditionFalse"
+                        Label(
+                            String(format: L10n.text(feedbackKey, store.language), step.checkNumber, step.valueBeforeCheck),
+                            systemImage: step.conditionTrue ? "checkmark.circle" : "stop.circle.fill"
+                        )
+                        .font(.caption.weight(.medium).monospacedDigit())
+                        .foregroundStyle(step.conditionTrue ? Color.secondary : Color.green)
+
+                        if let valueAfterBody = step.valueAfterBody {
+                            Text(String(format: L10n.text("lab.collectionsWhileBody", store.language), valueAfterBody))
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text(L10n.text("lab.collectionsWhileExit", store.language))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 10))
+                }
+
+                HStack(spacing: 10) {
+                    Button {
+                        whileTrace.checkNextStep()
+                    } label: {
+                        Label(L10n.text("lab.collectionsWhileCheck", store.language), systemImage: "arrow.right.circle")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(whileTrace.isComplete)
+
+                    Button {
+                        resetWhileTrace()
+                    } label: {
+                        Label(L10n.text("lab.collectionsWhileRestart", store.language), systemImage: "arrow.counterclockwise")
+                    }
+                    .buttonStyle(.bordered)
+                }
+
+                Text(L10n.text("lab.collectionsWhileLimit", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
+    }
+
+    private func resetWhileTrace() {
+        whileTrace = WhileLoopTrace(initialValue: whileInitialValue, decrement: whileDecrement)
     }
 }
 
