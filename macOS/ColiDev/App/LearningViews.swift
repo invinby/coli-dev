@@ -7394,6 +7394,8 @@ private struct ConditionalLab: View {
 private struct VariablesTypesLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var reassignToText = false
+    @State private var inputText = "12"
+    @State private var conversionResult: PythonInputPracticeResult?
 
     var body: some View {
         LabCard {
@@ -7428,7 +7430,56 @@ private struct VariablesTypesLab: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(.background, in: RoundedRectangle(cornerRadius: 12))
             .accessibilityElement(children: .combine)
+
+            Divider()
+
+            Text(L10n.text("lab.input.title", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.input.explanation", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(L10n.text("lab.input.codeRead", store.language))
+                .font(.system(.body, design: .monospaced).weight(.medium))
+            Text("count = int(raw_text)")
+                .font(.system(.body, design: .monospaced).weight(.medium))
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                TextField(L10n.text("lab.input.placeholder", store.language), text: $inputText)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(maxWidth: 260)
+                    .accessibilityLabel(Text(L10n.text("lab.input.accessibility", store.language)))
+                    .onSubmit(convertInput)
+
+                Button(L10n.text("lab.input.convert", store.language), action: convertInput)
+                    .buttonStyle(.borderedProminent)
+            }
+
+            if let conversionResult {
+                switch conversionResult {
+                case .integer(let value):
+                    Label(
+                        String(format: L10n.text("lab.input.integerResult", store.language), value),
+                        systemImage: "checkmark.circle.fill"
+                    )
+                    .foregroundStyle(.green)
+                case .valueError:
+                    Label(L10n.text("lab.input.valueError", store.language), systemImage: "exclamationmark.circle.fill")
+                        .foregroundStyle(.orange)
+                case .outsideSimulatorRange:
+                    Label(L10n.text("lab.input.rangeLimit", store.language), systemImage: "info.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Text(L10n.text("lab.input.simulatorLimit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    private func convertInput() {
+        conversionResult = PythonInputPractice.convert(inputText)
     }
 }
 
