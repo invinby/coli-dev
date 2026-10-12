@@ -16,7 +16,9 @@ enum AnimalFunctionPracticeVerification {
         precondition(AnimalFunctionPractice.isCorrectComparisonAnswer(1))
         precondition(!AnimalFunctionPractice.isCorrectComparisonAnswer(2))
 
+        let predictionItemID = "zoology.animal_function.structure_task_environment_comparison"
         var prediction = AnimalFunctionPractice.makeComparisonAttempt()
+        precondition(prediction.itemID == predictionItemID)
         precondition(prediction.currentAnswerEventEvidence() == nil)
         let wrongDisplayIndex = prediction.choiceOrder.displayedOriginalIndices.firstIndex(of: 0)!
         prediction.select(displayedIndex: wrongDisplayIndex)
@@ -24,6 +26,7 @@ enum AnimalFunctionPracticeVerification {
         precondition(failedEvidence?.taskType == "interactive_prediction")
         precondition(failedEvidence?.attempts == 1)
         precondition(failedEvidence?.firstTryCorrect == false)
+        precondition(failedEvidence?.itemID == predictionItemID)
         precondition(prediction.canRetry)
 
         prediction.retry()
@@ -32,6 +35,7 @@ enum AnimalFunctionPracticeVerification {
         let recoveredEvidence = prediction.currentAnswerEventEvidence()
         precondition(recoveredEvidence?.attempts == 2)
         precondition(recoveredEvidence?.firstTryCorrect == false)
+        precondition(recoveredEvidence?.itemID == predictionItemID)
         precondition(!prediction.canRetry)
 
         print("Animal function practice checks passed.")
