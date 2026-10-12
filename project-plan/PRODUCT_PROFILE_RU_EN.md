@@ -108,6 +108,10 @@
 
 **EN:** The system should help learners move toward goals they choose within existing courses and study plans, rather than add a separate task manager. The dashboard presents one prioritized action with a clear reason. An optional small start lowers the barrier to beginning without changing or reducing the course's eventual depth. Other paths remain available but do not visually compete with the primary action.
 
+**RU:** Рекомендация поддерживает самостоятельность, но не становится обязательной командой: ученик может выбрать другой доступный маршрут, отложить действие или убрать карточку. Система не блокирует обучение, не создаёт зависимость от уведомлений и не наказывает за паузу; напоминания включаются только по желанию ученика.
+
+**EN:** A recommendation supports learner agency; it is not a mandatory command. Learners can choose another available path, defer the action, or dismiss the card. The system never blocks learning, creates dependence on notifications, or penalizes a break; reminders are enabled only at the learner's choice.
+
 **RU:** Большая цель раскладывается на небольшие завершённые этапы, привязанные к реальным темам, урокам, практике и проверкам. У каждого этапа есть проверяемый результат; панель объясняет, как завершённые этапы связаны с целью. Факт прохождения, свидетельства понимания и предположение системы о подходящем следующем шаге показываются раздельно.
 
 **EN:** A large goal is divided into small, finishable milestones linked to real topics, lessons, practice, and checks. Each milestone has a verifiable outcome, and the dashboard explains how completed milestones support the goal. Completion, evidence of understanding, and the system's suggested next action are shown separately.
