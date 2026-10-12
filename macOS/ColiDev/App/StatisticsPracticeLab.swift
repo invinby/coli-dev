@@ -5,6 +5,7 @@ struct StatisticsPracticeLab: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var finalMeasurement = 20.0
     @State private var answerOrder = QuizAnswerOrder(optionCount: 2, answerOriginalIndex: 1)
+    @State private var answerOrderSequence = QuizAnswerOrderSequence(optionCount: 2)
     @State private var selectedAnswer: Int?
     @State private var isExplanationRevealed = false
     @State private var attemptCount = 0
@@ -169,7 +170,10 @@ struct StatisticsPracticeLab: View {
         .onChange(of: finalMeasurement) { _ in
             selectedAnswer = nil
             isExplanationRevealed = false
-            answerOrder = QuizAnswerOrder(optionCount: optionKeys.count, answerOriginalIndex: correctAnswerIndex)
+            answerOrder = answerOrderSequence.nextOrder(
+                answerOriginalIndex: correctAnswerIndex,
+                following: answerOrder
+            )
         }
     }
 
@@ -206,7 +210,10 @@ struct StatisticsPracticeLab: View {
     }
 
     private func retry() {
-        answerOrder = QuizAnswerOrder(optionCount: optionKeys.count, answerOriginalIndex: correctAnswerIndex)
+        answerOrder = answerOrderSequence.nextOrder(
+            answerOriginalIndex: correctAnswerIndex,
+            following: answerOrder
+        )
         selectedAnswer = nil
         isExplanationRevealed = false
     }

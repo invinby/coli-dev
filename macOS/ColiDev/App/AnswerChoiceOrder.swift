@@ -79,7 +79,7 @@ struct QuizAnswerOrder: Equatable {
         choiceOrder = AnswerChoiceOrder(optionCount: optionCount, using: &generator)
     }
 
-    private init<Generator: RandomNumberGenerator>(
+    fileprivate init<Generator: RandomNumberGenerator>(
         optionCount: Int,
         answerOriginalIndex: Int,
         correctDisplayedIndex: Int,
@@ -148,6 +148,68 @@ struct QuizAnswerOrder: Equatable {
 
     func isCorrect(displayedIndex: Int) -> Bool {
         choiceOrder.isCorrect(displayedIndex: displayedIndex, answerOriginalIndex: answerOriginalIndex)
+    }
+}
+
+struct QuizAnswerOrderSequence {
+    private let optionCount: Int
+    private var positionCounts: [Int]
+    private var previousPosition: Int?
+
+    init(optionCount: Int) {
+        precondition(optionCount > 0, "A multiple-choice sequence needs at least one option.")
+        self.optionCount = optionCount
+        positionCounts = Array(repeating: 0, count: optionCount)
+    }
+
+    mutating func nextOrder(
+        answerOriginalIndex: Int,
+        following previousOrder: QuizAnswerOrder? = nil
+    ) -> QuizAnswerOrder {
+        var generator = SystemRandomNumberGenerator()
+        return nextOrder(
+            answerOriginalIndex: answerOriginalIndex,
+            following: previousOrder,
+            using: &generator
+        )
+    }
+
+    mutating func nextOrder<Generator: RandomNumberGenerator>(
+        answerOriginalIndex: Int,
+        following previousOrder: QuizAnswerOrder? = nil,
+        using generator: inout Generator
+    ) -> QuizAnswerOrder {
+        precondition(
+            (0..<optionCount).contains(answerOriginalIndex),
+            "The answer must match an available option. / Правильный ответ должен соответствовать одному из вариантов."
+        )
+
+        if previousPosition == nil, let previousOrder {
+            precondition(
+                previousOrder.displayedOriginalIndices.count == optionCount,
+                "The previous quiz must have the same option count. / В предыдущем вопросе должно быть столько же вариантов."
+            )
+            let previousDisplayedIndex = previousOrder.correctDisplayedIndex
+            positionCounts[previousDisplayedIndex] += 1
+            previousPosition = previousDisplayedIndex
+        }
+
+        var eligiblePositions = Array(0..<optionCount)
+        if optionCount > 1, let previousPosition {
+            eligiblePositions.removeAll { $0 == previousPosition }
+        }
+        let leastUsedCount = eligiblePositions.map { positionCounts[$0] }.min()!
+        let leastUsedPositions = eligiblePositions.filter { positionCounts[$0] == leastUsedCount }
+        let displayedIndex = leastUsedPositions.randomElement(using: &generator)!
+        positionCounts[displayedIndex] += 1
+        previousPosition = displayedIndex
+
+        return QuizAnswerOrder(
+            optionCount: optionCount,
+            answerOriginalIndex: answerOriginalIndex,
+            correctDisplayedIndex: displayedIndex,
+            using: &generator
+        )
     }
 }
 

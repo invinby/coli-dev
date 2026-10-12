@@ -4,6 +4,7 @@ struct TrigonometryUnitCircleLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var angleRadians = Double.pi / 3
     @State private var answerOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: 2)
+    @State private var answerOrderSequence = QuizAnswerOrderSequence(optionCount: 3)
     @State private var selectedAnswer: Int?
     @State private var isExplanationRevealed = false
     @State private var attemptCount = 0
@@ -130,7 +131,10 @@ struct TrigonometryUnitCircleLab: View {
         .onChange(of: angleRadians) { _ in
             selectedAnswer = nil
             isExplanationRevealed = false
-            answerOrder = QuizAnswerOrder(optionCount: answerKeys.count, answerOriginalIndex: sineSignIndex)
+            answerOrder = answerOrderSequence.nextOrder(
+                answerOriginalIndex: sineSignIndex,
+                following: answerOrder
+            )
         }
     }
 
@@ -214,7 +218,10 @@ struct TrigonometryUnitCircleLab: View {
     }
 
     private func retry() {
-        answerOrder = QuizAnswerOrder(optionCount: answerKeys.count, answerOriginalIndex: sineSignIndex)
+        answerOrder = answerOrderSequence.nextOrder(
+            answerOriginalIndex: sineSignIndex,
+            following: answerOrder
+        )
         selectedAnswer = nil
         isExplanationRevealed = false
     }

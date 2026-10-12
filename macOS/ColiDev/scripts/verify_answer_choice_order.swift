@@ -233,7 +233,7 @@ enum AnswerChoiceOrderVerification {
                 .map { $0 % optionCount }
             var sequence = QuizAnswerOrderSequence(optionCount: optionCount)
             var generator = SeededGenerator(seed: UInt64(optionCount * 101))
-            let orders = correctOriginalIndices.map { answerIndex in
+            let orders: [QuizAnswerOrder] = correctOriginalIndices.map { answerIndex in
                 sequence.nextOrder(answerOriginalIndex: answerIndex, using: &generator)
             }
             let positions = orders.map(\.correctDisplayedIndex)
@@ -259,6 +259,24 @@ enum AnswerChoiceOrderVerification {
                 )
             }
         }
+
+        var initialOrderGenerator = SeededGenerator(seed: 91)
+        let initialOrder = QuizAnswerOrder(
+            optionCount: 3,
+            answerOriginalIndex: 1,
+            using: &initialOrderGenerator
+        )
+        var firstChangeSequence = QuizAnswerOrderSequence(optionCount: 3)
+        var nextOrderGenerator = SeededGenerator(seed: 107)
+        let afterInitialOrder = firstChangeSequence.nextOrder(
+            answerOriginalIndex: 2,
+            following: initialOrder,
+            using: &nextOrderGenerator
+        )
+        precondition(
+            afterInitialOrder.correctDisplayedIndex != initialOrder.correctDisplayedIndex,
+            "The first parameter change must account for the already-visible answer slot. / Первое изменение параметра должно учитывать уже показанный слот правильного ответа."
+        )
 
         for optionCount in [2, 3] {
             for answerIndex in 0..<optionCount {
