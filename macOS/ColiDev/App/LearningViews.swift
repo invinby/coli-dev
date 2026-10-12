@@ -3188,14 +3188,9 @@ private struct ReportedSpeechLab: View {
                 }
 
                 if let wasCorrect {
-                    let feedbackKey: String
-                    if wasCorrect {
-                        feedbackKey = "lab.reportedFeedback\(index)"
-                    } else if let incorrectAnswerOption {
-                        feedbackKey = "lab.reportedWrong\(index).\(incorrectAnswerOption)"
-                    } else {
-                        feedbackKey = "lab.reportedTryAgain"
-                    }
+                    let feedbackKey = wasCorrect
+                        ? "lab.reportedFeedback\(index)"
+                        : (incorrectAnswerOption.map { "lab.reportedWrong\(index).\($0)" } ?? "lab.reportedTryAgain")
                     Label(
                         L10n.text(feedbackKey, store.language),
                         systemImage: wasCorrect ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath"
