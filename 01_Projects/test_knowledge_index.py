@@ -440,10 +440,14 @@ def test_programming_variables_lesson_rag_returns_python_docs_source(tmp_path: P
         source for source in results
         if source["path"] == "02_Areas/Programming/lessons/variables_and_types.md"
     )
-    assert lesson["source_checked_at"] == "2026-10-06"
+    assert lesson["source_checked_at"] == "2026-10-12"
     assert {
-        "title": "Python 3.14 Tutorial, “An Informal Introduction to Python” (official Python documentation; consulted 2026-10-06)",
-        "url": "https://docs.python.org/3/tutorial/introduction.html",
+        "title": "Python 3.14 Library Reference, built-in functions input() and int() (official Python documentation; consulted 2026-10-12)",
+        "url": "https://docs.python.org/3.14/library/functions.html",
+    } in lesson["official_references"]
+    assert {
+        "title": "Python 3.14 Library Reference, ValueError (official Python documentation; consulted 2026-10-12)",
+        "url": "https://docs.python.org/3.14/library/exceptions.html",
     } in lesson["official_references"]
 
 

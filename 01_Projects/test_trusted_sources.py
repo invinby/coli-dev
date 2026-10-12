@@ -293,6 +293,15 @@ def test_python_bisect_library_page_is_monitored_and_licensed_for_rag(tmp_path: 
     assert monitor.inventory()["sources"][0]["rag_content_state"] == "license_approved_pending_check"
 
 
+def test_python_314_input_and_value_error_references_are_exact_and_licensed() -> None:
+    for page, anchor in (("functions", "input"), ("exceptions", "ValueError")):
+        url = f"https://docs.python.org/3.14/library/{page}.html"
+        assert TrustedSourceMonitor._canonical_url(f"{url}#{anchor}") == url
+        policy = TrustedSourceMonitor._rag_policy(url)
+        assert policy is not None
+        assert policy["license"] == "Python Software Foundation License Version 2"
+
+
 def test_sqlite_transaction_reference_is_exact_and_metadata_only() -> None:
     url = "https://www.sqlite.org/lang_transaction.html"
     assert TrustedSourceMonitor._canonical_url(url) == url
