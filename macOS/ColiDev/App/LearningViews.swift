@@ -2542,7 +2542,7 @@ private struct DerivativeRateLab: View {
                     Spacer()
                     Text(String(format: "x = %.1f", point)).monospacedDigit()
                 }
-                Slider(value: $point, in: -2.5...0.8, step: 0.1)
+                Slider(value: $point, in: -2.0...2.0, step: 0.1)
                     .accessibilityLabel(Text(L10n.text("lab.derivativePoint", store.language)))
 
                 HStack {
@@ -2550,7 +2550,7 @@ private struct DerivativeRateLab: View {
                     Spacer()
                     Text(String(format: "h = %.1f", step)).monospacedDigit()
                 }
-                Slider(value: $step, in: 0.2...2.0, step: 0.1)
+                Slider(value: $step, in: 0.05...1.0, step: 0.05)
                     .accessibilityLabel(Text(L10n.text("lab.derivativeStep", store.language)))
             }
 
