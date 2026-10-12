@@ -1315,7 +1315,9 @@ private struct PracticeLab: View {
         } else if subject == .biology, moduleResource == "biomolecules_and_building_blocks" {
             BiomoleculeLab()
         } else if subject == .biology, moduleResource == "natural_selection_and_population_change" {
-            NaturalSelectionLab()
+            NaturalSelectionLab(lessonID: "biology.natural_selection_and_population_change")
+        } else if subject == .zoology, moduleResource == "adaptation_and_behavior" {
+            NaturalSelectionLab(lessonID: "zoology.adaptation_and_behavior")
         } else if subject == .zoology, moduleResource == "animal_function_and_environment" {
             AnimalFunctionLab()
         } else if subject == .zoology, moduleResource == "comparative_thermoregulation_and_heat_stress" {
@@ -6345,12 +6347,20 @@ private struct BiomoleculeLab: View {
 
 private struct NaturalSelectionLab: View {
     @EnvironmentObject private var store: LearningStore
+    let lessonID: String
     @State private var environmentOptimum = 75.0
     @State private var selectionStrength = 0.45
     @State private var heritability = 0.8
-    @State private var traitMean = 35.0
-    @State private var traitSpread = 20.0
-    @State private var generation = 0
+    @State private var population = NaturalSelectionPopulation(traitMean: 35, traitSpread: 20, generation: 0)
+    @State private var prediction = NaturalSelectionPractice.makePredictionAttempt(for: .increase)
+    @State private var selectedDisplayIndex = -1
+    @State private var previousMean: Double?
+
+    private let trendOptionKeys = [
+        "lab.naturalSelection.option.decrease",
+        "lab.naturalSelection.option.noChange",
+        "lab.naturalSelection.option.increase"
+    ]
 
     var body: some View {
         LabCard {
@@ -6360,14 +6370,18 @@ private struct NaturalSelectionLab: View {
                 chartLegend
                 populationSummary
                 controls
+                predictionPrompt
+                predictionFeedback
                 actions
+                generationOutcome
+                modelRule
                 limitations
             }
         }
     }
 
     private var header: some View {
-        Label(L10n.text("biology.selectionLab.title", store.language), systemImage: "chart.xyaxis.line")
+        Label(L10n.text("lab.naturalSelection.title", store.language), systemImage: "chart.xyaxis.line")
             .font(.headline)
     }
 
@@ -6376,7 +6390,7 @@ private struct NaturalSelectionLab: View {
             var curve = Path()
             for step in 0...100 {
                 let trait = Double(step)
-                let distance = (trait - traitMean) / max(traitSpread, 1)
+                let distance = (trait - population.traitMean) / max(population.traitSpread, 1)
                 let height = exp(-0.5 * distance * distance)
                 let point = CGPoint(
                     x: CGFloat(step) / 100 * size.width,
@@ -6385,20 +6399,20 @@ private struct NaturalSelectionLab: View {
                 if step == 0 { curve.move(to: point) } else { curve.addLine(to: point) }
             }
             context.stroke(curve, with: .color(.teal), lineWidth: 2.5)
-            drawMarker(traitMean, color: .teal, context: context, size: size)
+            drawMarker(population.traitMean, color: .teal, context: context, size: size)
             drawMarker(environmentOptimum, color: .orange, context: context, size: size)
         }
         .frame(height: 116)
         .padding(.horizontal, 4)
-        .accessibilityLabel(Text(L10n.text("biology.selectionLab.chart", store.language)))
+        .accessibilityLabel(Text(L10n.text("lab.naturalSelection.chart", store.language)))
     }
 
     private var chartLegend: some View {
         HStack {
-            Label(L10n.text("biology.selectionLab.mean", store.language), systemImage: "line.diagonal")
+            Label(L10n.text("lab.naturalSelection.mean", store.language), systemImage: "line.diagonal")
                 .foregroundStyle(.teal)
             Spacer()
-            Label(L10n.text("biology.selectionLab.environment", store.language), systemImage: "line.diagonal")
+            Label(L10n.text("lab.naturalSelection.environment", store.language), systemImage: "line.diagonal")
                 .foregroundStyle(.orange)
         }
         .font(.caption)
@@ -6406,37 +6420,106 @@ private struct NaturalSelectionLab: View {
 
     private var populationSummary: some View {
         HStack {
-            Text("\(L10n.text("biology.selectionLab.generation", store.language)) \(generation)")
+            Text("\(L10n.text("lab.naturalSelection.generation", store.language)) \(population.generation)")
             Spacer()
-            Text("\(L10n.text("biology.selectionLab.meanValue", store.language)) \(traitMean, specifier: "%.1f")")
+            Text("\(L10n.text("lab.naturalSelection.meanValue", store.language)) \(population.traitMean, specifier: "%.1f")")
         }
         .font(.subheadline.monospacedDigit())
     }
 
     private var controls: some View {
         VStack(alignment: .leading, spacing: 8) {
-            parameterSlider("biology.selectionLab.environment", value: $environmentOptimum, range: 0...100)
-            parameterSlider("biology.selectionLab.strength", value: $selectionStrength)
-            parameterSlider("biology.selectionLab.heritable", value: $heritability)
+            parameterSlider("lab.naturalSelection.environment", value: $environmentOptimum, range: 0...100)
+                .onChange(of: environmentOptimum) { _ in startNewPrediction() }
+            parameterSlider("lab.naturalSelection.strength", value: $selectionStrength)
+                .onChange(of: selectionStrength) { _ in startNewPrediction() }
+            parameterSlider("lab.naturalSelection.heritable", value: $heritability)
+                .onChange(of: heritability) { _ in startNewPrediction() }
+        }
+    }
+
+    private var predictionPrompt: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(L10n.text("lab.naturalSelection.predictionPrompt", store.language))
+                .font(.callout.weight(.medium))
+                .fixedSize(horizontal: false, vertical: true)
+
+            Picker(L10n.text("lab.naturalSelection.predictionPrompt", store.language), selection: $selectedDisplayIndex) {
+                ForEach(Array(prediction.choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Text(L10n.text(trendOptionKeys[originalIndex], store.language)).tag(displayIndex)
+                }
+            }
+            .pickerStyle(.segmented)
+            .disabled(prediction.hasAnswered)
+        }
+    }
+
+    @ViewBuilder
+    private var predictionFeedback: some View {
+        if prediction.hasAnswered {
+            if prediction.isCorrect {
+                Label(L10n.text("lab.naturalSelection.correct", store.language), systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                Text(L10n.text(expectedTrend.explanationKey, store.language))
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Label(L10n.text("lab.naturalSelection.review", store.language), systemImage: "arrow.uturn.backward.circle")
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
     private var actions: some View {
         HStack {
-            Button(action: advanceGeneration) {
-                Label(L10n.text("biology.selectionLab.next", store.language), systemImage: "forward.end.fill")
+            if !prediction.hasAnswered {
+                Button(action: checkPrediction) {
+                    Label(L10n.text("lab.naturalSelection.check", store.language), systemImage: "checkmark")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(selectedDisplayIndex < 0)
+            } else if prediction.canRetry {
+                Button(action: retryPrediction) {
+                    Label(L10n.text("lab.naturalSelection.retry", store.language), systemImage: "arrow.uturn.backward")
+                }
+                .buttonStyle(.borderedProminent)
+            } else {
+                Button(action: advanceGeneration) {
+                    Label(L10n.text("lab.naturalSelection.next", store.language), systemImage: "forward.end.fill")
+                }
+                .buttonStyle(.borderedProminent)
             }
-            .buttonStyle(.borderedProminent)
 
             Button(action: resetSimulation) {
-                Label(L10n.text("biology.selectionLab.reset", store.language), systemImage: "arrow.counterclockwise")
+                Label(L10n.text("lab.naturalSelection.reset", store.language), systemImage: "arrow.counterclockwise")
             }
             .buttonStyle(.bordered)
         }
     }
 
+    @ViewBuilder
+    private var generationOutcome: some View {
+        if let previousMean {
+            HStack(spacing: 6) {
+                Text(L10n.text("lab.naturalSelection.outcome", store.language))
+                Text("\(previousMean, specifier: "%.1f") → \(population.traitMean, specifier: "%.1f")")
+                    .monospacedDigit()
+            }
+            .font(.caption.weight(.medium))
+            .foregroundStyle(.secondary)
+        }
+    }
+
     private var limitations: some View {
-        Text(L10n.text("biology.selectionLab.limit", store.language))
+        Text(L10n.text("lab.naturalSelection.limit", store.language))
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var modelRule: some View {
+        Text(L10n.text("lab.naturalSelection.rule", store.language))
             .font(.caption)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
@@ -6450,20 +6533,53 @@ private struct NaturalSelectionLab: View {
         context.stroke(marker, with: .color(color.opacity(0.75)), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
     }
 
+    private var expectedTrend: NaturalSelectionTrend {
+        NaturalSelectionPractice.expectedTrend(
+            population: population,
+            environmentOptimum: environmentOptimum,
+            selectionStrength: selectionStrength,
+            heritability: heritability
+        )
+    }
+
+    private func checkPrediction() {
+        prediction.select(displayedIndex: selectedDisplayIndex)
+        guard let evidence = prediction.currentAnswerEventEvidence() else { return }
+        store.recordStudyAssessment(lessonID: lessonID, evidence: evidence)
+    }
+
+    private func retryPrediction() {
+        prediction.retry()
+        selectedDisplayIndex = -1
+    }
+
     private func advanceGeneration() {
-        let response = (environmentOptimum - traitMean) * selectionStrength * heritability
-        traitMean = min(100, max(0, traitMean + response))
-        traitSpread = max(6, traitSpread * (1 - selectionStrength * 0.12))
-        generation += 1
+        guard prediction.isCorrect else { return }
+        previousMean = population.traitMean
+        population = NaturalSelectionPractice.advanceGeneration(
+            from: population,
+            environmentOptimum: environmentOptimum,
+            selectionStrength: selectionStrength,
+            heritability: heritability
+        )
+        startNewPrediction(clearOutcome: false)
+    }
+
+    private func startNewPrediction(clearOutcome: Bool = true) {
+        prediction = NaturalSelectionPractice.makePredictionAttempt(for: expectedTrend)
+        selectedDisplayIndex = -1
+        if clearOutcome {
+            previousMean = nil
+        }
     }
 
     private func resetSimulation() {
         environmentOptimum = 75
         selectionStrength = 0.45
         heritability = 0.8
-        traitMean = 35
-        traitSpread = 20
-        generation = 0
+        population = NaturalSelectionPopulation(traitMean: 35, traitSpread: 20, generation: 0)
+        previousMean = nil
+        startNewPrediction()
     }
 
     private func parameterSlider(
