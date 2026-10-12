@@ -74,6 +74,41 @@ def test_domain_and_range_answer_keys_match_the_explained_inequality():
         assert choices[answer_index - 1] == expected
 
 
+def test_rational_expression_answer_keys_preserve_the_excluded_input():
+    lesson = (
+        REPOSITORY_ROOT
+        / "02_Areas/Mathematics/lessons/rational_expressions_and_restrictions.md"
+    ).read_text(encoding="utf-8")
+
+    for language, options_heading, answer_heading, expected in (
+        (
+            "Русский",
+            "Варианты",
+            "Ответ",
+            "`f(x) = x + 3` при `x ≠ 3`; значение исходной функции при 3 не определено.",
+        ),
+        (
+            "English",
+            "Options",
+            "Answer",
+            "`f(x) = x + 3` for `x ≠ 3`; the original function is undefined at 3.",
+        ),
+    ):
+        options = _section_body(lesson, language, options_heading)
+        answer = _section_body(lesson, language, answer_heading)
+        assert options is not None
+        assert answer is not None
+        choices = [
+            line[2:].strip()
+            for line in options.splitlines()
+            if line.strip().startswith("- ")
+        ]
+
+        answer_index = int(answer.strip())
+        assert 1 <= answer_index <= len(choices)
+        assert choices[answer_index - 1] == expected
+
+
 def test_missing_lesson_file_is_reported(tmp_path):
     areas = tmp_path / "02_Areas"
     subject = areas / "Biology"
