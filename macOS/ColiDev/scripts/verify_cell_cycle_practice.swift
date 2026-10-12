@@ -19,6 +19,7 @@ enum CellCyclePracticeVerification {
 
         var knowledgeCheck = CellCyclePractice.makeKnowledgeCheckAttempt()
         precondition(knowledgeCheck.answerOriginalIndex == 0)
+        precondition(knowledgeCheck.itemID == "biology.cell_cycle.dna_replication_stage")
         precondition(knowledgeCheck.currentAnswerEventEvidence() == nil)
         let wrongDisplayIndex = knowledgeCheck.choiceOrder.displayedOriginalIndices.firstIndex(of: 1)!
         knowledgeCheck.select(displayedIndex: wrongDisplayIndex)
@@ -27,6 +28,7 @@ enum CellCyclePracticeVerification {
         precondition(failedAttempt?.attempts == 1)
         precondition(failedAttempt?.firstTryCorrect == false)
         precondition(failedAttempt?.hintsUsed == 1)
+        precondition(failedAttempt?.itemID == "biology.cell_cycle.dna_replication_stage")
         precondition(knowledgeCheck.canRetry)
 
         knowledgeCheck.retry()
@@ -38,6 +40,7 @@ enum CellCyclePracticeVerification {
         precondition(recoveredAttempt?.attempts == 2)
         precondition(recoveredAttempt?.firstTryCorrect == false)
         precondition(recoveredAttempt?.hintsUsed == 1)
+        precondition(recoveredAttempt?.itemID == "biology.cell_cycle.dna_replication_stage")
         precondition(!knowledgeCheck.canRetry)
 
         var firstTrySuccess = CellCyclePractice.makeKnowledgeCheckAttempt()
@@ -47,6 +50,7 @@ enum CellCyclePracticeVerification {
         precondition(successfulAttempt?.attempts == 1)
         precondition(successfulAttempt?.firstTryCorrect == true)
         precondition(successfulAttempt?.hintsUsed == 0)
+        precondition(successfulAttempt?.itemID == "biology.cell_cycle.dna_replication_stage")
         precondition(!firstTrySuccess.canRetry)
 
         print("Cell-cycle practice checks passed. / Проверки тренажёра клеточного цикла прошли.")
