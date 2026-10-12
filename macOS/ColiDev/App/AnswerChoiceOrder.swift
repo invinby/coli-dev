@@ -554,7 +554,8 @@ struct StudyAssessmentEvent: Codable, Identifiable {
                 firstTryCorrect: passed,
                 hintsUsed: 0,
                 errorCategories: try assessmentContainer.decodeIfPresent([StudyErrorCategory].self, forKey: .errorCategories),
-                passed: passed
+                passed: passed,
+                itemID: itemID
             )
         } else {
             throw DecodingError.keyNotFound(
@@ -580,6 +581,7 @@ struct StudyAssessmentEvent: Codable, Identifiable {
             }
             try assessmentContainer.encode(passed, forKey: .passed)
             try assessmentContainer.encodeIfPresent(assessment.errorCategories, forKey: .errorCategories)
+            try assessmentContainer.encodeIfPresent(assessment.itemID, forKey: .itemID)
         } else if assessment.taskType == "interactive_prediction" || assessment.taskType == "interactive_practice" {
             try assessmentContainer.encode(assessment.attempts, forKey: .attempts)
             try assessmentContainer.encode(assessment.firstTryCorrect, forKey: .firstTryCorrect)

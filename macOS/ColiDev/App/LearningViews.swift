@@ -3239,7 +3239,8 @@ private struct ReportedSpeechLab: View {
                 attempts: attemptsForQuestion,
                 firstTryCorrect: isCorrect && attemptsForQuestion == 1,
                 hintsUsed: 0,
-                passed: isCorrect
+                passed: isCorrect,
+                itemID: questions[index].id
             )
         )
     }

@@ -55,6 +55,15 @@ def _parse_timestamp(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
+def _valid_assessment_item_id(value: Any) -> bool:
+    return value is None or (
+        isinstance(value, str)
+        and bool(value)
+        and len(value) <= 120
+        and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]*", value) is not None
+    )
+
+
 class StudyProgressStore:
     """Persist lesson reviews and calculate SM-2-style next review dates."""
 
@@ -251,13 +260,11 @@ class StudyProgressStore:
                 raise ValueError("assessment hints_used must be an integer between 0 and 1000")
             if not isinstance(first_try_correct, bool):
                 raise ValueError("assessment first_try_correct must be a boolean")
-            if item_id is not None and (
-                not isinstance(item_id, str)
-                or not item_id
-                or len(item_id) > 120
-                or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]*", item_id) is None
-            ):
-                raise ValueError("assessment item_id must be a safe non-empty identifier of at most 120 characters")
+            if not _valid_assessment_item_id(item_id):
+                raise ValueError(
+                    "assessment item_id must be a safe non-empty identifier of at most 120 characters / "
+                    "item_id должен быть безопасным непустым идентификатором длиной не более 120 символов"
+                )
             normalized = {
                 "task_type": task_type,
                 "attempts": attempts,
@@ -268,10 +275,14 @@ class StudyProgressStore:
                 normalized["item_id"] = item_id
         elif task_type == "knowledge_check":
             required_fields = {"task_type", "passed"}
-            if not required_fields.issubset(value) or set(value) - required_fields - {"error_categories"}:
-                raise ValueError("knowledge-check event must include only task_type, passed, and error_categories")
+            if not required_fields.issubset(value) or set(value) - required_fields - {"error_categories", "item_id"}:
+                raise ValueError(
+                    "knowledge-check event needs task_type and passed, with optional error_categories and item_id / "
+                    "событию проверки нужны task_type и passed; error_categories и item_id необязательны"
+                )
             passed = value["passed"]
             error_categories = value.get("error_categories", [])
+            item_id = value.get("item_id")
             supported_error_categories = {
                 "understanding", "memory", "application", "attention", "logic", "foundation", "method"
             }
@@ -287,9 +298,16 @@ class StudyProgressStore:
                 or (passed and error_categories)
             ):
                 raise ValueError("knowledge-check error_categories must describe at most one failed attempt")
+            if not _valid_assessment_item_id(item_id):
+                raise ValueError(
+                    "assessment item_id must be a safe non-empty identifier of at most 120 characters / "
+                    "item_id должен быть безопасным непустым идентификатором длиной не более 120 символов"
+                )
             normalized = {"task_type": "knowledge_check", "passed": passed}
             if error_categories:
                 normalized["error_categories"] = error_categories
+            if item_id is not None:
+                normalized["item_id"] = item_id
         else:
             raise ValueError(
                 "assessment task_type must be interactive_prediction, interactive_practice, or knowledge_check"
