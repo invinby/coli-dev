@@ -311,6 +311,7 @@ struct CurriculumCheckAttempt: Equatable {
 
 struct InteractivePredictionAttempt: Equatable {
     let answerOriginalIndex: Int
+    let itemID: String?
     private(set) var choiceOrder: AnswerChoiceOrder
     private(set) var selectedOriginalIndex: Int?
     private(set) var attemptCount: Int
@@ -321,18 +322,25 @@ struct InteractivePredictionAttempt: Equatable {
     var isCorrect: Bool { selectedOriginalIndex == answerOriginalIndex }
     var canRetry: Bool { hasAnswered && !isCorrect }
 
-    init?(optionCount: Int, answerOriginalIndex: Int) {
+    init?(optionCount: Int, answerOriginalIndex: Int, itemID: String? = nil) {
         var generator = SystemRandomNumberGenerator()
-        self.init(optionCount: optionCount, answerOriginalIndex: answerOriginalIndex, using: &generator)
+        self.init(
+            optionCount: optionCount,
+            answerOriginalIndex: answerOriginalIndex,
+            itemID: itemID,
+            using: &generator
+        )
     }
 
     init?<Generator: RandomNumberGenerator>(
         optionCount: Int,
         answerOriginalIndex: Int,
+        itemID: String? = nil,
         using generator: inout Generator
     ) {
         guard optionCount > 0, (0..<optionCount).contains(answerOriginalIndex) else { return nil }
         self.answerOriginalIndex = answerOriginalIndex
+        self.itemID = itemID
         choiceOrder = AnswerChoiceOrder(optionCount: optionCount, using: &generator)
         selectedOriginalIndex = nil
         attemptCount = 0
@@ -370,7 +378,8 @@ struct InteractivePredictionAttempt: Equatable {
             taskType: "interactive_prediction",
             attempts: attemptCount,
             firstTryCorrect: firstTryCorrect,
-            hintsUsed: hintsUsed
+            hintsUsed: hintsUsed,
+            itemID: itemID
         )
     }
 }

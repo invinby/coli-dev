@@ -3276,6 +3276,7 @@ private struct OsmosisLab: View {
         "lab.osmosisOptionLeaves",
         "lab.osmosisOptionBalanced"
     ]
+    private static let predictionItemID = "biology.passive_transport_osmosis.water_flow"
 
     init() {
         _prediction = State(initialValue: Self.makePrediction(insideSolute: 4, outsideSolute: 6))
@@ -3385,7 +3386,8 @@ private struct OsmosisLab: View {
     private static func makePrediction(insideSolute: Int, outsideSolute: Int) -> InteractivePredictionAttempt {
         guard let attempt = InteractivePredictionAttempt(
             optionCount: 3,
-            answerOriginalIndex: OsmosisWaterFlow.predict(insideSolute: insideSolute, outsideSolute: outsideSolute).answerOriginalIndex
+            answerOriginalIndex: OsmosisWaterFlow.predict(insideSolute: insideSolute, outsideSolute: outsideSolute).answerOriginalIndex,
+            itemID: Self.predictionItemID
         ) else {
             preconditionFailure("An osmosis prediction must have one valid answer.")
         }
