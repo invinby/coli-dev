@@ -6429,12 +6429,22 @@ private struct NaturalSelectionLab: View {
 
     private var controls: some View {
         VStack(alignment: .leading, spacing: 8) {
-            parameterSlider("lab.naturalSelection.environment", value: $environmentOptimum, range: 0...100)
-                .onChange(of: environmentOptimum) { _ in startNewPrediction() }
-            parameterSlider("lab.naturalSelection.strength", value: $selectionStrength)
-                .onChange(of: selectionStrength) { _ in startNewPrediction() }
-            parameterSlider("lab.naturalSelection.heritable", value: $heritability)
-                .onChange(of: heritability) { _ in startNewPrediction() }
+            parameterSlider(
+                "lab.naturalSelection.environment",
+                value: $environmentOptimum,
+                range: 0...100,
+                onChange: startNewPrediction
+            )
+            parameterSlider(
+                "lab.naturalSelection.strength",
+                value: $selectionStrength,
+                onChange: startNewPrediction
+            )
+            parameterSlider(
+                "lab.naturalSelection.heritable",
+                value: $heritability,
+                onChange: startNewPrediction
+            )
         }
     }
 
@@ -6585,7 +6595,8 @@ private struct NaturalSelectionLab: View {
     private func parameterSlider(
         _ labelKey: String,
         value: Binding<Double>,
-        range: ClosedRange<Double> = 0...1
+        range: ClosedRange<Double> = 0...1,
+        onChange: @escaping () -> Void
     ) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack {
@@ -6595,7 +6606,11 @@ private struct NaturalSelectionLab: View {
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
             }
-            Slider(value: value, in: range)
+            Slider(value: value, in: range, onEditingChanged: { isEditing in
+                if !isEditing {
+                    onChange()
+                }
+            })
                 .accessibilityLabel(Text(L10n.text(labelKey, store.language)))
         }
         .font(.caption)
