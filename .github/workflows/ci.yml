@@ -69,6 +69,12 @@ jobs:
           python -m pip install -r requirements-macos-runtime.txt
           python -c 'from keyring.backends.macOS import Keyring; assert Keyring'
 
+      - name: Verify force prediction identity / Проверка идентификатора прогноза силы
+        run: |
+          swiftc macOS/ColiDev/scripts/verify_force_prediction_identity.swift \
+            -o "$RUNNER_TEMP/verify-force-prediction-identity"
+          "$RUNNER_TEMP/verify-force-prediction-identity"
+
       - name: Verify shared physics calculation models
         run: |
           swiftc macOS/ColiDev/App/ForceMotion.swift macOS/ColiDev/scripts/verify_physics_models.swift \
