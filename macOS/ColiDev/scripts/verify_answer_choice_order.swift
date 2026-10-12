@@ -229,6 +229,38 @@ enum AnswerChoiceOrderVerification {
         }
 
         for optionCount in [2, 3] {
+            let correctOriginalIndices = [1, 1, 2, 0, 2, 1, 0, 0, 2, 1, 1, 2, 0]
+                .map { $0 % optionCount }
+            var sequence = QuizAnswerOrderSequence(optionCount: optionCount)
+            var generator = SeededGenerator(seed: UInt64(optionCount * 101))
+            let orders = correctOriginalIndices.map { answerIndex in
+                sequence.nextOrder(answerOriginalIndex: answerIndex, using: &generator)
+            }
+            let positions = orders.map(\.correctDisplayedIndex)
+            let positionCounts = (0..<optionCount).map { position in
+                positions.filter { $0 == position }.count
+            }
+
+            precondition(
+                zip(positions, positions.dropFirst()).allSatisfy { $0.0 != $0.1 },
+                "Repeated interactive values must not keep the correct answer in the same slot. / При последовательной настройке интерактивных параметров правильный ответ не должен застревать в одном слоте."
+            )
+            precondition(
+                positionCounts.max()! - positionCounts.min()! <= 1,
+                "Interactive answer positions must stay balanced over time. / Позиции правильного ответа должны оставаться сбалансированными во времени."
+            )
+
+            for (order, answerIndex) in zip(orders, correctOriginalIndices) {
+                precondition(
+                    Set(order.displayedOriginalIndices) == Set(0..<optionCount)
+                        && order.displayedOriginalIndices[order.correctDisplayedIndex] == answerIndex
+                        && order.isCorrect(displayedIndex: order.correctDisplayedIndex),
+                    "A balanced interactive order must preserve all options and the correct answer. / Сбалансированный интерактивный порядок должен сохранять все варианты и правильный ответ."
+                )
+            }
+        }
+
+        for optionCount in [2, 3] {
             for answerIndex in 0..<optionCount {
                 var correctPositionCounts = Array(repeating: 0, count: optionCount)
                 for seed in 0..<256 {
