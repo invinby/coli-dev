@@ -56,7 +56,16 @@ enum NaturalSelectionPracticeVerification {
         precondition(nonHeritableGeneration.traitSpread == startingPopulation.traitSpread)
         precondition(nonHeritableGeneration.generation == 1)
 
+        let predictionItemID = "biology.zoology.natural_selection.trait_mean_direction"
+        for trend in NaturalSelectionTrend.allCases {
+            precondition(
+                NaturalSelectionPractice.makePredictionAttempt(for: trend).itemID == predictionItemID,
+                "The prediction identity must describe the skill, not reveal the answer. / ID должен описывать проверяемый навык, а не выдавать ответ."
+            )
+        }
+
         var prediction = NaturalSelectionPractice.makePredictionAttempt(for: .increase)
+        precondition(prediction.itemID == predictionItemID)
         precondition(prediction.currentAnswerEventEvidence() == nil)
         let wrongDisplayIndex = prediction.choiceOrder.displayedOriginalIndices.firstIndex(of: NaturalSelectionTrend.decrease.rawValue)!
         prediction.select(displayedIndex: wrongDisplayIndex)
@@ -64,6 +73,7 @@ enum NaturalSelectionPracticeVerification {
         precondition(failedEvidence?.taskType == "interactive_prediction")
         precondition(failedEvidence?.attempts == 1)
         precondition(failedEvidence?.firstTryCorrect == false)
+        precondition(failedEvidence?.itemID == predictionItemID)
         precondition(prediction.canRetry)
 
         prediction.retry()
@@ -72,6 +82,7 @@ enum NaturalSelectionPracticeVerification {
         let recoveredEvidence = prediction.currentAnswerEventEvidence()
         precondition(recoveredEvidence?.attempts == 2)
         precondition(recoveredEvidence?.firstTryCorrect == false)
+        precondition(recoveredEvidence?.itemID == predictionItemID)
         precondition(!prediction.canRetry)
 
         print("Natural-selection practice checks passed.")
