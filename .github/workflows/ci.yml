@@ -77,6 +77,9 @@ jobs:
           swiftc macOS/ColiDev/App/ForceMotion.swift macOS/ColiDev/scripts/verify_friction_motion.swift \
             -o "$RUNNER_TEMP/verify-friction-motion"
           "$RUNNER_TEMP/verify-friction-motion"
+          swiftc macOS/ColiDev/App/ForceMotion.swift macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/scripts/verify_friction_prediction.swift \
+            -o "$RUNNER_TEMP/verify-friction-prediction"
+          "$RUNNER_TEMP/verify-friction-prediction"
           swiftc macOS/ColiDev/App/LengthMeasurement.swift macOS/ColiDev/scripts/verify_length_measurement.swift \
             -o "$RUNNER_TEMP/verify-length-measurement"
           "$RUNNER_TEMP/verify-length-measurement"
