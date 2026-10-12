@@ -3,7 +3,7 @@ subject: physics
 lesson_id: physics.static_and_kinetic_friction
 level: foundations
 languages: ru, en
-source_checked: 2026-10-06
+source_checked: 2026-10-12
 source_review_interval_days: 365
 ---
 
@@ -21,7 +21,7 @@ source_review_interval_days: 365
 
 Когда приложенная сила превышает этот максимум, начинается скольжение. В простой модели сила трения скольжения равна `f_k = μ_k N` и направлена против относительного движения поверхностей. Тогда равнодействующая для толкаемого вправо тела равна `F_net = F − f_k`, а ускорение — `a = F_net / m`.
 
-Пример: `m = 5 кг`, `μ_s = 0,4`, `μ_k = 0,3`, `g = 9,8 м/с²`. Получаем `N = 49 Н`, максимальное трение покоя `19,6 Н`. При толчке `15 Н` тело остаётся в покое, а трение покоя равно `15 Н`. При `25 Н` оно начинает скользить; в этой модели `f_k = 14,7 Н`, `F_net = 10,3 Н`, `a = 2,06 м/с²`.
+Пример: `m = 5 кг`, `μ_s = 0,4`, `μ_k = 0,3`, `g = 9,8 м/с²` (округлено; тренажёр использует `9,81 м/с²`). Получаем `N = 49 Н`, максимальное трение покоя `19,6 Н`. При толчке `15 Н` тело остаётся в покое, а трение покоя равно `15 Н`. При `25 Н` оно начинает скользить; в этой модели `f_k = 14,7 Н`, `F_net = 10,3 Н`, `a = 2,06 м/с²`.
 
 ### Исследуй и потренируйся
 
@@ -31,7 +31,7 @@ source_review_interval_days: 365
 
 ### Вопрос
 
-На ровной поверхности лежит тело массой `5 кг`; `μ_s = 0,4`, `μ_k = 0,3`, а горизонтальный толчок равен `15 Н`. Что произойдёт в этой упрощённой модели? (`g = 9,8 м/с²`.)
+На ровной поверхности лежит тело массой `5 кг`; `μ_s = 0,4`, `μ_k = 0,3`, а горизонтальный толчок равен `15 Н`. Что произойдёт в этой упрощённой модели? (`g = 9,8 м/с²`, округлённо; тренажёр использует `9,81 м/с²`.)
 
 ### Варианты
 
@@ -49,7 +49,7 @@ source_review_interval_days: 365
 
 ### Границы модели
 
-Коэффициенты здесь постоянны, поверхность горизонтальная, толчок направлен вдоль одной оси, а тело стартует из покоя. Реальные коэффициенты зависят от материалов, состояния и условий контакта; закон `f_k = μ_k N` — учебное приближение для простых задач. Модель не описывает качение, сопротивление воздуха, нагрев, деформацию поверхностей и сложное поведение при переходе от покоя к скольжению.
+Коэффициенты здесь постоянны, поверхность горизонтальная, толчок направлен вдоль одной оси, а тело стартует из покоя. Тренажёр использует распространённое вводное допущение `μ_k ≤ μ_s`; оно подходит не для каждой пары поверхностей. Реальные коэффициенты зависят от материалов, состояния и условий контакта; закон `f_k = μ_k N` — учебное приближение для простых задач. Модель не описывает качение, сопротивление воздуха, нагрев, деформацию поверхностей и сложное поведение при переходе от покоя к скольжению.
 
 ## English
 
@@ -63,7 +63,7 @@ On a level surface, the normal force balances weight: `N = mg`. While an object 
 
 When the applied force exceeds that limit, sliding begins. In this simple model, kinetic friction is `f_k = μ_k N` and points against the relative sliding of the surfaces. For an object pushed right, the net force is `F_net = F − f_k`, and acceleration is `a = F_net / m`.
 
-Example: `m = 5 kg`, `μ_s = 0.4`, `μ_k = 0.3`, and `g = 9.8 m/s²`. Then `N = 49 N`, and maximum static friction is `19.6 N`. A `15 N` push leaves the object at rest, with `15 N` of static friction. A `25 N` push starts sliding; this model gives `f_k = 14.7 N`, `F_net = 10.3 N`, and `a = 2.06 m/s²`.
+Example: `m = 5 kg`, `μ_s = 0.4`, `μ_k = 0.3`, and `g = 9.8 m/s²` (rounded; the lab uses `9.81 m/s²`). Then `N = 49 N`, and maximum static friction is `19.6 N`. A `15 N` push leaves the object at rest, with `15 N` of static friction. A `25 N` push starts sliding; this model gives `f_k = 14.7 N`, `F_net = 10.3 N`, and `a = 2.06 m/s²`.
 
 ### Explore and practise
 
@@ -73,7 +73,7 @@ Check the `25 N` example with `μ_s = 0.4` and `μ_k = 0.3`. Find the normal for
 
 ### Question
 
-A `5 kg` object rests on a level surface; `μ_s = 0.4`, `μ_k = 0.3`, and a horizontal push is `15 N`. What happens in this simplified model? (`g = 9.8 m/s²`.)
+A `5 kg` object rests on a level surface; `μ_s = 0.4`, `μ_k = 0.3`, and a horizontal push is `15 N`. What happens in this simplified model? (`g = 9.8 m/s²`, rounded; the lab uses `9.81 m/s²`.)
 
 ### Options
 
@@ -91,7 +91,7 @@ A `5 kg` object rests on a level surface; `μ_s = 0.4`, `μ_k = 0.3`, and a hori
 
 ### Limits
 
-The coefficients are constant, the surface is level, the push acts along one axis, and the object starts from rest. Real coefficients depend on the materials and contact conditions; `f_k = μ_k N` is an introductory approximation for simple cases. This model does not cover rolling, air resistance, heating, surface deformation, or complex transitions from rest to sliding.
+The coefficients are constant, the surface is level, the push acts along one axis, and the object starts from rest. The lab uses the common introductory assumption `μ_k ≤ μ_s`; this does not apply to every pair of surfaces. Real coefficients depend on the materials and contact conditions; `f_k = μ_k N` is an introductory approximation for simple cases. This model does not cover rolling, air resistance, heating, surface deformation, or complex transitions from rest to sliding.
 
 ## Sources
 
