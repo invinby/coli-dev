@@ -141,6 +141,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-interactive-choice-feedback"
           "$RUNNER_TEMP/verify-interactive-choice-feedback"
 
+      - name: Verify bilingual intro lesson questions / Проверка двуязычных вопросов вводных уроков
+        run: |
+          swiftc macOS/ColiDev/App/L10n.swift macOS/ColiDev/scripts/verify_intro_lesson_copy.swift \
+            -o "$RUNNER_TEMP/verify-intro-lesson-copy"
+          "$RUNNER_TEMP/verify-intro-lesson-copy"
+
       - name: Verify English tense feedback / Проверка объяснений по английским временам
         run: |
           swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/L10n.swift macOS/ColiDev/scripts/verify_tense_contrast_feedback.swift \
