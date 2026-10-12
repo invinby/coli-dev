@@ -14,6 +14,30 @@ def test_all_published_curriculum_routes_resolve_in_the_repository():
     assert audit.routed_lesson_count >= 49
 
 
+def test_programming_intro_has_a_reproducible_bilingual_branching_example():
+    lesson = (
+        REPOSITORY_ROOT / "02_Areas/Programming/lessons/intro.md"
+    ).read_text(encoding="utf-8")
+    example = (
+        "```python\n"
+        "temperature = -2\n"
+        "if temperature < 0:\n"
+        '    state = "ice"\n'
+        "elif temperature < 20:\n"
+        '    state = "cool"\n'
+        "else:\n"
+        '    state = "warm"\n'
+        "print(state)\n"
+        "```"
+    )
+
+    assert lesson.count(example) == 2
+    assert '`-2 → "ice"` («лёд»), `8 → "cool"` («прохладно»), `25 → "warm"` («тепло»).' in lesson
+    assert '`-2 → "ice", 8 → "cool", 25 → "warm"`' in lesson
+    assert "Это короткий ознакомительный пример" in lesson
+    assert "This is a short preview" in lesson
+
+
 def test_advanced_math_optimization_route_has_a_complete_lesson():
     curriculum = (REPOSITORY_ROOT / "02_Areas/Mathematics/curriculum.md").read_text(encoding="utf-8")
     advanced = curriculum.split("## Продвинутый уровень / Advanced", maxsplit=1)[1]

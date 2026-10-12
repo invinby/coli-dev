@@ -11,6 +11,8 @@ source_review_interval_days: 365
 
 ## Русский
 
+Это короткий ознакомительный пример о ветвлении, а не отдельная полная глава. Дальше в курсе тема условий продолжается вместе с циклами и функциями.
+
 ### Цель
 
 Прослеживать, как программа проверяет условие и выбирает ветку выполнения.
@@ -19,11 +21,22 @@ source_review_interval_days: 365
 
 Условный оператор if вычисляет условие, которое даёт истину или ложь. Если оно истинно, выполняется соответствующий блок; elif проверяет следующую альтернативу, когда предыдущие условия не подошли; необязательный else задаёт запасной путь. В Python границы блоков задаются отступами.
 
-В примере temperature = -2 первая проверка temperature < 0 истинна, поэтому выполняется ветка «ice», а остальные ветки пропускаются.
+```python
+temperature = -2
+if temperature < 0:
+    state = "ice"
+elif temperature < 20:
+    state = "cool"
+else:
+    state = "warm"
+print(state)
+```
+
+При `temperature = -2` первая проверка истинна, поэтому программа печатает `ice`. Остальные ветки этой цепочки пропускаются.
 
 ### Исследуй и потренируйся
 
-Проследи по очереди значения -2, 8 и 25 в трёхветочном if/elif/else. Для каждого запиши, какое условие сработало первым и какое значение получит переменная. Затем измени порядок проверок и предскажи, изменится ли результат.
+По очереди подставь вместо `-2` значения `8` и `25`. Проследи, какое первое условие сработает, и предскажи вывод. Ожидаемые результаты: `-2 → "ice"` («лёд»), `8 → "cool"` («прохладно»), `25 → "warm"` («тепло»). Затем поставь проверку `temperature < 20` перед `temperature < 0`: значение `-2` попадёт в первую ветку и даст `"cool"`. Объясни, почему порядок условий изменил результат.
 
 ### Вопрос
 
@@ -49,6 +62,8 @@ source_review_interval_days: 365
 
 ## English
 
+This is a short preview of branching, not a separate full chapter. The course continues with a complete lesson on conditions, loops, and functions.
+
 ### Goal
 
 Trace how a program checks a condition and chooses an execution branch.
@@ -57,11 +72,22 @@ Trace how a program checks a condition and chooses an execution branch.
 
 An if statement evaluates a condition that is true or false. If it is true, its block runs; elif checks another alternative when earlier conditions did not match; an optional else provides a fallback. In Python, indentation marks the blocks.
 
-In the example temperature = -2, the first check temperature < 0 is true, so the "ice" branch runs and later branches are skipped.
+```python
+temperature = -2
+if temperature < 0:
+    state = "ice"
+elif temperature < 20:
+    state = "cool"
+else:
+    state = "warm"
+print(state)
+```
+
+When `temperature = -2`, the first check is true, so the program prints `ice`. The remaining branches in this chain are skipped.
 
 ### Explore and practise
 
-Trace -2, 8, and 25 through a three-branch if/elif/else. For each value, record which condition matches first and what value the variable receives. Then change the order of the checks and predict whether the result changes.
+Replace `-2` with `8` and `25` in turn. Trace which first condition matches and predict the output. Expected results: `-2 → "ice", 8 → "cool", 25 → "warm"`. Then move the `temperature < 20` check before `temperature < 0`: `-2` will match the first branch and produce `cool`. Explain why the order changed the result.
 
 ### Question
 
