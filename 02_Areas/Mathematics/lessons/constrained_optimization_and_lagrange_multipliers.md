@@ -3,7 +3,7 @@ subject: mathematics
 lesson_id: mathematics.constrained_optimization_and_lagrange_multipliers
 level: advanced
 languages: ru, en
-source_checked: 2026-10-08
+source_checked: 2026-10-12
 source_review_interval_days: 365
 ---
 
@@ -21,7 +21,7 @@ source_review_interval_days: 365
 
 `∇f(x, y) = λ∇g(x, y)`, одновременно с `g(x, y) = 0`.
 
-Число `λ` показывает, во сколько раз градиент ограничения масштабирует градиент цели в найденной точке. Система находит необходимые кандидаты, но сама по себе не определяет их тип: нужно проверить допустимость и сравнить значения функции. Условия и стратегия следуют формулировке OpenStax *Calculus Volume 3*, §4.8, теорема 4.20.
+Число `λ` — коэффициент пропорциональности в уравнении: он умножает `∇g`, градиент выбранной функции ограничения, чтобы получить `∇f`. Значение `λ` зависит от нормировки ограничения: если заменить `g` на `c·g` при `c ≠ 0`, множитель изменится на `λ/c`. Система находит необходимые кандидаты, но сама по себе не определяет их тип: нужно проверить допустимость и сравнить значения функции. Условия и стратегия следуют формулировке OpenStax *Calculus Volume 3*, §4.8, теорема 4.20.
 
 Рассмотрим максимум `f(x, y) = xy` на единичной окружности `x² + y² = 1`. Здесь `g(x, y) = x² + y² − 1`, `∇f = (y, x)`, `∇g = (2x, 2y)`. Система Лагранжа имеет вид `y = 2λx`, `x = 2λy`, `x² + y² = 1`. Координаты не могут быть нулевыми, поэтому из первых двух равенств следует `x² = y²` и `x = y` либо `x = −y`.
 
@@ -67,7 +67,7 @@ Suppose we want to analyze `f(x, y)` subject to `g(x, y) = 0`. At a regular cons
 
 `∇f(x, y) = λ∇g(x, y)`, together with `g(x, y) = 0`.
 
-The scalar `λ` tells how the constraint gradient scales the objective gradient at the candidate. The system finds necessary candidates but does not classify them by itself: feasibility and objective values must still be checked. The conditions and procedure follow OpenStax *Calculus Volume 3*, §4.8, Theorem 4.20.
+The scalar `λ` is the proportionality factor in this equation: it multiplies `∇g`, the gradient of the chosen constraint function, to obtain `∇f`. Its numerical value depends on how the constraint is normalized: replacing `g` with `c·g` for `c ≠ 0` changes the multiplier to `λ/c`. The system finds necessary candidates but does not classify them by itself: feasibility and objective values must still be checked. The conditions and procedure follow OpenStax *Calculus Volume 3*, §4.8, Theorem 4.20.
 
 Consider maximizing `f(x, y) = xy` on the unit circle `x² + y² = 1`. Here `g(x, y) = x² + y² − 1`, `∇f = (y, x)`, and `∇g = (2x, 2y)`. The Lagrange system is `y = 2λx`, `x = 2λy`, and `x² + y² = 1`. Neither coordinate can be zero, so the first two equations imply `x² = y²`, or `x = y` or `x = −y`.
 
