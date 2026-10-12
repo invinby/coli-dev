@@ -6463,30 +6463,14 @@ private struct CellLab: View {
 
 private struct BiomoleculeLab: View {
     @EnvironmentObject private var store: LearningStore
-    @State private var selectedExample = "enzyme"
-    @State private var selectedGroup = "protein"
-    @State private var checked = false
+    @State private var selectedExample: BiomoleculeExample = .enzyme
+    @State private var selectedGroup: BiomoleculeGroup? = nil
+    @State private var checkedGroup: BiomoleculeGroup?
     @State private var reactionJoins = true
-
-    private let examples = ["enzyme", "starch", "dna", "triglyceride"]
-    private let groups = ["carbohydrate", "lipid", "protein", "nucleic_acid"]
-
-    private var correctGroup: String {
-        switch selectedExample {
-        case "enzyme": "protein"
-        case "starch": "carbohydrate"
-        case "dna": "nucleic_acid"
-        default: "lipid"
-        }
-    }
+    @State private var assessmentTracker = BiomoleculeAssessmentTracker()
 
     private var exampleInfoKey: String {
-        switch selectedExample {
-        case "enzyme": "biology.moleculeLab.info.enzyme"
-        case "starch": "biology.moleculeLab.info.starch"
-        case "dna": "biology.moleculeLab.info.dna"
-        default: "biology.moleculeLab.info.triglyceride"
-        }
+        "biology.moleculeLab.info.\(selectedExample.rawValue)"
     }
 
     var body: some View {
@@ -6507,43 +6491,52 @@ private struct BiomoleculeLab: View {
                 }
 
                 Picker(L10n.text("biology.moleculeLab.example", store.language), selection: $selectedExample) {
-                    ForEach(examples, id: \.self) { example in
-                        Text(L10n.text("biology.moleculeLab.\(example)", store.language)).tag(example)
+                    ForEach(BiomoleculeExample.allCases, id: \.self) { example in
+                        Text(L10n.text("biology.moleculeLab.\(example.rawValue)", store.language)).tag(example)
                     }
                 }
                 .pickerStyle(.menu)
-                .onChange(of: selectedExample) { example in
-                    switch example {
-                    case "enzyme": selectedGroup = "protein"
-                    case "starch": selectedGroup = "carbohydrate"
-                    case "dna": selectedGroup = "nucleic_acid"
-                    default: selectedGroup = "lipid"
-                    }
-                    checked = false
+                .onChange(of: selectedExample) { _ in
+                    selectedGroup = nil
+                    checkedGroup = nil
                 }
 
                 Picker(L10n.text("biology.moleculeLab.chooseGroup", store.language), selection: $selectedGroup) {
-                    ForEach(groups, id: \.self) { group in
-                        Text(L10n.text("biology.moleculeLab.group.\(group)", store.language)).tag(group)
+                    Text(L10n.text("biology.moleculeLab.chooseGroupPrompt", store.language))
+                        .tag(nil as BiomoleculeGroup?)
+                    ForEach(BiomoleculeGroup.allCases, id: \.self) { group in
+                        Text(L10n.text("biology.moleculeLab.group.\(group.rawValue)", store.language))
+                            .tag(Optional(group))
                     }
                 }
                 .pickerStyle(.menu)
-                .onChange(of: selectedGroup) { _ in checked = false }
+                .onChange(of: selectedGroup) { _ in checkedGroup = nil }
 
                 Button {
-                    checked = true
+                    guard let selectedGroup,
+                          let evidence = assessmentTracker.recordSubmission(
+                            group: selectedGroup,
+                            for: selectedExample
+                          ) else { return }
+                    store.recordStudyAssessment(
+                        lessonID: "biology.biomolecules_and_building_blocks",
+                        evidence: evidence
+                    )
+                    checkedGroup = selectedGroup
                 } label: {
                     Label(L10n.text("biology.moleculeLab.check", store.language), systemImage: "checkmark.circle")
                 }
                 .buttonStyle(.borderedProminent)
+                .disabled(selectedGroup == nil || selectedGroup == checkedGroup)
 
-                if checked {
+                if let checkedGroup {
+                    let isCorrect = checkedGroup == selectedExample.correctGroup
                     Label(
-                        L10n.text(selectedGroup == correctGroup ? "biology.moleculeLab.correct" : "biology.moleculeLab.tryAgain", store.language),
-                        systemImage: selectedGroup == correctGroup ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
+                        L10n.text(isCorrect ? "biology.moleculeLab.correct" : "biology.moleculeLab.tryAgain", store.language),
+                        systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
                     )
                     .font(.callout.weight(.medium))
-                    .foregroundStyle(selectedGroup == correctGroup ? .green : .orange)
+                    .foregroundStyle(isCorrect ? .green : .orange)
                 }
 
                 Text(L10n.text(exampleInfoKey, store.language))
@@ -6583,6 +6576,16 @@ private struct BiomoleculeLab: View {
                         .foregroundStyle(.teal)
                 }
                 .font(.caption)
+
+                Text(L10n.text(
+                    selectedExample.isPolymer
+                        ? "biology.moleculeLab.polymerExample"
+                        : "biology.moleculeLab.nonPolymerExample",
+                    store.language
+                ))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
 
                 Text(L10n.text("biology.moleculeLab.caveat", store.language))
                     .font(.caption)

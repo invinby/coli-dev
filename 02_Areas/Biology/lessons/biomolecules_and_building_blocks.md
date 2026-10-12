@@ -3,7 +3,7 @@ subject: biology
 lesson_id: biology.biomolecules_and_building_blocks
 level: foundations
 languages: ru, en
-source_checked: 2026-10-08
+source_checked: 2026-10-12
 source_review_interval_days: 365
 ---
 
@@ -25,7 +25,7 @@ source_review_interval_days: 365
 
 В тренажёре сопоставь молекулярный пример с основной группой и выбери подходящую строительную часть или роль. Затем переключайся между «соединить» и «расщепить» и проследи, появляется или расходуется ли вода в упрощённой схеме реакции.
 
-Задача: аминокислотная цепь сворачивается в фермент. К какой группе относится молекула и из каких малых единиц построена её цепь? Ответ: это белок, а единицы цепи — аминокислоты. Форма белка влияет на работу, поэтому одна лишь последовательность категорий не предсказывает конкретную функцию.
+Задача: аминокислотная цепь сворачивается в белковый фермент. К какой группе относится молекула и из каких малых единиц построена её цепь? Ответ: это белок, а единицы цепи — аминокислоты. Форма белка влияет на работу, поэтому одна лишь последовательность категорий не предсказывает конкретную функцию.
 
 ### Вопрос
 
@@ -65,7 +65,7 @@ Many large molecules are assembled from smaller components. Proteins, for exampl
 
 In the trainer, match a molecular example to its main group and choose a suitable building component or role. Then switch between “join” and “split” and track whether water appears or is used in the simplified reaction diagram.
 
-Challenge: an amino-acid chain folds into an enzyme. Which group does the molecule belong to, and what small units build its chain? It is a protein, and its chain is built from amino acids. Protein shape affects function, so a category label alone cannot predict a specific role.
+Challenge: an amino-acid chain folds into a protein enzyme. Which group does the molecule belong to, and what small units build its chain? It is a protein, and its chain is built from amino acids. Protein shape affects function, so a category label alone cannot predict a specific role.
 
 ### Question
 
