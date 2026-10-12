@@ -752,6 +752,11 @@ enum TenseContrastFeedback {
 }
 
 enum GeneRegulationPractice {
+    static func predictionItemID(variant: Int, signalPresent: Bool) -> String {
+        let signal = signalPresent ? "present" : "absent"
+        return "biology.gene_regulation.variant-\(variant).signal-\(signal)"
+    }
+
     static func isProductMade(variant: Int, signalPresent: Bool) -> Bool {
         variant == 0 && signalPresent
     }
@@ -776,7 +781,8 @@ enum GeneRegulationPractice {
             answerOriginalIndex: correctPredictionAnswerOriginalIndex(
                 variant: variant,
                 signalPresent: signalPresent
-            )
+            ),
+            itemID: predictionItemID(variant: variant, signalPresent: signalPresent)
         ) else {
             preconditionFailure("A valid gene-regulation scenario must produce a prediction attempt. / Для корректного сценария регуляции гена должна создаваться попытка прогноза.")
         }
