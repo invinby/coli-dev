@@ -4064,7 +4064,11 @@ private struct ForceLab: View {
     }
 
     private static func makePrediction() -> InteractivePredictionAttempt {
-        guard let attempt = InteractivePredictionAttempt(optionCount: 3, answerOriginalIndex: 2) else {
+        guard let attempt = InteractivePredictionAttempt(
+            optionCount: 3,
+            answerOriginalIndex: 2,
+            itemID: "physics.net_force_and_acceleration.force_doubling_prediction"
+        ) else {
             preconditionFailure("The force-law prediction must have a valid correct option.")
         }
         return attempt
