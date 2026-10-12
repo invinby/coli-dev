@@ -466,14 +466,18 @@ def test_programming_collections_lesson_rag_returns_official_python_tutorial_pag
         source for source in results
         if source["path"] == "02_Areas/Programming/lessons/collections_and_loops.md"
     )
-    assert lesson["source_checked_at"] == "2026-10-06"
+    assert lesson["source_checked_at"] == "2026-10-13"
     assert {
-        "title": "Python Tutorial: Lists and sequences — Python Software Foundation",
+        "title": "Python Tutorial: Lists and sequences — Python Software Foundation / Учебник Python: списки и последовательности — Фонд Python",
         "url": "https://docs.python.org/3/tutorial/introduction.html",
     } in lesson["official_references"]
     assert {
-        "title": "Python Tutorial: for Statements and range — Python Software Foundation",
+        "title": "Python Tutorial: `for` Statements and `range` — Python Software Foundation / Учебник Python: оператор `for` и `range` — Фонд Python",
         "url": "https://docs.python.org/3/tutorial/controlflow.html",
+    } in lesson["official_references"]
+    assert {
+        "title": "Python Language Reference: The `while` statement — Python Software Foundation / Справочник по языку Python: оператор `while` — Фонд Python",
+        "url": "https://docs.python.org/3/reference/compound_stmts.html",
     } in lesson["official_references"]
 
 

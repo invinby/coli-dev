@@ -149,4 +149,4 @@ The trainer shows a small, bounded teaching model of a list and a loop; it does 
 
 - [Python Tutorial: Lists and sequences — Python Software Foundation / Учебник Python: списки и последовательности — Фонд Python](https://docs.python.org/3/tutorial/introduction.html)
 - [Python Tutorial: `for` Statements and `range` — Python Software Foundation / Учебник Python: оператор `for` и `range` — Фонд Python](https://docs.python.org/3/tutorial/controlflow.html)
-- [Python Tutorial: while statement — Python Software Foundation / Учебник Python: оператор while — Фонд Python](https://docs.python.org/3/tutorial/introduction.html#first-steps-towards-programming)
+- [Python Language Reference: The `while` statement — Python Software Foundation / Справочник по языку Python: оператор `while` — Фонд Python](https://docs.python.org/3/reference/compound_stmts.html#the-while-statement)

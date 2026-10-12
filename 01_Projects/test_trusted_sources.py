@@ -281,6 +281,17 @@ def test_python_assert_reference_is_an_exact_approved_rag_path() -> None:
     assert TrustedSourceMonitor._canonical_url("https://docs.python.org/3/reference/expressions.html") is None
 
 
+def test_python_while_language_reference_is_an_exact_approved_rag_path() -> None:
+    url = "https://docs.python.org/3/reference/compound_stmts.html#the-while-statement"
+    canonical = "https://docs.python.org/3/reference/compound_stmts.html"
+
+    assert TrustedSourceMonitor._canonical_url(url) == canonical
+    policy = TrustedSourceMonitor._rag_policy(canonical)
+    assert policy is not None
+    assert policy["license"] == "Python Software Foundation License Version 2"
+    assert TrustedSourceMonitor._canonical_url("https://docs.python.org/3/reference/expressions.html") is None
+
+
 def test_python_bisect_library_page_is_monitored_and_licensed_for_rag(tmp_path: Path) -> None:
     url = "https://docs.python.org/3/library/bisect.html"
     _write_lesson(tmp_path, f"[Python bisect reference]({url})")

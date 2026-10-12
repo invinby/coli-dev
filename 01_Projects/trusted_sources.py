@@ -71,7 +71,7 @@ _ALLOWED_PATHS = {
     "animaldiversity.org": re.compile(r"^/accounts/[A-Za-z0-9_.-]+/?$"),
     "csrc.nist.gov": re.compile(r"^/glossary/term/algorithm$"),
     "docs.python.org": re.compile(
-        r"^(?:/3/tutorial/[A-Za-z0-9_.-]+\.html|/3/reference/simple_stmts\.html|/3/library/bisect\.html|"
+        r"^(?:/3/tutorial/[A-Za-z0-9_.-]+\.html|/3/reference/(?:simple_stmts|compound_stmts)\.html|/3/library/bisect\.html|"
         r"/3\.14/library/(?:functions|exceptions)\.html)$"
     ),
     "learnenglish.britishcouncil.org": re.compile(
@@ -109,7 +109,7 @@ _ALLOWED_PATHS = {
 _RAG_SOURCE_POLICIES = {
     "docs.python.org": {
         "path": re.compile(
-            r"^(?:/3/tutorial/[A-Za-z0-9_.-]+\.html|/3/reference/simple_stmts\.html|/3/library/bisect\.html|"
+            r"^(?:/3/tutorial/[A-Za-z0-9_.-]+\.html|/3/reference/(?:simple_stmts|compound_stmts)\.html|/3/library/bisect\.html|"
             r"/3\.14/library/(?:functions|exceptions)\.html)$"
         ),
         "license": "Python Software Foundation License Version 2",
