@@ -123,6 +123,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-loop-trace"
           "$RUNNER_TEMP/verify-loop-trace"
 
+      - name: Verify computational-thinking practice / Проверка тренажёра алгоритмического мышления
+        run: |
+          swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/AlgorithmicThinkingPractice.swift macOS/ColiDev/scripts/verify_algorithmic_thinking.swift \
+            -o "$RUNNER_TEMP/verify-algorithmic-thinking"
+          "$RUNNER_TEMP/verify-algorithmic-thinking"
+
       - name: Verify Python input conversion practice / Проверка тренажёра преобразования ввода Python
         run: |
           swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/PythonInputPractice.swift macOS/ColiDev/scripts/verify_python_input_practice.swift \

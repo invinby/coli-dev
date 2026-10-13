@@ -7497,20 +7497,15 @@ private struct VariablesTypesLab: View {
 
 private struct AlgorithmicThinkingLab: View {
     @EnvironmentObject private var store: LearningStore
-    @State private var completedSteps: [String] = []
+    @State private var session = AlgorithmicThinkingPracticeSession()
     @State private var feedbackKey: String?
     @State private var a = 6
     @State private var b = 3
 
-    private let stepOrder = ["input", "compare", "otherwise", "display"]
+    private var completedSteps: [String] { session.completedStepKeys }
 
-    private var choices: [String] {
-        switch completedSteps.count {
-        case 0: ["compare", "input", "display"]
-        case 1: ["otherwise", "compare", "display"]
-        case 2: ["display", "otherwise", "input"]
-        default: ["display", "compare", "input"]
-        }
+    private var stepOrder: [String] {
+        AlgorithmicThinkingPractice.questions.map { $0.choiceKeys[$0.correctOptionIndex] }
     }
 
     private var result: Int { max(a, b) }
@@ -7533,9 +7528,9 @@ private struct AlgorithmicThinkingLab: View {
                     .font(.caption.weight(.semibold).monospacedDigit())
                     .foregroundStyle(.secondary)
 
-                ForEach(choices, id: \.self) { choice in
+                ForEach(Array(session.displayedChoiceKeys.enumerated()), id: \.offset) { displayIndex, choice in
                     Button {
-                        select(choice)
+                        select(displayedIndex: displayIndex)
                     } label: {
                         Label(L10n.text(stepTitleKey(choice), store.language), systemImage: "arrow.right")
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -7573,7 +7568,7 @@ private struct AlgorithmicThinkingLab: View {
                 .background(.background, in: RoundedRectangle(cornerRadius: 12))
 
                 Button {
-                    completedSteps = []
+                    session.restart()
                     feedbackKey = nil
                 } label: {
                     Label(L10n.text("lab.algorithmRestart", store.language), systemImage: "arrow.counterclockwise")
@@ -7583,13 +7578,15 @@ private struct AlgorithmicThinkingLab: View {
         }
     }
 
-    private func select(_ step: String) {
-        guard completedSteps.count < stepOrder.count else { return }
-        guard step == stepOrder[completedSteps.count] else {
+    private func select(displayedIndex: Int) {
+        guard let submission = session.submit(displayedIndex: displayedIndex) else { return }
+        if let evidence = submission.evidence {
+            store.recordStudyAssessment(lessonID: "programming.computational_thinking", evidence: evidence)
+        }
+        guard submission.isCorrect else {
             feedbackKey = "lab.algorithmIncorrect"
             return
         }
-        completedSteps.append(step)
         feedbackKey = completedSteps.count == stepOrder.count ? "lab.algorithmComplete" : "lab.algorithmStepCorrect"
     }
 
