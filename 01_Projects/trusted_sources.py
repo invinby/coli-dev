@@ -34,7 +34,7 @@ _MARKDOWN_LINK_RE = re.compile(r"\[([^\]]{1,200})\]\(\s*(https://[^)\s]+)\s*\)",
 _TRAILING_PUNCTUATION = ".,;:!?"
 _MAX_LESSON_FILES = 200
 _MAX_LESSON_FILE_BYTES = 256 * 1024
-_MAX_SOURCES = 120
+_MAX_SOURCES = 125
 _MAX_CONCURRENT_REQUESTS = 5
 _MAX_TITLE_LENGTH = 200
 _MAX_PAGE_DESCRIPTION_LENGTH = 500
@@ -53,6 +53,7 @@ _TRUSTED_HOSTS = frozenset(
     {
         "animaldiversity.org",
         "csrc.nist.gov",
+        "docs.github.com",
         "docs.python.org",
         "git-scm.com",
         "learnenglish.britishcouncil.org",
@@ -76,8 +77,13 @@ _ALLOWED_PATHS = {
         r"^(?:/3/tutorial/[A-Za-z0-9_.-]+\.html|/3/reference/(?:simple_stmts|compound_stmts)\.html|/3/library/bisect\.html|"
         r"/3\.14/library/(?:functions|exceptions|sys)\.html)$"
     ),
+    "docs.github.com": re.compile(
+        r"^/en/pull-requests/(?:how-tos/create-pull-requests/creating-a-pull-request|"
+        r"concepts/writing-code-for-a-project)$"
+    ),
     "git-scm.com": re.compile(
-        r"^/book/en/v2/Git-Basics-Recording-Changes-to-the-Repository$"
+        r"^/(?:book/en/v2/(?:Git-Basics-Recording-Changes-to-the-Repository|Git-Branching-Branches-in-a-Nutshell)|"
+        r"docs/(?:git-switch|git-push))$"
     ),
     "learnenglish.britishcouncil.org": re.compile(
         r"^/(?:free-resources/(?:grammar/(?:english-grammar-reference|b1-b2)/[A-Za-z0-9-]+|"

@@ -300,6 +300,61 @@ def test_pro_git_recording_changes_reference_is_metadata_only() -> None:
     assert TrustedSourceMonitor._canonical_url("https://git-scm.com/book/en/v2/Git-Basics-Undoing-Things") is None
 
 
+def test_git_branching_and_github_pull_request_references_are_exact_metadata_only_paths(
+    tmp_path: Path,
+) -> None:
+    urls = {
+        "https://git-scm.com/book/en/v2/Git-Branching-Branches-in-a-Nutshell",
+        "https://git-scm.com/docs/git-switch",
+        "https://git-scm.com/docs/git-push",
+        "https://docs.github.com/en/pull-requests/how-tos/create-pull-requests/creating-a-pull-request",
+        "https://docs.github.com/en/pull-requests/concepts/writing-code-for-a-project",
+    }
+
+    for url in urls:
+        assert TrustedSourceMonitor._canonical_url(url) == url
+        assert TrustedSourceMonitor._rag_policy(url) is None
+
+    assert TrustedSourceMonitor._canonical_url("https://docs.github.com/en/actions") is None
+    assert TrustedSourceMonitor._canonical_url("https://docs.github.com/en/pull-requests/concepts/unknown") is None
+    assert TrustedSourceMonitor._canonical_url("https://git-scm.com/docs/git-merge") is None
+
+    _write_lesson(tmp_path, "\n".join(f"[Official reference]({url})" for url in sorted(urls)))
+    references, unsupported_count, omitted_count = _monitor(tmp_path, tmp_path)._references()
+    assert {reference.url for reference in references} == urls
+    assert unsupported_count == 0
+    assert omitted_count == 0
+
+
+def test_git_branching_lesson_references_reach_the_trusted_source_inventory(
+    tmp_path: Path,
+) -> None:
+    expected_urls = {
+        "https://git-scm.com/book/en/v2/Git-Branching-Branches-in-a-Nutshell",
+        "https://git-scm.com/docs/git-switch",
+        "https://git-scm.com/docs/git-push",
+        "https://docs.github.com/en/pull-requests/how-tos/create-pull-requests/creating-a-pull-request",
+        "https://docs.github.com/en/pull-requests/concepts/writing-code-for-a-project",
+    }
+    existing_urls = {
+        "https://docs.python.org/3/tutorial/errors.html",
+        "https://git-scm.com/book/en/v2/Git-Basics-Recording-Changes-to-the-Repository",
+    }
+    monitor = TrustedSourceMonitor(
+        Path(__file__).resolve().parents[1], tmp_path / "git-lesson-sources.sqlite"
+    )
+
+    references, _, _ = monitor._references()
+
+    lesson_sources = {
+        reference.url
+        for reference in references
+        if reference.lesson_path == "02_Areas/Programming/lessons/debugging_tests_and_git.md"
+    }
+    assert lesson_sources == expected_urls | existing_urls
+    assert all(monitor._rag_policy(url) is None for url in expected_urls)
+
+
 def test_python_bisect_library_page_is_monitored_and_licensed_for_rag(tmp_path: Path) -> None:
     url = "https://docs.python.org/3/library/bisect.html"
     _write_lesson(tmp_path, f"[Python bisect reference]({url})")
@@ -713,6 +768,14 @@ def test_bundled_lesson_sources_fit_the_bounded_monitor_inventory(tmp_path: Path
         reference.url == "https://openstax.org/books/prealgebra-2e/pages/9-4-use-properties-of-rectangles-triangles-and-trapezoids"
         for reference in references
     )
+    git_team_sources = {
+        "https://git-scm.com/book/en/v2/Git-Branching-Branches-in-a-Nutshell",
+        "https://git-scm.com/docs/git-switch",
+        "https://git-scm.com/docs/git-push",
+        "https://docs.github.com/en/pull-requests/how-tos/create-pull-requests/creating-a-pull-request",
+        "https://docs.github.com/en/pull-requests/concepts/writing-code-for-a-project",
+    }
+    assert git_team_sources <= {reference.url for reference in references}
 
 
 @pytest.mark.parametrize(

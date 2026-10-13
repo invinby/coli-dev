@@ -8084,6 +8084,16 @@ private struct GitWorkflowLab: View {
             return "lab.git.snapshot.staged"
         case .committedWithUntrackedFile:
             return "lab.git.snapshot.committed"
+        case .featureBranchWithChanges:
+            return "lab.git.snapshot.featureBranch"
+        case .featureBranchStaged:
+            return "lab.git.snapshot.featureStaged"
+        case .featureBranchCommitted:
+            return "lab.git.snapshot.featureCommitted"
+        case .featureBranchPublished:
+            return "lab.git.snapshot.featurePublished"
+        case .pullRequestOpen:
+            return "lab.git.snapshot.pullRequest"
         }
     }
 
@@ -8095,6 +8105,16 @@ private struct GitWorkflowLab: View {
             return "lab.git.snapshotInfo.staged"
         case .committedWithUntrackedFile:
             return "lab.git.snapshotInfo.committed"
+        case .featureBranchWithChanges:
+            return "lab.git.snapshotInfo.featureBranch"
+        case .featureBranchStaged:
+            return "lab.git.snapshotInfo.featureStaged"
+        case .featureBranchCommitted:
+            return "lab.git.snapshotInfo.featureCommitted"
+        case .featureBranchPublished:
+            return "lab.git.snapshotInfo.featurePublished"
+        case .pullRequestOpen:
+            return "lab.git.snapshotInfo.pullRequest"
         }
     }
 

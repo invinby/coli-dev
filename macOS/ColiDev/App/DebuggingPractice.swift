@@ -38,6 +38,11 @@ enum GitWorkflowSnapshotState: Equatable {
     case unstaged
     case staged
     case committedWithUntrackedFile
+    case featureBranchWithChanges
+    case featureBranchStaged
+    case featureBranchCommitted
+    case featureBranchPublished
+    case pullRequestOpen
 }
 
 enum GitWorkflowPractice {
@@ -83,6 +88,48 @@ enum GitWorkflowPractice {
             commandKeys: ["lab.git.command.status", "lab.git.command.diffCached", "lab.git.command.push"],
             correctCommandIndex: 0,
             explanationKey: "lab.git.explanation.verify"
+        ),
+        GitWorkflowStep(
+            id: "programming.git_workflow.create_feature_branch",
+            promptKey: "lab.git.prompt.createBranch",
+            commandKeys: ["lab.git.command.switchCreate", "lab.git.command.switchMain", "lab.git.command.switchForceCreate"],
+            correctCommandIndex: 0,
+            explanationKey: "lab.git.explanation.createBranch"
+        ),
+        GitWorkflowStep(
+            id: "programming.git_workflow.stage_feature_files",
+            promptKey: "lab.git.prompt.stageBranchFiles",
+            commandKeys: ["lab.git.command.addNamed", "lab.git.command.addAll", "lab.git.command.addLog"],
+            correctCommandIndex: 0,
+            explanationKey: "lab.git.explanation.stageBranchFiles"
+        ),
+        GitWorkflowStep(
+            id: "programming.git_workflow.review_feature_snapshot",
+            promptKey: "lab.git.prompt.reviewBranchSnapshot",
+            commandKeys: ["lab.git.command.diffCached", "lab.git.command.diff", "lab.git.command.status"],
+            correctCommandIndex: 0,
+            explanationKey: "lab.git.explanation.reviewBranchSnapshot"
+        ),
+        GitWorkflowStep(
+            id: "programming.git_workflow.commit_feature",
+            promptKey: "lab.git.prompt.commitBranch",
+            commandKeys: ["lab.git.command.commitFeature", "lab.git.command.pushUpstream", "lab.git.command.addAll"],
+            correctCommandIndex: 0,
+            explanationKey: "lab.git.explanation.commitBranch"
+        ),
+        GitWorkflowStep(
+            id: "programming.git_workflow.publish_feature_branch",
+            promptKey: "lab.git.prompt.publishBranch",
+            commandKeys: ["lab.git.command.pushUpstream", "lab.git.command.pushMain", "lab.git.command.forcePush"],
+            correctCommandIndex: 0,
+            explanationKey: "lab.git.explanation.publishBranch"
+        ),
+        GitWorkflowStep(
+            id: "programming.git_workflow.open_pull_request",
+            promptKey: "lab.git.prompt.openPullRequest",
+            commandKeys: ["lab.git.action.openPullRequest", "lab.git.command.mergeMain", "lab.git.command.forcePush"],
+            correctCommandIndex: 0,
+            explanationKey: "lab.git.explanation.openPullRequest"
         )
     ]
 
@@ -97,8 +144,23 @@ enum GitWorkflowPractice {
 
     static func snapshotState(afterCompletedSteps completedSteps: Int) -> GitWorkflowSnapshotState {
         let boundedStepCount = min(max(completedSteps, 0), steps.count)
-        if boundedStepCount >= 5 { return .committedWithUntrackedFile }
-        if boundedStepCount >= 3 { return .staged }
-        return .unstaged
+        switch boundedStepCount {
+        case 0..<3:
+            return .unstaged
+        case 3..<5:
+            return .staged
+        case 5..<7:
+            return .committedWithUntrackedFile
+        case 7..<8:
+            return .featureBranchWithChanges
+        case 8..<10:
+            return .featureBranchStaged
+        case 10..<11:
+            return .featureBranchCommitted
+        case 11..<12:
+            return .featureBranchPublished
+        default:
+            return .pullRequestOpen
+        }
     }
 }
