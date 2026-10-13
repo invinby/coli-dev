@@ -3,7 +3,7 @@ subject: mathematics
 lesson_id: mathematics.numbers_fractions_and_percentages
 level: foundations
 languages: ru, en
-source_checked: 2026-10-06
+source_checked: 2026-10-14
 source_review_interval_days: 180
 ---
 
@@ -17,7 +17,7 @@ source_review_interval_days: 180
 
 ### Идея и механизм
 
-Дробь `a/b` описывает `a` равных частей из `b`; знаменатель не может быть нулём. Чтобы перевести дробь в десятичную запись, числитель делят на знаменатель. Процент означает «из ста»: `p% = p/100 = p ÷ 100`. Например, `35% = 35/100 = 7/20 = 0,35`.
+В общем случае дробь `a/b` — это частное целых чисел `a` и `b`, где `b ≠ 0`. Здесь используется модель неотрицательной доли целого: `b > 0` и `0 ≤ a ≤ b`; знаменатель показывает число равных частей, а числитель — сколько частей взято. Чтобы перевести дробь в десятичную запись, числитель делят на знаменатель. Процент означает «из ста»: `p% = p/100 = p ÷ 100`. Например, `35% = 35/100 = 7/20 = 0,35`.
 
 Чтобы найти долю от целого, умножь целое на десятичную запись доли. Так, `35%` от `240` равно `240 × 0,35 = 84`. Единицы у целого и результата одинаковые: `84 доллара` из `240 долларов`. Приставка `кило-` означает тысячу, поэтому `1,5 км = 1 500 м`; это то же расстояние, записанное в другой единице. Перед вычислениями проверь размерность и приведи величины к совместимым единицам.
 
@@ -45,7 +45,7 @@ source_review_interval_days: 180
 
 ### Границы модели
 
-Лаборатория показывает целые проценты от `0%` до `100%` и простую долю от положительного целого. Проценты больше `100%`, отрицательные изменения, округление при денежных операциях, налоги, последовательные скидки и размерности сложных физических величин требуют отдельных моделей. Десятичная запись некоторых дробей бесконечна или периодична; округлённое отображение не означает точного равенства.
+Лаборатория показывает целые проценты от `0%` до `100%` и простую долю от положительного целого. Проценты больше `100%`, отрицательные изменения, округление при денежных операциях, налоги, последовательные скидки и размерности сложных физических величин требуют отдельных моделей. Десятичная запись рациональной дроби либо конечна, либо бесконечна периодична; округление бесконечной периодической записи даёт приближение, а не точное значение.
 
 ## English
 
@@ -55,7 +55,7 @@ Represent the same part as a fraction, decimal, and percentage, then find that p
 
 ### Idea and mechanism
 
-A fraction `a/b` describes `a` equal parts out of `b`; the denominator cannot be zero. Divide the numerator by the denominator to write a fraction as a decimal. Percent means “per hundred”: `p% = p/100 = p ÷ 100`. For example, `35% = 35/100 = 7/20 = 0.35`.
+In general, a fraction `a/b` is a quotient of integers `a` and `b`, where `b ≠ 0`. Here we use the nonnegative part-of-a-whole model: `b > 0` and `0 ≤ a ≤ b`; the denominator counts the equal parts in the whole, and the numerator counts the parts taken. Divide the numerator by the denominator to write a fraction as a decimal. Percent means “per hundred”: `p% = p/100 = p ÷ 100`. For example, `35% = 35/100 = 7/20 = 0.35`.
 
 To find a part of a whole, multiply the whole by the decimal form of the part. So `35%` of `240` is `240 × 0.35 = 84`. The part keeps the whole's unit: `84 dollars` out of `240 dollars`. The prefix `kilo-` means one thousand, so `1.5 km = 1,500 m`: the same distance written in another unit. Check dimensions and convert quantities to compatible units before calculating.
 
@@ -83,7 +83,7 @@ The part is `60 ÷ 240 = 0.25`. Multiply the decimal by `100` to get `25%`; redu
 
 ### Limits
 
-The lab represents whole-number percentages from `0%` through `100%` and a simple part of a positive whole. Percentages above `100%`, negative changes, rounding in money, tax, successive discounts, and dimensions in complex physical quantities need separate models. Some fractions have repeating or non-terminating decimal forms; a rounded display does not mean exact equality.
+The lab represents whole-number percentages from `0%` through `100%` and a simple part of a positive whole. Percentages above `100%`, negative changes, rounding in money, tax, successive discounts, and dimensions in complex physical quantities need separate models. A rational fraction's decimal expansion either terminates or repeats forever; rounding a repeating expansion gives an approximation, not an exact value.
 
 ## Sources
 
