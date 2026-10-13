@@ -24,11 +24,23 @@ enum AlgorithmicThinkingVerification {
             "programming.computational_thinking.step.input",
             "programming.computational_thinking.step.compare",
             "programming.computational_thinking.step.otherwise",
-            "programming.computational_thinking.step.display"
+            "programming.computational_thinking.step.display",
+            "programming.computational_thinking.average.check_nonempty",
+            "programming.computational_thinking.average.initialize_total",
+            "programming.computational_thinking.average.accumulate_values",
+            "programming.computational_thinking.average.divide_by_count",
+            "programming.computational_thinking.average.return_average",
+            "programming.computational_thinking.tests.average.typical",
+            "programming.computational_thinking.tests.average.single_value",
+            "programming.computational_thinking.tests.average.empty_list"
         ]
-        precondition(questions.map(\.id) == expectedIDs, "Pseudocode steps must retain stable assessment identities.")
+        precondition(questions.map(\.id) == expectedIDs, "Practice must cover two algorithm types and three test-case classes with stable identities.")
         precondition(Set(questions.map(\.id)).count == questions.count, "Every pseudocode step needs a unique ID.")
-        precondition(questions.map { $0.choiceKeys[$0.correctOptionIndex] } == ["input", "compare", "otherwise", "display"])
+        precondition(questions.map { $0.choiceKeys[$0.correctOptionIndex] } == [
+            "input", "compare", "otherwise", "display",
+            "checkNonempty", "initializeTotal", "accumulateValues", "divideByCount", "returnAverage",
+            "typical", "boundary", "invalid"
+        ])
         precondition(questions.allSatisfy { $0.choiceKeys.count == 3 && $0.choiceKeys.indices.contains($0.correctOptionIndex) })
 
         for seed in 0..<256 {
@@ -91,7 +103,11 @@ enum AlgorithmicThinkingVerification {
                 "Each completed step must save its own first-try evidence."
             )
         }
-        precondition(session.isComplete && session.completedStepKeys == ["input", "compare", "otherwise", "display"])
+        precondition(session.isComplete && session.completedStepKeys == [
+            "input", "compare", "otherwise", "display",
+            "checkNonempty", "initializeTotal", "accumulateValues", "divideByCount", "returnAverage",
+            "typical", "boundary", "invalid"
+        ])
         precondition(session.displayedChoiceKeys.isEmpty && session.submit(displayedIndex: 0) == nil)
         print("Algorithmic-thinking model checks passed")
     }
