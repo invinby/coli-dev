@@ -3923,7 +3923,9 @@ def _augment_message_with_sources(
             "use a relevant fresh official_web excerpt when available, otherwise say current verification is unavailable. "
             "A scheduled review or recent file modification is not proof of accuracy. "
             "For official_web, the check time only says the approved page was recently fetched or revalidated; "
-            "still verify that its excerpt supports the nearby claim. Obsidian file times and author-provided dates "
+            "source_snapshot_fetched_at is the last full text download, which may be older after an unchanged conditional check. "
+            "Publisher-declared dates may guide freshness review but are metadata, not proof that a lesson or nearby claim is accurate. "
+            "Still verify that the excerpt supports the nearby claim. Obsidian file times and author-provided dates "
             "are metadata, not independent proof of factual freshness."
         )
     else:
@@ -3937,7 +3939,9 @@ def _augment_message_with_sources(
             "используй подходящий свежий фрагмент official_web, если он есть, иначе прямо скажи, что актуальность сейчас не подтверждена. "
             "Запланированная перепроверка или недавнее изменение файла не доказывают точность. "
             "Для official_web время проверки означает только, что разрешённая страница недавно загружена или повторно подтверждена; "
-            "всё равно проверь, поддерживает ли её фрагмент конкретное утверждение. Время изменения файла Obsidian "
+            "source_snapshot_fetched_at — дата последней полной загрузки текста; после условной проверки без изменений она может быть старше. "
+            "Даты, объявленные издателем, помогают оценить актуальность, но остаются метаданными и не доказывают правильность урока или утверждения. "
+            "Всё равно проверь, поддерживает ли фрагмент конкретное утверждение. Время изменения файла Obsidian "
             "и авторские даты — метаданные, а не независимое доказательство актуальности фактов."
         )
 
@@ -3950,6 +3954,9 @@ def _augment_message_with_sources(
         "retrieved_at",
         "modified_at",
         "source_checked_at",
+        "source_snapshot_fetched_at",
+        "page_published_at",
+        "page_updated_at",
         "source_review_interval_days",
         "source_review_due_on",
         "source_review_status",
@@ -3963,6 +3970,12 @@ def _augment_message_with_sources(
         record: dict[str, Any] = {
             field: value[:2_000] if field == "excerpt" else value[:500]
             for field in reference_fields
+            if (
+                field not in {
+                    "source_snapshot_fetched_at", "page_published_at", "page_updated_at"
+                }
+                or source.get("source_type") == "official_web"
+            )
             if isinstance((value := source.get(field)), str) and value
         }
         raw_references = source.get("official_references")

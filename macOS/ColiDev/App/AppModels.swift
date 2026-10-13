@@ -1442,6 +1442,9 @@ struct TutorSource: Decodable, Identifiable {
     let location: String?
     let modifiedAt: String?
     let sourceCheckedAt: String?
+    let sourceSnapshotFetchedAt: String?
+    let pagePublishedAt: String?
+    let pageUpdatedAt: String?
     let sourceReviewIntervalDays: String?
     let sourceReviewDueOn: String?
     let sourceReviewStatus: String?
@@ -1457,6 +1460,9 @@ struct TutorSource: Decodable, Identifiable {
         case path, location
         case modifiedAt = "modified_at"
         case sourceCheckedAt = "source_checked_at"
+        case sourceSnapshotFetchedAt = "source_snapshot_fetched_at"
+        case pagePublishedAt = "page_published_at"
+        case pageUpdatedAt = "page_updated_at"
         case sourceReviewIntervalDays = "source_review_interval_days"
         case sourceReviewDueOn = "source_review_due_on"
         case sourceReviewStatus = "source_review_status"

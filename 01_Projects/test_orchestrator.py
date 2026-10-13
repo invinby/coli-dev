@@ -2836,6 +2836,7 @@ class TestStreamingChat:
             "path": "02_Areas/math.md",
             "source_type": "course",
             "source_review_status": "due",
+            "page_updated_at": "2026-10-12T15:30:00+03:00",
             "excerpt": "Текст / Text",
         }
         official = {
@@ -2844,6 +2845,9 @@ class TestStreamingChat:
             "path": "https://example.test/approved-page",
             "source_type": "official_web",
             "source_checked_at": "2026-10-12T12:00:00Z",
+            "source_snapshot_fetched_at": "2026-10-11T12:00:00Z",
+            "page_published_at": "2025-09-12T08:15:00Z",
+            "page_updated_at": "2026-10-12T15:30:00+03:00",
             "excerpt": "Source excerpt",
         }
 
@@ -2856,8 +2860,19 @@ class TestStreamingChat:
 
         assert "If it is due, or no review schedule is present" in english
         assert "recently fetched or revalidated" in english
+        assert "Publisher-declared dates" in english
         assert "Если срок наступил или график проверки отсутствует" in russian
         assert "недавно загружена или повторно подтверждена" in russian
+        assert "Даты, объявленные издателем" in russian
+
+        records = json.loads(english.split("\n\n", 2)[1])
+        official_record = next(record for record in records if record["source_type"] == "official_web")
+        assert official_record["source_checked_at"] == "2026-10-12T12:00:00Z"
+        assert official_record["source_snapshot_fetched_at"] == "2026-10-11T12:00:00Z"
+        assert official_record["page_published_at"] == "2025-09-12T08:15:00Z"
+        assert official_record["page_updated_at"] == "2026-10-12T15:30:00+03:00"
+        course_record = next(record for record in records if record["source_type"] == "course")
+        assert "page_updated_at" not in course_record
 
     def test_retrieval_sources_stay_out_of_system_prompt(self, client):
         source = {

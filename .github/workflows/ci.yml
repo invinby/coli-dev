@@ -331,6 +331,9 @@ jobs:
             -o "$RUNNER_TEMP/verify-safe-web-reference-url"
           "$RUNNER_TEMP/verify-safe-web-reference-url"
 
+      - name: Verify tutor source date provenance / Проверить даты источников в цитатах
+        run: python macOS/ColiDev/scripts/verify_tutor_source_date_provenance.py
+
       - name: Verify NotebookLM export provenance / Проверить источники в экспорте NotebookLM
         run: |
           swiftc macOS/ColiDev/App/NotebookLessonExport.swift macOS/ColiDev/scripts/verify_notebook_lesson_export.swift \

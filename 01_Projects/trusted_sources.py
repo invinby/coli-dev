@@ -45,7 +45,7 @@ _MAX_SOURCE_PREVIEW_CHARS = 4_000
 _MAX_RAG_SOURCE_CHARS = 120_000
 _MAX_RAG_RESULTS = 2
 _MAX_RAG_EXCERPT_CHARS = 1_400
-_MAX_RAG_SNAPSHOT_AGE = timedelta(hours=48)
+_MAX_RAG_CHECK_AGE = timedelta(hours=48)
 _AUTO_CHECK_INTERVAL = timedelta(hours=24)
 _AUTO_RETRY_INTERVAL = timedelta(hours=6)
 _ISO_SOURCE_DATE = re.compile(
@@ -921,23 +921,24 @@ class TrustedSourceMonitor:
         if not eligible_urls:
             return []
         now = datetime.now(timezone.utc)
-        cutoff = (now - _MAX_RAG_SNAPSHOT_AGE).isoformat(timespec="seconds").replace("+00:00", "Z")
+        cutoff = (now - _MAX_RAG_CHECK_AGE).isoformat(timespec="seconds").replace("+00:00", "Z")
         placeholders = ",".join("?" for _ in eligible_urls)
         with self._db_lock, self._connect() as connection:
             rows = connection.execute(
                 f"""SELECT snapshot.url, snapshot.page_title, snapshot.page_text,
                            snapshot.fetched_at, snapshot.license_name, snapshot.license_url,
-                           snapshot.attribution, check_record.state
+                           snapshot.attribution, check_record.state,
+                           check_record.last_checked_at, check_record.page_published_at,
+                           check_record.page_updated_at
                     FROM trusted_source_rag_snapshots AS snapshot
                     JOIN trusted_source_checks AS check_record ON check_record.url = snapshot.url
                     WHERE snapshot.url IN ({placeholders})
-                      AND snapshot.fetched_at >= ?
                       AND check_record.last_checked_at >= ?
                       AND check_record.state IN (
                           'available_untracked', 'content_baseline', 'changed', 'unchanged'
                       )
                     ORDER BY snapshot.url LIMIT 20""",
-                (*eligible_urls, cutoff, cutoff),
+                (*eligible_urls, cutoff),
             ).fetchall()
 
         ranked: list[tuple[int, dict[str, str]]] = []
@@ -959,7 +960,7 @@ class TrustedSourceMonitor:
                     best_score, best_excerpt = score, excerpt
             if best_score <= 0:
                 continue
-            ranked.append((best_score, {
+            source = {
                 "id": "",
                 "title": str(row["page_title"] or row["url"])[:_MAX_TITLE_LENGTH],
                 "path": str(row["url"]),
@@ -967,11 +968,17 @@ class TrustedSourceMonitor:
                 "excerpt": best_excerpt,
                 "retrieved_at": now.isoformat(timespec="seconds"),
                 "source_type": "official_web",
-                "source_checked_at": str(row["fetched_at"]),
+                "source_checked_at": str(row["last_checked_at"]),
+                "source_snapshot_fetched_at": str(row["fetched_at"]),
                 "license": str(row["license_name"]),
                 "license_url": str(row["license_url"]),
                 "attribution": str(row["attribution"]),
-            }))
+            }
+            if row["page_published_at"]:
+                source["page_published_at"] = str(row["page_published_at"])
+            if row["page_updated_at"]:
+                source["page_updated_at"] = str(row["page_updated_at"])
+            ranked.append((best_score, source))
         ranked.sort(key=lambda item: (-item[0], item[1]["path"]))
         return [item for _, item in ranked[:min(limit, _MAX_RAG_RESULTS)]]
 
@@ -1267,13 +1274,6 @@ class TrustedSourceMonitor:
                     digest=content_digest,
                     fetched_at=checked_at,
                 )
-            elif state == "unchanged" and previous is not None and self._rag_policy(reference.url):
-                # A 304 revalidates the stored source without downloading a new body.
-                with self._db_lock, self._connect() as connection:
-                    connection.execute(
-                        "UPDATE trusted_source_rag_snapshots SET fetched_at = ? WHERE url = ?",
-                        (checked_at, reference.url),
-                    )
         return {
             "url": reference.url,
             "title": reference.title[:_MAX_TITLE_LENGTH],

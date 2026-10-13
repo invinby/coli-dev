@@ -7,6 +7,7 @@ from pathlib import Path
 import httpx
 import pytest
 
+import trusted_sources
 from trusted_sources import TrustedSourceMonitor, _MAX_SOURCES
 
 
@@ -582,7 +583,10 @@ def test_nhgri_gene_regulation_glossary_is_cached_for_rag_with_attribution(
             200,
             headers={"content-type": "text/html; charset=utf-8", "etag": '"nhgri-v1"'},
             text=(
-                "<html><head><title>Gene Regulation | NHGRI</title></head><body>"
+                "<html><head><title>Gene Regulation | NHGRI</title>"
+                '<meta property="article:published_time" content="2025-09-12T08:15:00Z">'
+                '<meta property="article:modified_time" content="2026-10-12T15:30:00+03:00">'
+                "</head><body>"
                 f"<main><article><h1>Gene Regulation</h1><p>{page_text}</p></article></main>"
                 "</body></html>"
             ),
@@ -605,10 +609,60 @@ def test_nhgri_gene_regulation_glossary_is_cached_for_rag_with_attribution(
     assert "public domain" in found[0]["license"].casefold()
     assert "Courtesy: National Human Genome Research Institute" in found[0]["attribution"]
     assert found[0]["source_checked_at"] == result["checks"][0]["checked_at"]
+    assert found[0]["page_published_at"] == "2025-09-12T08:15:00Z"
+    assert found[0]["page_updated_at"] == "2026-10-12T15:30:00+03:00"
+    assert found[0]["source_snapshot_fetched_at"] == result["checks"][0]["checked_at"]
     assert "gene regulation controls when and where" in found[0]["excerpt"].casefold()
     refreshed_item = monitor.inventory()["sources"][0]
     assert refreshed_item["rag_content_state"] == "cached"
     assert refreshed_item["rag_content_fetched_at"] == result["checks"][0]["checked_at"]
+
+
+def test_rag_source_check_time_tracks_revalidation_separately_from_snapshot_fetch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    url = "https://docs.python.org/3/tutorial/controlflow.html"
+    _write_lesson(tmp_path, f"[Python control flow]({url})")
+    monitor = _monitor(tmp_path, tmp_path)
+    current_time = [datetime(2026, 10, 12, 10, 0, tzinfo=timezone.utc)]
+    real_datetime = datetime
+
+    class FrozenDateTime(real_datetime):
+        @classmethod
+        def now(cls, tz=None):
+            if tz is None:
+                return current_time[0].replace(tzinfo=None)
+            return current_time[0].astimezone(tz)
+
+    monkeypatch.setattr(trusted_sources, "datetime", FrozenDateTime)
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.headers.get("if-none-match") == '"v1"':
+            return httpx.Response(304, headers={"etag": '"v1"'}, request=request)
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/html; charset=utf-8", "etag": '"v1"'},
+            text=(
+                "<html><body><main><article>Python control flow and loops.</article>"
+                "</main></body></html>"
+            ),
+            request=request,
+        )
+
+    async def check() -> dict[str, object]:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await monitor.check_sources(client)
+
+    first = asyncio.run(check())
+    current_time[0] = datetime(2026, 10, 16, 10, 0, tzinfo=timezone.utc)
+    second = asyncio.run(check())
+    found = monitor.search_rag_sources("Python control flow loops")
+
+    assert first["checks"][0]["state"] == "available_untracked"
+    assert second["checks"][0]["state"] == "unchanged"
+    assert len(found) == 1
+    assert found[0]["source_checked_at"] == second["checks"][0]["checked_at"]
+    assert found[0]["source_snapshot_fetched_at"] == first["checks"][0]["checked_at"]
 
 
 def test_unlicensed_official_sources_remain_metadata_only_for_rag(tmp_path: Path) -> None:

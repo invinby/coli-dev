@@ -2107,6 +2107,26 @@ private struct ManagementView: View {
                                         .foregroundStyle(.tertiary)
                                 }
                             }
+                            if let snapshotFetchedAt = source.sourceSnapshotFetchedAt {
+                                Text("\(L10n.text("tutor.sourceSnapshotFetchedAt", store.language)): \(snapshotFetchedAt)")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                            if source.sourceType == "official_web",
+                               source.pagePublishedAt != nil || source.pageUpdatedAt != nil {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    if let publishedAt = source.pagePublishedAt {
+                                        Text("\(L10n.text("tutor.publisherPublishedAt", store.language)): \(publishedAt)")
+                                    }
+                                    if let updatedAt = source.pageUpdatedAt {
+                                        Text("\(L10n.text("tutor.publisherUpdatedAt", store.language)): \(updatedAt)")
+                                    }
+                                    Text(L10n.text("tutor.publisherDateCaveat", store.language))
+                                        .foregroundStyle(.tertiary)
+                                }
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            }
 
                             if let license = source.license {
                                 Text("\(license) · \(source.attribution ?? "")")

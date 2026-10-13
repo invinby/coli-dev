@@ -9455,12 +9455,31 @@ struct TutorChatView: View {
                                         .font(.caption2).foregroundStyle(.tertiary)
                                 }
                                 if let sourceCheckedAt = item.sourceCheckedAt {
-                                    Text("\(L10n.text(item.sourceType == "official_web" ? "tutor.sourceSyncedAt" : "tutor.sourceReviewDate", language)): \(sourceCheckedAt)")
+                                    Text("\(L10n.text(item.sourceType == "official_web" ? "tutor.sourceCheckedAt" : "tutor.sourceReviewDate", language)): \(sourceCheckedAt)")
                                         .font(.caption2).foregroundStyle(.secondary)
                                     if item.sourceType != "official_web" {
                                         Text(L10n.text("tutor.sourceCheckCaveat", language))
                                         .font(.caption2).foregroundStyle(.tertiary)
                                     }
+                                }
+                                if let snapshotFetchedAt = item.sourceSnapshotFetchedAt {
+                                    Text("\(L10n.text("tutor.sourceSnapshotFetchedAt", language)): \(snapshotFetchedAt)")
+                                        .font(.caption2).foregroundStyle(.secondary)
+                                }
+                                if item.sourceType == "official_web",
+                                   item.pagePublishedAt != nil || item.pageUpdatedAt != nil {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        if let publishedAt = item.pagePublishedAt {
+                                            Text("\(L10n.text("tutor.publisherPublishedAt", language)): \(publishedAt)")
+                                        }
+                                        if let updatedAt = item.pageUpdatedAt {
+                                            Text("\(L10n.text("tutor.publisherUpdatedAt", language)): \(updatedAt)")
+                                        }
+                                        Text(L10n.text("tutor.publisherDateCaveat", language))
+                                            .foregroundStyle(.tertiary)
+                                    }
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
                                 }
                                 if let license = item.license {
                                     HStack(spacing: 4) {
