@@ -22,6 +22,25 @@ enum GeometryMeasureVerification {
         let matchingRightTriangle = GeometryMeasure(base: 6, height: 4, shape: .rightTriangle)
         expect(matchingRightTriangle.area, equals: rectangle.area / 2, tolerance: tolerance, "right triangle has half the area of its enclosing rectangle")
 
+        let roundedTriangle = GeometryMeasure(base: 1, height: 1, shape: .rightTriangle)
+        precondition(
+            roundedTriangle.perimeterNeedsRoundingForDisplay,
+            "A displayed right-triangle perimeter must be marked approximate when hundredths discard precision."
+        )
+        precondition(
+            !rightTriangle.areaNeedsRoundingForDisplay,
+            "An exact area with two decimal places must not be marked approximate."
+        )
+        precondition(
+            !rightTriangle.perimeterNeedsRoundingForDisplay,
+            "An exact Pythagorean perimeter must not be marked approximate."
+        )
+        let roundedArea = GeometryMeasure(base: 1.5, height: 1.5, shape: .rightTriangle)
+        precondition(
+            roundedArea.areaNeedsRoundingForDisplay,
+            "An area with more than two decimal places must be marked approximate."
+        )
+
         print("Geometry measurement checks passed.")
     }
 
