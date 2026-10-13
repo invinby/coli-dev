@@ -3,7 +3,7 @@ subject: English
 lesson_id: english.present_perfect_simple_continuous
 level: intermediate
 languages: ru, en
-source_checked: 2026-10-05
+source_checked: 2026-10-14
 source_review_interval_days: 180
 ---
 
@@ -19,7 +19,7 @@ source_review_interval_days: 180
 
 Обе формы связывают прошлое с настоящим. **Present Perfect Simple** строится как `have/has + past participle` (третья форма глагола) и обычно выдвигает на первый план результат, завершённость или количество: `I have read three chapters` — «Я прочитал три главы». Вопрос `How many chapters have you read?` спрашивает именно о количестве.
 
-**Present Perfect Continuous** строится как `have/has + been + verb-ing` и обычно подчёркивает длительность или ход деятельности: `I have been reading for two hours` — «Я читаю уже два часа». Вопрос `How long have you been reading?` спрашивает о длительности процесса.
+**Present Perfect Continuous** строится как `have/has + been + verb-ing` и обычно подчёркивает длительность, ход деятельности или её след в настоящем. Деятельность может продолжаться сейчас или недавно закончиться; сама форма не всегда говорит, завершена ли задача: `I have been reading for two hours` — «Я читаю уже два часа». Вопрос `How long have you been reading?` спрашивает о длительности процесса.
 
 Сравни: `She has cleaned the kitchen` — кухня теперь чистая, важен результат; `She has been cleaning the kitchen` — важна уборка как процесс, возможно, она ещё не закончена. Слова `for` обычно называют промежуток времени (`for two hours`), а `since` — начальную точку (`since nine o'clock`). Они не выбирают форму автоматически: сравни смысл.
 
@@ -52,11 +52,11 @@ source_review_interval_days: 180
 
 ### Разбор
 
-`Has read` — Present Perfect Simple; слова `three chapters` задают измеримый результат. `Has been reading` может подойти, если мы говорим о занятии и не утверждаем, что главы прочитаны целиком, но в этой фразе оно не подчёркивает заданный результат. `Read` без вспомогательного глагола — Past Simple, а `so far` здесь связывает итог с ещё не завершившимся периодом.
+`Has read` — Present Perfect Simple; в вопросе важны три уже прочитанные главы, то есть измеримый результат. `Has been reading three chapters` обычно подсказывало бы, что чтение этих глав ещё не завершено; Continuous подходит для другого контекста, если на первом плане занятие или его недавние следы. Поэтому здесь он не лучший ответ. `Read` без вспомогательного глагола — Past Simple, а `so far` связывает итог с ещё не завершившимся периодом.
 
 ### Границы модели
 
-Это различие часто связано с фокусом, а не с двумя взаимоисключающими фактами. `I've worked here for ten years` и `I've been working here for ten years` могут оба быть правильными: Continuous сильнее подчёркивает деятельность или её временный характер. Некоторые глаголы состояния обычно не употребляются в Continuous в таком значении: `We've known each other since 2018`, а не `We've been knowing`. Если указан законченный момент прошлого (`yesterday`, `last week`, `in 2022`), обычно нужен Past Simple: `I finished it yesterday`.
+Это различие часто связано с фокусом, а не с двумя взаимоисключающими фактами. `I've worked here for ten years` и `I've been working here for ten years` могут оба быть правильными: Continuous сильнее подчёркивает деятельность или её временный характер. Если Continuous сочетается с числом выполненных объектов — например, `I've been reading three books`, — это обычно означает, что чтение ещё не завершено. Некоторые глаголы состояния обычно не употребляются в Continuous в таком значении: `We've known each other since 2018`, а не `We've been knowing`. Если указан законченный момент прошлого (`yesterday`, `last week`, `in 2022`), обычно нужен Past Simple: `I finished it yesterday`.
 
 ## English
 
@@ -68,7 +68,7 @@ Choose between the present perfect simple and continuous by identifying the focu
 
 Both forms connect the past with the present. The **present perfect simple** is `have/has + past participle` and often foregrounds a result, completion, or quantity: `I have read three chapters`. `How many chapters have you read?` asks about the number completed.
 
-The **present perfect continuous** is `have/has + been + verb-ing` and often emphasises duration or an ongoing activity: `I have been reading for two hours`. `How long have you been reading?` asks about the duration of the activity.
+The **present perfect continuous** is `have/has + been + verb-ing` and often emphasises duration, the activity itself, or its present evidence. The activity may still be happening or may have stopped recently; the form alone does not always say whether the task is complete: `I have been reading for two hours`. `How long have you been reading?` asks about the duration of the activity.
 
 Compare `She has cleaned the kitchen`: the kitchen is clean now, so the result matters. `She has been cleaning the kitchen` focuses on the activity; it may not be finished. `For` usually gives a period (`for two hours`), while `since` gives a starting point (`since nine o'clock`). They do not select a tense automatically; use the meaning.
 
@@ -101,12 +101,13 @@ Complete: `Maya ___ three chapters so far.` Which option best highlights the num
 
 ### Explanation
 
-`Has read` is the present perfect simple; `three chapters` gives a measurable result. `Has been reading` can fit when we describe the activity without claiming the chapters are complete, but it does not foreground the stated result here. `Read` without an auxiliary is the past simple; `so far` connects this result to a period that is still open.
+`Has read` is the present perfect simple; the question asks for three chapters already read, a measurable result. `Has been reading three chapters` would usually suggest that reading those chapters is not complete; the continuous form fits another context when the activity or its recent evidence is the focus. It is not the best answer here. `Read` without an auxiliary is the past simple; `so far` connects this result to a period that is still open.
 
 ### Limits
 
-This contrast is often about emphasis, not two mutually exclusive facts. Both `I've worked here for ten years` and `I've been working here for ten years` can be correct; the continuous form puts more focus on the activity or may sound more temporary. Stative verbs are not normally continuous in this meaning: `We've known each other since 2018`, not `We've been knowing`. With a finished past time (`yesterday`, `last week`, `in 2022`), the past simple is normally used: `I finished it yesterday`.
+This contrast is often about emphasis, not two mutually exclusive facts. Both `I've worked here for ten years` and `I've been working here for ten years` can be correct; the continuous form puts more focus on the activity or may sound more temporary. With a counted task, `I've been reading three books` normally suggests the reading is not complete. Stative verbs are not normally continuous in this meaning: `We've known each other since 2018`, not `We've been knowing`. With a finished past time (`yesterday`, `last week`, `in 2022`), the past simple is normally used: `I finished it yesterday`.
 
 ## Sources
 
 - British Council LearnEnglish, “Present perfect simple and continuous” (B1–B2): <https://learnenglish.britishcouncil.org/free-resources/grammar/b1-b2/present-perfect-simple-continuous>
+- British Council LearnEnglish, “Present perfect” (stative verbs and finished past-time expressions): <https://learnenglish.britishcouncil.org/free-resources/grammar/english-grammar-reference/present-perfect>
