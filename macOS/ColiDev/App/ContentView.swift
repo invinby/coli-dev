@@ -3418,6 +3418,22 @@ private struct SourceRegistryRow: View {
                     .textSelection(.enabled)
             }
 
+            if source.pagePublishedAt != nil || source.pageUpdatedAt != nil {
+                HStack(spacing: 12) {
+                    if let pagePublishedAt = source.pagePublishedAt {
+                        Text(L10n.text("management.sourcePublisherPublishedAt", language) + ": " + pagePublishedAt)
+                    }
+                    if let pageUpdatedAt = source.pageUpdatedAt {
+                        Text(L10n.text("management.sourcePublisherUpdatedAt", language) + ": " + pageUpdatedAt)
+                    }
+                }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                Text(L10n.text("management.sourcePublisherDateCaveat", language))
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+
             if let ragContentState = source.ragContentState {
                 HStack(spacing: 8) {
                     Label(
@@ -3808,6 +3824,21 @@ private struct TrustedSourcePreviewSheet: View {
                     if let description = preview.pageDescription, !description.isEmpty {
                         Text(description)
                             .foregroundStyle(.secondary)
+                    }
+                    if preview.pagePublishedAt != nil || preview.pageUpdatedAt != nil {
+                        VStack(alignment: .leading, spacing: 4) {
+                            if let publishedAt = preview.pagePublishedAt {
+                                Text(L10n.text("management.sourcePublisherPublishedAt", language) + ": " + publishedAt)
+                            }
+                            if let updatedAt = preview.pageUpdatedAt {
+                                Text(L10n.text("management.sourcePublisherUpdatedAt", language) + ": " + updatedAt)
+                            }
+                            Text(L10n.text("management.sourcePublisherDateCaveat", language))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
                     }
                     if preview.excerptTruncated {
                         Label(

@@ -48,6 +48,9 @@ _MAX_RAG_EXCERPT_CHARS = 1_400
 _MAX_RAG_SNAPSHOT_AGE = timedelta(hours=48)
 _AUTO_CHECK_INTERVAL = timedelta(hours=24)
 _AUTO_RETRY_INTERVAL = timedelta(hours=6)
+_ISO_SOURCE_DATE = re.compile(
+    r"^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?(?:Z|[+-]\d{2}:\d{2})?)?$"
+)
 _TRANSIENT_SOURCE_STATES = frozenset({"network_error", "unavailable"})
 _TRUSTED_HOSTS = frozenset(
     {
@@ -201,6 +204,23 @@ class SourceSnapshotChanged(RuntimeError):
     """Raised when a source changed between preview and editorial confirmation."""
 
 
+def _publisher_declared_date(value: str | None) -> str | None:
+    """Accept bounded ISO date signals while preserving their declared timezone."""
+    if value is None:
+        return None
+    candidate = " ".join(value.split())
+    if len(candidate) > 40 or not _ISO_SOURCE_DATE.fullmatch(candidate):
+        return None
+    try:
+        if "T" in candidate:
+            datetime.fromisoformat(candidate[:-1] + "+00:00" if candidate.endswith("Z") else candidate)
+        else:
+            date.fromisoformat(candidate)
+    except ValueError:
+        return None
+    return candidate
+
+
 class _SourcePageParser(HTMLParser):
     """Extract bounded, human-readable metadata and visible text from HTML."""
 
@@ -218,6 +238,8 @@ class _SourcePageParser(HTMLParser):
         self.xml_article = xml_article
         self.title_parts: list[str] = []
         self.description: str | None = None
+        self.page_published_at: str | None = None
+        self.page_updated_at: str | None = None
         self.fallback_parts: list[str] = []
         self.semantic_parts: list[str] = []
         self.in_title = False
@@ -245,6 +267,7 @@ class _SourcePageParser(HTMLParser):
         elif tag == "meta":
             name = (attributes.get("name") or "").casefold()
             prop = (attributes.get("property") or "").casefold()
+            itemprop = (attributes.get("itemprop") or "").casefold()
             content = " ".join((attributes.get("content") or "").split())
             if (
                 content
@@ -253,6 +276,24 @@ class _SourcePageParser(HTMLParser):
                 and self.description is None
             ):
                 self.description = content[:_MAX_PAGE_DESCRIPTION_LENGTH]
+            self._record_publisher_date(prop or itemprop or name, content)
+        elif tag == "time":
+            itemprop = (attributes.get("itemprop") or "").casefold()
+            self._record_publisher_date(itemprop, attributes.get("datetime"))
+
+    def _record_publisher_date(self, key: str, value: str | None) -> None:
+        field = {
+            "article:published_time": "page_published_at",
+            "datepublished": "page_published_at",
+            "article:modified_time": "page_updated_at",
+            "og:updated_time": "page_updated_at",
+            "datemodified": "page_updated_at",
+        }.get(key)
+        if field is None or getattr(self, field) is not None:
+            return
+        parsed = _publisher_declared_date(value)
+        if parsed is not None:
+            setattr(self, field, parsed)
 
     def handle_endtag(self, tag: str) -> None:
         tag = tag.casefold()
@@ -289,6 +330,9 @@ class _SourcePageParser(HTMLParser):
 
     def visible_text(self) -> str:
         return self._normalize(self.semantic_parts or self.fallback_parts)
+
+    def publisher_dates(self) -> tuple[str | None, str | None]:
+        return self.page_published_at, self.page_updated_at
 
     def result(self) -> tuple[str | None, str | None, str | None]:
         title = self._normalize(self.title_parts)[:_MAX_TITLE_LENGTH] or None
@@ -507,6 +551,8 @@ class TrustedSourceMonitor:
         for column, declaration in (
             ("page_title", "TEXT"),
             ("page_description", "TEXT"),
+            ("page_published_at", "TEXT"),
+            ("page_updated_at", "TEXT"),
             ("content_digest", "TEXT"),
             ("content_checked_at", "TEXT"),
             ("pending_review_digest", "TEXT"),
@@ -547,7 +593,8 @@ class TrustedSourceMonitor:
                 str(row["url"]): row
                 for row in connection.execute(
                     "SELECT url, etag, last_modified, last_checked_at, last_http_status, state, "
-                    "page_title, page_description, content_digest, content_checked_at, "
+                    "page_title, page_description, page_published_at, page_updated_at, "
+                    "content_digest, content_checked_at, "
                     "pending_review_digest "
                     "FROM trusted_source_checks"
                 ).fetchall()
@@ -646,6 +693,10 @@ class TrustedSourceMonitor:
                     if previous is not None and previous["page_title"] else None,
                 "page_description": str(previous["page_description"])
                     if previous is not None and previous["page_description"] else None,
+                "page_published_at": str(previous["page_published_at"])
+                    if previous is not None and previous["page_published_at"] else None,
+                "page_updated_at": str(previous["page_updated_at"])
+                    if previous is not None and previous["page_updated_at"] else None,
                 "content_checked_at": str(previous["content_checked_at"])
                     if previous is not None and previous["content_checked_at"] else None,
                 "rag_content_state": (
@@ -935,6 +986,8 @@ class TrustedSourceMonitor:
         state: str,
         page_title: str | None = None,
         page_description: str | None = None,
+        page_published_at: str | None = None,
+        page_updated_at: str | None = None,
         content_digest: str | None = None,
         content_checked_at: str | None = None,
         preserve_content_metadata: bool = False,
@@ -943,9 +996,10 @@ class TrustedSourceMonitor:
             connection.execute(
                 """INSERT INTO trusted_source_checks(
                     url, etag, last_modified, last_checked_at, last_http_status, state,
-                    page_title, page_description, content_digest, content_checked_at,
+                    page_title, page_description, page_published_at, page_updated_at,
+                    content_digest, content_checked_at,
                     pending_review_digest
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     CASE WHEN ? = 'changed' THEN ? ELSE NULL END)
                 ON CONFLICT(url) DO UPDATE SET
                     etag = excluded.etag,
@@ -955,6 +1009,8 @@ class TrustedSourceMonitor:
                     state = excluded.state,
                     page_title = CASE WHEN ? THEN trusted_source_checks.page_title ELSE excluded.page_title END,
                     page_description = CASE WHEN ? THEN trusted_source_checks.page_description ELSE excluded.page_description END,
+                    page_published_at = CASE WHEN ? THEN trusted_source_checks.page_published_at ELSE excluded.page_published_at END,
+                    page_updated_at = CASE WHEN ? THEN trusted_source_checks.page_updated_at ELSE excluded.page_updated_at END,
                     content_digest = CASE WHEN ? THEN trusted_source_checks.content_digest ELSE excluded.content_digest END,
                     content_checked_at = CASE WHEN ? THEN trusted_source_checks.content_checked_at ELSE excluded.content_checked_at END,
                     pending_review_digest = CASE
@@ -962,8 +1018,10 @@ class TrustedSourceMonitor:
                         ELSE trusted_source_checks.pending_review_digest END""",
                 (
                     reference.url, etag, last_modified, checked_at, http_status, state,
-                    page_title, page_description, content_digest, content_checked_at,
+                    page_title, page_description, page_published_at, page_updated_at,
+                    content_digest, content_checked_at,
                     state, content_digest,
+                    preserve_content_metadata, preserve_content_metadata,
                     preserve_content_metadata, preserve_content_metadata,
                     preserve_content_metadata, preserve_content_metadata,
                 ),
@@ -1010,7 +1068,7 @@ class TrustedSourceMonitor:
     @staticmethod
     def _parse_source_page_preview(
         body: bytes, encoding: str | None, *, xml_article: bool = False
-    ) -> tuple[str | None, str | None, str | None, str]:
+    ) -> tuple[str | None, str | None, str | None, str | None, str | None, str]:
         try:
             decoded = body.decode(encoding or "utf-8", errors="replace")
         except LookupError:
@@ -1019,7 +1077,8 @@ class TrustedSourceMonitor:
         parser.feed(decoded)
         parser.close()
         title, description, digest = parser.result()
-        return title, description, digest, parser.visible_text()
+        published_at, updated_at = parser.publisher_dates()
+        return title, description, digest, published_at, updated_at, parser.visible_text()
 
     @staticmethod
     def _validator_changed(
@@ -1066,6 +1125,14 @@ class TrustedSourceMonitor:
         page_description = (
             str(previous["page_description"])
             if previous is not None and previous["page_description"] else None
+        )
+        page_published_at = (
+            str(previous["page_published_at"])
+            if previous is not None and previous["page_published_at"] else None
+        )
+        page_updated_at = (
+            str(previous["page_updated_at"])
+            if previous is not None and previous["page_updated_at"] else None
         )
         content_digest = (
             str(previous["content_digest"])
@@ -1116,6 +1183,8 @@ class TrustedSourceMonitor:
                                     parsed_title,
                                     parsed_description,
                                     parsed_digest,
+                                    parsed_published_at,
+                                    parsed_updated_at,
                                     parsed_text,
                                 ) = self._parse_source_page_preview(
                                     body,
@@ -1132,6 +1201,8 @@ class TrustedSourceMonitor:
                                     )
                                     page_title = effective_title
                                     page_description = parsed_description
+                                    page_published_at = parsed_published_at
+                                    page_updated_at = parsed_updated_at
                                     content_digest = parsed_digest
                                     content_checked_at = checked_at
                                     if self._rag_policy(reference.url) is not None:
@@ -1182,6 +1253,8 @@ class TrustedSourceMonitor:
                 state=state,
                 page_title=page_title,
                 page_description=page_description,
+                page_published_at=page_published_at,
+                page_updated_at=page_updated_at,
                 content_digest=content_digest,
                 content_checked_at=content_checked_at,
                 preserve_content_metadata=preserve_content_metadata,
@@ -1212,6 +1285,8 @@ class TrustedSourceMonitor:
             "checked_at": checked_at,
             "page_title": page_title,
             "page_description": page_description,
+            "page_published_at": page_published_at,
+            "page_updated_at": page_updated_at,
             "content_checked_at": content_checked_at,
         }
 
@@ -1299,7 +1374,14 @@ class TrustedSourceMonitor:
                     raise RuntimeError("Approved source preview is unavailable")
                 encoding = response.encoding
 
-            title, description, digest, visible_text = self._parse_source_page_preview(
+            (
+                title,
+                description,
+                digest,
+                page_published_at,
+                page_updated_at,
+                visible_text,
+            ) = self._parse_source_page_preview(
                 body,
                 encoding,
                 xml_article=self._is_approved_xml_source(reference.url),
@@ -1312,6 +1394,8 @@ class TrustedSourceMonitor:
                 "lesson_paths": [review.lesson_path for review in reference.lesson_reviews],
                 "page_title": title or reference.title,
                 "page_description": description,
+                "page_published_at": page_published_at,
+                "page_updated_at": page_updated_at,
                 "etag": self._bounded_header(response.headers.get("etag")),
                 "last_modified": self._bounded_header(response.headers.get("last-modified")),
                 "excerpt": visible_text[:_MAX_SOURCE_PREVIEW_CHARS],
@@ -1373,6 +1457,12 @@ class TrustedSourceMonitor:
             state=state,
             page_title=str(fresh["page_title"]) if fresh["page_title"] else None,
             page_description=str(fresh["page_description"]) if fresh["page_description"] else None,
+            page_published_at=(
+                str(fresh["page_published_at"]) if fresh["page_published_at"] else None
+            ),
+            page_updated_at=(
+                str(fresh["page_updated_at"]) if fresh["page_updated_at"] else None
+            ),
             content_digest=digest,
             content_checked_at=reviewed_at,
         )

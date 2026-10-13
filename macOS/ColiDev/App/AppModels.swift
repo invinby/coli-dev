@@ -1129,6 +1129,8 @@ struct TrustedSourceInventoryItem: Decodable, Identifiable {
     let hasETag: Bool
     let pageTitle: String?
     let pageDescription: String?
+    let pagePublishedAt: String?
+    let pageUpdatedAt: String?
     let contentCheckedAt: String?
     let ragContentState: String?
     let ragContentFetchedAt: String?
@@ -1153,6 +1155,8 @@ struct TrustedSourceInventoryItem: Decodable, Identifiable {
         case hasETag = "has_etag"
         case pageTitle = "page_title"
         case pageDescription = "page_description"
+        case pagePublishedAt = "page_published_at"
+        case pageUpdatedAt = "page_updated_at"
         case contentCheckedAt = "content_checked_at"
         case ragContentState = "rag_content_state"
         case ragContentFetchedAt = "rag_content_fetched_at"
@@ -1202,6 +1206,8 @@ struct TrustedSourcePagePreview: Decodable, Identifiable {
     let lessonPaths: [String]
     let pageTitle: String?
     let pageDescription: String?
+    let pagePublishedAt: String?
+    let pageUpdatedAt: String?
     let excerpt: String
     let excerptTruncated: Bool
     let contentDigest: String
@@ -1214,6 +1220,8 @@ struct TrustedSourcePagePreview: Decodable, Identifiable {
         case lessonPaths = "lesson_paths"
         case pageTitle = "page_title"
         case pageDescription = "page_description"
+        case pagePublishedAt = "page_published_at"
+        case pageUpdatedAt = "page_updated_at"
         case excerptTruncated = "excerpt_truncated"
         case contentDigest = "content_digest"
         case fetchedAt = "fetched_at"

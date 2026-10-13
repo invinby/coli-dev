@@ -778,6 +778,59 @@ def test_bundled_lesson_sources_fit_the_bounded_monitor_inventory(tmp_path: Path
     assert git_team_sources <= {reference.url for reference in references}
 
 
+def test_inventory_exposes_bounded_publisher_declared_dates_separately_from_http_check(
+    tmp_path: Path,
+) -> None:
+    url = "https://openstax.org/books/college-physics-2e/pages/7-1-work-the-scientific-definition"
+    _write_lesson(tmp_path, f"[OpenStax work page]({url})")
+    monitor = _monitor(tmp_path, tmp_path)
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.headers.get("if-none-match") == '"source-v1"':
+            return httpx.Response(
+                304,
+                headers={"etag": '"source-v1"'},
+                request=request,
+            )
+        return httpx.Response(
+            200,
+            headers={
+                "content-type": "text/html; charset=utf-8",
+                "etag": '"source-v1"',
+                "last-modified": "Mon, 12 Oct 2026 12:00:00 GMT",
+            },
+            text=(
+                "<html><head><title>Work</title>"
+                '<meta property="article:published_time" content="yesterday">'
+                '<meta property="article:published_time" content="2025-09-12T08:15:00Z">'
+                '<meta property="article:modified_time" content="2026-99-50">'
+                '<meta property="article:modified_time" content="2026-10-12T15:30:00+03:00">'
+                "<script>"
+                '<meta property="article:modified_time" content="2026-10-13">'
+                "</script></head><body><main><p>Work changes energy.</p></main></body></html>"
+            ),
+        )
+
+    async def check() -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            first = await monitor.check_sources(client)
+            second = await monitor.check_sources(client)
+            preview = await monitor.preview_source(url, client)
+            return first, second, preview
+
+    first, second, preview = asyncio.run(check())
+    source = monitor.inventory()["sources"][0]
+
+    assert first["checks"][0]["state"] == "available_untracked"
+    assert second["checks"][0]["state"] == "unchanged"
+    assert source["page_published_at"] == "2025-09-12T08:15:00Z"
+    assert source["page_updated_at"] == "2026-10-12T15:30:00+03:00"
+    assert source["last_modified"] == "Mon, 12 Oct 2026 12:00:00 GMT"
+    assert source["last_checked_at"] == second["checks"][0]["checked_at"]
+    assert preview["page_published_at"] == "2025-09-12T08:15:00Z"
+    assert preview["page_updated_at"] == "2026-10-12T15:30:00+03:00"
+
+
 @pytest.mark.parametrize(
     "url",
     [
@@ -904,6 +957,8 @@ def test_inventory_exposes_only_approved_reference_metadata_and_saved_state(tmp_
         "has_etag": False,
         "page_title": None,
         "page_description": None,
+        "page_published_at": None,
+        "page_updated_at": None,
         "content_checked_at": None,
         "rag_content_state": "metadata_only_noncommercial",
         "rag_content_fetched_at": None,
@@ -1302,7 +1357,7 @@ def test_conditional_check_detects_unchanged_then_changed_versions(tmp_path: Pat
             failed = await monitor.check_sources(client)
             pending_after_failure = monitor.inventory()
             force_full_response = True
-            fifth = await monitor.check_sources(client)
+            await monitor.check_sources(client)
             pending_after_same_body = monitor.inventory()
             preview = await monitor.preview_source(url, client)
             reviewed = await monitor.review_source(
