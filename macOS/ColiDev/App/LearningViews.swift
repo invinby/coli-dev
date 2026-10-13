@@ -7499,6 +7499,7 @@ private struct AlgorithmicThinkingLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var session = AlgorithmicThinkingPracticeSession()
     @State private var feedbackKey: String?
+    @State private var feedbackIsSuccess = false
     @State private var a = 6
     @State private var b = 3
 
@@ -7516,6 +7517,23 @@ private struct AlgorithmicThinkingLab: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            if let currentQuestion = session.currentQuestion {
+                Text(L10n.text(currentQuestion.contextKey, store.language))
+                    .font(.headline)
+
+                if let scenario = AlgorithmicThinkingPractice.averageTestCase(forQuestionID: currentQuestion.id) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(L10n.text("lab.algorithmTestCaseContract", store.language))
+                            .font(.callout)
+                        Text("\(L10n.text("lab.algorithmTestCaseInput", store.language)): [\(formattedValues(scenario.values))]")
+                            .font(.system(.body, design: .monospaced))
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 12))
+                }
+            }
 
             ForEach(Array(completedSteps.enumerated()), id: \.offset) { index, step in
                 Label("\(index + 1). \(L10n.text(stepTitleKey(step), store.language))", systemImage: "checkmark.circle.fill")
@@ -7540,13 +7558,20 @@ private struct AlgorithmicThinkingLab: View {
             }
 
             if let feedbackKey {
-                Label(L10n.text(feedbackKey, store.language), systemImage: completedSteps.count == stepOrder.count ? "checkmark.circle.fill" : "info.circle")
+                Label(L10n.text(feedbackKey, store.language), systemImage: feedbackIsSuccess ? "checkmark.circle.fill" : "info.circle")
                     .font(.callout)
-                    .foregroundStyle(completedSteps.count == stepOrder.count ? Color.green : Color.secondary)
+                    .foregroundStyle(feedbackIsSuccess ? Color.green : Color.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            if completedSteps.count == stepOrder.count {
+            if session.isComplete {
+                Label(L10n.text("lab.algorithmComplete", store.language), systemImage: "checkmark.seal.fill")
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(Color.green)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if completedSteps.count >= AlgorithmicThinkingPractice.maximumQuestionCount {
                 VStack(alignment: .leading, spacing: 10) {
                     Text(L10n.text("lab.algorithmInputs", store.language))
                         .font(.caption.weight(.semibold))
@@ -7566,10 +7591,37 @@ private struct AlgorithmicThinkingLab: View {
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(.background, in: RoundedRectangle(cornerRadius: 12))
+            }
+
+            if session.isComplete {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(L10n.text("lab.algorithmTestCaseExamples", store.language))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    ForEach(AlgorithmicThinkingPractice.averageTestCases) { scenario in
+                        HStack {
+                            Text("[\(formattedValues(scenario.values))]")
+                                .font(.system(.callout, design: .monospaced))
+                            Spacer(minLength: 12)
+                            if let average = AlgorithmicThinkingPractice.average(of: scenario.values) {
+                                Text("→ \(String(average))")
+                                    .font(.system(.callout, design: .monospaced))
+                            } else {
+                                Text(L10n.text("lab.algorithmTestCaseInvalidOutcome", store.language))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.background, in: RoundedRectangle(cornerRadius: 12))
 
                 Button {
                     session.restart()
                     feedbackKey = nil
+                    feedbackIsSuccess = false
                 } label: {
                     Label(L10n.text("lab.algorithmRestart", store.language), systemImage: "arrow.counterclockwise")
                 }
@@ -7584,10 +7636,17 @@ private struct AlgorithmicThinkingLab: View {
             store.recordStudyAssessment(lessonID: "programming.computational_thinking", evidence: evidence)
         }
         guard submission.isCorrect else {
-            feedbackKey = "lab.algorithmIncorrect"
+            let isTestCase = AlgorithmicThinkingPractice.averageTestCase(forQuestionID: submission.questionID) != nil
+            feedbackKey = isTestCase ? "lab.algorithmTestCaseIncorrect" : "lab.algorithmIncorrect"
+            feedbackIsSuccess = false
             return
         }
-        feedbackKey = completedSteps.count == stepOrder.count ? "lab.algorithmComplete" : "lab.algorithmStepCorrect"
+        feedbackIsSuccess = true
+        if let testCase = AlgorithmicThinkingPractice.averageTestCase(forQuestionID: submission.questionID) {
+            feedbackKey = testCase.explanationKey
+        } else {
+            feedbackKey = "lab.algorithmStepCorrect"
+        }
     }
 
     private func stepTitleKey(_ step: String) -> String {
@@ -7595,8 +7654,20 @@ private struct AlgorithmicThinkingLab: View {
         case "input": "lab.algorithmInput"
         case "compare": "lab.algorithmCompare"
         case "otherwise": "lab.algorithmOtherwise"
+        case "checkNonempty": "lab.algorithmCheckNonempty"
+        case "initializeTotal": "lab.algorithmInitializeTotal"
+        case "accumulateValues": "lab.algorithmAccumulateValues"
+        case "divideByCount": "lab.algorithmDivideByCount"
+        case "returnAverage": "lab.algorithmReturnAverage"
+        case "typical": "lab.algorithmCaseTypical"
+        case "boundary": "lab.algorithmCaseBoundary"
+        case "invalid": "lab.algorithmCaseInvalid"
         default: "lab.algorithmDisplay"
         }
+    }
+
+    private func formattedValues(_ values: [Int]) -> String {
+        values.map(String.init).joined(separator: ", ")
     }
 }
 

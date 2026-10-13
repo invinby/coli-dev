@@ -42,6 +42,15 @@ enum AlgorithmicThinkingVerification {
             "typical", "boundary", "invalid"
         ])
         precondition(questions.allSatisfy { $0.choiceKeys.count == 3 && $0.choiceKeys.indices.contains($0.correctOptionIndex) })
+        precondition(
+            AlgorithmicThinkingPractice.averageTestCases.map(\.id) == ["typical", "single_value", "empty_list"]
+                && AlgorithmicThinkingPractice.averageTestCases.map(\.correctCategory) == [.typical, .boundary, .invalid],
+            "Average exercises must include a typical, one-item boundary, and invalid empty-list case."
+        )
+        precondition(AlgorithmicThinkingPractice.average(of: [2, 4, 6]) == 4)
+        precondition(AlgorithmicThinkingPractice.average(of: [7]) == 7)
+        precondition(AlgorithmicThinkingPractice.average(of: [-2, 2]) == 0)
+        precondition(AlgorithmicThinkingPractice.average(of: []) == nil, "The empty-list contract must be explicit.")
 
         for seed in 0..<256 {
             var generator = AlgorithmicThinkingSeededGenerator(seed: UInt64(seed))
@@ -109,6 +118,31 @@ enum AlgorithmicThinkingVerification {
             "typical", "boundary", "invalid"
         ])
         precondition(session.displayedChoiceKeys.isEmpty && session.submit(displayedIndex: 0) == nil)
+
+        var caseSession = AlgorithmicThinkingPracticeSession(answerOrders: orders)
+        for index in 0..<9 {
+            precondition(caseSession.submit(displayedIndex: orders[index].correctDisplayedIndex)?.isCorrect == true)
+        }
+        let caseQuestion = questions[9]
+        let caseOrder = orders[9]
+        let wrongCategoryIndex = caseOrder.displayedOriginalIndices.firstIndex { $0 != caseQuestion.correctOptionIndex }!
+        let wrongCategory = caseSession.submit(displayedIndex: wrongCategoryIndex)
+        precondition(
+            wrongCategory?.questionID == caseQuestion.id
+                && wrongCategory?.evidence?.itemID == caseQuestion.id
+                && wrongCategory?.evidence?.attempts == 1
+                && wrongCategory?.evidence?.firstTryCorrect == false,
+            "A wrong test-case category must save evidence against that stable case ID."
+        )
+        let correctCategory = caseSession.submit(displayedIndex: caseOrder.correctDisplayedIndex)
+        precondition(
+            correctCategory?.stepKey == "typical"
+                && correctCategory?.isCorrect == true
+                && correctCategory?.evidence?.itemID == caseQuestion.id
+                && correctCategory?.evidence?.attempts == 2
+                && correctCategory?.evidence?.firstTryCorrect == false,
+            "Retrying a test-case classification must preserve the first incorrect attempt."
+        )
         print("Algorithmic-thinking model checks passed")
     }
 }

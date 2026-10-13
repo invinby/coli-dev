@@ -3,7 +3,7 @@ subject: programming
 lesson_id: programming.computational_thinking
 level: foundations
 languages: ru, en
-source_checked: 2026-10-06
+source_checked: 2026-10-13
 source_review_interval_days: 90
 ---
 
@@ -34,9 +34,46 @@ source_review_interval_days: 90
 
 Разбивка работает для обычных значений и для границы: если числа равны, ветка «иначе» всё равно возвращает такое же по значению число. Этот пример решает только задачу выбора максимума из двух чисел; он не описывает ошибки ввода, список произвольной длины или обработку нечисловых значений.
 
+### Другой тип задачи: среднее непустого списка
+
+Сначала задай контракт функции: она принимает список целых чисел длиной не меньше одного и возвращает арифметическое среднее. Пустой список этому контракту не соответствует. Разложи вычисление на проверку контракта, накопление суммы, деление на число элементов и возврат результата:
+
+```text
+проверь, что список не пуст
+установи total = 0
+для каждого значения прибавь его к total
+раздели total на количество значений
+верни среднее
+```
+
+Тот же порядок можно выразить на Python:
+
+```python
+def mean(values):
+    if not values:
+        raise ValueError("values must not be empty")
+    total = 0
+    for value in values:
+        total += value
+    return total / len(values)
+```
+
+Для `[2, 4, 6]` сумма равна `12`, поэтому функция возвращает `4.0`. Для `[7]` результат `7.0`: один элемент проверяет границу допустимой длины. Пустой список вызывает `ValueError`, потому что в этом примере функция заранее обещает работать только с непустым списком.
+
+### Подбери тесты
+
+Тесты должны проверять разные свойства контракта, а не только ещё один обычный пример:
+
+- **Обычный случай:** `[2, 4, 6] → 4.0`; проходит полный цикл и деление на несколько элементов.
+- **Граничный случай:** `[7] → 7.0`; подтверждает поведение для одного допустимого значения.
+- **Недопустимый случай:** `[] → ValueError`; проверяет отклонение входа за границей контракта.
+- **Дополнительный вариант:** `[-2, 2] → 0.0`; проверяет отрицательные значения и взаимное сокращение.
+
+Каждый тест отвечает на свой вопрос и помогает обнаружить конкретную ошибку; ни три, ни десять примеров не доказывают правильность для всех возможных входов.
+
 ### Исследуй и потренируйся
 
-В тренажёре собери шаги в правильном порядке. Затем меняй `a` и `b`, включая равные значения, и проследи: какая ветка срабатывает и почему результат остаётся корректным? Для проверки алгоритма заранее выбери примеры, которые проверяют разные ветки и границу `a = b`.
+В тренажёре последовательно собери алгоритм максимума, разложи вычисление среднего, затем отнеси три набора к обычному, граничному или недопустимому тесту. Сверь каждый с контрактом; после этого меняй `a` и `b`, включая равные значения, и проследи срабатывающую ветку. Перед проверкой алгоритма заранее выбери тесты для разных условий и границ, а не только примеры, где всё «обычно работает».
 
 ### Вопрос
 
@@ -85,9 +122,46 @@ show the chosen number
 
 The steps handle ordinary values and the boundary: when the numbers are equal, the “otherwise” branch still returns a number with the correct maximum value. This example only chooses the maximum of two numbers; it does not define invalid-input behavior, a list of arbitrary length, or non-numeric values.
 
+### A different task: the mean of a non-empty list
+
+Start with a function contract: it accepts a list of integers containing at least one item and returns their arithmetic mean. An empty list does not satisfy that contract. Break the calculation into a contract check, sum accumulation, division by the item count, and returning the result:
+
+```text
+check that the list is not empty
+set total = 0
+add each value to total
+divide total by the number of values
+return the mean
+```
+
+The same order can be expressed in Python:
+
+```python
+def mean(values):
+    if not values:
+        raise ValueError("values must not be empty")
+    total = 0
+    for value in values:
+        total += value
+    return total / len(values)
+```
+
+For `[2, 4, 6]`, the sum is `12`, so the function returns `4.0`. For `[7]`, the result is `7.0`: one item checks the smallest valid list length. An empty list raises `ValueError` because this example's contract explicitly requires a non-empty list.
+
+### Choose test cases
+
+Tests should check different parts of the contract, not just another ordinary example:
+
+- **Typical case:** `[2, 4, 6] → 4.0`; exercises the full loop and division over several items.
+- **Boundary case:** `[7] → 7.0`; checks behavior at the smallest valid input length.
+- **Invalid case:** `[] → ValueError`; checks rejection of input outside the contract.
+- **Additional variation:** `[-2, 2] → 0.0`; checks negative values and cancellation.
+
+Each test answers a different question and can expose a specific defect; three or ten examples still do not prove correctness for every possible input.
+
 ### Explore and practise
 
-Build the steps in the correct order in the trainer. Then change `a` and `b`, including equal values, and follow which branch runs and why the result remains valid. Choose examples that exercise both branches and the boundary `a = b` before trusting the algorithm.
+In the trainer, assemble the maximum algorithm, decompose the mean calculation, then classify three inputs as a typical, boundary, or invalid test. Check each against the contract; afterward, change `a` and `b`, including equal values, and follow the branch that runs. Choose tests for different conditions and boundaries before trusting an algorithm, not only cases where it “usually works.”
 
 ### Question
 
@@ -115,3 +189,4 @@ Pseudocode does not validate data types, invalid input, performance, or an imple
 
 - NIST CSRC Glossary, “Algorithm” (official definition; consulted 2026-10-06): <https://csrc.nist.gov/glossary/term/algorithm>
 - Python 3.14 Tutorial, “More Control Flow Tools” (official Python documentation; consulted 2026-10-06): <https://docs.python.org/3/tutorial/controlflow.html>
+- Python Built-in Exceptions, “ValueError” (official Python documentation; consulted 2026-10-13): <https://docs.python.org/3/library/exceptions.html#ValueError>
