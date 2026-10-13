@@ -165,7 +165,7 @@ In the trainer, assemble the maximum algorithm, decompose the mean calculation, 
 
 ### Question
 
-Why is it useful to check the case `a = b`, even when the task says “find the greater number”?
+Why is it useful to check the case `a = b` when the task asks you to find the greater number?
 
 ### Options
 

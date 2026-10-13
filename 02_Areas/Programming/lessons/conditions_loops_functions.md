@@ -3,7 +3,7 @@ subject: programming
 lesson_id: programming.conditions_loops_functions
 level: foundations
 languages: ru, en
-source_checked: 2026-10-12
+source_checked: 2026-10-13
 source_review_interval_days: 90
 ---
 
@@ -28,7 +28,7 @@ def count_even(numbers):
     return count
 ```
 
-Для `[2, 5, 8]` функция возвращает `2`: цикл проверяет каждое число, остаток `number % 2` равен нулю у чётных, а `count` увеличивается только в этой ветви. `return` завершает функцию и отдаёт значение; `print` лишь показывает текст и сам по себе не заменяет возвращаемый результат.
+Для `[2, 5, 8]` функция возвращает `2`: цикл проверяет каждое число, а операция взятия остатка по модулю двух (`number % 2`) даёт ноль для чётных значений. Счётчик `count` увеличивается только в этой ветви. `return` завершает функцию и отдаёт значение; `print` лишь показывает текст и сам по себе не заменяет возвращаемый результат.
 
 ### Исследуй и потренируйся
 
@@ -77,7 +77,7 @@ def count_even(numbers):
     return count
 ```
 
-For `[2, 5, 8]`, the function returns `2`: the loop checks each number, `number % 2` is zero for even values, and `count` increases only in that branch. `return` ends the function and gives a value to the caller; `print` displays text and does not replace a returned result.
+For `[2, 5, 8]`, the function returns `2`: the loop checks each number, and the modulo-two operation (`number % 2`) leaves a zero remainder for even values. The `count` variable increases only in that branch. `return` ends the function and gives a value to the caller; `print` displays text and does not replace a returned result.
 
 ### Explore and practise
 
