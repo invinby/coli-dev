@@ -5835,6 +5835,19 @@ private struct CellCycleLab: View {
                 .disabled(selectedStage == CellCycleStage.allCases.last)
             }
 
+            VStack(alignment: .leading, spacing: 10) {
+                conceptCard(
+                    titleKey: "lab.cellCycle.cytokinesisTitle",
+                    descriptionKey: "lab.cellCycle.cytokinesisDescription",
+                    systemImage: "arrow.left.and.right"
+                )
+                conceptCard(
+                    titleKey: "lab.cellCycle.differentiationTitle",
+                    descriptionKey: "lab.cellCycle.differentiationDescription",
+                    systemImage: "sparkles"
+                )
+            }
+
             Text(L10n.text("lab.cellCycle.quiz", store.language))
                 .font(.callout.weight(.medium))
             Picker(L10n.text("lab.cellCycle.quiz", store.language), selection: $selectedAnswer) {
@@ -5889,9 +5902,22 @@ private struct CellCycleLab: View {
     private var statusKey: String {
         if CellCyclePractice.isDNAReplicationStage(selectedStage) { return "lab.cellCycle.statusDNA" }
         if CellCyclePractice.isNuclearDivision(selectedStage) { return "lab.cellCycle.statusNucleus" }
-        if CellCyclePractice.isCytoplasmDivision(selectedStage) { return "lab.cellCycle.statusCytoplasm" }
-        if selectedStage == .differentiation { return "lab.cellCycle.statusSpecialize" }
         return "lab.cellCycle.statusPrepare"
+    }
+
+    private func conceptCard(titleKey: String, descriptionKey: String, systemImage: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(L10n.text(titleKey, store.language), systemImage: systemImage)
+                .font(.headline)
+            Text(L10n.text(descriptionKey, store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .combine)
     }
 
     private func move(by offset: Int) {

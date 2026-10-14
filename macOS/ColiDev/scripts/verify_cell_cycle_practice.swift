@@ -4,18 +4,17 @@ import Foundation
 enum CellCyclePracticeVerification {
     static func main() {
         precondition(CellCyclePractice.sequence.first == .g1)
-        precondition(CellCyclePractice.sequence.last == .differentiation)
-        precondition(CellCyclePractice.sequence.count == 10)
+        precondition(CellCyclePractice.sequence.last == .telophase)
+        precondition(CellCyclePractice.sequence.count == 8)
         precondition(CellCyclePractice.next(after: .g1) == .s)
         precondition(CellCyclePractice.next(after: .s) == .g2)
         precondition(CellCyclePractice.next(after: .anaphase) == .telophase)
-        precondition(CellCyclePractice.next(after: .differentiation) == nil)
+        precondition(CellCyclePractice.next(after: .telophase) == nil)
         precondition(CellCyclePractice.isDNAReplicationStage(.s))
         precondition(!CellCyclePractice.isDNAReplicationStage(.anaphase))
         precondition(CellCyclePractice.isNuclearDivision(.metaphase))
-        precondition(!CellCyclePractice.isNuclearDivision(.cytokinesis))
-        precondition(CellCyclePractice.isCytoplasmDivision(.cytokinesis))
-        precondition(!CellCyclePractice.isCytoplasmDivision(.telophase))
+        precondition(!CellCyclePractice.isNuclearDivision(.g1))
+        precondition(CellCyclePractice.isNuclearDivision(.anaphase))
 
         var knowledgeCheck = CellCyclePractice.makeKnowledgeCheckAttempt()
         precondition(knowledgeCheck.answerOriginalIndex == 0)

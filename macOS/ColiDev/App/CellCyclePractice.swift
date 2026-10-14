@@ -9,8 +9,6 @@ enum CellCycleStage: String, CaseIterable, Identifiable {
     case metaphase
     case anaphase
     case telophase
-    case cytokinesis
-    case differentiation
 
     var id: String { rawValue }
 
@@ -54,7 +52,4 @@ enum CellCyclePractice {
         }
     }
 
-    static func isCytoplasmDivision(_ stage: CellCycleStage) -> Bool {
-        stage == .cytokinesis
-    }
 }
