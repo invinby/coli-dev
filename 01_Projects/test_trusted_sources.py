@@ -181,12 +181,12 @@ def test_biology_replicate_sources_are_exact_path_monitored_metadata_only(
     tmp_path: Path,
 ) -> None:
     urls = {
-        "https://grants.nih.gov/policy/reproducibility/training/biological-technical-rep.pdf",
-        "https://cscu.cornell.edu/wp-content/uploads/pseudo.pdf",
+        "https://grants.nih.gov/policy-and-compliance/policy-topics/reproducibility/principles-guidelines-reporting-preclinical-research",
+        "https://online.stat.psu.edu/stat502/Lesson07",
     }
     rejected = {
-        "https://grants.nih.gov/policy/reproducibility/training/other.pdf",
-        "https://cscu.cornell.edu/wp-content/uploads/other.pdf",
+        "https://grants.nih.gov/policy-and-compliance/policy-topics/reproducibility/other",
+        "https://online.stat.psu.edu/stat502/Lesson08",
     }
     _write_lesson(
         tmp_path,
