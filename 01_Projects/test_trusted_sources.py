@@ -177,6 +177,35 @@ def test_ncbi_sources_are_exact_path_monitored_metadata_only(tmp_path: Path) -> 
     assert all(not monitor._has_rag_snapshot(url) for url in urls)
 
 
+def test_biology_replicate_sources_are_exact_path_monitored_metadata_only(
+    tmp_path: Path,
+) -> None:
+    urls = {
+        "https://grants.nih.gov/policy/reproducibility/training/biological-technical-rep.pdf",
+        "https://cscu.cornell.edu/wp-content/uploads/pseudo.pdf",
+    }
+    rejected = {
+        "https://grants.nih.gov/policy/reproducibility/training/other.pdf",
+        "https://cscu.cornell.edu/wp-content/uploads/other.pdf",
+    }
+    _write_lesson(
+        tmp_path,
+        "\n".join(
+            [f"[Official source]({url})" for url in sorted(urls)]
+            + [f"[Unreviewed source]({url})" for url in sorted(rejected)]
+        ),
+    )
+    monitor = _monitor(tmp_path, tmp_path)
+
+    references, unsupported_count, omitted_count = monitor._references()
+
+    assert {reference.url for reference in references} == urls
+    assert unsupported_count == 2
+    assert omitted_count == 0
+    assert all(monitor._rag_policy(url) is None for url in urls)
+    assert all(not monitor._has_rag_snapshot(url) for url in urls)
+
+
 def test_current_murre_study_sources_are_exact_path_metadata_only(tmp_path: Path) -> None:
     publisher_url = "https://www.sciencedirect.com/science/article/pii/S1095643325000789"
     pubmed_url = "https://pubmed.ncbi.nlm.nih.gov/40393560/"
