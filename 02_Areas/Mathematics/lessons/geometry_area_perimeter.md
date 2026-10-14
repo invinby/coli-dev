@@ -91,4 +91,5 @@ The lab covers only rectangles and right triangles; for the triangle, the base a
 
 ## Sources
 
+- OpenStax, *Prealgebra 2e*, [9.3 Use Properties of Angles, Triangles, and the Pythagorean Theorem](https://openstax.org/books/prealgebra-2e/pages/9-3-use-properties-of-angles-triangles-and-the-pythagorean-theorem) — right-triangle legs, hypotenuse, and the Pythagorean theorem used to find its length.
 - OpenStax, *Prealgebra 2e*, [9.4 Use Properties of Rectangles, Triangles, and Trapezoids](https://openstax.org/books/prealgebra-2e/pages/9-4-use-properties-of-rectangles-triangles-and-trapezoids) (concepts; lesson text written in original words).
