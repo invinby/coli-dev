@@ -23,6 +23,10 @@ struct GeometryMeasure {
         return shape == .rectangle ? rectangleArea : rectangleArea / 2
     }
 
+    var areaNeedsRoundingForDisplay: Bool {
+        needsRoundingForHundredths(area)
+    }
+
     var perimeter: Double {
         switch shape {
         case .rectangle:
@@ -32,5 +36,15 @@ struct GeometryMeasure {
         }
     }
 
+    var perimeterNeedsRoundingForDisplay: Bool {
+        needsRoundingForHundredths(perimeter)
+    }
+
     var diagonal: Double { hypot(base, height) }
+
+    private func needsRoundingForHundredths(_ value: Double) -> Bool {
+        let hundredths = value * 100
+        guard hundredths.isFinite else { return true }
+        return abs(hundredths - hundredths.rounded()) > 1e-8
+    }
 }

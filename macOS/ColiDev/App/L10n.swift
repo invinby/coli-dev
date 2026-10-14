@@ -501,6 +501,7 @@ enum L10n {
         "lab.geometryHeight": ("Высота h", "Height h"),
         "lab.geometryArea": ("Площадь", "Area"),
         "lab.geometryPerimeter": ("Периметр", "Perimeter"),
+        "lab.geometryRounding": ("Значения показаны до сотых; знак ≈ отмечает округление.", "Values are shown to two decimal places; ≈ marks rounding."),
         "lab.geometryScaling": ("Удвой обе стороны: проверь, что площадь возрастает в 4 раза, а периметр — в 2. Переключи фигуру при тех же b и h: площадь треугольника вдвое меньше, но длина границы считается по другим сторонам.", "Double both dimensions: check that area becomes 4 times larger while perimeter doubles. Switch shapes with the same b and h: triangle area is half, but its perimeter uses different sides."),
         "lab.geometryLimits": ("Треугольник в этой схеме прямоугольный: b и h — его катеты. Для произвольного треугольника понадобятся другие сведения о сторонах и высоте.", "This diagram's triangle is right-angled: b and h are its legs. A general triangle requires additional information about its sides and altitude."),
         "lab.investigation.title": ("Спроектируй опыт", "Design an investigation"),

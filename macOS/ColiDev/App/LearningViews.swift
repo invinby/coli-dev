@@ -2035,10 +2035,24 @@ private struct GeometryMeasureLab: View {
             slider("lab.geometryHeight", value: $height)
 
             HStack(spacing: 20) {
-                metric("lab.geometryArea", value: measure.area, unit: "m²")
-                metric("lab.geometryPerimeter", value: measure.perimeter, unit: "m")
+                metric(
+                    "lab.geometryArea",
+                    value: measure.area,
+                    unit: "m²",
+                    isApproximate: measure.areaNeedsRoundingForDisplay
+                )
+                metric(
+                    "lab.geometryPerimeter",
+                    value: measure.perimeter,
+                    unit: "m",
+                    isApproximate: measure.perimeterNeedsRoundingForDisplay
+                )
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text(L10n.text("lab.geometryRounding", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
             Text(L10n.text("lab.geometryScaling", store.language))
                 .font(.callout)
@@ -2063,12 +2077,12 @@ private struct GeometryMeasureLab: View {
         }
     }
 
-    private func metric(_ key: String, value: Double, unit: String) -> some View {
+    private func metric(_ key: String, value: Double, unit: String, isApproximate: Bool) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(L10n.text(key, store.language))
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Text("\(value, specifier: "%.2f") \(unit)")
+            Text("\(isApproximate ? "≈ " : "")\(value, specifier: "%.2f") \(unit)")
                 .font(.title3.monospacedDigit())
         }
         .accessibilityElement(children: .combine)
