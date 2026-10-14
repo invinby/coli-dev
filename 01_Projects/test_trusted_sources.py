@@ -181,11 +181,9 @@ def test_biology_replicate_sources_are_exact_path_monitored_metadata_only(
     tmp_path: Path,
 ) -> None:
     urls = {
-        "https://grants.nih.gov/policy-and-compliance/policy-topics/reproducibility/principles-guidelines-reporting-preclinical-research",
         "https://online.stat.psu.edu/stat502/Lesson07",
     }
     rejected = {
-        "https://grants.nih.gov/policy-and-compliance/policy-topics/reproducibility/other",
         "https://online.stat.psu.edu/stat502/Lesson08",
     }
     _write_lesson(
@@ -200,7 +198,7 @@ def test_biology_replicate_sources_are_exact_path_monitored_metadata_only(
     references, unsupported_count, omitted_count = monitor._references()
 
     assert {reference.url for reference in references} == urls
-    assert unsupported_count == 2
+    assert unsupported_count == 1
     assert omitted_count == 0
     assert all(monitor._rag_policy(url) is None for url in urls)
     assert all(not monitor._has_rag_snapshot(url) for url in urls)

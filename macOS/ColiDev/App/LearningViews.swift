@@ -3482,7 +3482,8 @@ private struct BiologyInvestigationLab: View {
         factorToChange: .waterAmount,
         outcomeToMeasure: .leafCount,
         controls: [],
-        plantsPerGroup: 1
+        independentUnitsPerCondition: 1,
+        plantsPerUnit: 3
     )
     @State private var didReviewDesign = false
 
@@ -3564,19 +3565,40 @@ private struct BiologyInvestigationLab: View {
 
             Stepper(
                 value: Binding(
-                    get: { design.plantsPerGroup },
-                    set: { design.plantsPerGroup = $0; didReviewDesign = false }
+                    get: { design.independentUnitsPerCondition },
+                    set: { design.independentUnitsPerCondition = $0; didReviewDesign = false }
                 ),
                 in: 1...12
             ) {
                 Text(
                     String(
                         format: L10n.text("lab.investigation.replicates", store.language),
-                        design.plantsPerGroup
+                        design.independentUnitsPerCondition
                     )
                 )
                 .monospacedDigit()
             }
+
+            Stepper(
+                value: Binding(
+                    get: { design.plantsPerUnit },
+                    set: { design.plantsPerUnit = $0; didReviewDesign = false }
+                ),
+                in: 1...12
+            ) {
+                Text(
+                    String(
+                        format: L10n.text("lab.investigation.plantsPerUnit", store.language),
+                        design.plantsPerUnit
+                    )
+                )
+                .monospacedDigit()
+            }
+
+            Text(L10n.text("lab.investigation.replicationHint", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
 
             Button {
                 didReviewDesign = true

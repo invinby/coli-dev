@@ -33,7 +33,9 @@ struct BiologyExperimentDesign: Equatable {
     var factorToChange: BiologyStudyFactor = .lightExposure
     var outcomeToMeasure: BiologyStudyOutcome = .heightChange
     var controls: Set<BiologyStudyControl> = Set(BiologyStudyControl.allCases)
-    var plantsPerGroup = 3
+    // Count treatment assignments made independently, not plants measured within one shared setup.
+    var independentUnitsPerCondition = 3
+    var plantsPerUnit = 1
 
     var issues: [BiologyStudyIssue] {
         var result: [BiologyStudyIssue] = []
@@ -43,7 +45,7 @@ struct BiologyExperimentDesign: Equatable {
         if !controls.contains(.seedType) { result.append(.seedType) }
         if !controls.contains(.potAndSoil) { result.append(.potAndSoil) }
         if !controls.contains(.temperatureAndDuration) { result.append(.temperatureAndDuration) }
-        if plantsPerGroup < 3 { result.append(.replication) }
+        if independentUnitsPerCondition < 3 { result.append(.replication) }
         return result
     }
 

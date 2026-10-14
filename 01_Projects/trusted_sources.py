@@ -62,6 +62,7 @@ _TRUSTED_HOSTS = frozenset(
         "learnenglish.britishcouncil.org",
         "legacy.bas.ac.uk",
         "medlineplus.gov",
+        "online.stat.psu.edu",
         "raw.githubusercontent.com",
         "www.nist.gov",
         "www.genome.gov",
@@ -99,6 +100,7 @@ _ALLOWED_PATHS = {
     "medlineplus.gov": re.compile(
         r"^/genetics/understanding/(?:basics/(?:dna|gene)|howgeneswork/makingprotein)/?$"
     ),
+    "online.stat.psu.edu": re.compile(r"^/stat502/Lesson07$"),
     "www.genome.gov": re.compile(
         r"^/genetics-glossary/(?:Gene-Expression|Gene-Regulation|Promoter|Chromatid)$"
     ),
