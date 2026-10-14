@@ -8,6 +8,8 @@
 
 The short profile is in the [project README](../README.md#project-profile); the [bilingual product profile](PRODUCT_PROFILE_RU_EN.md) records the full requirements, feedback, and prototype status. This folder contains the working plan.
 
+Текущая готовность тестовой сборки и шаги ручной проверки собраны в [двуязычном отчёте прототипа](PROTOTYPE_READINESS_RU_EN.md). / Current build readiness and hands-on test steps are in the [bilingual prototype report](PROTOTYPE_READINESS_RU_EN.md).
+
 ## Подтверждённое направление
 
 Сделать один полноценный продукт для macOS, объединяющий обучение Python/backend из ColiDev с универсальной платформой для изучения всех важных направлений с самого начала. Приложение должно иметь русскую и английскую локализации. Нужны гибридные онлайн- и офлайн-режимы, RAG для актуальных данных, оркестрация ИИ-агентов, визуальные и интерактивные объяснения, включая 3D-сцены, интеграции с Obsidian и NotebookLM, а также тщательно спроектированный интерфейс по принципам Apple.
