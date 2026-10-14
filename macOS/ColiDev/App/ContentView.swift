@@ -3469,8 +3469,8 @@ private struct SourceRegistryRow: View {
                                 ? "management.sourceRAGCached"
                                 : ragContentState == "license_approved_pending_check"
                                     ? "management.sourceRAGPending"
-                                    : ragContentState == "metadata_only_noncommercial"
-                                        ? "management.sourceRAGNonCommercial"
+                                    : ragContentState == "metadata_only_rights_review"
+                                        ? "management.sourceRAGRightsReview"
                                         : "management.sourceRAGMetadataOnly",
                             language
                         ),
@@ -3489,7 +3489,7 @@ private struct SourceRegistryRow: View {
                             .accessibilityLabel(licenseURL)
                         }
                     }
-                    if ragContentState == "metadata_only_noncommercial",
+                    if ragContentState == "metadata_only_rights_review",
                        let licenseURL = source.ragRestrictionURL,
                        let destination = URL(string: licenseURL) {
                         Link(L10n.text("management.sourceLicenseTerms", language), destination: destination)
@@ -3502,6 +3502,12 @@ private struct SourceRegistryRow: View {
                 }
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+                if ragContentState == "metadata_only_rights_review" {
+                    Text(L10n.text("management.sourceOpenStaxRightsHelp", language))
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
             if let reviewStatus = source.editorialReviewStatus {

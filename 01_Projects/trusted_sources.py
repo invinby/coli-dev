@@ -704,7 +704,7 @@ class TrustedSourceMonitor:
                 "rag_content_state": (
                     "cached" if rag_snapshot is not None
                     else "license_approved_pending_check" if rag_policy is not None
-                    else "metadata_only_noncommercial" if urlsplit(reference.url).hostname == "openstax.org"
+                    else "metadata_only_rights_review" if urlsplit(reference.url).hostname == "openstax.org"
                     else "metadata_only"
                 ),
                 "rag_content_fetched_at": (

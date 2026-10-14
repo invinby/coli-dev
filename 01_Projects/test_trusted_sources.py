@@ -692,13 +692,15 @@ def test_rag_source_check_time_tracks_revalidation_separately_from_snapshot_fetc
     assert found[0]["source_snapshot_fetched_at"] == first["checks"][0]["checked_at"]
 
 
-def test_unlicensed_official_sources_remain_metadata_only_for_rag(tmp_path: Path) -> None:
+def test_openstax_sources_remain_metadata_only_until_book_specific_ai_rights_are_reviewed(
+    tmp_path: Path,
+) -> None:
     url = "https://openstax.org/books/college-physics-2e/pages/7-1-work-the-scientific-definition"
     _write_lesson(tmp_path, f"[OpenStax work page]({url})")
     monitor = _monitor(tmp_path, tmp_path)
 
     assert monitor._rag_policy(url) is None
-    assert monitor.inventory()["sources"][0]["rag_content_state"] == "metadata_only_noncommercial"
+    assert monitor.inventory()["sources"][0]["rag_content_state"] == "metadata_only_rights_review"
     assert monitor.inventory()["sources"][0]["rag_restriction_url"] == (
         "https://help.openstax.org/s/article/Licensing-information-of-OpenStax-textbooks"
     )
@@ -1041,7 +1043,7 @@ def test_inventory_exposes_only_approved_reference_metadata_and_saved_state(tmp_
         "page_published_at": None,
         "page_updated_at": None,
         "content_checked_at": None,
-        "rag_content_state": "metadata_only_noncommercial",
+        "rag_content_state": "metadata_only_rights_review",
         "rag_content_fetched_at": None,
         "rag_license": None,
         "rag_license_url": None,
