@@ -2,23 +2,23 @@
 
 **Дата обновления / Updated:** 2026-10-15
 
-**Проверенный исходный коммит / Verified source commit:** `fbf3325`
+**Проверенный исходный коммит / Verified source commit:** `aa6aad8`
 
-**CI:** [запуск 38580193924](https://github.com/invinby/coli-dev/actions/runs/38580193924) — успешно / passed
+**CI:** [запуск 38648076774](https://github.com/invinby/coli-dev/actions/runs/38648076774) — успешно / passed
 
 **Статус:** прототип готов к внутреннему тесту на Mac; это не релизный установщик. / **Status:** prototype is ready for internal Mac testing; this is not a release installer.
 
 ## Что подтверждено / What is verified
 
-**RU:** GitHub Actions завершил backend-проверки и все Swift-verifier’ы, собрал приложение, встроил локальный backend, прошёл smoke-проверку и аудит учебных маршрутов. Успешно завершились все четыре job: backend, macOS 15 ARM, macOS 26 ARM и macOS 26 Intel. Backend: 538 тестов прошли, одно предупреждение Starlette о применении `httpx` в `TestClient`. Аудит собранного каталога подтвердил 53 связанных RU/EN-урока по шести предметам и 18 уровням. Недавние содержательные исправления: округление в геометрическом тренажёре, этапы клеточного цикла и учёт независимых экспериментальных единиц в опыте с растениями. Эти результаты подтверждают CI, но не ручную приёмку интерфейса, реального ИИ или сохранения состояния на физическом Mac.
+**RU:** GitHub Actions завершил backend-проверки, новый verifier доступности панелей и все Swift-verifier’ы; собрал приложение, встроил локальный backend, прошёл smoke-проверку и аудит учебных маршрутов. Успешно завершились все четыре job: backend, macOS 15 ARM, macOS 26 ARM и macOS 26 Intel. Backend: 538 тестов прошли; остался один warning Starlette/httpx. Аудит собранного каталога подтвердил 53 связанных RU/EN-урока по шести предметам и 18 уровням. В коммите `aa6aad8` исправлено перепутанное accessibility ID обзора и панели моделей; отдельная проверка этого соответствия тоже прошла. CI подтверждает компиляцию, автоматические проверки и упаковку, но не ручную отрисовку интерфейса, реальный ответ ИИ или сохранение состояния на физическом Mac.
 
-**EN:** GitHub Actions passed backend checks and all Swift verifiers, built the app, embedded the local backend, passed the backend smoke check, and audited curriculum routes. All four jobs passed: backend, macOS 15 ARM, macOS 26 ARM, and macOS 26 Intel. The backend suite reported 538 passing tests and one Starlette warning about `httpx` usage in `TestClient`. The packaged catalog audit confirmed 53 linked RU/EN lessons across six subjects and 18 levels. Recent content/model fixes include geometry rounding feedback, cell-cycle stages, and correct independent-unit counting in the plant experiment. These results prove CI behavior, not hands-on acceptance of the UI, a live AI response, or state persistence on a physical Mac.
+**EN:** GitHub Actions passed backend checks, the new pane-accessibility verifier, and all Swift verifiers; it built the app, embedded the local backend, passed the backend smoke check, and audited curriculum routes. All four jobs passed: backend, macOS 15 ARM, macOS 26 ARM, and macOS 26 Intel. The backend suite reported 538 passing tests with one Starlette/httpx warning. The packaged catalog audit confirmed 53 linked RU/EN lessons across six subjects and 18 levels. Commit `aa6aad8` corrects the mismatched accessibility IDs for Overview and Models, and the dedicated mapping check passed. CI proves compilation, automated checks, and packaging, not hands-on UI rendering, a live AI response, or state persistence on a physical Mac.
 
-## Изменения рабочей копии после проверенного CI / Working-tree changes after the verified CI run
+## Проверка соответствия панелей / Control Center pane mapping check
 
-**RU:** В рабочей копии исправлено соответствие accessibility ID для шести панелей Центра управления и добавлены адресные ID двух пунктов навигации. Новая локальная проверка ожидаемо падала до исправления и прошла после него; полный локальный набор backend завершился с 538 passing и одним предупреждением зависимости, `git diff --check` прошёл. Эти изменения ещё не входят в архивы из CI `38580193924`: Xcode-сборка и структурная проверка исходников ожидают новый запуск GitHub Actions. Verifier не открывает окно и не проверяет отрисовку; причина пустой панели со старого скриншота пока не установлена.
+**RU:** Исправлены ID для обзора, курсов, моделей, RAG, источников и интеграций, а также ID пунктов «Центр управления» и «Локальные модели» в боковой панели. Python-verifier проверяет, что каждому ID соответствует свой экран, и что переключатель и навигация имеют стабильные ID. Он упал на прежнем коде, прошёл после исправления и теперь запускается в CI. GitHub Actions `38648076774` успешно собрал и упаковал эту версию для трёх конфигураций macOS. Verifier не открывает окно; прежний пустой экран вручную не воспроизведён, его причина не установлена.
 
-**EN:** The working tree now corrects the accessibility-ID mapping for all six Control Center panes and adds stable IDs to two navigation items. The new local verifier failed as expected before the fix and passed afterward; the full local backend suite reported 538 passing with one dependency warning, and `git diff --check` passed. These changes are not included in the archives from CI run `38580193924`: an Xcode build and source-structure check still await a new GitHub Actions run. The verifier does not open a window or check rendering, and the cause of the earlier blank panel remains unknown.
+**EN:** Stable IDs now map Overview, Courses, Models, RAG, Sources, and Integrations to their own panes; the Management and Local Models sidebar items also have stable IDs. The Python verifier checks the pane-to-ID mapping and navigation identifiers. It failed against the original code, passed after the fix, and now runs in CI. GitHub Actions run `38648076774` successfully built and packaged this version for all three macOS configurations. The verifier does not open a window; the earlier blank screen has not been reproduced manually, and its cause remains unknown.
 
 ## Скачать тестовую сборку / Download the test build
 
@@ -26,16 +26,16 @@ Choose the artifact that matches the Mac. These are CI archives, not a signed in
 
 Выбери архив под свой Mac. Это архивы из CI, а не подписанный установщик. **Приложение не подписано и не нотарифицировано**, поэтому macOS может показать предупреждение Gatekeeper. Для публичного распространения ещё нужны подпись и нотарификация.
 
-- [macOS 15 ARM / Apple Silicon](https://github.com/invinby/coli-dev/actions/runs/38580193924/artifacts/11902704477) — available until 2026-10-28 UTC / доступен до 28.10.2026 UTC.
-- [macOS 26 ARM / Apple Silicon](https://github.com/invinby/coli-dev/actions/runs/38580193924/artifacts/11903695345) — available until 2026-10-28 UTC / доступен до 28.10.2026 UTC.
-- [macOS 26 Intel](https://github.com/invinby/coli-dev/actions/runs/38580193924/artifacts/11903791486) — available until 2026-10-28 UTC / доступен до 28.10.2026 UTC.
+- [macOS 15 ARM / Apple Silicon](https://github.com/invinby/coli-dev/actions/runs/38648076774/artifacts/11932294675) — available until 2026-10-28 UTC / доступен до 28.10.2026 UTC.
+- [macOS 26 ARM / Apple Silicon](https://github.com/invinby/coli-dev/actions/runs/38648076774/artifacts/11933955800) — available until 2026-10-28 UTC / доступен до 28.10.2026 UTC.
+- [macOS 26 Intel](https://github.com/invinby/coli-dev/actions/runs/38648076774/artifacts/11933651533) — available until 2026-10-28 UTC / доступен до 28.10.2026 UTC.
 
 ## Что ещё нужно проверить на Mac / What still needs hands-on Mac acceptance
 
 - **RU:** Запуск приложения и навигацию по предметам, картам, урокам, тренажёрам, добавленным темам и «Продолжить обучение».
 - **EN:** Launch and navigation across subjects, roadmaps, lessons, practice, custom topics, and Continue learning.
-- **RU:** Центр управления должен показывать обзор, а переключение разделов моделей, RAG, источников и интеграций — соответствующие панели. На присланном скриншоте раздел оказался пустым; причину нельзя подтвердить по CI. Нужна ручная проверка установленной сборки на Mac или диагностический экспорт.
-- **EN:** Control Center should render its overview, and its Models, RAG, Sources, and Integrations sections should show their respective panes. A supplied screenshot showed a blank section; CI cannot confirm its cause. The installed build needs hands-on Mac review or a diagnostics export.
+- **RU:** На новой сборке вручную пройти боковую навигацию, обзор и панели моделей, курсов, RAG, источников и интеграций. Перепутанные accessibility ID исправлены, но скриншот пустого экрана не воспроизведён; нужен визуальный тест этой сборки на Mac или диагностический экспорт.
+- **EN:** On the new build, manually navigate the sidebar, overview, and Models, Courses, RAG, Sources, and Integrations panes. The mismatched accessibility IDs are corrected, but the blank screenshot was not reproduced; visually test this build on a Mac or provide a diagnostics export.
 - **RU:** Встроенный P2-срез цели: выбрать и сменить цель, проверить этапы только после завершённого урока и успешной самопроверки, увидеть последнее место остановки и продолжить после паузы без сброса или «долга»; проверить необязательный микростарт.
 - **EN:** The integrated P2 goal slice: choose and change a goal, verify milestones only after lesson completion and a passed check, see the last stopping point, resume after a break without reset or catch-up debt, and check the optional micro-start.
 - **RU:** Реальный ответ выбранной локальной Ollama-модели, ответ разрешённого облачного маршрута и понятную ошибку при недоступной модели.
