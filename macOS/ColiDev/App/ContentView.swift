@@ -63,10 +63,12 @@ struct ContentView: View {
                         Image(systemName: "wrench.and.screwdriver")
                     }
                     .tag(AppSection.management)
+                    .accessibilityIdentifier("sidebar.management")
                     Label { Text(L10n.text("management.models", store.language)) } icon: {
                         Image(systemName: "cpu")
                     }
                     .tag(AppSection.localModels)
+                    .accessibilityIdentifier("sidebar.local-models")
                     Label { Text(L10n.text("nav.settings", store.language)) } icon: { Image(systemName: "gearshape") }
                         .tag(AppSection.settings)
                 }
@@ -1764,6 +1766,7 @@ private struct ManagementView: View {
             }
             .padding(.bottom, 18)
         }
+        .accessibilityIdentifier("control-center.overview")
     }
 
     private var modelsPane: some View {
@@ -1864,7 +1867,7 @@ private struct ManagementView: View {
             }
             .padding(.bottom, 18)
         }
-        .accessibilityIdentifier("control-center.overview")
+        .accessibilityIdentifier("control-center.models")
     }
 
     private var coursesPane: some View {
@@ -2007,6 +2010,7 @@ private struct ManagementView: View {
             }
             .padding(.bottom, 18)
         }
+        .accessibilityIdentifier("control-center.courses")
     }
 
     private func structureSectionSummary(_ sectionKeys: [String]) -> String {
@@ -2173,6 +2177,7 @@ private struct ManagementView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilityIdentifier("control-center.rag")
     }
 
     private var sourcesPane: some View {
@@ -2287,6 +2292,7 @@ private struct ManagementView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilityIdentifier("control-center.sources")
     }
 
     private var visibleSourceItems: [TrustedSourceInventoryItem] {
@@ -2917,6 +2923,7 @@ private struct ManagementView: View {
             }
             .padding(.bottom, 18)
         }
+        .accessibilityIdentifier("control-center.integrations")
     }
 
     private func metric(title: String, value: String, symbol: String, tint: Color) -> some View {

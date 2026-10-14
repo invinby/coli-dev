@@ -38,6 +38,9 @@ jobs:
           SESSION_MAX_PER_DAY: "5"
         run: python -m pytest 01_Projects -q
 
+      - name: Verify Control Center accessibility mapping / Проверка доступности Центра управления
+        run: python macOS/ColiDev/scripts/verify_management_view.py
+
   macos-build:
     name: macOS app build (${{ matrix.runner }})
     strategy:
