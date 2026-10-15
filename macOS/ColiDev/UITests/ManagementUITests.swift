@@ -16,10 +16,31 @@ final class ManagementUITests: XCTestCase {
             "Control Center overview did not show its system status heading after navigation."
         )
 
-        try await Task.sleep(nanoseconds: 800_000_000)
+        let reloadButton = app.buttons["Обновить данные панели"]
+        XCTAssertTrue(
+            reloadButton.waitForExistence(timeout: 10),
+            "Control Center overview did not expose its refresh button.\n\(app.debugDescription)"
+        )
+
         let screenshot = XCTAttachment(screenshot: app.screenshot())
-        screenshot.name = "Control Center after navigation settles"
+        screenshot.name = "Control Center before visibility assertion"
         screenshot.lifetime = .keepAlways
         add(screenshot)
+
+        let hierarchy = XCTAttachment(string: app.debugDescription)
+        hierarchy.name = "Control Center accessibility hierarchy"
+        hierarchy.lifetime = .keepAlways
+        add(hierarchy)
+
+        let visibleRefreshButton = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "hittable == true"),
+            object: reloadButton
+        )
+        let visibilityResult = await XCTWaiter.fulfillment(of: [visibleRefreshButton], timeout: 10)
+        XCTAssertEqual(
+            visibilityResult,
+            .completed,
+            "Control Center refresh button exists in accessibility but is not interactable.\n\(reloadButton.debugDescription)\n\(app.debugDescription)"
+        )
     }
 }
