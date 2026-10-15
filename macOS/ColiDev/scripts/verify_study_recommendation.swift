@@ -58,6 +58,31 @@ enum StudyRecommendationVerification {
             ],
             "Goal milestones must follow the curriculum's actual prerequisite path to the learner's chosen target. / Этапы цели должны идти по реальному пути предпосылок учебного плана к выбранной теме."
         )
+        let directDependencyRoadmap = StudyRoadmap(
+            subjectID: "programming",
+            lessonResources: ["variables", "conditions", "loops", "functions", "unrelated"],
+            progressionLevels: [["variables"], ["conditions"], ["loops"], ["functions"], ["unrelated"]],
+            prerequisitesByResource: [
+                "conditions": ["variables"],
+                "loops": ["conditions"],
+                "functions": ["loops"],
+                "unrelated": ["variables"],
+            ]
+        )
+        let functionsGoal = StudyGoal(
+            target: StudyLessonRoute(subjectID: "programming", resource: "functions")
+        )
+        let transitiveGoalRoutes = StudyGoalPlanner.milestoneRoutes(
+            for: functionsGoal,
+            in: [directDependencyRoadmap]
+        ) ?? []
+        precondition(
+            transitiveGoalRoutes.map(\.lessonID) == [
+                "programming.variables", "programming.conditions", "programming.loops",
+                "programming.functions",
+            ],
+            "Goal milestones must include transitive prerequisites, while excluding unrelated lessons, when the roadmap stores direct dependency edges. / Этапы цели должны включать транзитивные предпосылки и исключать посторонние уроки, если карта хранит только прямые зависимости."
+        )
         let goalProgress = StudyGoalPlanner.progress(
             for: goal,
             in: [goalRoadmap],
