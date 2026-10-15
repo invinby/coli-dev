@@ -161,6 +161,21 @@ enum EnglishLearningModelsVerification {
                 == ["present-as-gift:present", "present-the-results:present", "record-as-a-file:record", "record-the-audio:record"],
             "word-stress examples should match the sentence and localization keys / примеры должны совпадать с контекстом и ключами локализации"
         )
+        precondition(
+            wordStressQuestions.map(\.spokenSentence)
+                == [
+                    "I received a present from the school.",
+                    "She will present the results tomorrow.",
+                    "The record is stored locally.",
+                    "Please record the result."
+                ],
+            "audio must speak the exact English context for each noun and verb form / озвучка должна произносить точное английское предложение для каждой формы"
+        )
+        precondition(
+            EnglishSpeechAccent.available(in: ["en-US", "fr-FR", "en-GB"]).map(\.rawValue) == ["en-GB", "en-US"]
+                && EnglishSpeechAccent.available(in: ["en-AU"]).isEmpty,
+            "only installed UK and US English voices should be offered / предлагать только установленные голоса UK и US"
+        )
         precondition(wordStressQuestions.map(\.correctOption) == [0, 1, 0, 1], "word-stress examples should not always place the answer in one position / правильный вариант не должен всегда стоять на одной позиции")
         for question in wordStressQuestions {
             precondition(
