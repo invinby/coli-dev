@@ -55,6 +55,73 @@ enum StudyFormatPreferenceVerification {
             "Explicit format feedback must persist through local Codable storage without duplication or data loss. / Явная обратная связь о формате должна сохраняться локально без потери данных и повторного подсчёта."
         )
 
+        var subjectProfile = StudyFormatPreferenceProfile()
+        for index in 0..<3 {
+            subjectProfile.record(
+                .workedExample,
+                for: "mathematics.topic.\(index)",
+                subjectID: "mathematics",
+                at: Date(timeIntervalSince1970: TimeInterval(index))
+            )
+        }
+        for index in 0..<2 {
+            subjectProfile.record(
+                .visualModel,
+                for: "english.topic.\(index)",
+                subjectID: "english",
+                at: Date(timeIntervalSince1970: TimeInterval(index + 3))
+            )
+        }
+        precondition(
+            subjectProfile.mostFrequentlyHelpful(forSubjectID: "mathematics") == .workedExample
+                && subjectProfile.mostFrequentlyHelpful(forSubjectID: "english") == nil
+                && subjectProfile.tutorPreference(forSubjectID: "english") == nil,
+            "A preference needs three distinct lessons within the same subject and cannot leak from mathematics into English. / Для предпочтения нужны три разных урока в одном предмете; математика не должна влиять на английский."
+        )
+        subjectProfile.record(
+            .visualModel,
+            for: "english.topic.2",
+            subjectID: "english",
+            at: Date(timeIntervalSince1970: 5)
+        )
+        precondition(
+            subjectProfile.mostFrequentlyHelpful(forSubjectID: "english") == .visualModel
+                && subjectProfile.mostFrequentlyHelpful == nil,
+            "Different subjects may have distinct confirmed formats without manufacturing a global default. / У разных предметов могут быть разные подтверждённые форматы без выдуманного общего значения."
+        )
+
+        var legacyGlobalProfile = StudyFormatPreferenceProfile()
+        for index in 0..<3 {
+            legacyGlobalProfile.record(
+                .plainExplanation,
+                for: "legacy.lesson.\(index)",
+                at: Date(timeIntervalSince1970: TimeInterval(index))
+            )
+        }
+        for index in 0..<3 {
+            legacyGlobalProfile.record(
+                .workedExample,
+                for: "mathematics.new.lesson.\(index)",
+                subjectID: "mathematics",
+                at: Date(timeIntervalSince1970: TimeInterval(index + 3))
+            )
+        }
+        precondition(
+            legacyGlobalProfile.mostFrequentlyHelpful == .plainExplanation
+                && legacyGlobalProfile.tutorPreference(forSubjectID: "mathematics") == .workedExample
+                && legacyGlobalProfile.tutorPreference(forSubjectID: "biology") == .plainExplanation,
+            "A confirmed subject preference must override the legacy global fallback, which remains available to subjects without their own evidence. / Подтверждённое предпочтение предмета должно перекрывать старый общий формат, который остаётся запасным для остальных предметов."
+        )
+
+        let legacyJSON = Data("""
+        {"responses":[{"lesson_id":"legacy.saved.lesson","choice":"plain_explanation","recorded_at":1}]}
+        """.utf8)
+        let decodedLegacy = try JSONDecoder().decode(StudyFormatPreferenceProfile.self, from: legacyJSON)
+        precondition(
+            decodedLegacy.responses.first?.subjectID == nil,
+            "Profiles saved before subject-specific preferences must still decode as global feedback. / Профили, сохранённые до появления предметных предпочтений, должны декодироваться как общая обратная связь."
+        )
+
         var boundedProfile = StudyFormatPreferenceProfile()
         for index in 0..<60 {
             boundedProfile.record(
