@@ -2,19 +2,19 @@
 
 **Дата обновления / Updated:** 2026-10-16
 
-**Проверенный коммит приложения / Verified application commit:** `8b29fbed1fc4c7c0dd4746edad60954d1623120e`
+**Проверенный коммит приложения / Verified application commit:** `65912dc4fb13e2dd8f47a22222fdc2de2aec7858`
 
-**CI:** [запуск 38780599869](https://github.com/invinby/coli-dev/actions/runs/38780599869) — все четыре задания успешно завершены / all four jobs passed
+**CI:** [запуск 38797360096](https://github.com/invinby/coli-dev/actions/runs/38797360096) — все четыре задания успешно завершены / all four jobs passed
 
-**Свежая бета / Current beta:** [ColiDev 0.1.0 Beta 5](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.5)
+**Свежая бета / Current beta:** [ColiDev 0.1.0 Beta 6](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.6)
 
 **Статус:** прототип собран и готов к ручной проверке на Mac; это неподписанная тестовая сборка, не релизный установщик. / **Status:** the prototype is built and ready for hands-on Mac checks; this is an unsigned test build, not a release installer.
 
 ## Что подтверждено / What is verified
 
-**RU:** GitHub Actions [38780599869](https://github.com/invinby/coli-dev/actions/runs/38780599869) прошёл backend-набор и все три сборки macOS: macOS 15 ARM, macOS 26 ARM и macOS 26 Intel. Приложение собрано и упаковано, встроенный backend прошёл smoke-проверку, учебные маршруты проверены. В [Beta 5](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.5) тренажёр ударения произносит четыре контекстных предложения через системный синтез macOS и показывает UK/US только для установленных голосов. Синтез выполняется на устройстве, это не запись Cambridge; приложение не записывает и не оценивает речь. Swift verifier проверяет соответствие аудиопредложений вопросам и отбор доступных голосов. Сохранились предметные предпочтения формата из Beta 4. Каталог содержит 54 RU/EN-маршрута по шести предметам. CI не подтверждает слышимость аудио и визуальное поведение на физическом Mac; ручная проверка остаётся открытой.
+**RU:** GitHub Actions [38797360096](https://github.com/invinby/coli-dev/actions/runs/38797360096) прошёл backend-набор и все три сборки macOS: macOS 15 ARM, macOS 26 ARM и macOS 26 Intel. Приложение собрано и упаковано, встроенный backend прошёл smoke-проверку, учебные маршруты проверены. В [Beta 6](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.6) цель обучения проходит транзитивные предпосылки до базовых уроков и не добавляет несвязанные темы. Swift verifier сначала поймал пропущенные этапы на старой логике, затем прошёл после исправления. Beta 5 озвучивает четыре предложения тренажёра ударения системными голосами macOS; доступны только установленные UK/US голоса. Синтез выполняется на устройстве, это не запись Cambridge; приложение не записывает и не оценивает речь. Сохранились предметные предпочтения формата из Beta 4. Каталог содержит 54 RU/EN-маршрута по шести предметам. CI не подтверждает интерфейс на физическом Mac; ручная проверка остаётся открытой.
 
-**EN:** GitHub Actions [38780599869](https://github.com/invinby/coli-dev/actions/runs/38780599869) passed the backend suite and all three macOS builds: macOS 15 ARM, macOS 26 ARM, and macOS 26 Intel. The app was built and packaged, the bundled backend passed its smoke check, and curriculum routes were verified. In [Beta 5](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.5), the word-stress trainer reads four contextual sentences through macOS speech synthesis and offers UK/US only when those voices are installed. Synthesis happens on-device; it is not Cambridge audio, and the app does not record or score speech. The Swift verifier checks sentence-to-question mapping and available-voice filtering. Beta 4's subject-scoped learning-format preferences remain included. The catalog contains 54 RU/EN routes across six subjects. CI does not prove that audio is audible or verify UI behavior on a physical Mac; hands-on acceptance remains open. [Apple speech synthesis documentation](https://developer.apple.com/documentation/avfoundation/speech-synthesis) describes on-device generation.
+**EN:** GitHub Actions [38797360096](https://github.com/invinby/coli-dev/actions/runs/38797360096) passed the backend suite and all three macOS builds: macOS 15 ARM, macOS 26 ARM, and macOS 26 Intel. The app was built and packaged, the bundled backend passed its smoke check, and curriculum routes were verified. In [Beta 6](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.6), learning goals walk transitive prerequisites to foundational lessons without adding unrelated topics. The Swift verifier first caught missing milestones against the old logic, then passed after the fix. Beta 5 reads four word-stress prompts through macOS system speech; UK/US choices are limited to installed voices. Synthesis happens on-device; it is not Cambridge audio, and the app does not record or score speech. Beta 4's subject-scoped learning-format preferences remain included. The catalog contains 54 RU/EN routes across six subjects. CI does not verify UI behavior on a physical Mac; hands-on acceptance remains open. [Apple speech synthesis documentation](https://developer.apple.com/documentation/avfoundation/speech-synthesis) describes on-device generation.
 ## Проверка соответствия панелей / Control Center pane mapping check
 
 **RU:** Исправлены ID для обзора, курсов, моделей, RAG, источников и интеграций, а также ID пунктов «Центр управления» и «Локальные модели» в боковой панели. Python-verifier проверяет, что каждому ID соответствует свой экран, и что переключатель и навигация имеют стабильные ID. В CI [38736168749](https://github.com/invinby/coli-dev/actions/runs/38736168749) verifier прошёл, и приложение собрано для трёх конфигураций macOS. Verifier не открывает окно; прежний пустой экран вручную не воспроизведён, его причина не установлена.
@@ -27,9 +27,9 @@
 
 Choose the archive for your Mac. These are CI builds, not signed installers. The app is unsigned and not notarized, so macOS may show a Gatekeeper warning.
 
-- [Apple Silicon (M1/M2/M3/M4)](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.5/ColiDev-beta-AppleSilicon.zip) — Beta 5.
-- [Intel Mac](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.5/ColiDev-beta-Intel.zip) — Beta 5.
-- [Release notes / Описание Beta 5](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.5)
+- [Apple Silicon (M1/M2/M3/M4)](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.6/ColiDev-beta-AppleSilicon.zip) — Beta 6.
+- [Intel Mac](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.6/ColiDev-beta-Intel.zip) — Beta 6.
+- [Release notes / Описание Beta 6](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.6)
 
 Распакуй архив, перемести `ColiDev.app` в «Программы» и запусти. При предупреждении нажми Control-кликом по приложению в Finder → «Открыть» → «Открыть». Не отключай Gatekeeper целиком.
 
