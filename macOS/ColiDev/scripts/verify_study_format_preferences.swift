@@ -37,9 +37,9 @@ enum StudyFormatPreferenceVerification {
         let guidance = StudyFormatTutorPrompt.note(for: .visualModel, languageCode: "ru")
         let englishGuidance = StudyFormatTutorPrompt.note(for: .visualModel, languageCode: "en")
         precondition(
-            guidance?.contains("визу") == true
+            guidance?.contains("схемой") == true
                 && guidance?.contains("точность") == true
-                && englishGuidance?.localizedCaseInsensitiveContains("visual") == true
+                && englishGuidance?.localizedCaseInsensitiveContains("diagram") == true
                 && englishGuidance?.localizedCaseInsensitiveContains("accuracy") == true
                 && StudyFormatTutorPrompt.note(for: .notSureYet, languageCode: "ru") == nil,
             "Tutor instructions must honor a confirmed choice in both languages while staying flexible, accurate, and silent when the learner is unsure. / Подсказка тьютору должна учитывать подтверждённый выбор на обоих языках, сохранять гибкость и точность и отсутствовать, если ученик не уверен."
