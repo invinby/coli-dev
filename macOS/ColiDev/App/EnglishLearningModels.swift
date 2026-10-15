@@ -144,14 +144,35 @@ struct EnglishWordStressQuestion: Equatable, Identifiable {
     let id: String
     let word: String
     let correctOption: Int
+    let spokenSentence: String
 }
 
 enum EnglishWordStressPractice {
     static let questions = [
-        EnglishWordStressQuestion(id: "present-as-gift", word: "present", correctOption: 0),
-        EnglishWordStressQuestion(id: "present-the-results", word: "present", correctOption: 1),
-        EnglishWordStressQuestion(id: "record-as-a-file", word: "record", correctOption: 0),
-        EnglishWordStressQuestion(id: "record-the-audio", word: "record", correctOption: 1)
+        EnglishWordStressQuestion(
+            id: "present-as-gift",
+            word: "present",
+            correctOption: 0,
+            spokenSentence: "I received a present from the school."
+        ),
+        EnglishWordStressQuestion(
+            id: "present-the-results",
+            word: "present",
+            correctOption: 1,
+            spokenSentence: "She will present the results tomorrow."
+        ),
+        EnglishWordStressQuestion(
+            id: "record-as-a-file",
+            word: "record",
+            correctOption: 0,
+            spokenSentence: "The record is stored locally."
+        ),
+        EnglishWordStressQuestion(
+            id: "record-the-audio",
+            word: "record",
+            correctOption: 1,
+            spokenSentence: "Please record the result."
+        )
     ]
 
     static func isCorrect(_ option: Int, for questionID: String) -> Bool {
@@ -160,6 +181,18 @@ enum EnglishWordStressPractice {
             return false
         }
         return option == question.correctOption
+    }
+}
+
+enum EnglishSpeechAccent: String, CaseIterable, Identifiable {
+    case british = "en-GB"
+    case american = "en-US"
+
+    var id: String { rawValue }
+
+    static func available(in installedLanguageCodes: [String]) -> [EnglishSpeechAccent] {
+        let installed = Set(installedLanguageCodes)
+        return allCases.filter { installed.contains($0.rawValue) }
     }
 }
 

@@ -2,6 +2,7 @@ import Foundation
 import Combine
 import SwiftUI
 import AppKit
+import AVFoundation
 import SceneKit
 import WebKit
 import UniformTypeIdentifiers
@@ -3141,12 +3142,60 @@ private struct ConditionalPracticeQuestion {
     let feedbackKey: String
 }
 
+private final class EnglishWordStressSpeechPlayer: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
+    private let synthesizer = AVSpeechSynthesizer()
+    private var currentUtterance: AVSpeechUtterance?
+
+    @Published private(set) var isSpeaking = false
+
+    override init() {
+        super.init()
+        synthesizer.delegate = self
+    }
+
+    func speak(_ sentence: String, voice: AVSpeechSynthesisVoice) {
+        stop()
+        let utterance = AVSpeechUtterance(string: sentence)
+        utterance.voice = voice
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.9
+        currentUtterance = utterance
+        isSpeaking = true
+        synthesizer.speak(utterance)
+    }
+
+    func stop() {
+        currentUtterance = nil
+        if synthesizer.isSpeaking {
+            synthesizer.stopSpeaking(at: .immediate)
+        }
+        isSpeaking = false
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.currentUtterance === utterance else { return }
+            self.currentUtterance = nil
+            self.isSpeaking = false
+        }
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.currentUtterance === utterance else { return }
+            self.currentUtterance = nil
+            self.isSpeaking = false
+        }
+    }
+}
+
 private struct EnglishWordStressLab: View {
     @EnvironmentObject private var store: LearningStore
+    @StateObject private var speechPlayer = EnglishWordStressSpeechPlayer()
     @State private var index = 0
     @State private var selection: Int?
     @State private var wasCorrect: Bool?
     @State private var complete = false
+    @State private var selectedAccent = EnglishSpeechAccent.british
     @State private var assessmentTracker = EnglishWordStressAssessmentTracker()
     @State private var optionOrders = QuizAnswerOrder.balancedSequence(
         optionCount: 2,
@@ -3155,6 +3204,23 @@ private struct EnglishWordStressLab: View {
 
     private let questions = EnglishWordStressPractice.questions
     private let lessonID = "english.sounds_stress_rhythm"
+
+    private var installedVoices: [AVSpeechSynthesisVoice] {
+        AVSpeechSynthesisVoice.speechVoices()
+    }
+
+    private var installedAccents: [EnglishSpeechAccent] {
+        EnglishSpeechAccent.available(in: installedVoices.map(\.language))
+    }
+
+    private var activeAccent: EnglishSpeechAccent? {
+        installedAccents.contains(selectedAccent) ? selectedAccent : installedAccents.first
+    }
+
+    private var activeVoice: AVSpeechSynthesisVoice? {
+        guard let activeAccent else { return nil }
+        return installedVoices.first(where: { $0.language == activeAccent.rawValue })
+    }
 
     var body: some View {
         LabCard {
@@ -3178,6 +3244,58 @@ private struct EnglishWordStressLab: View {
                 ProgressView(value: Double(index + 1), total: Double(questions.count))
                 Text(L10n.text("lab.stressQuestion\(index)", store.language))
                     .font(.title3.weight(.medium))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 8) {
+                    Button {
+                        if speechPlayer.isSpeaking {
+                            speechPlayer.stop()
+                        } else if let activeVoice {
+                            speechPlayer.speak(questions[index].spokenSentence, voice: activeVoice)
+                        }
+                    } label: {
+                        Label(
+                            L10n.text(speechPlayer.isSpeaking ? "lab.stressStopAudio" : "lab.stressListen", store.language),
+                            systemImage: speechPlayer.isSpeaking ? "stop.fill" : "speaker.wave.2.fill"
+                        )
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(activeVoice == nil)
+                    .accessibilityIdentifier("english.stress.listen")
+
+                    Menu {
+                        ForEach(installedAccents) { accent in
+                            Button {
+                                selectedAccent = accent
+                                speechPlayer.stop()
+                            } label: {
+                                if activeAccent == accent {
+                                    Label(
+                                        L10n.text(accent == .british ? "lab.stressBritishVoice" : "lab.stressAmericanVoice", store.language),
+                                        systemImage: "checkmark"
+                                    )
+                                } else {
+                                    Text(L10n.text(accent == .british ? "lab.stressBritishVoice" : "lab.stressAmericanVoice", store.language))
+                                }
+                            }
+                        }
+                    } label: {
+                        Label(
+                            L10n.text(
+                                activeAccent == .american ? "lab.stressAmericanVoice" : "lab.stressBritishVoice",
+                                store.language
+                            ),
+                            systemImage: "globe"
+                        )
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(installedAccents.count < 2)
+                    .accessibilityIdentifier("english.stress.voice")
+                }
+
+                Text(L10n.text(activeVoice == nil ? "lab.stressVoiceUnavailable" : "lab.stressSyntheticAudioNote", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 ForEach(Array(optionOrders[index].displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
@@ -3222,10 +3340,12 @@ private struct EnglishWordStressLab: View {
                 .accessibilityIdentifier("english.stress.check")
             }
         }
+        .onDisappear { speechPlayer.stop() }
         .accessibilityIdentifier("english.word-stress-lab")
     }
 
     private func advanceOrCheck() {
+        speechPlayer.stop()
         if wasCorrect == true {
             guard index < questions.count - 1 else {
                 complete = true
@@ -3246,6 +3366,7 @@ private struct EnglishWordStressLab: View {
     }
 
     private func reset() {
+        speechPlayer.stop()
         index = 0
         selection = nil
         wasCorrect = nil
