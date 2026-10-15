@@ -245,7 +245,7 @@ enum EnglishLearningModelsVerification {
             "i-am": "am",
             "she-is": "is",
             "you-are": "are",
-            "we-are": "are",
+            "we-are": "We are",
             "plural-negative": "are",
             "inverted-question": "Are",
             "short-answer": "are"
