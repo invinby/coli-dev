@@ -3,7 +3,7 @@ subject: programming
 lesson_id: programming.variables_and_types
 level: foundations
 languages: ru, en
-source_checked: 2026-10-12
+source_checked: 2026-10-15
 source_review_interval_days: 90
 ---
 
@@ -161,5 +161,5 @@ Python names are case-sensitive: `score` and `Score` are different names. Assign
 
 ## Sources
 
-- Python 3.14 Library Reference, built-in functions `input()` and `int()` (official Python documentation; consulted 2026-10-12): <https://docs.python.org/3.14/library/functions.html#input>, <https://docs.python.org/3.14/library/functions.html#int>
-- Python 3.14 Library Reference, `ValueError` (official Python documentation; consulted 2026-10-12): <https://docs.python.org/3.14/library/exceptions.html#ValueError>
+- Python 3 built-in functions, `input()` and `int()` (official Python documentation; consulted 2026-10-15): <https://docs.python.org/3/builtins/functions.html#input>, <https://docs.python.org/3/builtins/functions.html#int>
+- Python 3 built-in exceptions, `ValueError` (official Python documentation; consulted 2026-10-15): <https://docs.python.org/3/builtins/exceptions.html#ValueError>

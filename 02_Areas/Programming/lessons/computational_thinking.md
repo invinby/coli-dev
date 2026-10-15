@@ -3,7 +3,7 @@ subject: programming
 lesson_id: programming.computational_thinking
 level: foundations
 languages: ru, en
-source_checked: 2026-10-13
+source_checked: 2026-10-15
 source_review_interval_days: 90
 ---
 
@@ -188,5 +188,5 @@ Pseudocode does not validate data types, invalid input, performance, or an imple
 ## Sources
 
 - NIST CSRC Glossary, “Algorithm” (official definition; consulted 2026-10-06): <https://csrc.nist.gov/glossary/term/algorithm>
-- Python 3.14 Tutorial, “More Control Flow Tools” (official Python documentation; consulted 2026-10-06): <https://docs.python.org/3/tutorial/controlflow.html>
-- Python Built-in Exceptions, “ValueError” (official Python documentation; consulted 2026-10-13): <https://docs.python.org/3/library/exceptions.html#ValueError>
+- Python 3 Tutorial, “More Control Flow Tools” (official Python documentation; consulted 2026-10-15): <https://docs.python.org/3/tutorial/controlflow.html>
+- Python 3 built-in exceptions, “ValueError” (official Python documentation; consulted 2026-10-15): <https://docs.python.org/3/builtins/exceptions.html#ValueError>

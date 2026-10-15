@@ -3,7 +3,7 @@ subject: programming
 lesson_id: programming.search_and_complexity
 level: intermediate
 languages: ru, en
-source_checked: 2026-10-13
+source_checked: 2026-10-15
 source_review_interval_days: 365
 ---
 
@@ -148,5 +148,5 @@ The data-structure exercise checks whether a container fits the required operati
 - Python Software Foundation, *Python 3 Library Reference*, “bisect — Array bisection algorithm” (consulted 2026-10-06; documentation version 3.14.8): <https://docs.python.org/3/library/bisect.html>
 - The Python documentation explains that `bisect` performs a logarithmic search and that sorted-list insertion through `insort` is `O(n)` overall. Source text is cached only under the Python Software Foundation License Version 2 attribution policy.
 - Python Software Foundation, *Python 3 Tutorial*, “Data Structures” (consulted 2026-10-13): lists, sets, dictionaries, membership, uniqueness, and key-value associations: <https://docs.python.org/3/tutorial/datastructures.html>
-- Python Software Foundation, *Python 3.14 Library Reference*, “`sys.getsizeof()`” (consulted 2026-10-13): reports the memory directly attributed to an object and does not include referenced objects: <https://docs.python.org/3.14/library/sys.html#sys.getsizeof>
+- Python Software Foundation, *Python 3 Library Reference*, “`sys.getsizeof()`” (current official docs; consulted 2026-10-15): reports the memory directly attributed to an object and does not include referenced objects: <https://docs.python.org/3/library/sys.html#sys.getsizeof>
 - Source text is cached only under the Python Software Foundation License Version 2 attribution policy.

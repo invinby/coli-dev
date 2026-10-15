@@ -34,8 +34,8 @@ def test_data_structure_lesson_covers_choice_and_memory_in_both_languages() -> N
 
 
 def test_python_shallow_size_reference_is_allowlisted_with_psf_policy() -> None:
-    url = "https://docs.python.org/3.14/library/sys.html#sys.getsizeof"
-    canonical = "https://docs.python.org/3.14/library/sys.html"
+    url = "https://docs.python.org/3/library/sys.html#sys.getsizeof"
+    canonical = "https://docs.python.org/3/library/sys.html"
 
     assert TrustedSourceMonitor._canonical_url(url) == canonical
     policy = TrustedSourceMonitor._rag_policy(url)

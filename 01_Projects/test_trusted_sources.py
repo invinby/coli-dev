@@ -395,13 +395,82 @@ def test_python_bisect_library_page_is_monitored_and_licensed_for_rag(tmp_path: 
     assert monitor.inventory()["sources"][0]["rag_content_state"] == "license_approved_pending_check"
 
 
-def test_python_314_input_and_value_error_references_are_exact_and_licensed() -> None:
+def test_current_python_input_and_value_error_references_are_exact_and_licensed() -> None:
     for page, anchor in (("functions", "input"), ("exceptions", "ValueError")):
-        url = f"https://docs.python.org/3.14/library/{page}.html"
+        url = f"https://docs.python.org/3/builtins/{page}.html"
         assert TrustedSourceMonitor._canonical_url(f"{url}#{anchor}") == url
         policy = TrustedSourceMonitor._rag_policy(url)
         assert policy is not None
         assert policy["license"] == "Python Software Foundation License Version 2"
+
+
+def test_current_python_builtin_sources_use_direct_nonredirecting_urls(
+    tmp_path: Path,
+) -> None:
+    current_urls = {
+        "https://docs.python.org/3/builtins/exceptions.html",
+        "https://docs.python.org/3/builtins/functions.html",
+        "https://docs.python.org/3/builtins/stdtypes.html",
+        "https://docs.python.org/3/library/sys.html",
+    }
+    redirected_urls = {
+        "https://docs.python.org/3.14/library/exceptions.html#ValueError",
+        "https://docs.python.org/3.14/library/functions.html#input",
+        "https://docs.python.org/3/library/stdtypes.html#truth-value-testing",
+    }
+    lesson_lines = [f"[Current Python docs]({url})" for url in sorted(current_urls)]
+    lesson_lines.extend(
+        f"[Redirecting legacy URL]({url})" for url in sorted(redirected_urls)
+    )
+    _write_lesson(tmp_path, "\n".join(lesson_lines))
+    monitor = _monitor(tmp_path, tmp_path)
+
+    references, unsupported_count, omitted_count = monitor._references()
+
+    assert {reference.url for reference in references} == current_urls
+    assert unsupported_count == len(redirected_urls)
+    assert omitted_count == 0
+    for url in current_urls:
+        assert TrustedSourceMonitor._canonical_url(url) == url
+        policy = monitor._rag_policy(url)
+        assert policy is not None
+        assert policy["license"] == "Python Software Foundation License Version 2"
+
+
+def test_audited_official_references_are_monitored_without_broadening_hosts_or_rag(
+    tmp_path: Path,
+) -> None:
+    metadata_only_urls = {
+        "https://dictionary.cambridge.org/grammar/british-grammar/reporting-clauses",
+        "https://www.ncbi.nlm.nih.gov/books/NBK26825/",
+        "https://medlineplus.gov/about/using/usingcontent/",
+        "https://openstax.org/terms-of-use",
+        "https://www.nist.gov/copyrights-disclaimers",
+    }
+    genome_urls = {
+        "https://www.genome.gov/genetics-glossary/Gene",
+        "https://www.genome.gov/genetics-glossary/Phenotype",
+        "https://www.genome.gov/genetics-glossary/genotype",
+    }
+    _write_lesson(
+        tmp_path,
+        "\n".join(
+            f"[Official source]({url})" for url in sorted(metadata_only_urls | genome_urls)
+        ),
+    )
+    monitor = _monitor(tmp_path, tmp_path)
+
+    references, unsupported_count, omitted_count = monitor._references()
+
+    assert {reference.url for reference in references} == metadata_only_urls | genome_urls
+    assert unsupported_count == 0
+    assert omitted_count == 0
+    assert all(monitor._rag_policy(url) is None for url in metadata_only_urls)
+    assert all(monitor._rag_policy(url) is not None for url in genome_urls)
+    assert TrustedSourceMonitor._canonical_url(
+        "https://www.genome.gov/genetics-glossary/Unreviewed-Term"
+    ) is None
+    assert TrustedSourceMonitor._canonical_url("https://example.org/lesson") is None
 
 
 def test_sqlite_schema_query_planner_and_transaction_docs_are_exact_and_public_domain() -> None:

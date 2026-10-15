@@ -79,15 +79,17 @@ _ALLOWED_PATHS = {
     "animaldiversity.org": re.compile(r"^/accounts/[A-Za-z0-9_.-]+/?$"),
     "csrc.nist.gov": re.compile(r"^/glossary/term/algorithm$"),
     "docs.python.org": re.compile(
-        r"^(?:/3/tutorial/[A-Za-z0-9_.-]+\.html|/3/reference/(?:simple_stmts|compound_stmts)\.html|/3/library/bisect\.html|"
-        r"/3\.14/library/(?:functions|exceptions|sys)\.html)$"
+        r"^(?:/3/(?:tutorial/[A-Za-z0-9_.-]+\.html|reference/(?:simple_stmts|compound_stmts)\.html|"
+        r"library/(?:bisect|sys)\.html|builtins/(?:functions|exceptions|stdtypes)\.html)|"
+        r"/3\.14/builtins/(?:functions|exceptions)\.html)$"
     ),
     "docs.github.com": re.compile(
         r"^/en/pull-requests/(?:how-tos/create-pull-requests/creating-a-pull-request|"
         r"concepts/writing-code-for-a-project)$"
     ),
     "dictionary.cambridge.org": re.compile(
-        r"^/(?:dictionary/english/stress|pronunciation/english/(?:present|record)|help/phonetics\.html)$"
+        r"^/(?:dictionary/english/stress|pronunciation/english/(?:present|record)|help/phonetics\.html|"
+        r"grammar/british-grammar/reporting-clauses)$"
     ),
     "git-scm.com": re.compile(
         r"^/(?:book/en/v2/(?:Git-Basics-Recording-Changes-to-the-Repository|Git-Branching-Branches-in-a-Nutshell)|"
@@ -103,24 +105,25 @@ _ALLOWED_PATHS = {
         r"^/about_antarctica/wildlife/birds/penguins/(?:emperor\.php|index\.php)$"
     ),
     "medlineplus.gov": re.compile(
-        r"^/genetics/understanding/(?:basics/(?:dna|gene)|howgeneswork/makingprotein)/?$"
+        r"^(?:/genetics/understanding/(?:basics/(?:dna|gene)|howgeneswork/makingprotein)/?|"
+        r"/about/using/usingcontent/)$"
     ),
     "online.stat.psu.edu": re.compile(r"^/stat502/Lesson07$"),
     "www.genome.gov": re.compile(
-        r"^/genetics-glossary/(?:Gene-Expression|Gene-Regulation|Promoter|Chromatid)$"
+        r"^/genetics-glossary/(?:Gene-Expression|Gene-Regulation|Promoter|Chromatid|Gene|Phenotype|genotype)$"
     ),
     "www.ncbi.nlm.nih.gov": re.compile(
-        r"^/books/(?:NBK26854|NBK550206|NBK9842)/?$"
+        r"^/books/(?:NBK26825|NBK26854|NBK550206|NBK9842)/?$"
     ),
     "www.nist.gov": re.compile(
         r"^(?:/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/"
-        r"nist-guide-si-appendix-b9|/pml/owm/metric-si-prefixes)$"
+        r"nist-guide-si-appendix-b9|/pml/owm/metric-si-prefixes|/copyrights-disclaimers)$"
     ),
     "www.sqlite.org": re.compile(
         r"^/(?:lang_createtable|lang_select|queryplanner|lang_transaction)\.html$"
     ),
     "sqlite.org": re.compile(r"^/copyright\.html$"),
-    "openstax.org": re.compile(r"^/books/[a-z0-9-]+/pages/[a-z0-9-]+/?$"),
+    "openstax.org": re.compile(r"^(?:/books/[a-z0-9-]+/pages/[a-z0-9-]+/?|/terms-of-use)$"),
     "www.sciencedirect.com": re.compile(r"^/science/article/pii/S1095643325000789$"),
     "pubmed.ncbi.nlm.nih.gov": re.compile(r"^/40393560/$"),
     "raw.githubusercontent.com": re.compile(
@@ -133,8 +136,9 @@ _ALLOWED_PATHS = {
 _RAG_SOURCE_POLICIES = {
     "docs.python.org": {
         "path": re.compile(
-            r"^(?:/3/tutorial/[A-Za-z0-9_.-]+\.html|/3/reference/(?:simple_stmts|compound_stmts)\.html|/3/library/bisect\.html|"
-            r"/3\.14/library/(?:functions|exceptions|sys)\.html)$"
+            r"^(?:/3/(?:tutorial/[A-Za-z0-9_.-]+\.html|reference/(?:simple_stmts|compound_stmts)\.html|"
+            r"library/(?:bisect|sys)\.html|builtins/(?:functions|exceptions|stdtypes)\.html)|"
+            r"/3\.14/builtins/(?:functions|exceptions)\.html)$"
         ),
         "license": "Python Software Foundation License Version 2",
         "license_url": "https://docs.python.org/3/license.html",
@@ -159,7 +163,7 @@ _RAG_SOURCE_POLICIES = {
     },
     "www.genome.gov": {
         "path": re.compile(
-            r"^/genetics-glossary/(?:Gene-Expression|Gene-Regulation|Promoter|Chromatid)$"
+            r"^/genetics-glossary/(?:Gene-Expression|Gene-Regulation|Promoter|Chromatid|Gene|Phenotype|genotype)$"
         ),
         "license": "NHGRI website material is public domain unless otherwise indicated on the page",
         "license_url": "https://www.genome.gov/about-nhgri/Policies-Guidance/Copyright",

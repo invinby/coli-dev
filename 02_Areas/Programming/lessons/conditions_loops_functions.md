@@ -3,7 +3,7 @@ subject: programming
 lesson_id: programming.conditions_loops_functions
 level: foundations
 languages: ru, en
-source_checked: 2026-10-13
+source_checked: 2026-10-15
 source_review_interval_days: 90
 ---
 
@@ -110,6 +110,6 @@ For a list of `n` fixed-size integers, the loop makes `n` iterations and checks;
 ## Sources
 
 - Python Tutorial, “More Control Flow Tools” / Учебник Python, «Дополнительные средства управления потоком» — statements / операторы `if`, `for` and function definitions / и определения функций: <https://docs.python.org/3/tutorial/controlflow.html#if-statements>, <https://docs.python.org/3/tutorial/controlflow.html#for-statements>, <https://docs.python.org/3/tutorial/controlflow.html#defining-functions>
-- Python Standard Types / Стандартные типы Python — truth-value testing / проверка истинности и numeric types, including `%` / числовые типы, включая `%`: <https://docs.python.org/3/library/stdtypes.html#truth-value-testing>, <https://docs.python.org/3/library/stdtypes.html#numeric-types-int-float-complex>
-- Python Built-in Functions, `print()` / Встроенные функции Python, `print()`: <https://docs.python.org/3/library/functions.html#print>
+- Python Built-in Types / Встроенные типы Python — truth-value testing / проверка истинности и numeric types, including `%` / числовые типы, включая `%` (current docs; consulted / актуальная документация, проверена 2026-10-15): <https://docs.python.org/3/builtins/stdtypes.html#truth-value-testing>, <https://docs.python.org/3/builtins/stdtypes.html#numeric-types-int-float-complex>
+- Python Built-in Functions, `print()` / Встроенные функции Python, `print()` (current docs; consulted / актуальная документация, проверена 2026-10-15): <https://docs.python.org/3/builtins/functions.html#print>
 - Python Language Reference, the `return` statement / Справочник языка Python, оператор `return`: <https://docs.python.org/3/reference/simple_stmts.html#the-return-statement>
