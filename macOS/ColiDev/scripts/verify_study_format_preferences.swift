@@ -67,5 +67,23 @@ enum StudyFormatPreferenceVerification {
             boundedProfile.responses.count == StudyFormatPreferenceProfile.maximumStoredResponses,
             "The on-device preference history must remain bounded. / История предпочтений на устройстве должна иметь ограниченный размер."
         )
+
+        var resettableProfile = StudyFormatPreferenceProfile()
+        for index in 0..<3 {
+            resettableProfile.record(
+                .workedExample,
+                for: "reset.lesson.\(index)",
+                at: Date(timeIntervalSince1970: TimeInterval(index))
+            )
+        }
+        precondition(
+            resettableProfile.mostFrequentlyHelpful == .workedExample,
+            "Three explicit lesson choices should create a visible preference before it can be cleared. / Три явных выбора в разных уроках должны создать предпочтение, которое можно очистить."
+        )
+        resettableProfile.clear()
+        precondition(
+            resettableProfile.responses.isEmpty && resettableProfile.mostFrequentlyHelpful == nil,
+            "Clearing preferences must remove all local feedback and stop guiding the tutor. / Очистка должна удалить всю локальную обратную связь и убрать подсказку о предпочтении для тьютора."
+        )
     }
 }
