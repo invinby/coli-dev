@@ -4,6 +4,12 @@
 >
 > **EN:** This document describes the product goal, team requirements, and current prototype status. A requirement in this profile does not mean that the feature is already implemented or verified on a Mac.
 
+## Проверенное состояние прототипа / Verified prototype status — 2026-10-15
+
+**RU:** Сейчас это ранний нативный прототип SwiftUI с backend на Python/FastAPI, шестью направлениями и 54 проверяемыми двуязычными маршрутами; каталог не является полным курсом. В текущей ветке добавлен Foundations-тренажёр слогов и ударения с обратной связью и сохранением попыток. GitHub Actions [38741526574](https://github.com/invinby/coli-dev/actions/runs/38741526574) успешно собрал и упаковал приложение для macOS 15 ARM, macOS 26 ARM и macOS 26 Intel и проверил встроенный backend. Локально прошли 542 backend-теста. Ручной запуск, навигация, реальные ответы ИИ, сохранение и интеграции на физическом Mac ещё не приняты. Монитор источников сверяет ограниченный список официальных страниц; он не переписывает уроки автоматически.
+
+**EN:** This remains an early native SwiftUI prototype with a Python/FastAPI backend, six subject areas, and 54 checked bilingual routes; the catalog is not a complete course. The current branch adds a syllables and word-stress Foundations trainer with feedback and saved attempts. GitHub Actions [38741526574](https://github.com/invinby/coli-dev/actions/runs/38741526574) successfully built and packaged the app for macOS 15 ARM, macOS 26 ARM, and macOS 26 Intel and checked the bundled backend. All 542 local backend tests passed. Hands-on launch, navigation, live AI replies, persistence, and integrations on a physical Mac have not yet been accepted. The source monitor checks a bounded list of official pages; it does not automatically rewrite lessons.
+
 ## 1. Цель продукта / Product goal
 
 **RU:** ColiDev — текущий нативный прототип macOS для долгосрочного видения Cause & Corse: персональной системы образования и интеллектуального развития. Продукт должен объединить учебные курсы, практику, персональный учебный план, визуальные тренажёры, проверяемые источники и сохранение прогресса. Это не просто чат с моделью и не набор красивых экранов: интерфейс, учебная логика, материалы, ИИ и обратная связь должны работать как единая система.

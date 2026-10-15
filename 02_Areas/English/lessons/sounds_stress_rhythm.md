@@ -101,8 +101,8 @@ Stress cannot be reliably predicted from spelling alone. The *present* and *reco
 
 ## Sources
 
-- British Council LearnEnglish, [“An easy way to work out how to pronounce new words”](https://learnenglish.britishcouncil.org/english-levels/improve-your-english-level/easy-way-work-out-how-pronounce-new-words) (consulted 2026-10-15).
-- Cambridge Dictionary, [“Stress | English meaning”](https://dictionary.cambridge.org/dictionary/english/stress) (consulted 2026-10-15).
-- Cambridge Dictionary, [pronunciation of “present”](https://dictionary.cambridge.org/pronunciation/english/present) (noun and verb; UK and US audio, consulted 2026-10-15).
-- Cambridge Dictionary, [pronunciation of “record”](https://dictionary.cambridge.org/pronunciation/english/record) (noun and verb; UK and US audio, consulted 2026-10-15).
-- Cambridge Dictionary, [“Help – Phonetics”](https://dictionary.cambridge.org/help/phonetics.html) (IPA syllable-boundary and stress marks, consulted 2026-10-15).
+- British Council LearnEnglish, [“An easy way to work out how to pronounce new words”](https://learnenglish.britishcouncil.org/english-levels/improve-your-english-level/easy-way-work-out-how-pronounce-new-words) / «Простой способ разобраться, как произносить новые слова» (consulted / проверено 2026-10-15).
+- Cambridge Dictionary, [“Stress | English meaning”](https://dictionary.cambridge.org/dictionary/english/stress) / «Stress: значение в английском языке» (consulted / проверено 2026-10-15).
+- Cambridge Dictionary, [pronunciation of “present” / произношение present](https://dictionary.cambridge.org/pronunciation/english/present) (noun and verb; UK and US audio / существительное и глагол; аудио UK и US; consulted / проверено 2026-10-15).
+- Cambridge Dictionary, [pronunciation of “record” / произношение record](https://dictionary.cambridge.org/pronunciation/english/record) (noun and verb; UK and US audio / существительное и глагол; аудио UK и US; consulted / проверено 2026-10-15).
+- Cambridge Dictionary, [“Help – Phonetics”](https://dictionary.cambridge.org/help/phonetics.html) / «Справка — фонетика» (IPA syllable-boundary and stress marks / знаки границ слогов и ударения IPA; consulted / проверено 2026-10-15).
