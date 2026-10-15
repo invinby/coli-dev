@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import sqlite3
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -19,6 +20,30 @@ def _write_lesson(root: Path, body: str) -> None:
 
 def _monitor(root: Path, tmp_path: Path) -> TrustedSourceMonitor:
     return TrustedSourceMonitor(root, tmp_path / "knowledge.sqlite3")
+
+
+def test_inventory_explicitly_closes_database_connection(tmp_path: Path, monkeypatch) -> None:
+    class TrackingConnection(sqlite3.Connection):
+        def close(self) -> None:
+            self.was_closed = True
+            super().close()
+
+    opened: list[TrackingConnection] = []
+    original_connect = sqlite3.connect
+
+    def tracked_connect(*args, **kwargs):
+        connection = original_connect(*args, **kwargs, factory=TrackingConnection)
+        connection.was_closed = False
+        opened.append(connection)
+        return connection
+
+    monkeypatch.setattr(trusted_sources.sqlite3, "connect", tracked_connect)
+    monitor = _monitor(tmp_path, tmp_path)
+
+    monitor.inventory()
+
+    assert opened
+    assert all(connection.was_closed for connection in opened)
 
 
 def test_automatic_check_is_due_for_new_and_stale_sources(tmp_path: Path) -> None:

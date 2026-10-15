@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+from collections.abc import Iterator
+from contextlib import contextmanager
 from html.parser import HTMLParser
 import os
 import re
@@ -502,7 +504,7 @@ class TrustedSourceMonitor:
             # Keep the HTTP work bounded, but never permanently starve links
             # beyond the alphabetical batch. Unchecked and oldest references
             # get the next slots so the scheduler eventually visits the tail.
-            with self._db_lock, self._connect() as connection:
+            with self._db_lock, self._connection() as connection:
                 previous_checks = {
                     str(row["url"]): str(row["last_checked_at"])
                     for row in connection.execute(
@@ -596,10 +598,20 @@ class TrustedSourceMonitor:
         )
         return connection
 
+    @contextmanager
+    def _connection(self) -> Iterator[sqlite3.Connection]:
+        """Commit or roll back a SQLite unit of work, then always close its handle."""
+        connection = self._connect()
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
+
     def inventory(self, *, today: date | None = None) -> dict[str, object]:
         """Return the approved source registry and saved check metadata without network access."""
         references, unsupported_count, omitted_count = self._references()
-        with self._db_lock, self._connect() as connection:
+        with self._db_lock, self._connection() as connection:
             previous_checks = {
                 str(row["url"]): row
                 for row in connection.execute(
@@ -774,7 +786,7 @@ class TrustedSourceMonitor:
     def _save_editorial_review(
         self, url: str, lesson_path: str, digest: str, reviewed_on: str, reviewed_at: str
     ) -> None:
-        with self._db_lock, self._connect() as connection:
+        with self._db_lock, self._connection() as connection:
             connection.execute(
                 """INSERT INTO trusted_source_editorial_reviews(
                     url, lesson_path, reviewed_digest, reviewed_on, reviewed_at
@@ -794,7 +806,7 @@ class TrustedSourceMonitor:
         if previous is None or not previous["pending_review_digest"]:
             return
         pending_digest = str(previous["pending_review_digest"])
-        with self._db_lock, self._connect() as connection:
+        with self._db_lock, self._connection() as connection:
             latest_reviews = {
                 str(row["lesson_path"]): str(row["reviewed_digest"])
                 for row in connection.execute(
@@ -828,7 +840,7 @@ class TrustedSourceMonitor:
         current = now or datetime.now(timezone.utc)
         if current.tzinfo is None:
             current = current.replace(tzinfo=timezone.utc)
-        with self._db_lock, self._connect() as connection:
+        with self._db_lock, self._connection() as connection:
             previous_checks = {
                 str(row["url"]): row
                 for row in connection.execute(
@@ -858,7 +870,7 @@ class TrustedSourceMonitor:
         return max(0.0, min(delays))
 
     def _previous_check(self, url: str) -> sqlite3.Row | None:
-        with self._db_lock, self._connect() as connection:
+        with self._db_lock, self._connection() as connection:
             return connection.execute(
                 "SELECT * FROM trusted_source_checks WHERE url = ?", (url,)
             ).fetchone()
@@ -866,7 +878,7 @@ class TrustedSourceMonitor:
     def _has_rag_snapshot(self, url: str) -> bool:
         if self._rag_policy(url) is None:
             return False
-        with self._db_lock, self._connect() as connection:
+        with self._db_lock, self._connection() as connection:
             return connection.execute(
                 "SELECT 1 FROM trusted_source_rag_snapshots WHERE url = ?", (url,)
             ).fetchone() is not None
@@ -894,7 +906,7 @@ class TrustedSourceMonitor:
         policy = self._rag_policy(url)
         if policy is None or not text:
             return
-        with self._db_lock, self._connect() as connection:
+        with self._db_lock, self._connection() as connection:
             connection.execute(
                 """INSERT INTO trusted_source_rag_snapshots(
                     url, page_title, page_text, content_digest, fetched_at,
@@ -934,7 +946,7 @@ class TrustedSourceMonitor:
         now = datetime.now(timezone.utc)
         cutoff = (now - _MAX_RAG_CHECK_AGE).isoformat(timespec="seconds").replace("+00:00", "Z")
         placeholders = ",".join("?" for _ in eligible_urls)
-        with self._db_lock, self._connect() as connection:
+        with self._db_lock, self._connection() as connection:
             rows = connection.execute(
                 f"""SELECT snapshot.url, snapshot.page_title, snapshot.page_text,
                            snapshot.fetched_at, snapshot.license_name, snapshot.license_url,
@@ -1010,7 +1022,7 @@ class TrustedSourceMonitor:
         content_checked_at: str | None = None,
         preserve_content_metadata: bool = False,
     ) -> None:
-        with self._db_lock, self._connect() as connection:
+        with self._db_lock, self._connection() as connection:
             connection.execute(
                 """INSERT INTO trusted_source_checks(
                     url, etag, last_modified, last_checked_at, last_http_status, state,
@@ -1489,7 +1501,7 @@ class TrustedSourceMonitor:
         }
 
     def _latest_editorial_review_id(self, url: str, lesson_path: str) -> int | None:
-        with self._db_lock, self._connect() as connection:
+        with self._db_lock, self._connection() as connection:
             row = connection.execute(
                 """SELECT review_id FROM trusted_source_editorial_reviews
                 WHERE url = ? AND lesson_path = ? ORDER BY review_id DESC LIMIT 1""",
@@ -1512,7 +1524,7 @@ class TrustedSourceMonitor:
 
         if isinstance(limit, bool) or not 1 <= limit <= 100:
             raise ValueError("History page size is outside the supported range")
-        with self._db_lock, self._connect() as connection:
+        with self._db_lock, self._connection() as connection:
             if before_review_id is None:
                 rows = connection.execute(
                     """SELECT review_id, url, lesson_path, reviewed_digest, reviewed_on, reviewed_at
