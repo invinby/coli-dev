@@ -2,9 +2,9 @@
 
 **Дата обновления / Updated:** 2026-10-15
 
-**Проверенный коммит приложения / Verified application commit:** `f11da5a`
+**Проверенный коммит приложения / Verified application commit:** `cedd500`
 
-**CI:** [запуск 38741526574](https://github.com/invinby/coli-dev/actions/runs/38741526574) — все задания успешно завершены / all jobs passed
+**CI:** [запуск 38743498205](https://github.com/invinby/coli-dev/actions/runs/38743498205) — все задания успешно завершены / all jobs passed
 
 **Статус:** прототип готов к внутреннему тесту на Mac; это не релизный установщик. / **Status:** prototype is ready for internal Mac testing; this is not a release installer.
 
@@ -26,9 +26,9 @@ Choose the artifact that matches the Mac. These are CI archives, not a signed in
 
 Выбери архив под свой Mac. Это архивы из CI, а не подписанный установщик. **Приложение не подписано и не нотарифицировано**, поэтому macOS может показать предупреждение Gatekeeper. Для публичного распространения ещё нужны подпись и нотарификация.
 
-- [macOS 15 ARM / Apple Silicon](https://github.com/invinby/coli-dev/actions/runs/38741526574/artifacts/11975359592) — доступен до 29.10.2026 13:23 UTC / available until 2026-10-29 13:23 UTC.
-- [macOS 26 ARM / Apple Silicon](https://github.com/invinby/coli-dev/actions/runs/38741526574/artifacts/11975714006) — доступен до 29.10.2026 13:21 UTC / available until 2026-10-29 13:21 UTC.
-- [macOS 26 Intel](https://github.com/invinby/coli-dev/actions/runs/38741526574/artifacts/11976720115) — доступен до 29.10.2026 13:27 UTC / available until 2026-10-29 13:27 UTC.
+- [macOS 15 ARM / Apple Silicon](https://github.com/invinby/coli-dev/actions/runs/38743498205/artifacts/11977706876) — доступен до 29.10.2026 13:38 UTC / available until 2026-10-29 13:38 UTC.
+- [macOS 26 ARM / Apple Silicon](https://github.com/invinby/coli-dev/actions/runs/38743498205/artifacts/11976797367) — доступен до 29.10.2026 13:38 UTC / available until 2026-10-29 13:38 UTC.
+- [macOS 26 Intel](https://github.com/invinby/coli-dev/actions/runs/38743498205/artifacts/11979575163) — доступен до 29.10.2026 13:49 UTC / available until 2026-10-29 13:49 UTC.
 
 ## Что ещё нужно проверить на Mac / What still needs hands-on Mac acceptance
 
