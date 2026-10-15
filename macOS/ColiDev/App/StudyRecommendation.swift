@@ -678,9 +678,24 @@ enum StudyGoalPlanner {
             return nil
         }
 
-        let orderedPrerequisites = Array(
-            (roadmap.prerequisitesByResource[goal.target.resource] ?? []).reversed()
-        )
+        var orderedPrerequisites: [String] = []
+        var includedPrerequisites = Set<String>()
+        var traversal = Set<String>()
+        func appendPrerequisites(of resource: String) {
+            guard traversal.insert(resource).inserted else { return }
+            for prerequisite in (roadmap.prerequisitesByResource[resource] ?? []).reversed() {
+                guard roadmap.lessonResources.contains(prerequisite),
+                      prerequisite != goal.target.resource,
+                      !includedPrerequisites.contains(prerequisite),
+                      !traversal.contains(prerequisite) else { continue }
+                appendPrerequisites(of: prerequisite)
+                if includedPrerequisites.insert(prerequisite).inserted {
+                    orderedPrerequisites.append(prerequisite)
+                }
+            }
+            traversal.remove(resource)
+        }
+        appendPrerequisites(of: goal.target.resource)
         let progressionPrerequisites: [String]
         if let targetLevelIndex = roadmap.progressionLevels.firstIndex(where: {
             $0.contains(goal.target.resource)
