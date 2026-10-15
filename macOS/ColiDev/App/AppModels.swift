@@ -198,6 +198,12 @@ final class LearningStore: ObservableObject {
     @Published private(set) var providerUsageUnavailable = false
     @Published private(set) var studyProgress: [String: StudyProgressRecord] = [:]
     @Published private(set) var studyAssessmentEvidence: [String: StudyAssessmentEvidenceSummary] = [:]
+    @Published private(set) var studyFormatPreferenceProfile: StudyFormatPreferenceProfile {
+        didSet {
+            guard let data = try? JSONEncoder().encode(studyFormatPreferenceProfile) else { return }
+            UserDefaults.standard.set(data, forKey: "colidev.studyFormatPreferenceProfile")
+        }
+    }
     @Published private(set) var dueReviewCount = 0
 
     var studyRecallEvidence: [String: StudyRecallEvidence] {
@@ -260,6 +266,12 @@ final class LearningStore: ObservableObject {
             activeStudyGoal = savedGoal
         } else {
             activeStudyGoal = nil
+        }
+        if let data = UserDefaults.standard.data(forKey: "colidev.studyFormatPreferenceProfile"),
+           let savedProfile = try? JSONDecoder().decode(StudyFormatPreferenceProfile.self, from: data) {
+            studyFormatPreferenceProfile = savedProfile
+        } else {
+            studyFormatPreferenceProfile = StudyFormatPreferenceProfile()
         }
         if let data = UserDefaults.standard.data(forKey: "colidev.customCurriculum"),
            let savedCurriculum = try? JSONDecoder().decode(CustomCurriculum.self, from: data) {
@@ -692,6 +704,10 @@ final class LearningStore: ObservableObject {
             assessment: evidence
         ))
         Task { await syncStudyProgress() }
+    }
+
+    func recordStudyFormatPreference(_ choice: StudyFormatFeedbackChoice, lessonID: String) {
+        studyFormatPreferenceProfile.record(choice, for: lessonID)
     }
 
     private func queueStudyReview(
@@ -2270,7 +2286,8 @@ final class TutorChatModel: ObservableObject {
         _ rawText: String,
         useWebSearch: Bool = false,
         groundingAgeConfirmed: Bool = false,
-        includeLocalSourcesInWebSearch: Bool = false
+        includeLocalSourcesInWebSearch: Bool = false,
+        preferredLearningFormat: StudyFormatFeedbackChoice? = nil
     ) {
         let question = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !question.isEmpty, !isSending else { return }
@@ -2282,6 +2299,10 @@ final class TutorChatModel: ObservableObject {
         messages.append(reply)
         isSending = true
 
+        let preferenceInstruction = preferredLearningFormat.flatMap {
+            StudyFormatTutorPrompt.note(for: $0, languageCode: language.rawValue)
+        }.map { "\n\n" + $0 } ?? ""
+
         let systemPrompt: String
         if language == .ru {
             systemPrompt = """
@@ -2292,6 +2313,7 @@ final class TutorChatModel: ObservableObject {
             Пример: \(lesson.example)
             Ограничения модели: \(lesson.limitations)
             Отвечай по-русски. Объясняй ясно и по шагам, подбирай глубину к вопросу. Помогай разобраться вопросами и подсказками; не выдавай решение задания сразу, если ученик просит научить. Не выдумывай источники и текущие факты.
+            \(preferenceInstruction)
             """
         } else {
             systemPrompt = """
@@ -2302,6 +2324,7 @@ final class TutorChatModel: ObservableObject {
             Example: \(lesson.example)
             Model limitations: \(lesson.limitations)
             Answer in English. Explain clearly in steps at the learner's level. Use questions and hints to build understanding; do not immediately give away an exercise solution when the learner asks to learn. Do not invent sources or current facts.
+            \(preferenceInstruction)
             """
         }
 

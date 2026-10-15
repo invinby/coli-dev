@@ -602,6 +602,13 @@ struct CurriculumModuleView: View {
                             reflection: $reflection,
                             learnerConfirmed: $learnerConfirmed
                         )
+                        if learnerConfirmed, checkAttempt?.canComplete == true {
+                            StudyFormatFeedbackCard(
+                                language: store.language,
+                                selectedChoice: store.studyFormatPreferenceProfile.selectedChoice(for: lessonID),
+                                onSelect: { store.recordStudyFormatPreference($0, lessonID: lessonID) }
+                            )
+                        }
                         Picker(L10n.text("session.recallQuality", store.language), selection: $recallQuality) {
                             Text(L10n.text("session.recallHard", store.language)).tag(2)
                             Text(L10n.text("session.recallGood", store.language)).tag(4)
@@ -1258,6 +1265,56 @@ private struct StudyReflectionFields: View {
         }
     }
 
+}
+
+private struct StudyFormatFeedbackCard: View {
+    let language: AppLanguage
+    let selectedChoice: StudyFormatFeedbackChoice?
+    let onSelect: (StudyFormatFeedbackChoice) -> Void
+
+    private let columns = [GridItem(.adaptive(minimum: 190), spacing: 8)]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(L10n.text("studyFormat.feedbackTitle", language))
+                .font(.headline)
+            Text(L10n.text("studyFormat.feedbackHint", language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+                ForEach(StudyFormatFeedbackChoice.allCases) { choice in
+                    let isSelected = selectedChoice == choice
+                    Button { onSelect(choice) } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: choice.symbol)
+                            Text(L10n.text(choice.titleKey, language))
+                                .multilineTextAlignment(.leading)
+                            Spacer(minLength: 0)
+                            if isSelected {
+                                Image(systemName: "checkmark.circle.fill")
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 3)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("study-format-feedback.\(choice.rawValue)")
+                }
+            }
+            if selectedChoice != nil {
+                Label(L10n.text("studyFormat.feedbackSaved", language), systemImage: "checkmark.circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 12))
+        .accessibilityIdentifier("study-format-feedback.card")
+    }
 }
 
 private struct LessonConceptCard: View {
@@ -9332,6 +9389,17 @@ struct TutorChatView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(L10n.text("tutor.title", language)).font(.title2.weight(.semibold))
                     Text(L10n.text("tutor.subtitle", language)).font(.subheadline).foregroundStyle(.secondary)
+                    if let preference = store.studyFormatPreferenceProfile.mostFrequentlyHelpful {
+                        Label(
+                            String(
+                                format: L10n.text("studyFormat.tutorPreference", language),
+                                L10n.text(preference.titleKey, language)
+                            ),
+                            systemImage: "sparkles"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
                 }
                 Spacer()
                 if chat.isSending {
@@ -9800,7 +9868,8 @@ struct TutorChatView: View {
                 message,
                 useWebSearch: useWebSearch,
                 groundingAgeConfirmed: hasConfirmedGoogleSearchAge,
-                includeLocalSourcesInWebSearch: includeLocalSourcesInWebSearch
+                includeLocalSourcesInWebSearch: includeLocalSourcesInWebSearch,
+                preferredLearningFormat: store.studyFormatPreferenceProfile.mostFrequentlyHelpful
             )
             if isOutlineDraft {
                 outlineResponseMessageID = chat.messages.last?.id

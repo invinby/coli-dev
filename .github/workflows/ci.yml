@@ -84,6 +84,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-learning-evidence-identity"
           "$RUNNER_TEMP/verify-learning-evidence-identity"
 
+      - name: Verify explicit study-format preferences / Проверка предпочтений формата обучения
+        run: |
+          swiftc -parse-as-library macOS/ColiDev/App/StudyFormatPreference.swift macOS/ColiDev/scripts/verify_study_format_preferences.swift \
+            -o "$RUNNER_TEMP/verify-study-format-preferences"
+          "$RUNNER_TEMP/verify-study-format-preferences"
+
       - name: Verify thermoregulation question identity / Проверка идентификатора вопроса о терморегуляции
         run: |
           swiftc -parse-as-library macOS/ColiDev/scripts/verify_thermoregulation_question_identity.swift \
