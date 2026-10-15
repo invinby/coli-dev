@@ -1020,6 +1020,7 @@ private struct SettingsView: View {
     @EnvironmentObject private var store: LearningStore
     @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
     @AppStorage(ColiDevVisualSystem.soundPreferenceKey) private var soundEffectsEnabled = false
+    @State private var showingStudyFormatClearConfirmation = false
 
     var body: some View {
         Form {
@@ -1039,6 +1040,32 @@ private struct SettingsView: View {
                     .foregroundStyle(.secondary)
             } header: {
                 Text(L10n.text("settings.feedback", store.language))
+            }
+            Section {
+                if let preference = store.studyFormatPreferenceProfile.mostFrequentlyHelpful {
+                    Label {
+                        Text(String(
+                            format: L10n.text("settings.studyFormat.confirmed", store.language),
+                            L10n.text(preference.titleKey, store.language)
+                        ))
+                    } icon: {
+                        Image(systemName: preference.symbol)
+                    }
+                } else {
+                    Text(L10n.text("settings.studyFormat.pending", store.language))
+                }
+                Text(L10n.text("settings.studyFormat.privacy", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if !store.studyFormatPreferenceProfile.responses.isEmpty {
+                    Button(role: .destructive) {
+                        showingStudyFormatClearConfirmation = true
+                    } label: {
+                        Text(L10n.text("settings.studyFormat.clear", store.language))
+                    }
+                }
+            } header: {
+                Text(L10n.text("settings.studyFormat.title", store.language))
             }
             Section {
                 Picker(selection: $store.aiMode, label: Text(L10n.text("settings.aiRoute", store.language))) {
@@ -1146,6 +1173,18 @@ private struct SettingsView: View {
             Section {
                 LabeledContent { Text(L10n.text("settings.preview", store.language)) } label: { Text(L10n.text("settings.version", store.language)) }
             }
+        }
+        .confirmationDialog(
+            L10n.text("settings.studyFormat.clearTitle", store.language),
+            isPresented: $showingStudyFormatClearConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(L10n.text("settings.studyFormat.clear", store.language), role: .destructive) {
+                store.clearStudyFormatPreferenceProfile()
+            }
+            Button(L10n.text("common.cancel", store.language), role: .cancel) { }
+        } message: {
+            Text(L10n.text("settings.studyFormat.clearMessage", store.language))
         }
         .task {
             guard await backendSupervisor.ensureRunning() else { return }

@@ -710,6 +710,10 @@ final class LearningStore: ObservableObject {
         studyFormatPreferenceProfile.record(choice, for: lessonID)
     }
 
+    func clearStudyFormatPreferenceProfile() {
+        studyFormatPreferenceProfile.clear()
+    }
+
     private func queueStudyReview(
         lessonID: String,
         quality: Int,

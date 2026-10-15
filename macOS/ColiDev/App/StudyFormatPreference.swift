@@ -123,6 +123,10 @@ struct StudyFormatPreferenceProfile: Codable, Equatable {
         }
     }
 
+    mutating func clear() {
+        responses.removeAll(keepingCapacity: false)
+    }
+
     func selectedChoice(for lessonID: String) -> StudyFormatFeedbackChoice? {
         responses.last(where: { $0.lessonID == lessonID })?.choice
     }
