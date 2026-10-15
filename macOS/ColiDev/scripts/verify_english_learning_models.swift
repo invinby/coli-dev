@@ -153,6 +153,76 @@ enum EnglishLearningModelsVerification {
         let restoredLegacyCheck = try JSONDecoder().decode(StudyAssessmentEvent.self, from: legacyKnowledgeCheck)
         precondition(restoredLegacyCheck.assessment.itemID == nil, "older knowledge-check events without an item ID must remain readable / старые события без ID вопроса должны читаться")
 
-        print("English conditionals, reading, reported speech, and assessment event checks passed. / Проверки условных конструкций, чтения, косвенной речи и событий результатов пройдены.")
+        let wordStressQuestions = EnglishWordStressPractice.questions
+        precondition(wordStressQuestions.count == 4, "word-stress practice should cover two noun/verb pairs / тренажёр ударения должен покрывать две пары существительное/глагол")
+        precondition(Set(wordStressQuestions.map(\.id)).count == wordStressQuestions.count, "word-stress question IDs should be unique / ID заданий ударения должны быть уникальными")
+        precondition(
+            wordStressQuestions.map { "\($0.id):\($0.word)" }
+                == ["present-as-gift:present", "present-the-results:present", "record-as-a-file:record", "record-the-audio:record"],
+            "word-stress examples should match the sentence and localization keys / примеры должны совпадать с контекстом и ключами локализации"
+        )
+        precondition(wordStressQuestions.map(\.correctOption) == [0, 1, 0, 1], "word-stress examples should not always place the answer in one position / правильный вариант не должен всегда стоять на одной позиции")
+        for question in wordStressQuestions {
+            precondition(
+                EnglishWordStressPractice.isCorrect(question.correctOption, for: question.id),
+                "the reference stress pattern should pass for \(question.id) / эталонный рисунок ударения должен приниматься для \(question.id)"
+            )
+            for alternative in 0..<2 where alternative != question.correctOption {
+                precondition(
+                    !EnglishWordStressPractice.isCorrect(alternative, for: question.id),
+                    "an alternative stress pattern should not pass for \(question.id) / неверный рисунок ударения не должен приниматься для \(question.id)"
+                )
+            }
+        }
+        precondition(!EnglishWordStressPractice.isCorrect(2, for: "present-as-gift"), "out-of-range stress choices must fail closed / выходящий за диапазон ответ должен отклоняться")
+        precondition(!EnglishWordStressPractice.isCorrect(0, for: "missing-stress-question"), "unknown stress questions must fail closed / неизвестный вопрос об ударении должен отклоняться")
+
+        var wordStressTracker = EnglishWordStressAssessmentTracker()
+        let firstStressAttempt = wordStressTracker.recordSubmission(option: 1, for: "present-as-gift")!
+        precondition(
+            firstStressAttempt.taskType == "interactive_practice"
+                && firstStressAttempt.attempts == 1
+                && !firstStressAttempt.firstTryCorrect
+                && firstStressAttempt.itemID == "present-as-gift",
+            "save a first word-stress attempt with its stable question ID / сохранять первую попытку с постоянным ID вопроса"
+        )
+        precondition(
+            wordStressTracker.recordSubmission(option: 1, for: "present-as-gift") == nil,
+            "do not count a duplicate word-stress choice / не считать повтор той же попытки"
+        )
+        let stressRetry = wordStressTracker.recordSubmission(option: 0, for: "present-as-gift")!
+        precondition(
+            stressRetry.attempts == 2 && !stressRetry.firstTryCorrect && stressRetry.itemID == "present-as-gift",
+            "retain first-try evidence after the learner corrects the stress pattern / сохранять результат первой попытки после исправления"
+        )
+        let anotherStressQuestion = wordStressTracker.recordSubmission(option: 1, for: "present-the-results")!
+        precondition(
+            anotherStressQuestion.attempts == 1 && anotherStressQuestion.firstTryCorrect,
+            "track the verb example independently / вести отдельную историю для второго примера"
+        )
+        precondition(wordStressTracker.recordSubmission(option: 2, for: "present-as-gift") == nil, "reject an invalid stress choice / отклонять несуществующий вариант")
+        precondition(wordStressTracker.recordSubmission(option: 0, for: "missing-stress-question") == nil, "reject an unknown stress question / отклонять неизвестный вопрос")
+
+        let stressEvent = StudyAssessmentEvent(
+            id: "00000000-0000-0000-0000-000000000003",
+            lessonID: "english.sounds_stress_rhythm",
+            assessment: stressRetry
+        )
+        let stressEventObject = try JSONSerialization.jsonObject(with: encoder.encode(stressEvent)) as! [String: Any]
+        let stressEventAssessment = stressEventObject["assessment"] as! [String: Any]
+        precondition(
+            stressEventObject["lesson_id"] as? String == "english.sounds_stress_rhythm"
+                && stressEventAssessment["task_type"] as? String == "interactive_practice"
+                && stressEventAssessment["item_id"] as? String == "present-as-gift",
+            "word-stress attempts should serialize using the supported bilingual course evidence contract / попытки должны передаваться в существующем контракте учебных свидетельств"
+        )
+        let restoredStressEvent = try JSONDecoder().decode(StudyAssessmentEvent.self, from: encoder.encode(stressEvent))
+        precondition(
+            restoredStressEvent.assessment.itemID == "present-as-gift"
+                && restoredStressEvent.assessment.firstTryCorrect == false,
+            "offline word-stress evidence should preserve its item identity and first result / офлайн-результат должен сохранять ID задания и первую оценку"
+        )
+
+        print("English conditionals, reading, reported speech, word stress, and assessment event checks passed. / Проверки условных конструкций, чтения, косвенной речи, ударения и событий результатов пройдены.")
     }
 }

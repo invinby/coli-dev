@@ -139,3 +139,66 @@ enum EnglishReportedSpeechPractice {
         return option == question.correctOption
     }
 }
+
+struct EnglishWordStressQuestion: Equatable, Identifiable {
+    let id: String
+    let word: String
+    let correctOption: Int
+}
+
+enum EnglishWordStressPractice {
+    static let questions = [
+        EnglishWordStressQuestion(id: "present-as-gift", word: "present", correctOption: 0),
+        EnglishWordStressQuestion(id: "present-the-results", word: "present", correctOption: 1),
+        EnglishWordStressQuestion(id: "record-as-a-file", word: "record", correctOption: 0),
+        EnglishWordStressQuestion(id: "record-the-audio", word: "record", correctOption: 1)
+    ]
+
+    static func isCorrect(_ option: Int, for questionID: String) -> Bool {
+        guard (0..<2).contains(option),
+              let question = questions.first(where: { $0.id == questionID }) else {
+            return false
+        }
+        return option == question.correctOption
+    }
+}
+
+struct EnglishWordStressAssessmentTracker {
+    private struct QuestionState {
+        var attempts = 0
+        var firstTryCorrect: Bool?
+        var lastSubmittedOption: Int?
+    }
+
+    private var questionStates: [String: QuestionState] = [:]
+
+    mutating func recordSubmission(option: Int, for questionID: String) -> StudyAssessmentEvidence? {
+        guard (0..<2).contains(option),
+              let question = EnglishWordStressPractice.questions.first(where: { $0.id == questionID }) else {
+            return nil
+        }
+
+        var state = questionStates[questionID] ?? QuestionState()
+        guard state.lastSubmittedOption != option else { return nil }
+
+        let isCorrect = option == question.correctOption
+        state.attempts += 1
+        if state.firstTryCorrect == nil {
+            state.firstTryCorrect = isCorrect
+        }
+        state.lastSubmittedOption = option
+        questionStates[questionID] = state
+
+        return StudyAssessmentEvidence(
+            taskType: "interactive_practice",
+            attempts: state.attempts,
+            firstTryCorrect: state.firstTryCorrect ?? isCorrect,
+            hintsUsed: 0,
+            itemID: question.id
+        )
+    }
+
+    mutating func reset() {
+        questionStates.removeAll()
+    }
+}

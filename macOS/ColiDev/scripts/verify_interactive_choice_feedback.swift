@@ -12,6 +12,15 @@ enum InteractiveChoiceFeedbackVerification {
             + (1...4).map { "lab.animalGroupExplanation\($0)" }
             + (1...4).map { "lab.lineageExplanation\($0)" }
             + [
+                "lab.stressHint", "lab.stressProgress",
+                "lab.stressQuestion0", "lab.stressQuestion1", "lab.stressQuestion2", "lab.stressQuestion3",
+                "lab.stressOption.present.0", "lab.stressOption.present.1",
+                "lab.stressOption.record.0", "lab.stressOption.record.1",
+                "lab.stressTryAgain",
+                "lab.stressFeedback0", "lab.stressFeedback1", "lab.stressFeedback2", "lab.stressFeedback3",
+                "lab.stressCheck", "lab.stressNext", "lab.stressFinish", "lab.stressComplete", "lab.stressRestart"
+            ]
+            + [
                 "lab.reportedWrong0.0", "lab.reportedWrong0.2",
                 "lab.reportedWrong1.1", "lab.reportedWrong1.2",
                 "lab.reportedWrong2.0", "lab.reportedWrong2.1",

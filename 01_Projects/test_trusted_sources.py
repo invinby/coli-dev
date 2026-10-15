@@ -743,6 +743,26 @@ def test_british_council_reading_pages_are_monitored_metadata_only(tmp_path: Pat
     assert all(item["rag_content_state"] == "metadata_only" for item in monitor.inventory()["sources"])
 
 
+def test_english_pronunciation_sources_are_monitored_metadata_only(tmp_path: Path) -> None:
+    urls = [
+        "https://learnenglish.britishcouncil.org/english-levels/improve-your-english-level/easy-way-work-out-how-pronounce-new-words",
+        "https://dictionary.cambridge.org/dictionary/english/stress",
+        "https://dictionary.cambridge.org/pronunciation/english/present",
+        "https://dictionary.cambridge.org/pronunciation/english/record",
+        "https://dictionary.cambridge.org/help/phonetics.html",
+    ]
+    _write_lesson(tmp_path, "\n".join(f"[Official pronunciation reference]({url})" for url in urls))
+    monitor = _monitor(tmp_path, tmp_path)
+
+    references, unsupported_count, omitted_count = monitor._references()
+
+    assert {reference.url for reference in references} == set(urls)
+    assert unsupported_count == 0
+    assert omitted_count == 0
+    assert all(monitor._rag_policy(url) is None for url in urls)
+    assert all(item["rag_content_state"] == "metadata_only" for item in monitor.inventory()["sources"])
+
+
 def test_nist_si_appendix_b9_is_cached_with_public_information_attribution(tmp_path: Path) -> None:
     url = (
         "https://www.nist.gov/pml/special-publication-811/"

@@ -1326,6 +1326,8 @@ private struct PracticeLab: View {
             TenseContrastLab()
         } else if subject == .english, moduleResource == "present_perfect_simple_continuous" {
             PresentPerfectAspectLab()
+        } else if subject == .english, moduleResource == "sounds_stress_rhythm" {
+            EnglishWordStressLab()
         } else if subject == .english, moduleResource == "zero_first_second_conditionals" {
             ConditionalsLab()
         } else if subject == .english, moduleResource == "daily_routines_and_collocations" {
@@ -3071,6 +3073,123 @@ private struct ConditionalPracticeQuestion {
     let id: String
     let promptKey: String
     let feedbackKey: String
+}
+
+private struct EnglishWordStressLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var index = 0
+    @State private var selection: Int?
+    @State private var wasCorrect: Bool?
+    @State private var complete = false
+    @State private var assessmentTracker = EnglishWordStressAssessmentTracker()
+    @State private var optionOrders = QuizAnswerOrder.balancedSequence(
+        optionCount: 2,
+        answerOriginalIndices: EnglishWordStressPractice.questions.map(\.correctOption)
+    )
+
+    private let questions = EnglishWordStressPractice.questions
+    private let lessonID = "english.sounds_stress_rhythm"
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.stressHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if complete {
+                Label(L10n.text("lab.stressComplete", store.language), systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(L10n.text("lab.stressRestart", store.language), systemImage: "arrow.counterclockwise") {
+                    reset()
+                }
+                .buttonStyle(.bordered)
+            } else {
+                Text(String(format: L10n.text("lab.stressProgress", store.language), index + 1, questions.count))
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                ProgressView(value: Double(index + 1), total: Double(questions.count))
+                Text(L10n.text("lab.stressQuestion\(index)", store.language))
+                    .font(.title3.weight(.medium))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ForEach(Array(optionOrders[index].displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Button {
+                        selection = displayIndex
+                        wasCorrect = nil
+                    } label: {
+                        Label(
+                            L10n.text("lab.stressOption.\(questions[index].word).\(originalIndex)", store.language),
+                            systemImage: selection == displayIndex ? "checkmark.circle.fill" : "circle"
+                        )
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(selection == displayIndex ? .accentColor : .secondary)
+                    .accessibilityAddTraits(selection == displayIndex ? .isSelected : [])
+                    .accessibilityIdentifier("english.stress.option.\(questions[index].id).\(originalIndex)")
+                }
+
+                if let wasCorrect {
+                    Label(
+                        wasCorrect
+                            ? L10n.text("lab.stressFeedback\(index)", store.language)
+                            : L10n.text("lab.stressTryAgain", store.language),
+                        systemImage: wasCorrect ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath"
+                    )
+                    .foregroundStyle(wasCorrect ? Color.green : Color.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Button(action: advanceOrCheck) {
+                    Text(L10n.text(
+                        wasCorrect == true
+                            ? (index == questions.count - 1 ? "lab.stressFinish" : "lab.stressNext")
+                            : "lab.stressCheck",
+                        store.language
+                    ))
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(selection == nil && wasCorrect != true)
+                .accessibilityIdentifier("english.stress.check")
+            }
+        }
+        .accessibilityIdentifier("english.word-stress-lab")
+    }
+
+    private func advanceOrCheck() {
+        if wasCorrect == true {
+            guard index < questions.count - 1 else {
+                complete = true
+                return
+            }
+            index += 1
+            selection = nil
+            wasCorrect = nil
+            return
+        }
+
+        guard let selection,
+              let originalOption = optionOrders[index].originalIndex(forDisplayedIndex: selection) else { return }
+        wasCorrect = EnglishWordStressPractice.isCorrect(originalOption, for: questions[index].id)
+        if let evidence = assessmentTracker.recordSubmission(option: originalOption, for: questions[index].id) {
+            store.recordStudyAssessment(lessonID: lessonID, evidence: evidence)
+        }
+    }
+
+    private func reset() {
+        index = 0
+        selection = nil
+        wasCorrect = nil
+        complete = false
+        assessmentTracker.reset()
+        optionOrders = QuizAnswerOrder.balancedSequence(
+            optionCount: 2,
+            answerOriginalIndices: questions.map(\.correctOption)
+        )
+    }
 }
 
 private struct ConditionalsLab: View {

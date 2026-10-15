@@ -6,7 +6,7 @@
 
 | Модуль / Module | Результат обучения / Learning outcome | Урок / Lesson |
 |---|---|---|
-| Звуки, ударение, ритм и связь звучания с написанием / Sounds, stress, rhythm, spelling | Различать ключевые звуки и понимать, как ударение меняет узнаваемость слова и фразы. / Hear core sound contrasts and use stress to make speech intelligible. |
+| Звуки, ударение, ритм и связь звучания с написанием / Sounds, stress, rhythm, spelling | Различать слоги и главное ударение в контексте; проверять произношение по словарному аудио, не превращая орфографические подсказки в универсальные правила. / Identify syllables and primary stress in context; check pronunciation against dictionary audio without treating spelling cues as universal rules. | lesson:sounds_stress_rhythm |
 | Частотная лексика и словообразование / Core vocabulary and word formation | Запоминать слова в контексте, распознавать части речи и строить устойчивые словосочетания. / Learn words in context and build common collocations. | lesson:daily_routines_and_collocations |
 | Порядок слов, вопросы, отрицание и базовые времена / Word order, questions, negatives, basic tense forms | Собирать утвердительные, вопросительные и отрицательные фразы для повседневного общения. / Form statements, questions, and negatives for everyday situations. | lesson:present_simple_and_continuous |
 | Чтение и аудирование коротких текстов / Short reading and listening | Находить тему и конкретные детали, не пытаясь переводить каждое слово. / Identify gist and details without translating every word. | lesson:reading_for_gist_and_detail |

@@ -34,7 +34,7 @@ _MARKDOWN_LINK_RE = re.compile(r"\[([^\]]{1,200})\]\(\s*(https://[^)\s]+)\s*\)",
 _TRAILING_PUNCTUATION = ".,;:!?"
 _MAX_LESSON_FILES = 200
 _MAX_LESSON_FILE_BYTES = 256 * 1024
-_MAX_SOURCES = 125
+_MAX_SOURCES = 150
 _MAX_CONCURRENT_REQUESTS = 5
 _MAX_TITLE_LENGTH = 200
 _MAX_PAGE_DESCRIPTION_LENGTH = 500
@@ -56,6 +56,7 @@ _TRUSTED_HOSTS = frozenset(
     {
         "animaldiversity.org",
         "csrc.nist.gov",
+        "dictionary.cambridge.org",
         "docs.github.com",
         "docs.python.org",
         "git-scm.com",
@@ -85,6 +86,9 @@ _ALLOWED_PATHS = {
         r"^/en/pull-requests/(?:how-tos/create-pull-requests/creating-a-pull-request|"
         r"concepts/writing-code-for-a-project)$"
     ),
+    "dictionary.cambridge.org": re.compile(
+        r"^/(?:dictionary/english/stress|pronunciation/english/(?:present|record)|help/phonetics\.html)$"
+    ),
     "git-scm.com": re.compile(
         r"^/(?:book/en/v2/(?:Git-Basics-Recording-Changes-to-the-Repository|Git-Branching-Branches-in-a-Nutshell)|"
         r"docs/(?:git-switch|git-push))$"
@@ -92,7 +96,8 @@ _ALLOWED_PATHS = {
     "learnenglish.britishcouncil.org": re.compile(
         r"^/(?:free-resources/(?:grammar/(?:english-grammar-reference|b1-b2)/[A-Za-z0-9-]+|"
         r"vocabulary/a1-a2(?:/daily-routine-vocabulary-a1-beginner-english-vocabulary-lesson)?|reading/a1)|"
-        r"level/improve-your-english-level/how-start-reading-english)/?$"
+        r"level/improve-your-english-level/how-start-reading-english|"
+        r"english-levels/improve-your-english-level/easy-way-work-out-how-pronounce-new-words)/?$"
     ),
     "legacy.bas.ac.uk": re.compile(
         r"^/about_antarctica/wildlife/birds/penguins/(?:emperor\.php|index\.php)$"
