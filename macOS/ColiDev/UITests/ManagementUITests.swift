@@ -21,6 +21,11 @@ final class ManagementUITests: XCTestCase {
             reloadButton.waitForExistence(timeout: 10),
             "Control Center overview did not expose its refresh button.\n\(app.debugDescription)"
         )
+        let overviewTab = app.radioButtons["Обзор"]
+        XCTAssertTrue(
+            overviewTab.waitForExistence(timeout: 10),
+            "Control Center overview tab was missing.\n\(app.debugDescription)"
+        )
 
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Control Center before visibility assertion"
@@ -36,7 +41,14 @@ final class ManagementUITests: XCTestCase {
             predicate: NSPredicate(format: "hittable == true"),
             object: reloadButton
         )
-        let visibilityResult = await XCTWaiter.fulfillment(of: [visibleRefreshButton], timeout: 10)
+        let visibleOverviewTab = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "hittable == true"),
+            object: overviewTab
+        )
+        let visibilityResult = await XCTWaiter.fulfillment(
+            of: [visibleRefreshButton, visibleOverviewTab],
+            timeout: 10
+        )
         XCTAssertEqual(
             visibilityResult,
             .completed,

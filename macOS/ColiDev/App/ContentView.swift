@@ -1510,77 +1510,79 @@ private struct ManagementView: View {
     private let metricColumns = [GridItem(.adaptive(minimum: 190), spacing: 12)]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(L10n.text("management.title", store.language))
-                        .font(.largeTitle.weight(.bold))
-                    Text(L10n.text("management.subtitle", store.language))
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+        GeometryReader { geometry in
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(L10n.text("management.title", store.language))
+                            .font(.largeTitle.weight(.bold))
+                        Text(L10n.text("management.subtitle", store.language))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                    Button {
+                        Task { await reload() }
+                    } label: {
+                        if isLoading {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isLoading)
+                    .help(L10n.text("management.reload", store.language))
+                    .accessibilityLabel(L10n.text("management.reload", store.language))
                 }
-                Spacer()
-                Button {
-                    Task { await reload() }
-                } label: {
-                    if isLoading {
-                        ProgressView().controlSize(.small)
-                    } else {
-                        Image(systemName: "arrow.clockwise")
+
+                Picker(L10n.text("management.title", store.language), selection: $pane) {
+                    ForEach(ManagementPane.allCases) { section in
+                        Text(L10n.text(section.titleKey, store.language)).tag(section)
                     }
                 }
-                .buttonStyle(.bordered)
-                .disabled(isLoading)
-                .help(L10n.text("management.reload", store.language))
-                .accessibilityLabel(L10n.text("management.reload", store.language))
-            }
+                .pickerStyle(.segmented)
+                .padding(5)
+                .frame(maxWidth: 900)
+                .coliGlassControl(cornerRadius: 16)
+                .accessibilityIdentifier("control-center.pane-picker")
 
-            Picker(L10n.text("management.title", store.language), selection: $pane) {
-                ForEach(ManagementPane.allCases) { section in
-                    Text(L10n.text(section.titleKey, store.language)).tag(section)
+                if let statusMessage {
+                    Label(statusMessage, systemImage: statusIsError ? "exclamationmark.triangle" : "checkmark.circle")
+                        .font(.callout)
+                        .foregroundStyle(statusIsError ? Color.orange : Color.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-            }
-            .pickerStyle(.segmented)
-            .padding(5)
-            .frame(maxWidth: 900)
-            .coliGlassControl(cornerRadius: 16)
-            .accessibilityIdentifier("control-center.pane-picker")
 
-            if let statusMessage {
-                Label(statusMessage, systemImage: statusIsError ? "exclamationmark.triangle" : "checkmark.circle")
-                    .font(.callout)
-                    .foregroundStyle(statusIsError ? Color.orange : Color.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Group {
-                switch pane {
-                case .overview:
-                    overviewPane
-                case .courses:
-                    coursesPane
-                case .models:
-                    modelsPane
-                case .rag:
-                    ragPane
-                case .sources:
-                    sourcesPane
-                case .integrations:
-                    integrationsPane
+                Group {
+                    switch pane {
+                    case .overview:
+                        overviewPane
+                    case .courses:
+                        coursesPane
+                    case .models:
+                        modelsPane
+                    case .rag:
+                        ragPane
+                    case .sources:
+                        sourcesPane
+                    case .integrations:
+                        integrationsPane
+                    }
                 }
+                .id(pane)
+                .transition(.opacity)
+                .frame(maxWidth: .infinity, minHeight: 260, maxHeight: .infinity, alignment: .topLeading)
+                .animation(
+                    reduceMotion ? nil : .easeInOut(duration: ColiDevVisualSystem.routineTransitionDuration),
+                    value: pane
+                )
             }
-            .id(pane)
-            .transition(.opacity)
-            .frame(maxWidth: .infinity, minHeight: 260, maxHeight: .infinity, alignment: .topLeading)
-            .animation(
-                reduceMotion ? nil : .easeInOut(duration: ColiDevVisualSystem.routineTransitionDuration),
-                value: pane
-            )
+            .accessibilityIdentifier("control-center.root")
+            .padding(28)
+            .frame(maxWidth: 1120, maxHeight: .infinity, alignment: .topLeading)
+            .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
         }
-        .accessibilityIdentifier("control-center.root")
-        .padding(28)
-        .frame(maxWidth: 1120, alignment: .leading)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .navigationTitle(Text(L10n.text("management.title", store.language)))
         .onChange(of: routeSubject) { _ in syncSubjectModelRouteForm() }
         .onChange(of: autoAgentRole) { _ in syncAutoAgentModelForm() }
