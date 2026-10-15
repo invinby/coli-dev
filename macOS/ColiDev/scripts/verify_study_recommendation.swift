@@ -3,6 +3,20 @@ import Foundation
 @main
 enum StudyRecommendationVerification {
     static func main() throws {
+        let practiceFocusedReasons: [StudyRecommendationReason] = [
+            .practiceReview,
+            .reportedDifficulty(.foundation),
+            .reportedFoundationPrerequisite,
+            .recallReview,
+            .prerequisiteCheck,
+        ]
+        precondition(
+            practiceFocusedReasons.allSatisfy(\.opensInteractivePractice)
+                && !StudyRecommendationReason.resume.opensInteractivePractice
+                && !StudyRecommendationReason.nextLesson.opensInteractivePractice,
+            "Practice-oriented recommendations must focus the existing interactive trainer; resume and new-lesson routes must keep their normal entry point. / Рекомендации на практику должны открывать существующий тренажёр; продолжение и новый урок должны открываться как обычно."
+        )
+
         let roadmaps = [
             StudyRoadmap(subjectID: "mathematics", lessonResources: ["fractions", "geometry", "algebra"]),
             StudyRoadmap(subjectID: "english", lessonResources: ["verbs", "conditionals"]),

@@ -25,6 +25,7 @@ struct ContentView: View {
     @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selection: AppSection? = .today
+    @State private var practiceFocusRoute: StudyLessonRoute?
 
     var body: some View {
         NavigationSplitView {
@@ -82,7 +83,9 @@ struct ContentView: View {
                     TodayView(
                         open: open,
                         openCustom: openCustom,
-                        openCourseLesson: openRecommendedLesson,
+                        openCourseLesson: { route, focusPractice in
+                            openRecommendedLesson(route, focusPractice: focusPractice)
+                        },
                         openDueReview: openDueReview
                     )
                 case .subjects:
@@ -102,7 +105,12 @@ struct ContentView: View {
                         CurriculumModuleView(
                             subject: subject,
                             resource: route.resource,
-                            progressLessonID: route.progressLessonID
+                            progressLessonID: route.progressLessonID,
+                            focusPracticeOnOpen: practiceFocusRoute == StudyLessonRoute(
+                                subjectID: "intro",
+                                resource: subject.rawValue
+                            ),
+                            onPracticeFocusCompleted: { practiceFocusRoute = nil }
                         )
                     } else {
                         LessonSessionView(subject: subject) {
@@ -110,7 +118,15 @@ struct ContentView: View {
                         }
                     }
                 case .courseLesson(let subject, let resource):
-                    CurriculumModuleView(subject: subject, resource: resource)
+                    CurriculumModuleView(
+                        subject: subject,
+                        resource: resource,
+                        focusPracticeOnOpen: practiceFocusRoute == StudyLessonRoute(
+                            subjectID: subject.rawValue,
+                            resource: resource
+                        ),
+                        onPracticeFocusCompleted: { practiceFocusRoute = nil }
+                    )
                 case .customSubject(let subjectID):
                     CustomSubjectDetailView(
                         subjectID: subjectID,
@@ -166,34 +182,43 @@ struct ContentView: View {
     }
 
     private func open(_ subject: Subject) {
+        practiceFocusRoute = nil
         selection = .subject(subject)
     }
 
     private func openCustom(_ subjectID: UUID) {
+        practiceFocusRoute = nil
         selection = .customSubject(subjectID)
     }
 
     private func openCourseLesson(subject: Subject, resource: String) {
+        openCourseLesson(subject: subject, resource: resource, focusPractice: false)
+    }
+
+    private func openCourseLesson(subject: Subject, resource: String, focusPractice: Bool) {
         let route = StudyLessonRoute(subjectID: subject.rawValue, resource: resource)
         if let roadmap = CurriculumCatalog.studyRoadmaps().first(where: { $0.subjectID == subject.rawValue }),
            !StudyProgressionPolicy.isAvailable(route, in: roadmap, evidence: store.studyProgressionEvidence) {
+            practiceFocusRoute = nil
             selection = .subject(subject)
             return
         }
+        practiceFocusRoute = focusPractice ? route : nil
         store.rememberCourseLesson(subject: subject, resource: resource)
         selection = .courseLesson(subject, resource)
     }
 
-    private func openRecommendedLesson(_ route: StudyLessonRoute) {
-        openStudyRoute(route)
+    private func openRecommendedLesson(_ route: StudyLessonRoute, focusPractice: Bool) {
+        openStudyRoute(route, focusPractice: focusPractice)
     }
 
     private func openDueReview(_ route: StudyLessonRoute) {
-        openStudyRoute(route)
+        openStudyRoute(route, focusPractice: true)
     }
 
-    private func openStudyRoute(_ route: StudyLessonRoute) {
+    private func openStudyRoute(_ route: StudyLessonRoute, focusPractice: Bool = false) {
         if let address = CustomTopicStudyRoute.address(for: route, in: store.customCurriculum) {
+            practiceFocusRoute = nil
             store.rememberStudyRoute(route)
             switch address {
             case .learnerSubject(let subjectID, let topicID):
@@ -205,11 +230,15 @@ struct ContentView: View {
             return
         }
         if route.subjectID == "intro", let subject = Subject(rawValue: route.resource) {
+            practiceFocusRoute = focusPractice ? route : nil
             selection = .lesson(subject)
             return
         }
-        guard let subject = Subject(rawValue: route.subjectID) else { return }
-        openCourseLesson(subject: subject, resource: route.resource)
+        guard let subject = Subject(rawValue: route.subjectID) else {
+            practiceFocusRoute = nil
+            return
+        }
+        openCourseLesson(subject: subject, resource: route.resource, focusPractice: focusPractice)
     }
 }
 
@@ -229,7 +258,7 @@ private struct TodayView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let open: (Subject) -> Void
     let openCustom: (UUID) -> Void
-    let openCourseLesson: (StudyLessonRoute) -> Void
+    let openCourseLesson: (StudyLessonRoute, Bool) -> Void
     let openDueReview: (StudyLessonRoute) -> Void
 
     @State private var builtInStudyRoadmaps = CurriculumCatalog.studyRoadmaps()
@@ -730,8 +759,11 @@ private struct TodayView: View {
             Button {
                 if let nextDueReviewRoute {
                     openDueReview(nextDueReviewRoute)
-                } else if let nextLessonRoute {
-                    openCourseLesson(nextLessonRoute)
+                } else if let recommendation = studyRecommendation {
+                    openCourseLesson(
+                        recommendation.route,
+                        recommendation.reason.opensInteractivePractice
+                    )
                 } else if store.activeStudyGoal != nil {
                     showingGoalPicker = true
                 } else {

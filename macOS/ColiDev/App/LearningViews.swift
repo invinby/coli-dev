@@ -322,6 +322,7 @@ private struct CurriculumLessonDocument {
 
 struct CurriculumModuleView: View {
     @EnvironmentObject private var store: LearningStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var document: CurriculumLessonDocument?
     @State private var showingTutor = false
     @State private var learnerConfirmed = false
@@ -343,19 +344,30 @@ struct CurriculumModuleView: View {
     let subject: Subject
     let resource: String
     let progressLessonID: String?
+    let focusPracticeOnOpen: Bool
+    let onPracticeFocusCompleted: () -> Void
 
     private var lessonID: String { progressLessonID ?? "\(subject.rawValue).\(resource)" }
     private var isComplete: Bool { store.isComplete(lessonID: lessonID) }
     private var isReviewDue: Bool { store.isReviewDue(lessonID: lessonID) }
     private var hasPendingReview: Bool { store.hasPendingReview(lessonID: lessonID) }
 
-    init(subject: Subject, resource: String, progressLessonID: String? = nil) {
+    init(
+        subject: Subject,
+        resource: String,
+        progressLessonID: String? = nil,
+        focusPracticeOnOpen: Bool = false,
+        onPracticeFocusCompleted: @escaping () -> Void = {}
+    ) {
         self.subject = subject
         self.resource = resource
         self.progressLessonID = progressLessonID
+        self.focusPracticeOnOpen = focusPracticeOnOpen
+        self.onPracticeFocusCompleted = onPracticeFocusCompleted
     }
 
     var body: some View {
+        ScrollViewReader { scrollProxy in
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 if let document {
@@ -394,6 +406,8 @@ struct CurriculumModuleView: View {
                         ModuleTextCard(title: L10n.text("session.lab", store.language), text: document.practice, tint: subject.tint)
                     }
                     PracticeLab(subject: subject, moduleResource: resource)
+                        .id("module-interactive-practice")
+                        .accessibilityIdentifier("module.interactive-practice")
 
                     if !document.checkQuestion.isEmpty, !document.checkOptions.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
@@ -648,6 +662,15 @@ struct CurriculumModuleView: View {
             .frame(maxWidth: 900, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .center)
         }
+        .onChange(of: document?.title) { title in
+            guard title != nil, focusPracticeOnOpen else { return }
+            DispatchQueue.main.async {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) {
+                    scrollProxy.scrollTo("module-interactive-practice", anchor: .top)
+                }
+                onPracticeFocusCompleted()
+            }
+        }
         .background(Color(nsColor: .windowBackgroundColor))
         .navigationTitle(Text(document?.title ?? L10n.text("module.title", store.language)))
         .onAppear { loadDocument() }
@@ -685,6 +708,7 @@ struct CurriculumModuleView: View {
                     .environmentObject(store)
                     .frame(minWidth: 680, minHeight: 520)
             }
+        }
         }
     }
 

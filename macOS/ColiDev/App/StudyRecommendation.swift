@@ -284,6 +284,15 @@ enum StudyRecommendationReason: Equatable {
     case recallReview
     case prerequisiteCheck
     case nextLesson
+
+    var opensInteractivePractice: Bool {
+        switch self {
+        case .practiceReview, .reportedDifficulty, .reportedFoundationPrerequisite, .recallReview, .prerequisiteCheck:
+            true
+        case .resume, .nextLesson:
+            false
+        }
+    }
 }
 
 struct StudyRecommendation: Equatable {
