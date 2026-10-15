@@ -2,17 +2,17 @@
 
 **Дата обновления / Updated:** 2026-10-15
 
-**Проверенный коммит приложения / Verified application commit:** `da7b7be`
+**Проверенный коммит приложения / Verified application commit:** `1033d8e`
 
-**CI:** [запуск 38750886552](https://github.com/invinby/coli-dev/actions/runs/38750886552) — все четыре задания успешно завершены / all four jobs passed
+**CI:** [запуск 38753835401](https://github.com/invinby/coli-dev/actions/runs/38753835401) — все четыре задания успешно завершены / all four jobs passed
 
 **Статус:** прототип готов к внутреннему тесту на Mac; это не релизный установщик. / **Status:** prototype is ready for internal Mac testing; this is not a release installer.
 
 ## Что подтверждено / What is verified
 
-**RU:** GitHub Actions завершил backend-проверки, verifier Центра управления и все Swift-verifier’ы; собрал приложение, встроил локальный backend, прошёл smoke-проверку и аудит учебных маршрутов. Успешно завершились все четыре job: backend, macOS 15 ARM, macOS 26 ARM и macOS 26 Intel. Полный backend-набор также выполнен локально: **544 теста прошли**. Добавлен двуязычный маршрут Foundations о слогах и ударении с четырьмя интерактивными заданиями и сохранением попыток. Аудит каталога подтвердил 54 RU/EN-маршрута по шести предметам и 18 уровням. Sources API `/knowledge/sources` показывает расчётное время следующей проверки; источник проверяется, пока запущен локальный backend, но уроки автоматически не переписываются и не публикуются. CI подтверждает компиляцию, автоматические проверки и упаковку, но не ручную отрисовку интерфейса, живой ответ ИИ или сохранение состояния на физическом Mac.
+**RU:** GitHub Actions завершил 545 backend-тестов и Control Center verifier; все три macOS job прошли Swift-verifier’ы, собрали приложение, встроили локальный backend, прошли smoke-проверку и аудит учебных маршрутов. Успешно завершились все четыре job: backend, macOS 15 ARM, macOS 26 ARM и macOS 26 Intel. При реальном пробном запросе монитор получил HTTP 200, сохранил разрешённый снимок Python в RAG, а поиск вернул официальный фрагмент с URL, лицензией и временем проверки. Также исправлено явное закрытие SQLite-соединений. Аудит каталога подтвердил 54 RU/EN-маршрута по шести предметам и 18 уровням. Sources API `/knowledge/sources` показывает расчётное время следующей проверки; уроки автоматически не переписываются и не публикуются. CI подтверждает компиляцию, автоматические проверки и упаковку, но не ручную отрисовку интерфейса, живой ответ ИИ или сохранение состояния на физическом Mac.
 
-**EN:** GitHub Actions passed backend checks, the Control Center verifier, and all Swift verifiers; it built the app, embedded the local backend, passed the backend smoke check, and audited curriculum routes. All four jobs passed: backend, macOS 15 ARM, macOS 26 ARM, and macOS 26 Intel. The full backend suite also ran locally: **544 tests passed**. Added a bilingual Foundations route on syllables and word stress with four interactive prompts and saved attempts. The packaged catalog audit confirmed 54 RU/EN routes across six subjects and 18 levels. The Sources API `/knowledge/sources` exposes the calculated next check time; checks run while the local backend is running, but lessons are not automatically rewritten or published. CI proves compilation, automated checks, and packaging, not hands-on UI rendering, a live AI reply, or state persistence on a physical Mac.
+**EN:** GitHub Actions passed 545 backend tests and the Control Center verifier. All three macOS jobs passed their Swift verifiers, built the app, embedded the local backend, passed the backend smoke check, and audited curriculum routes. All four jobs passed: backend, macOS 15 ARM, macOS 26 ARM, and macOS 26 Intel. A live source-monitor probe returned HTTP 200, stored a licensed Python documentation snapshot in RAG, and retrieved an official excerpt with its URL, license, and check timestamp. SQLite connections now close explicitly. The packaged catalog audit confirmed 54 RU/EN routes across six subjects and 18 levels. The Sources API `/knowledge/sources` exposes the calculated next check time; lessons are not automatically rewritten or published. CI proves compilation, automated checks, and packaging, not hands-on UI rendering, a live AI reply, or state persistence on a physical Mac.
 
 ## Проверка соответствия панелей / Control Center pane mapping check
 
@@ -26,9 +26,9 @@ Choose the artifact that matches the Mac. These are CI archives, not a signed in
 
 Выбери архив под свой Mac. Это архивы из CI, а не подписанный установщик. **Приложение не подписано и не нотарифицировано**, поэтому macOS может показать предупреждение Gatekeeper. Для публичного распространения ещё нужны подпись и нотарификация.
 
-- [macOS 15 ARM / Apple Silicon](https://github.com/invinby/coli-dev/actions/runs/38750886552/artifacts/11981567534) — доступен до 29.10.2026 14:29 UTC / available until 2026-10-29 14:29 UTC.
-- [macOS 26 ARM / Apple Silicon](https://github.com/invinby/coli-dev/actions/runs/38750886552/artifacts/11981227353) — доступен до 29.10.2026 14:29 UTC / available until 2026-10-29 14:29 UTC.
-- [macOS 26 Intel](https://github.com/invinby/coli-dev/actions/runs/38750886552/artifacts/11980738947) — доступен до 29.10.2026 14:30 UTC / available until 2026-10-29 14:30 UTC.
+- [macOS 15 ARM / Apple Silicon](https://github.com/invinby/coli-dev/actions/runs/38753835401/artifacts/11982512745) — доступен до 29.10.2026 14:49 UTC / available until 2026-10-29 14:49 UTC.
+- [macOS 26 ARM / Apple Silicon](https://github.com/invinby/coli-dev/actions/runs/38753835401/artifacts/11983345425) — доступен до 29.10.2026 14:47 UTC / available until 2026-10-29 14:47 UTC.
+- [macOS 26 Intel](https://github.com/invinby/coli-dev/actions/runs/38753835401/artifacts/11982768389) — доступен до 29.10.2026 14:53 UTC / available until 2026-10-29 14:53 UTC.
 
 ## Что ещё нужно проверить на Mac / What still needs hands-on Mac acceptance
 
