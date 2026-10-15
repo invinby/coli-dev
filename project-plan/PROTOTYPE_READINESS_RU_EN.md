@@ -2,23 +2,23 @@
 
 **Дата обновления / Updated:** 2026-10-15
 
-**Проверенный исходный коммит / Verified source commit:** `8eaa9f1`
+**Проверенный исходный коммит / Verified source commit:** `f564bbe`
 
-**CI:** [запуск 38732023548](https://github.com/invinby/coli-dev/actions/runs/38732023548) — успешно / passed
+**CI:** [запуск 38736168749](https://github.com/invinby/coli-dev/actions/runs/38736168749) — успешно / passed
 
 **Статус:** прототип готов к внутреннему тесту на Mac; это не релизный установщик. / **Status:** prototype is ready for internal Mac testing; this is not a release installer.
 
 ## Что подтверждено / What is verified
 
-**RU:** GitHub Actions завершил backend-проверки, verifier Центра управления и все Swift-verifier’ы; собрал приложение, встроил локальный backend, прошёл smoke-проверку и аудит учебных маршрутов. Успешно завершились все четыре job: backend, macOS 15 ARM, macOS 26 ARM и macOS 26 Intel. Backend: 538 тестов прошли; осталось одно предупреждение Starlette/httpx. Аудит собранного каталога подтвердил 53 связанных RU/EN-урока по шести предметам и 18 уровням. В коммите `8eaa9f1` рекомендации, связанные с ошибками, повторением и проверкой предпосылок, открывают существующий интерактивный тренажёр прямо в уроке; обычное продолжение и новый урок открываются как раньше. Это проверено Swift-verifier’ом. CI подтверждает компиляцию, автоматические проверки и упаковку, но не ручную отрисовку интерфейса, реальный ответ ИИ или сохранение состояния на физическом Mac.
+**RU:** GitHub Actions завершил backend-проверки, verifier Центра управления и все Swift-verifier’ы; собрал приложение, встроил локальный backend, прошёл smoke-проверку и аудит учебных маршрутов. Успешно завершились все четыре job: backend, macOS 15 ARM, macOS 26 ARM и macOS 26 Intel. Backend: 541 тест прошёл; осталось предупреждение Starlette/httpx о тестовом клиенте. В Sources API `/knowledge/sources` возвращает расчётную дату следующей проверки. Центр управления показывает её на русском и английском; если расчёт расписания временно недоступен, список источников остаётся доступен. Автопроверка выполняется, пока запущен локальный backend, и сама не переписывает и не публикует уроки. Аудит собранного каталога подтвердил 53 связанные RU/EN-маршрута по шести предметам и 18 уровням. Код также сохраняет переход рекомендации по повторению/ошибке к тренажёру. CI подтверждает компиляцию, автоматические проверки и упаковку, но не ручную отрисовку интерфейса, реальный ответ ИИ или сохранение состояния на физическом Mac.
 
-**EN:** GitHub Actions passed backend checks, the Control Center verifier, and all Swift verifiers; it built the app, embedded the local backend, passed the backend smoke check, and audited curriculum routes. All four jobs passed: backend, macOS 15 ARM, macOS 26 ARM, and macOS 26 Intel. The backend suite reported 538 passing tests with one Starlette/httpx warning. The packaged catalog audit confirmed 53 linked RU/EN lessons across six subjects and 18 levels. Commit `8eaa9f1` routes recommendations triggered by errors, review, and prerequisite checks to the existing interactive trainer inside the lesson; normal resume and new-lesson actions keep their usual entry point. A Swift verifier checks that policy. CI proves compilation, automated checks, and packaging, not hands-on UI rendering, a live AI response, or state persistence on a physical Mac.
+**EN:** GitHub Actions passed backend checks, the Control Center verifier, and all Swift verifiers; it built the app, embedded the local backend, passed the backend smoke check, and audited curriculum routes. All four jobs passed: backend, macOS 15 ARM, macOS 26 ARM, and macOS 26 Intel. The backend suite reported 541 passing tests and one Starlette/httpx test-client deprecation warning. The Sources API `/knowledge/sources` now returns the calculated next automatic-check time. Control Center displays it in RU/EN; if schedule calculation is temporarily unavailable, the source inventory remains available. Automatic checks run while the local backend is running and do not rewrite or publish lessons. The packaged catalog audit confirmed 53 linked RU/EN routes across six subjects and 18 levels. The code also retains the route from review/error recommendations to the in-lesson trainer. CI proves compilation, automated checks, and packaging, not hands-on UI rendering, a live AI response, or state persistence on a physical Mac.
 
 ## Проверка соответствия панелей / Control Center pane mapping check
 
-**RU:** Исправлены ID для обзора, курсов, моделей, RAG, источников и интеграций, а также ID пунктов «Центр управления» и «Локальные модели» в боковой панели. Python-verifier проверяет, что каждому ID соответствует свой экран, и что переключатель и навигация имеют стабильные ID. Он упал на прежнем коде, прошёл после исправления и запускается в CI. В текущем GitHub Actions [38732023548](https://github.com/invinby/coli-dev/actions/runs/38732023548) verifier снова прошёл, и приложение собрано для трёх конфигураций macOS. Verifier не открывает окно; прежний пустой экран вручную не воспроизведён, его причина не установлена.
+**RU:** Исправлены ID для обзора, курсов, моделей, RAG, источников и интеграций, а также ID пунктов «Центр управления» и «Локальные модели» в боковой панели. Python-verifier проверяет, что каждому ID соответствует свой экран, и что переключатель и навигация имеют стабильные ID. В CI [38736168749](https://github.com/invinby/coli-dev/actions/runs/38736168749) verifier прошёл, и приложение собрано для трёх конфигураций macOS. Verifier не открывает окно; прежний пустой экран вручную не воспроизведён, его причина не установлена.
 
-**EN:** Stable IDs now map Overview, Courses, Models, RAG, Sources, and Integrations to their own panes; the Management and Local Models sidebar items also have stable IDs. The Python verifier checks the pane-to-ID mapping and navigation identifiers. It failed against the original code, passed after the fix, and runs in CI. In the current GitHub Actions run [38732023548](https://github.com/invinby/coli-dev/actions/runs/38732023548), the verifier passed again and the app built for all three macOS configurations. The verifier does not open a window; the earlier blank screen has not been reproduced manually, and its cause remains unknown.
+**EN:** Stable IDs now map Overview, Courses, Models, RAG, Sources, and Integrations to their own panes; the Management and Local Models sidebar items also have stable IDs. The Python verifier checks the pane-to-ID mapping and navigation identifiers. It failed against the original code, passed after the fix, and runs in CI. In GitHub Actions run [38736168749](https://github.com/invinby/coli-dev/actions/runs/38736168749), it passed again and the app built for all three macOS configurations. The verifier does not open a window; the earlier blank screen has not been reproduced manually, and its cause remains unknown.
 
 ## Скачать тестовую сборку / Download the test build
 
@@ -26,9 +26,9 @@ Choose the artifact that matches the Mac. These are CI archives, not a signed in
 
 Выбери архив под свой Mac. Это архивы из CI, а не подписанный установщик. **Приложение не подписано и не нотарифицировано**, поэтому macOS может показать предупреждение Gatekeeper. Для публичного распространения ещё нужны подпись и нотарификация.
 
-- [macOS 15 ARM / Apple Silicon](https://github.com/invinby/coli-dev/actions/runs/38732023548/artifacts/11970468050) — available until 2026-10-29 UTC / доступен до 29.10.2026 UTC.
-- [macOS 26 ARM / Apple Silicon](https://github.com/invinby/coli-dev/actions/runs/38732023548/artifacts/11970702891) — available until 2026-10-29 UTC / доступен до 29.10.2026 UTC.
-- [macOS 26 Intel](https://github.com/invinby/coli-dev/actions/runs/38732023548/artifacts/11971104255) — available until 2026-10-29 UTC / доступен до 29.10.2026 UTC.
+- [macOS 15 ARM / Apple Silicon](https://github.com/invinby/coli-dev/actions/runs/38736168749/artifacts/11974392047) — available until 2026-10-29 UTC / доступен до 29.10.2026 UTC.
+- [macOS 26 ARM / Apple Silicon](https://github.com/invinby/coli-dev/actions/runs/38736168749/artifacts/11974087296) — available until 2026-10-29 UTC / доступен до 29.10.2026 UTC.
+- [macOS 26 Intel](https://github.com/invinby/coli-dev/actions/runs/38736168749/artifacts/11974357666) — available until 2026-10-29 UTC / доступен до 29.10.2026 UTC.
 
 ## Что ещё нужно проверить на Mac / What still needs hands-on Mac acceptance
 
