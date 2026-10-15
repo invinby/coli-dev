@@ -380,7 +380,7 @@ jobs:
           CODE_SIGN_IDENTITY=-
 
       - name: Export Control Center UI screenshots
-        if: failure() && matrix.runner == 'macos-15'
+        if: always() && matrix.runner == 'macos-15'
         run: |
           mkdir -p "$RUNNER_TEMP/ColiDevUITestAttachments"
           result="$(find "$RUNNER_TEMP/ColiDevUITestData/Logs/Test" -maxdepth 1 -name '*.xcresult' -print -quit)"
@@ -392,7 +392,7 @@ jobs:
           fi
 
       - name: Upload Control Center UI screenshots
-        if: failure() && matrix.runner == 'macos-15'
+        if: always() && matrix.runner == 'macos-15'
         uses: actions/upload-artifact@v7
         with:
           name: ColiDev-UI-Test-Screenshots

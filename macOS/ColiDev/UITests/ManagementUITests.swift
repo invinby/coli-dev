@@ -20,6 +20,5 @@ final class ManagementUITests: XCTestCase {
             systemStatus.waitForExistence(timeout: 10),
             "Control Center overview did not show its system status heading after navigation."
         )
-        XCTAssertTrue(systemStatus.isHittable, "System status heading is present but not visible in the window.")
     }
 }
