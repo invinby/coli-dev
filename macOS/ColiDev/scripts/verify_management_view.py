@@ -77,5 +77,13 @@ if "automaticCheckDueAt" not in app_models or '"automatic_check_due_at"' not in 
         "Модель источников должна декодировать следующее время проверки / "
         "The source inventory model must decode the next check time"
     )
+management_view_start = source.find("private struct ManagementView: View")
+management_view_end = source.find("private enum SourceRegistrySheet", management_view_start)
+management_view = source[management_view_start:management_view_end]
+if "formatManagementDate(dueAt)" not in sources_pane or "private func formatManagementDate(" not in management_view:
+    raise AssertionError(
+        "Форматтер срока должен принадлежать ManagementView / "
+        "The due-date formatter must be scoped to ManagementView"
+    )
 
 print("Доступность панелей Центра управления проверена / Control Center pane accessibility mapping is consistent.")

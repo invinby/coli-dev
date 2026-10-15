@@ -2245,7 +2245,7 @@ private struct ManagementView: View {
                     Label(
                         String(
                             format: L10n.text("management.autoSourceCheckDue", store.language),
-                            formatISODate(dueAt)
+                            formatManagementDate(dueAt)
                         ),
                         systemImage: "calendar.badge.clock"
                     )
@@ -3404,6 +3404,11 @@ private struct ManagementView: View {
         } catch {
             reportError("management.compatibleSaveFailed")
         }
+    }
+
+    private func formatManagementDate(_ value: String) -> String {
+        guard let date = ISO8601DateFormatter().date(from: value) else { return value }
+        return DateFormatter.localizedString(from: date, dateStyle: .short, timeStyle: .short)
     }
 }
 
