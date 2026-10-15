@@ -1393,6 +1393,8 @@ private struct PracticeLab: View {
             TenseContrastLab()
         } else if subject == .english, moduleResource == "present_perfect_simple_continuous" {
             PresentPerfectAspectLab()
+        } else if subject == .english, moduleResource == "subject_pronouns_and_be" {
+            EnglishBeLab()
         } else if subject == .english, moduleResource == "sounds_stress_rhythm" {
             EnglishWordStressLab()
         } else if subject == .english, moduleResource == "zero_first_second_conditionals" {
@@ -3374,6 +3376,140 @@ private struct EnglishWordStressLab: View {
         assessmentTracker.reset()
         optionOrders = QuizAnswerOrder.balancedSequence(
             optionCount: 2,
+            answerOriginalIndices: questions.map(\.correctOption)
+        )
+    }
+}
+
+private struct EnglishBeLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var index = 0
+    @State private var selection: Int?
+    @State private var wasCorrect: Bool?
+    @State private var complete = false
+    @State private var assessmentTracker = EnglishBeAssessmentTracker()
+    @State private var optionOrders = QuizAnswerOrder.balancedSequence(
+        optionCount: 3,
+        answerOriginalIndices: EnglishBePractice.questions.map(\.correctOption)
+    )
+
+    private let questions = EnglishBePractice.questions
+    private let lessonID = "english.subject_pronouns_and_be"
+
+    private var question: EnglishBeQuestion { questions[index] }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.beHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if complete {
+                Label(L10n.text("lab.beComplete", store.language), systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(L10n.text("lab.beRestart", store.language), systemImage: "arrow.counterclockwise") {
+                    reset()
+                }
+                .buttonStyle(.bordered)
+            } else {
+                Text(String(format: L10n.text("lab.beProgress", store.language), index + 1, questions.count))
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                ProgressView(value: Double(index + 1), total: Double(questions.count))
+                Text(question.prompt)
+                    .font(.title3.weight(.medium))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("english.be.prompt.\(question.id)")
+                if store.language == .ru {
+                    Text(question.translation)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                ForEach(Array(optionOrders[index].displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Button {
+                        selection = displayIndex
+                        wasCorrect = nil
+                    } label: {
+                        Label(
+                            question.options[originalIndex],
+                            systemImage: selection == displayIndex ? "checkmark.circle.fill" : "circle"
+                        )
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(selection == displayIndex ? .accentColor : .secondary)
+                    .disabled(wasCorrect == true)
+                    .accessibilityAddTraits(selection == displayIndex ? .isSelected : [])
+                    .accessibilityIdentifier("english.be.option.\(question.id).\(originalIndex)")
+                }
+
+                if let wasCorrect {
+                    if wasCorrect {
+                        Text(store.language == .ru ? question.explanationRussian : question.explanationEnglish)
+                            .font(.callout)
+                            .foregroundStyle(.green)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Label(L10n.text("lab.beTryAgain", store.language), systemImage: "arrow.triangle.2.circlepath")
+                                .foregroundStyle(.orange)
+                            Text(store.language == .ru ? question.hintRussian : question.hintEnglish)
+                                .foregroundStyle(.secondary)
+                        }
+                        .font(.callout)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                Button(action: advanceOrCheck) {
+                    Text(L10n.text(
+                        wasCorrect == true
+                            ? (index == questions.count - 1 ? "lab.beFinish" : "lab.beNext")
+                            : "lab.beCheck",
+                        store.language
+                    ))
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(selection == nil && wasCorrect != true)
+                .accessibilityIdentifier("english.be.check")
+            }
+        }
+        .accessibilityIdentifier("english.subject-pronouns-be-lab")
+    }
+
+    private func advanceOrCheck() {
+        if wasCorrect == true {
+            guard index < questions.count - 1 else {
+                complete = true
+                return
+            }
+            index += 1
+            selection = nil
+            wasCorrect = nil
+            return
+        }
+
+        guard let selection,
+              let originalOption = optionOrders[index].originalIndex(forDisplayedIndex: selection) else { return }
+        wasCorrect = EnglishBePractice.isCorrect(originalOption, for: question.id)
+        if let evidence = assessmentTracker.recordSubmission(option: originalOption, for: question.id) {
+            store.recordStudyAssessment(lessonID: lessonID, evidence: evidence)
+        }
+    }
+
+    private func reset() {
+        index = 0
+        selection = nil
+        wasCorrect = nil
+        complete = false
+        assessmentTracker.reset()
+        optionOrders = QuizAnswerOrder.balancedSequence(
+            optionCount: 3,
             answerOriginalIndices: questions.map(\.correctOption)
         )
     }

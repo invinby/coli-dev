@@ -98,7 +98,7 @@ _ALLOWED_PATHS = {
         r"docs/(?:git-switch|git-push))$"
     ),
     "learnenglish.britishcouncil.org": re.compile(
-        r"^/(?:free-resources/(?:grammar/(?:english-grammar-reference|b1-b2)/[A-Za-z0-9-]+|"
+        r"^/(?:free-resources/(?:grammar/(?:(?:english-grammar-reference|b1-b2)/[A-Za-z0-9-]+|a1-a2/present-simple-be)|"
         r"vocabulary/a1-a2(?:/daily-routine-vocabulary-a1-beginner-english-vocabulary-lesson)?|reading/a1)|"
         r"level/improve-your-english-level/how-start-reading-english|"
         r"english-levels/improve-your-english-level/easy-way-work-out-how-pronounce-new-words)/?$"
