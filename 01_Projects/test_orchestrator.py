@@ -1943,7 +1943,8 @@ def test_automatic_source_scheduler_checks_when_due_and_stops_cleanly(monkeypatc
         def seconds_until_automatic_check(self):
             return 0 if self.checks == 0 else 3600
 
-        async def check_sources(self):
+        async def check_sources(self, *, due_only: bool = False):
+            assert due_only
             self.checks += 1
             checked.set()
             return {"checked_count": 2, "changed_count": 1, "needs_attention_count": 1}
@@ -1969,10 +1970,15 @@ def test_manual_and_scheduled_source_checks_share_a_lock(monkeypatch):
     active = 0
     max_active = 0
     calls = 0
+    due_only_calls: list[bool] = []
 
     class SlowSourceMonitor:
-        async def check_sources(self):
+        def seconds_until_automatic_check(self):
+            return 0
+
+        async def check_sources(self, *, due_only: bool = False):
             nonlocal active, max_active, calls
+            due_only_calls.append(due_only)
             calls += 1
             active += 1
             max_active = max(max_active, active)
@@ -1988,7 +1994,9 @@ def test_manual_and_scheduled_source_checks_share_a_lock(monkeypatch):
         lock = asyncio.Lock()
         first = asyncio.create_task(orchestrator._run_trusted_source_check(lock))
         await asyncio.wait_for(entered.wait(), timeout=1)
-        second = asyncio.create_task(orchestrator._run_trusted_source_check(lock))
+        second = asyncio.create_task(
+            orchestrator._run_trusted_source_check(lock, only_if_due=True)
+        )
         await asyncio.sleep(0)
         assert calls == 1
         release_first.set()
@@ -1998,6 +2006,7 @@ def test_manual_and_scheduled_source_checks_share_a_lock(monkeypatch):
 
     assert calls == 2
     assert max_active == 1
+    assert due_only_calls == [False, True]
 
 
 def test_local_rag_inspector_returns_real_cited_sources_and_opt_in_obsidian(client, monkeypatch):
@@ -2090,7 +2099,8 @@ def test_scheduler_rechecks_due_time_after_waiting_for_manual_check(monkeypatch)
         def seconds_until_automatic_check(self):
             return 0 if self.due else 3600
 
-        async def check_sources(self):
+        async def check_sources(self, *, due_only: bool = False):
+            assert due_only
             self.checks += 1
             self.due = False
             return {"checked_count": 1}

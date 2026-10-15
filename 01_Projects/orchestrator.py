@@ -3680,6 +3680,7 @@ async def _run_trusted_source_check(
             delay = trusted_source_monitor.seconds_until_automatic_check()
             if delay is None or delay > 0:
                 return None
+            return await trusted_source_monitor.check_sources(due_only=True)
         return await trusted_source_monitor.check_sources()
 
     if check_lock is None:

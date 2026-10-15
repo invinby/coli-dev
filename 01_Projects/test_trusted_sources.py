@@ -108,6 +108,53 @@ def test_automatic_check_has_no_schedule_without_approved_sources(tmp_path: Path
     assert monitor.seconds_until_automatic_check() is None
 
 
+def test_automatic_check_fetches_only_sources_that_are_due(tmp_path: Path) -> None:
+    monitor = _monitor(tmp_path, tmp_path)
+    fresh_url = "https://openstax.org/books/biology-2e/pages/3-1-synthesis-of-biological-macromolecules"
+    due_url = "https://openstax.org/books/biology-2e/pages/3-2-carbohydrates"
+    _write_lesson(tmp_path, f"[Fresh source]({fresh_url})\n[Due source]({due_url})")
+    references = {reference.url: reference for reference in monitor._references()[0]}
+    now = datetime.now(timezone.utc)
+
+    for url, age, state, digest in (
+        (fresh_url, timedelta(hours=2), "unchanged", "fresh-digest"),
+        (due_url, timedelta(hours=7), "network_error", None),
+    ):
+        checked_at = now - age
+        checked_text = checked_at.isoformat().replace("+00:00", "Z")
+        monitor._save_check(
+            references[url],
+            etag='"version-1"' if digest else None,
+            last_modified=None,
+            checked_at=checked_text,
+            http_status=200 if digest else None,
+            state=state,
+            content_digest=digest,
+            content_checked_at=checked_text if digest else None,
+        )
+
+    requested_urls: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requested_urls.append(str(request.url))
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/html; charset=utf-8"},
+            text="<html><body><main><article><p>Updated approved source.</p></article></main></body></html>",
+        )
+
+    async def check() -> dict[str, object]:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await monitor.check_sources(client, due_only=True)
+
+    result = asyncio.run(check())
+
+    assert requested_urls == [due_url]
+    assert [item["url"] for item in result["checks"]] == [due_url]
+    assert result["checked_count"] == 1
+    assert result["supported_count"] == 2
+
+
 def test_reference_scan_deduplicates_allowed_urls_and_ignores_untrusted_domains(
     tmp_path: Path,
 ) -> None:

@@ -832,12 +832,12 @@ class TrustedSourceMonitor:
                 (reference.url, pending_digest),
             )
 
-    def seconds_until_automatic_check(self, *, now: datetime | None = None) -> float | None:
-        """Return delay until the next bounded check, retrying transient failures sooner."""
-        references, _, _ = self._references()
-        if not references:
-            return None
-        current = now or datetime.now(timezone.utc)
+    def _automatic_check_schedule(
+        self,
+        references: list[SourceReference],
+        current: datetime,
+    ) -> list[tuple[SourceReference, float]]:
+        """Pair each approved source with its own delay before its next check."""
         if current.tzinfo is None:
             current = current.replace(tzinfo=timezone.utc)
         with self._db_lock, self._connection() as connection:
@@ -848,17 +848,19 @@ class TrustedSourceMonitor:
                 ).fetchall()
             }
 
-        delays: list[float] = []
+        schedule: list[tuple[SourceReference, float]] = []
         for reference in references:
             previous = previous_checks.get(reference.url)
             if previous is None:
-                return 0.0
+                schedule.append((reference, 0.0))
+                continue
             try:
                 checked_at = datetime.fromisoformat(
                     str(previous["last_checked_at"]).replace("Z", "+00:00")
                 )
             except (TypeError, ValueError):
-                return 0.0
+                schedule.append((reference, 0.0))
+                continue
             if checked_at.tzinfo is None:
                 checked_at = checked_at.replace(tzinfo=timezone.utc)
             interval = (
@@ -866,8 +868,19 @@ class TrustedSourceMonitor:
                 if str(previous["state"]) in _TRANSIENT_SOURCE_STATES
                 else _AUTO_CHECK_INTERVAL
             )
-            delays.append((checked_at + interval - current).total_seconds())
-        return max(0.0, min(delays))
+            schedule.append((reference, (checked_at + interval - current).total_seconds()))
+        return schedule
+
+    def seconds_until_automatic_check(self, *, now: datetime | None = None) -> float | None:
+        """Return delay until the next bounded check, retrying transient failures sooner."""
+        references, _, _ = self._references()
+        if not references:
+            return None
+        current = now or datetime.now(timezone.utc)
+        if current.tzinfo is None:
+            current = current.replace(tzinfo=timezone.utc)
+        delays = [delay for _, delay in self._automatic_check_schedule(references, current)]
+        return max(0.0, min(delays)) if delays else None
 
     def _previous_check(self, url: str) -> sqlite3.Row | None:
         with self._db_lock, self._connection() as connection:
@@ -1314,9 +1327,17 @@ class TrustedSourceMonitor:
         }
 
     async def check_sources(
-        self, client: httpx.AsyncClient | None = None
+        self,
+        client: httpx.AsyncClient | None = None,
+        *,
+        due_only: bool = False,
     ) -> dict[str, object]:
         references, unsupported_count, omitted_count = self._references()
+        supported_count = len(references) + omitted_count
+        if due_only and references:
+            current = datetime.now(timezone.utc)
+            schedule = self._automatic_check_schedule(references, current)
+            references = [reference for reference, delay in schedule if delay <= 0]
         semaphore = asyncio.Semaphore(_MAX_CONCURRENT_REQUESTS)
         if client is None:
             async with httpx.AsyncClient(
@@ -1340,7 +1361,7 @@ class TrustedSourceMonitor:
         )}
         return {
             "status": "ok",
-            "supported_count": len(references) + omitted_count,
+            "supported_count": supported_count,
             "checked_count": (
                 counts["available_untracked"] + counts["content_baseline"]
                 + counts["changed"] + counts["unchanged"]

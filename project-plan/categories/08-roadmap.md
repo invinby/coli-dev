@@ -1,5 +1,11 @@
 # 08. Этапы реализации
 
+## P1: автоматическая проверка только источников с наступившим сроком / P1: automatically check only due sources — 2026-10-16
+
+**RU:** Планировщик RAG раньше вычислял ближайший срок, но передавал `check_sources()` весь allowlist. При одной transient-ошибке автоматический обход мог опрашивать недавно проверенные источники каждые шесть часов. Исправлено: автоматический вызов получает только новые и просроченные URL; обычный интервал — 24 часа, повтор после сетевой ошибки или недоступности — 6 часов. Ручная кнопка проверяет полный реестр. Текст уроков не переписывается автоматически; смена источника остаётся редакторским сигналом. RED-GREEN тесты покрывают фильтрацию и сохранение полной ручной проверки. Полный backend suite: 559 passed; маршрутный аудит подтвердил 55 уроков; `py_compile` и `git diff --check` прошли. macOS CI будет проверен после публикации ветки.
+
+**EN:** The RAG scheduler previously calculated the next due time but passed the entire allowlist to `check_sources()`. A single transient failure could therefore make automatic runs repoll recently checked sources every six hours. Fixed: automatic runs now receive only new and due URLs; the regular interval is 24 hours and transient network/unavailable failures retry after six hours. The manual action still checks the full registry. Lesson text is not rewritten automatically; source changes remain an editorial signal. RED-GREEN tests cover filtering and preservation of the full manual check. The full backend suite passed (559 tests); the route audit confirmed 55 lessons; `py_compile` and `git diff --check` passed. macOS CI will be checked after pushing the branch.
+
 План предварительный; сроки определить после аудита. Все приоритетные направления и RU/EN предусмотрены с первого запуска. Полная траектория в каждом направлении должна вести от основ к углублённым темам; каталог можно расширять постепенно, показывая покрытие и пробелы, а не выдавая короткое введение за полный курс.
 
 ## P1: основы английского — местоимения и формы be / P1: English foundations — pronouns and forms of be — 2026-10-16

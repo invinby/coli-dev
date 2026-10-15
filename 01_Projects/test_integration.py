@@ -681,6 +681,21 @@ def test_manual_knowledge_refresh_hides_internal_errors(client_online, monkeypat
     assert "private filesystem detail" not in response.text
 
 
+def test_automatic_trusted_source_check_requests_only_due_references(monkeypatch):
+    due_check = AsyncMock(return_value={"status": "ok"})
+    monkeypatch.setattr(
+        orchestrator.trusted_source_monitor,
+        "seconds_until_automatic_check",
+        MagicMock(return_value=0.0),
+    )
+    monkeypatch.setattr(orchestrator.trusted_source_monitor, "check_sources", due_check)
+
+    result = asyncio.run(orchestrator._run_trusted_source_check(only_if_due=True))
+
+    assert result == {"status": "ok"}
+    due_check.assert_awaited_once_with(due_only=True)
+
+
 def test_manual_trusted_source_check_requires_local_origin_and_returns_summary(
     client_online, monkeypatch
 ):
