@@ -1273,16 +1273,22 @@ struct SubjectModelRoute: Decodable, Identifiable, Hashable {
     let subject: String
     let provider: String
     let model: String?
+    let effectiveProvider: String
     let effectiveModel: String?
     let providerReady: Bool?
+    let effectiveProviderReady: Bool?
+    let paidRouteBlocked: Bool
     let status: String
 
     var id: String { subject }
 
     enum CodingKeys: String, CodingKey {
         case subject, provider, model, status
+        case effectiveProvider = "effective_provider"
         case effectiveModel = "effective_model"
         case providerReady = "provider_ready"
+        case effectiveProviderReady = "effective_provider_ready"
+        case paidRouteBlocked = "paid_route_blocked"
     }
 }
 

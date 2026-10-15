@@ -2723,9 +2723,10 @@ private struct ManagementView: View {
                                 .textFieldStyle(.roundedBorder)
                                 .frame(maxWidth: 520)
                         }
-                        if finalSynthesisProvider != "ollama"
-                            && (finalSynthesisProvider != "auto"
-                                || store.finalSynthesisModelRoute?.effectiveProvider != "ollama") {
+                        if routeMaySendContextToCloud(
+                            provider: finalSynthesisProvider,
+                            activeProvider: store.finalSynthesisModelRoute?.effectiveProvider
+                        ) {
                             Label(
                                 L10n.text("management.autoAgentCloudNotice", store.language),
                                 systemImage: "exclamationmark.triangle"
@@ -2742,6 +2743,12 @@ private struct ManagementView: View {
                                       : (route.provider == "auto" ? "arrow.triangle.2.circlepath" : "checkmark.circle"))
                                     .foregroundStyle(route.providerReady == false ? Color.orange : Color.secondary)
                                 Text(L10n.text("management.routeStatus.\(route.status)", store.language))
+                                Text(
+                                    "\(L10n.text("management.routeProvider.\(route.provider)", store.language)) → " +
+                                        L10n.text("management.routeProvider.\(route.effectiveProvider)", store.language)
+                                )
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.secondary)
                                 Text(route.effectiveModel)
                                     .font(.caption.monospaced())
                                     .foregroundStyle(.secondary)
@@ -2800,7 +2807,10 @@ private struct ManagementView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                        if routeProvider != "ollama" {
+                        if routeMaySendContextToCloud(
+                            provider: routeProvider,
+                            activeProvider: store.subjectModelRoutes[routeSubject.rawValue]?.effectiveProvider
+                        ) {
                             Label(
                                 L10n.text("management.autoAgentCloudNotice", store.language),
                                 systemImage: "exclamationmark.triangle"
@@ -2812,11 +2822,17 @@ private struct ManagementView: View {
 
                         if let route = store.subjectModelRoutes[routeSubject.rawValue] {
                             HStack(spacing: 8) {
-                                Image(systemName: route.providerReady == false
+                                Image(systemName: route.effectiveProviderReady == false
                                       ? "exclamationmark.circle"
                                       : (route.provider == "auto" ? "arrow.triangle.2.circlepath" : "checkmark.circle"))
-                                    .foregroundStyle(route.providerReady == false ? Color.orange : Color.secondary)
+                                    .foregroundStyle(route.effectiveProviderReady == false ? Color.orange : Color.secondary)
                                 Text(L10n.text("management.routeStatus.\(route.status)", store.language))
+                                Text(
+                                    "\(L10n.text("management.routeProvider.\(route.provider)", store.language)) → " +
+                                        L10n.text("management.routeProvider.\(route.effectiveProvider)", store.language)
+                                )
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.secondary)
                                 if let model = route.effectiveModel {
                                     Text(model).font(.caption.monospaced()).foregroundStyle(.secondary)
                                 }
@@ -3265,6 +3281,19 @@ private struct ManagementView: View {
     private func syncAutoCostPolicyForm() {
         allowsPaidAutoRoutes = store.autoCostPolicy?.allowPaidRoutes ?? false
         dailyCloudCallLimit = store.autoCostPolicy?.dailyCloudCallLimit ?? 25
+    }
+
+    private func routeMaySendContextToCloud(
+        provider: String,
+        activeProvider: String?
+    ) -> Bool {
+        let effectiveProvider = provider == "auto" ? (activeProvider ?? "auto") : provider
+        guard effectiveProvider != "ollama" else { return false }
+        guard effectiveProvider == "compatible" else { return true }
+        guard let host = URLComponents(string: compatibleBaseURL)?.host?.lowercased() else {
+            return true
+        }
+        return !(host == "localhost" || host == "::1" || host.hasPrefix("127."))
     }
 
     @MainActor

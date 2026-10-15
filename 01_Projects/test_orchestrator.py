@@ -1068,6 +1068,7 @@ class TestSubjectModelRouting:
     def test_save_openrouter_route_keeps_provider_model_id_and_secret_private(
         self, client, monkeypatch,
     ):
+        orchestrator.auto_cost_policy.set(False)
         secret = "openrouter-test-secret"
         monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", secret)
         response = client.put(
@@ -1080,9 +1081,12 @@ class TestSubjectModelRouting:
             "subject": "biology",
             "provider": "openrouter",
             "model": "deepseek/deepseek-r1:free",
-            "effective_model": "deepseek/deepseek-r1:free",
+            "effective_provider": "openrouter",
+            "effective_model": orchestrator.OPENROUTER_FREE_MODEL,
             "provider_ready": True,
-            "status": "ready",
+            "effective_provider_ready": True,
+            "paid_route_blocked": True,
+            "status": "blocked_by_free_only",
         }
         assert secret not in response.text
         persisted_routes = orchestrator.subject_model_routes.path.read_text(encoding="utf-8")
@@ -1142,6 +1146,172 @@ class TestSubjectModelRouting:
             "Explain photosynthesis", "Biology system prompt", "test", model=model_id,
         )
         assert engine.specialist_model_label == f"OpenRouter: {model_id}"
+
+
+def test_free_only_pipeline_keeps_loopback_compatible_subject_route_local(monkeypatch):
+    orchestrator.auto_cost_policy.set(False)
+    orchestrator.openai_compatible_settings.set(
+        "http://127.0.0.1:9911/v1", "local-biology-model"
+    )
+    monkeypatch.setattr(orchestrator, "OPENAI_COMPATIBLE_KEY", "local-api-key")
+    monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "configured-openrouter-key")
+    orchestrator.subject_model_routes.set("biology", "compatible", "local-biology-model")
+    engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient))
+    engine._ask_auto_agent_role = AsyncMock(side_effect=["Draft A", "Draft B"])
+    engine._ask_selected_specialist = AsyncMock(return_value=("Local API specialist draft", "compatible"))
+    engine._ask_openrouter = AsyncMock(return_value="This must not be sent to OpenRouter")
+
+    bundle = asyncio.run(
+        engine._run_cloud_code("Explain photosynthesis", "Biology instructions", subject="biology")
+    )
+
+    engine._ask_selected_specialist.assert_awaited_once_with(
+        "compatible",
+        "local-biology-model",
+        "Explain photosynthesis",
+        engine.agent_system("Biology instructions"),
+        "cloud-specialist",
+    )
+    engine._ask_openrouter.assert_not_awaited()
+    assert "Local API specialist draft" in bundle
+
+
+def test_free_only_pipeline_uses_ollama_when_no_free_cloud_route_is_configured(monkeypatch):
+    orchestrator.auto_cost_policy.set(False)
+    monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "")
+    orchestrator.subject_model_routes.set("physics", "gemini", "gemini-3.8-flash")
+    engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient))
+    engine._ask_auto_agent_role = AsyncMock(side_effect=["Draft A", "Draft B"])
+    engine._ask_selected_specialist = AsyncMock(return_value=("Local Ollama specialist draft", "ollama"))
+
+    bundle = asyncio.run(
+        engine._run_cloud_code("Explain gravity", "Physics instructions", subject="physics")
+    )
+
+    engine._ask_selected_specialist.assert_awaited_once_with(
+        "ollama",
+        orchestrator.OLLAMA_MODEL_RESEARCHER,
+        "Explain gravity",
+        engine.agent_system("Physics instructions"),
+        "cloud-specialist",
+    )
+    assert "Local Ollama specialist draft" in bundle
+
+
+def test_free_only_specialist_falls_back_to_ollama_when_free_route_fails(monkeypatch):
+    orchestrator.auto_cost_policy.set(False)
+    monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "configured-openrouter-key")
+    engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient))
+    engine._ask_auto_agent_role = AsyncMock(side_effect=["Draft A", "Draft B"])
+    engine._ask_selected_specialist = AsyncMock(
+        side_effect=[
+            ("[Daily cloud model call limit reached (25/25)]", "openrouter"),
+            ("Local fallback specialist draft", "ollama"),
+        ]
+    )
+
+    bundle = asyncio.run(engine._run_cloud_code("Question", "Instructions", subject="biology"))
+
+    assert engine._ask_selected_specialist.await_count == 2
+    assert engine._ask_selected_specialist.await_args_list[0].args[:2] == (
+        "openrouter", orchestrator.OPENROUTER_FREE_MODEL,
+    )
+    assert engine._ask_selected_specialist.await_args_list[1].args[:2] == (
+        "ollama", orchestrator.OLLAMA_MODEL_RESEARCHER,
+    )
+    assert "Local fallback specialist draft" in bundle
+
+
+def test_cloud_call_limit_error_is_classified_as_provider_failure():
+    assert orchestrator.ConsiliumEngine._is_provider_error(
+        "[Daily cloud model call limit reached (25/25)]"
+    )
+    assert orchestrator.ConsiliumEngine._is_provider_error(
+        "[Cloud model call budget unavailable; cloud request blocked]"
+    )
+
+
+def test_subject_route_settings_report_effective_free_only_route(client, monkeypatch):
+    orchestrator.auto_cost_policy.set(False)
+    orchestrator.openai_compatible_settings.set(
+        "http://localhost:9911/v1", "local-biology-model"
+    )
+    monkeypatch.setattr(orchestrator, "OPENAI_COMPATIBLE_KEY", "local-api-key")
+    monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "configured-openrouter-key")
+
+    saved = client.put(
+        "/settings/model-routing/biology",
+        json={"provider": "compatible", "model": "local-biology-model"},
+    )
+
+    assert saved.status_code == 200
+    route = saved.json()
+    assert route["provider"] == "compatible"
+    assert route["effective_provider"] == "compatible"
+    assert route["effective_model"] == "local-biology-model"
+    assert route["paid_route_blocked"] is False
+
+
+def test_local_compatible_final_route_is_allowed_without_paid_routes(monkeypatch):
+    orchestrator.auto_cost_policy.set(False)
+    orchestrator.openai_compatible_settings.set(
+        "http://127.0.0.1:9911/v1", "local-final-model"
+    )
+    monkeypatch.setattr(orchestrator, "OPENAI_COMPATIBLE_KEY", "local-api-key")
+    orchestrator.final_synthesis_routes.set("compatible", "local-final-model")
+
+    route = orchestrator._final_synthesis_route_payload()
+
+    assert route["paid_route_blocked"] is False
+    assert route["effective_provider"] == "compatible"
+    assert route["effective_model"] == "local-final-model"
+
+
+def test_consilium_uses_local_compatible_final_route_in_free_only_mode(monkeypatch):
+    orchestrator.auto_cost_policy.set(False)
+    orchestrator.openai_compatible_settings.set(
+        "http://127.0.0.1:9911/v1", "local-final-model"
+    )
+    monkeypatch.setattr(orchestrator, "OPENAI_COMPATIBLE_KEY", "local-api-key")
+    orchestrator.final_synthesis_routes.set("compatible", "local-final-model")
+    engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient), "en")
+    engine._ask_auto_agent_role = AsyncMock(side_effect=["Critical review", "Verification"])
+    engine._ask_selected_specialist = AsyncMock(return_value=("Local final answer", "compatible"))
+
+    answer = asyncio.run(engine._run_consilium("Question", "Instructions", "Draft"))
+
+    assert answer == "Local final answer"
+    engine._ask_selected_specialist.assert_awaited_once()
+    assert engine._ask_selected_specialist.await_args.args[:2] == (
+        "compatible",
+        "local-final-model",
+    )
+    assert engine.completion_provider == "compatible"
+
+
+def test_final_auto_route_uses_local_model_when_no_cloud_credentials_exist(monkeypatch):
+    orchestrator.auto_cost_policy.set(True)
+    orchestrator.final_synthesis_routes.set("auto", None)
+    monkeypatch.setattr(orchestrator, "GEMINI_KEY", "")
+    monkeypatch.setattr(orchestrator, "KIMI_KEY", "")
+    monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "")
+
+    route = orchestrator._final_synthesis_route_payload()
+
+    assert route["effective_provider"] == "ollama"
+    assert route["effective_model"] == orchestrator.OLLAMA_MODEL_RESEARCHER
+
+
+def test_final_openrouter_free_route_falls_back_to_local_without_openrouter_key(monkeypatch):
+    orchestrator.auto_cost_policy.set(False)
+    orchestrator.final_synthesis_routes.set("openrouter", orchestrator.OPENROUTER_FREE_MODEL)
+    monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "")
+
+    route = orchestrator._final_synthesis_route_payload()
+
+    assert route["effective_provider"] == "ollama"
+    assert route["effective_model"] == orchestrator.OLLAMA_MODEL_RESEARCHER
+    assert route["status"] == "credential_missing"
 
 
 class TestAutoAgentModelRouting:
@@ -1450,7 +1620,9 @@ class TestFinalSynthesisRouting:
         assert invalid.status_code == 422
         assert forbidden.status_code == 403
 
-    def test_selected_final_synthesis_route_uses_only_selected_provider(self):
+    def test_selected_final_synthesis_route_uses_only_selected_provider(self, monkeypatch):
+        orchestrator.auto_cost_policy.set(True)
+        monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "configured-openrouter-key")
         model = "qwen/qwen3-30b-a3b:free"
         orchestrator.final_synthesis_routes.set("openrouter", model)
         engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient))
@@ -1483,7 +1655,9 @@ class TestFinalSynthesisRouting:
         assert engine.completion_provider == "openrouter"
         assert engine.completion_model == f"OpenRouter final: {model}"
 
-    def test_selected_final_custom_provider_streams_chunks_as_they_arrive(self):
+    def test_selected_final_custom_provider_streams_chunks_as_they_arrive(self, monkeypatch):
+        orchestrator.auto_cost_policy.set(True)
+        monkeypatch.setattr(orchestrator, "OPENAI_COMPATIBLE_KEY", "configured-compatible-key")
         model = "vendor/stream-model"
         orchestrator.final_synthesis_routes.set("compatible", model)
         orchestrator.openai_compatible_settings.set("https://api.example.com/v1", model)
@@ -1553,7 +1727,9 @@ class TestFinalSynthesisRouting:
         assert engine.completion_provider == "openrouter"
         assert engine.completion_model == f"OpenRouter final: {model}"
 
-    def test_failed_final_stream_after_first_chunk_marks_answer_incomplete(self):
+    def test_failed_final_stream_after_first_chunk_marks_answer_incomplete(self, monkeypatch):
+        orchestrator.auto_cost_policy.set(True)
+        monkeypatch.setattr(orchestrator, "OPENAI_COMPATIBLE_KEY", "configured-compatible-key")
         orchestrator.final_synthesis_routes.set("compatible", "vendor/stream-model")
         orchestrator.openai_compatible_settings.set(
             "https://api.example.com/v1", "vendor/stream-model"
@@ -1726,14 +1902,18 @@ class TestAutoCostPolicy:
         assert answer == "Free router final"
         engine._ask_gemini.assert_not_awaited()
         engine._ask_kimi.assert_not_awaited()
-        assert engine._ask_openrouter.await_count == 2
+        assert engine._ask_openrouter.await_count == 1
         assert {call.kwargs["model"] for call in engine._ask_openrouter.await_args_list} == {
             orchestrator.OPENROUTER_FREE_MODEL,
         }
-        engine._ask_selected_specialist.assert_awaited_once()
+        assert engine._ask_selected_specialist.await_count == 2
         assert engine._ask_selected_specialist.await_args.args[:2] == (
             "openrouter", orchestrator.OPENROUTER_FREE_MODEL,
         )
+        assert [call.args[0:2] for call in engine._ask_selected_specialist.await_args_list] == [
+            ("openrouter", orchestrator.OPENROUTER_FREE_MODEL),
+            ("openrouter", orchestrator.OPENROUTER_FREE_MODEL),
+        ]
         assert engine._ask_ollama.await_count == 3
 
     def test_paid_final_route_is_overridden_without_paid_calls(self):
@@ -1933,6 +2113,23 @@ def test_scheduler_rechecks_due_time_after_waiting_for_manual_check(monkeypatch)
 
     assert result is None
     assert monitor.checks == 0
+
+
+def test_cloud_specialist_uses_ollama_when_no_cloud_route_is_configured(monkeypatch):
+    monkeypatch.setattr(orchestrator, "KIMI_KEY", "")
+    monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "")
+    engine = orchestrator.ConsiliumEngine(MagicMock(spec=httpx.AsyncClient))
+    engine._ask_ollama = AsyncMock(return_value="Local specialist draft")
+
+    draft, provider = asyncio.run(
+        engine._ask_cloud_specialist("Question", "System", "cloud-specialist")
+    )
+
+    assert (draft, provider) == ("Local specialist draft", "ollama")
+    engine._ask_ollama.assert_awaited_once_with(
+        "Question", "System", "cloud-specialist-local-fallback",
+        model=orchestrator.OLLAMA_MODEL_RESEARCHER,
+    )
 
 
 def test_cloud_specialist_uses_openrouter_free_when_kimi_is_missing(monkeypatch):

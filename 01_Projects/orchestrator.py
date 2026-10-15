@@ -1115,7 +1115,8 @@ class ConsiliumEngine:
             "[Ошибка", "[Таймаут", "[Gemini:", "[KIMI_API_KEY not set",
             "[GEMINI_API_KEY not set", "[OPENROUTER_API_KEY not set",
             "[OpenRouter:", "[Google Search:", "[Auto policy:",
-            "[Custom API", "[Timeout: custom API",
+            "[Custom API", "[Timeout: custom API", "[Cloud model call",
+            "[Daily cloud model call",
         ))
 
     async def _ask_auto_agent_role(
@@ -1175,6 +1176,74 @@ class ConsiliumEngine:
             )
         return response if isinstance(response, str) else f"[Ошибка: {response}]"
 
+    async def _ask_free_only_subject_specialist(
+        self,
+        message: str,
+        system_prompt: str,
+        agent_tag: str,
+        subject: str | None,
+    ) -> tuple[str, str]:
+        """Use the free/local route, then fall back to Ollama if it fails."""
+        route = _effective_subject_model_route(subject)
+        provider = route["effective_provider"]
+        model = route["effective_model"]
+        self.specialist_model_label = None
+        try:
+            result = await self._ask_selected_specialist(
+                provider, model, message, system_prompt, agent_tag
+            )
+        except Exception as exc:
+            logger.warning(
+                "Free-only subject route failed",
+                extra={"subject": subject, "provider": provider, "error_type": type(exc).__name__},
+            )
+            result = ("[Configured free route failed]", provider)
+
+        if (
+            isinstance(result, tuple)
+            and len(result) == 2
+            and isinstance(result[0], str)
+            and result[0].strip()
+            and isinstance(result[1], str)
+            and not self._is_provider_error(result[0])
+        ):
+            return result
+        if provider == "ollama":
+            self.specialist_model_label = None
+            if isinstance(result, tuple) and len(result) == 2:
+                return result
+            return "[Local Ollama route failed]", "ollama"
+
+        logger.warning(
+            "Free-only subject route returned no usable answer; falling back to local Ollama",
+            extra={"subject": subject, "provider": provider},
+        )
+        self.specialist_model_label = None
+        try:
+            fallback = await self._ask_selected_specialist(
+                "ollama",
+                OLLAMA_MODEL_RESEARCHER,
+                message,
+                system_prompt,
+                f"{agent_tag}-local-fallback",
+            )
+        except Exception as exc:
+            logger.warning(
+                "Local subject specialist fallback failed",
+                extra={"subject": subject, "error_type": type(exc).__name__},
+            )
+            return "[Local Ollama fallback failed]", "ollama"
+        if isinstance(fallback, tuple) and len(fallback) == 2:
+            if (
+                isinstance(fallback[0], str)
+                and fallback[0].strip()
+                and not self._is_provider_error(fallback[0])
+            ):
+                return fallback
+            self.specialist_model_label = None
+            return fallback
+        return "[Local Ollama fallback failed]", "ollama"
+
     # ─── УРОВЕНЬ 1: Независимые черновики ────────────────
 
     async def _run_cloud_code(
@@ -1202,26 +1271,12 @@ class ConsiliumEngine:
                 message, agent_system, "cloud-specialist", subject=subject
             )
         else:
-            selected_subject_route = subject_model_routes.get(subject)
-            if selected_subject_route["provider"] == "ollama":
-                specialist_task = self._ask_selected_specialist(
-                    "ollama",
-                    selected_subject_route["model"],
-                    message,
-                    agent_system,
-                    "cloud-specialist",
-                )
-            elif OPENROUTER_KEY:
-                specialist_task = self._ask_openrouter(
-                    message,
-                    agent_system,
-                    "cloud-specialist",
-                    model=OPENROUTER_FREE_MODEL,
-                )
-            else:
-                specialist_task = asyncio.sleep(
-                    0, result="[Auto policy: OpenRouter free route is not configured]"
-                )
+            specialist_task = self._ask_free_only_subject_specialist(
+                message,
+                agent_system,
+                "cloud-specialist",
+                subject,
+            )
         gemini_flash_task = self._ask_auto_agent_role(
             "gemini_draft", message, agent_system, "gemini-draft"
         )
@@ -1393,30 +1448,14 @@ class ConsiliumEngine:
                 f"Вопрос ученика: {message}\n\nЧерновики:\n{draft_bundle}\n\n"
                 f"Критический разбор:\n{freebuff_review}\n\nНезависимая проверка:\n{qwen_verify}"
             )
-        synthesis_route = final_synthesis_routes.get()
-        synthesis_provider = synthesis_route["provider"] or "auto"
-        allow_paid_routes = auto_cost_policy.get()["allow_paid_routes"]
-        route_note = ""
-        if allow_paid_routes:
-            synthesis_model = _final_synthesis_model(synthesis_route)
-            effective_provider = "gemini" if synthesis_provider == "auto" else synthesis_provider
-        elif synthesis_provider == "auto":
-            effective_provider = "openrouter" if OPENROUTER_KEY else "ollama"
-            synthesis_model = (
-                OPENROUTER_FREE_MODEL if effective_provider == "openrouter" else OLLAMA_MODEL_RESEARCHER
-            )
-        elif synthesis_provider == "ollama":
-            effective_provider = "ollama"
-            synthesis_model = synthesis_route["model"] or OLLAMA_MODEL_RESEARCHER
-        elif synthesis_provider == "openrouter" and (
-            synthesis_route["model"] or OPENROUTER_MODEL
-        ) == OPENROUTER_FREE_MODEL:
-            effective_provider = "openrouter"
-            synthesis_model = OPENROUTER_FREE_MODEL
-        else:
-            effective_provider = "ollama"
-            synthesis_model = OLLAMA_MODEL_RESEARCHER
-            route_note = " · blocked by free-only policy"
+        effective_synthesis_route = _final_synthesis_route_payload()
+        synthesis_model = effective_synthesis_route["effective_model"]
+        effective_provider = effective_synthesis_route["effective_provider"]
+        route_note = (
+            " · blocked by free-only policy"
+            if effective_synthesis_route["paid_route_blocked"]
+            else ""
+        )
         model_label = synthesis_model
         if effective_provider == "gemini":
             synthesis_url = (
@@ -1777,6 +1816,14 @@ class ConsiliumEngine:
 
         if excluded_provider == "kimi":
             return "[KIMI_API_KEY not set or the configured Kimi route failed]", "kimi"
+        if not KIMI_KEY and not OPENROUTER_KEY:
+            response = await self._ask_ollama(
+                message,
+                system_prompt,
+                f"{agent_tag}-local-fallback",
+                model=OLLAMA_MODEL_RESEARCHER,
+            )
+            return response, "ollama"
         return await self._ask_kimi(message, system_prompt, agent_tag), "kimi"
 
     async def _ask_openai_compatible(
@@ -3250,18 +3297,99 @@ def _subject_model_route_status(provider: str) -> tuple[bool | None, str]:
     return False, "unavailable"
 
 
+def _effective_subject_model_route(subject: str | None) -> dict[str, Any]:
+    """Resolve one subject route against the free-only policy and local endpoints."""
+    route = subject_model_routes.get(subject)
+    provider = route["provider"] or "auto"
+    requested_model = route["model"] or _default_model_for_provider(provider)
+    configured_ready, configured_status = _subject_model_route_status(provider)
+    allow_paid_routes = auto_cost_policy.get()["allow_paid_routes"]
+    local_compatible = (
+        provider == "compatible"
+        and _is_loopback_http_url(openai_compatible_settings.get()["base_url"])
+    )
+    selected_openrouter_free = (
+        provider == "openrouter" and requested_model == OPENROUTER_FREE_MODEL
+    )
+    paid_route_blocked = (
+        not allow_paid_routes
+        and provider not in {"auto", "ollama"}
+        and not local_compatible
+        and not selected_openrouter_free
+    )
+
+    if provider == "auto":
+        if not allow_paid_routes:
+            effective_provider = "openrouter" if OPENROUTER_KEY else "ollama"
+        else:
+            effective_provider = "kimi" if KIMI_KEY else (
+                "openrouter" if OPENROUTER_KEY else "ollama"
+            )
+    elif paid_route_blocked:
+        effective_provider = "openrouter" if OPENROUTER_KEY else "ollama"
+    elif provider == "openrouter" and not OPENROUTER_KEY:
+        effective_provider = "ollama"
+    else:
+        effective_provider = provider
+
+    if effective_provider == "openrouter" and (
+        provider == "auto" or paid_route_blocked
+    ):
+        effective_model = OPENROUTER_FREE_MODEL
+    elif effective_provider == "auto":
+        effective_model = None
+    else:
+        effective_model = (
+            requested_model if effective_provider == provider else
+            _default_model_for_provider(effective_provider)
+        )
+
+    effective_ready, effective_status = _subject_model_route_status(effective_provider)
+    compatible_route_unavailable = (
+        effective_provider == "compatible" and effective_ready is False
+    )
+    if compatible_route_unavailable:
+        effective_provider = "ollama"
+        effective_model = OLLAMA_MODEL_RESEARCHER
+        effective_ready, effective_status = _subject_model_route_status(effective_provider)
+
+    if paid_route_blocked:
+        status = (
+            "blocked_by_free_only_local_unavailable"
+            if effective_provider == "ollama" and not effective_ready
+            else "blocked_by_free_only"
+        )
+    elif provider == "auto" and not allow_paid_routes:
+        if effective_provider == "openrouter":
+            status = "free_route_ready" if effective_ready else "credential_missing"
+        else:
+            status = "local_free_fallback" if effective_ready else effective_status
+    elif provider == "openrouter" and effective_provider == "ollama":
+        status = "credential_missing"
+    elif compatible_route_unavailable:
+        status = configured_status
+    else:
+        status = effective_status
+
+    return {
+        "provider": provider,
+        "model": route["model"],
+        "effective_provider": effective_provider,
+        "effective_model": effective_model,
+        "provider_ready": configured_ready,
+        "effective_provider_ready": effective_ready,
+        "paid_route_blocked": paid_route_blocked,
+        "status": status,
+    }
+
+
 def _subject_model_route_payload() -> dict[str, list[dict[str, Any]]]:
     result: list[dict[str, Any]] = []
     for subject, route in subject_model_routes.snapshot().items():
-        provider = route["provider"] or "auto"
-        ready, status = _subject_model_route_status(provider)
+        effective_route = _effective_subject_model_route(subject)
         result.append({
             "subject": subject,
-            "provider": provider,
-            "model": route["model"],
-            "effective_model": route["model"] or _default_model_for_provider(provider),
-            "provider_ready": ready,
-            "status": status,
+            **effective_route,
         })
     return {"subjects": result}
 
@@ -3329,9 +3457,14 @@ def _final_synthesis_route_payload() -> dict[str, Any]:
     provider = route["provider"] or "auto"
     allow_paid_routes = auto_cost_policy.get()["allow_paid_routes"]
     requested_openrouter_model = route["model"] or OPENROUTER_MODEL
+    local_compatible = (
+        provider == "compatible"
+        and _is_loopback_http_url(openai_compatible_settings.get()["base_url"])
+    )
     blocked_by_free_only = (
         not allow_paid_routes
         and provider not in {"auto", "ollama"}
+        and not local_compatible
         and not (provider == "openrouter" and requested_openrouter_model == OPENROUTER_FREE_MODEL)
     )
     if blocked_by_free_only:
@@ -3346,10 +3479,30 @@ def _final_synthesis_route_payload() -> dict[str, Any]:
         status = "free_route_ready" if effective_provider == "openrouter" and ready else (
             "local_free_fallback" if ready else "loopback_required"
         )
-    else:
-        effective_provider = "gemini" if provider == "auto" else provider
-        effective_model = _final_synthesis_model(route)
+    elif provider == "auto":
+        if GEMINI_KEY:
+            effective_provider = "gemini"
+            effective_model = GEMINI_PRO_MODEL
+        elif KIMI_KEY:
+            effective_provider = "kimi"
+            effective_model = KIMI_MODEL
+        elif OPENROUTER_KEY:
+            effective_provider = "openrouter"
+            effective_model = OPENROUTER_MODEL
+        else:
+            effective_provider = "ollama"
+            effective_model = OLLAMA_MODEL_RESEARCHER
         ready, status = _subject_model_route_status(effective_provider)
+        if effective_provider == "ollama":
+            status = "local_fallback" if ready else "loopback_required"
+    else:
+        effective_provider = provider
+        effective_model = _final_synthesis_model(route)
+        ready, status = _subject_model_route_status(provider)
+        if not ready and provider not in {"auto", "ollama"}:
+            effective_provider = "ollama"
+            effective_model = OLLAMA_MODEL_RESEARCHER
+            ready, _ = _subject_model_route_status("ollama")
     return {
         **route,
         "effective_provider": effective_provider,
