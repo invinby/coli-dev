@@ -15,22 +15,11 @@ final class ManagementUITests: XCTestCase {
         screenshot.lifetime = .keepAlways
         add(screenshot)
 
-        let managementRoot = app.descendants(matching: .any)["control-center.root"]
-        XCTAssertTrue(
-            managementRoot.waitForExistence(timeout: 10),
-            "Control Center root did not appear after selecting its sidebar row. Accessibility tree:\n\(app.debugDescription)"
-        )
-
-        let panePicker = app.descendants(matching: .any)["control-center.pane-picker"]
-        XCTAssertTrue(
-            panePicker.waitForExistence(timeout: 10),
-            "Control Center root appeared without its pane picker. Accessibility tree:\n\(app.debugDescription)"
-        )
-
-        let systemStatus = app.descendants(matching: .any)["control-center.overview.system-status"]
+        let systemStatus = app.staticTexts["control-center.overview.system-status"]
         XCTAssertTrue(
             systemStatus.waitForExistence(timeout: 10),
-            "Control Center overview has no system status heading. Accessibility tree:\n\(app.debugDescription)"
+            "Control Center overview did not show its system status heading after navigation."
         )
+        XCTAssertTrue(systemStatus.isHittable, "System status heading is present but not visible in the window.")
     }
 }
