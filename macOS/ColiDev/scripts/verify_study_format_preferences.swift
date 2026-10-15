@@ -89,6 +89,27 @@ enum StudyFormatPreferenceVerification {
                 && subjectProfile.mostFrequentlyHelpful == nil,
             "Different subjects may have distinct confirmed formats without manufacturing a global default. / У разных предметов могут быть разные подтверждённые форматы без выдуманного общего значения."
         )
+        let restoredSubjectProfile = try JSONDecoder().decode(
+            StudyFormatPreferenceProfile.self,
+            from: JSONEncoder().encode(subjectProfile)
+        )
+        precondition(
+            restoredSubjectProfile == subjectProfile
+                && restoredSubjectProfile.mostFrequentlyHelpful(forSubjectID: "mathematics") == .workedExample
+                && restoredSubjectProfile.mostFrequentlyHelpful(forSubjectID: "english") == .visualModel,
+            "Subject-specific choices must remain correctly scoped after local persistence and restore. / Предпочтения должны оставаться привязаны к своим предметам после локального сохранения и восстановления."
+        )
+
+        var sharedLessonProfile = StudyFormatPreferenceProfile()
+        sharedLessonProfile.record(.workedExample, for: "shared.lesson", subjectID: "mathematics")
+        sharedLessonProfile.record(.visualModel, for: "shared.lesson", subjectID: "english")
+        sharedLessonProfile.record(.plainExplanation, for: "shared.lesson", subjectID: "mathematics")
+        precondition(
+            sharedLessonProfile.responses.count == 2
+                && sharedLessonProfile.selectedChoice(for: "shared.lesson", subjectID: "mathematics") == .plainExplanation
+                && sharedLessonProfile.selectedChoice(for: "shared.lesson", subjectID: "english") == .visualModel,
+            "Changing feedback in one subject must not replace another subject’s choice for a same-named lesson. / Изменение выбора в одном предмете не должно стирать выбор другого предмета для одноимённого урока."
+        )
 
         var legacyGlobalProfile = StudyFormatPreferenceProfile()
         for index in 0..<3 {

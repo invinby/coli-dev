@@ -605,8 +605,17 @@ struct CurriculumModuleView: View {
                         if learnerConfirmed, checkAttempt?.canComplete == true {
                             StudyFormatFeedbackCard(
                                 language: store.language,
-                                selectedChoice: store.studyFormatPreferenceProfile.selectedChoice(for: lessonID),
-                                onSelect: { store.recordStudyFormatPreference($0, lessonID: lessonID) }
+                                selectedChoice: store.studyFormatPreferenceProfile.selectedChoice(
+                                    for: lessonID,
+                                    subjectID: subject.rawValue
+                                ),
+                                onSelect: {
+                                    store.recordStudyFormatPreference(
+                                        $0,
+                                        lessonID: lessonID,
+                                        subjectID: subject.rawValue
+                                    )
+                                }
                             )
                         }
                         Picker(L10n.text("session.recallQuality", store.language), selection: $recallQuality) {
@@ -9329,12 +9338,14 @@ struct TutorChatView: View {
     @State private var outlineImportError: String?
     @State private var outlineImportSuccess: String?
     let language: AppLanguage
+    private let tutorSubjectID: String
     private let outlineDraftPrompt: String?
     private let outlineDestination: CustomTopicOutlineDestination?
     private let outlineParentTopicID: UUID?
 
     init(subject: Subject, lesson: LessonContent, language: AppLanguage, mode: AIRoutingMode) {
         self.language = language
+        tutorSubjectID = subject.rawValue
         outlineDraftPrompt = nil
         outlineDestination = nil
         outlineParentTopicID = nil
@@ -9351,6 +9362,8 @@ struct TutorChatView: View {
         outlineParentTopicID: UUID? = nil
     ) {
         self.language = language
+        let resolvedSubjectID = routeSubjectID ?? "custom-\(customSubject.id.uuidString.lowercased())"
+        tutorSubjectID = resolvedSubjectID
         self.outlineDestination = outlineDestination
         self.outlineParentTopicID = outlineParentTopicID
         outlineDraftPrompt = outlineDestination != nil && outlineParentTopicID != nil
@@ -9375,7 +9388,7 @@ struct TutorChatView: View {
             feedback: ""
         )
         _chat = StateObject(wrappedValue: TutorChatModel(
-            subjectID: routeSubjectID ?? "custom-\(customSubject.id.uuidString.lowercased())",
+            subjectID: resolvedSubjectID,
             subjectName: subjectName,
             lesson: lesson,
             language: language,
@@ -9389,10 +9402,13 @@ struct TutorChatView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(L10n.text("tutor.title", language)).font(.title2.weight(.semibold))
                     Text(L10n.text("tutor.subtitle", language)).font(.subheadline).foregroundStyle(.secondary)
-                    if let preference = store.studyFormatPreferenceProfile.mostFrequentlyHelpful {
+                    if let preference = store.studyFormatPreferenceProfile.tutorPreference(forSubjectID: tutorSubjectID) {
+                        let preferenceKey = store.studyFormatPreferenceProfile.mostFrequentlyHelpful(forSubjectID: tutorSubjectID) == nil
+                            ? "studyFormat.tutorFallback"
+                            : "studyFormat.tutorPreference"
                         Label(
                             String(
-                                format: L10n.text("studyFormat.tutorPreference", language),
+                                format: L10n.text(preferenceKey, language),
                                 L10n.text(preference.titleKey, language)
                             ),
                             systemImage: "sparkles"
@@ -9869,7 +9885,7 @@ struct TutorChatView: View {
                 useWebSearch: useWebSearch,
                 groundingAgeConfirmed: hasConfirmedGoogleSearchAge,
                 includeLocalSourcesInWebSearch: includeLocalSourcesInWebSearch,
-                preferredLearningFormat: store.studyFormatPreferenceProfile.mostFrequentlyHelpful
+                preferredLearningFormat: store.studyFormatPreferenceProfile.tutorPreference(forSubjectID: tutorSubjectID)
             )
             if isOutlineDraft {
                 outlineResponseMessageID = chat.messages.last?.id

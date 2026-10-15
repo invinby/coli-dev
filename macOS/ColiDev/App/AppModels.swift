@@ -706,8 +706,12 @@ final class LearningStore: ObservableObject {
         Task { await syncStudyProgress() }
     }
 
-    func recordStudyFormatPreference(_ choice: StudyFormatFeedbackChoice, lessonID: String) {
-        studyFormatPreferenceProfile.record(choice, for: lessonID)
+    func recordStudyFormatPreference(
+        _ choice: StudyFormatFeedbackChoice,
+        lessonID: String,
+        subjectID: String
+    ) {
+        studyFormatPreferenceProfile.record(choice, for: lessonID, subjectID: subjectID)
     }
 
     func clearStudyFormatPreferenceProfile() {

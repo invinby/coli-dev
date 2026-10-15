@@ -1042,7 +1042,8 @@ private struct SettingsView: View {
                 Text(L10n.text("settings.feedback", store.language))
             }
             Section {
-                if let preference = store.studyFormatPreferenceProfile.mostFrequentlyHelpful {
+                let profile = store.studyFormatPreferenceProfile
+                if let preference = profile.mostFrequentlyHelpful {
                     Label {
                         Text(String(
                             format: L10n.text("settings.studyFormat.confirmed", store.language),
@@ -1054,6 +1055,22 @@ private struct SettingsView: View {
                 } else {
                     Text(L10n.text("settings.studyFormat.pending", store.language))
                 }
+                ForEach(Subject.allCases) { subject in
+                    if let preference = profile.mostFrequentlyHelpful(forSubjectID: subject.rawValue) {
+                        Label {
+                            Text(String(
+                                format: L10n.text("settings.studyFormat.subjectConfirmed", store.language),
+                                subject.title(in: store.language),
+                                L10n.text(preference.titleKey, store.language)
+                            ))
+                        } icon: {
+                            Image(systemName: preference.symbol)
+                        }
+                    }
+                }
+                Text(L10n.text("settings.studyFormat.scopeHelp", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Text(L10n.text("settings.studyFormat.privacy", store.language))
                     .font(.caption)
                     .foregroundStyle(.secondary)
