@@ -2,17 +2,19 @@
 
 **Дата обновления / Updated:** 2026-10-15
 
-**Проверенный коммит приложения / Verified application commit:** `1033d8e`
+**Проверенный коммит приложения / Verified application commit:** `dd3c5046b05a1a4d2125055946d9020a1c63c823`
 
-**CI:** [запуск 38753835401](https://github.com/invinby/coli-dev/actions/runs/38753835401) — все четыре задания успешно завершены / all four jobs passed
+**CI:** [запуск 38771245748](https://github.com/invinby/coli-dev/actions/runs/38771245748) — все четыре задания успешно завершены / all four jobs passed
+
+**Свежая бета / Current beta:** [ColiDev 0.1.0 Beta 3](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.3)
 
 **Статус:** прототип готов к внутреннему тесту на Mac; это не релизный установщик. / **Status:** prototype is ready for internal Mac testing; this is not a release installer.
 
 ## Что подтверждено / What is verified
 
-**RU:** GitHub Actions завершил 545 backend-тестов и Control Center verifier; все три macOS job прошли Swift-verifier’ы, собрали приложение, встроили локальный backend, прошли smoke-проверку и аудит учебных маршрутов. Успешно завершились все четыре job: backend, macOS 15 ARM, macOS 26 ARM и macOS 26 Intel. При реальном пробном запросе монитор получил HTTP 200, сохранил разрешённый снимок Python в RAG, а поиск вернул официальный фрагмент с URL, лицензией и временем проверки. Также исправлено явное закрытие SQLite-соединений. Аудит каталога подтвердил 54 RU/EN-маршрута по шести предметам и 18 уровням. Sources API `/knowledge/sources` показывает расчётное время следующей проверки; уроки автоматически не переписываются и не публикуются. CI подтверждает компиляцию, автоматические проверки и упаковку, но не ручную отрисовку интерфейса, живой ответ ИИ или сохранение состояния на физическом Mac.
+**RU:** GitHub Actions [38771245748](https://github.com/invinby/coli-dev/actions/runs/38771245748) завершил 555 backend-тестов и Control Center verifier; все три macOS job прошли Swift-verifier’ы, собрали приложение, встроили локальный backend, прошли smoke-проверку и аудит учебных маршрутов. Успешны все четыре задания: backend, macOS 15 ARM, macOS 26 ARM и macOS 26 Intel. В этой сборке управление форматами обучения двуязычное: профиль виден в настройках, локальную обратную связь можно очистить; отдельный Swift verifier проверяет порог трёх уроков, отсутствие предпочтения при ничьей и сброс. Аудит каталога подтвердил 54 RU/EN-маршрута по шести предметам и 18 уровням. Исторический живой probe источников в [запуске 38753835401](https://github.com/invinby/coli-dev/actions/runs/38753835401) получил HTTP 200, сохранил разрешённый снимок Python в RAG и вернул официальный фрагмент с URL, лицензией и временем проверки. Sources API `/knowledge/sources` показывает расчётное время следующей проверки; уроки автоматически не переписываются и не публикуются. CI подтверждает компиляцию, автоматические проверки и упаковку, но не ручную отрисовку интерфейса, живой ответ ИИ или сохранение состояния на физическом Mac.
 
-**EN:** GitHub Actions passed 545 backend tests and the Control Center verifier. All three macOS jobs passed their Swift verifiers, built the app, embedded the local backend, passed the backend smoke check, and audited curriculum routes. All four jobs passed: backend, macOS 15 ARM, macOS 26 ARM, and macOS 26 Intel. A live source-monitor probe returned HTTP 200, stored a licensed Python documentation snapshot in RAG, and retrieved an official excerpt with its URL, license, and check timestamp. SQLite connections now close explicitly. The packaged catalog audit confirmed 54 RU/EN routes across six subjects and 18 levels. The Sources API `/knowledge/sources` exposes the calculated next check time; lessons are not automatically rewritten or published. CI proves compilation, automated checks, and packaging, not hands-on UI rendering, a live AI reply, or state persistence on a physical Mac.
+**EN:** GitHub Actions [38771245748](https://github.com/invinby/coli-dev/actions/runs/38771245748) passed 555 backend tests and the Control Center verifier. All three macOS jobs passed their Swift verifiers, built the app, embedded the local backend, passed the backend smoke check, and audited curriculum routes. All four jobs passed: backend, macOS 15 ARM, macOS 26 ARM, and macOS 26 Intel. This build adds bilingual learning-format management: the profile is visible in Settings and local feedback can be cleared; a Swift verifier checks the three-lesson threshold, tie handling, and clearing behavior. The packaged catalog audit confirmed 54 RU/EN routes across six subjects and 18 levels. An earlier live source-monitor probe in [run 38753835401](https://github.com/invinby/coli-dev/actions/runs/38753835401) returned HTTP 200, stored a licensed Python documentation snapshot in RAG, and retrieved an official excerpt with its URL, license, and check timestamp. The Sources API `/knowledge/sources` exposes the calculated next check time; lessons are not automatically rewritten or published. CI proves compilation, automated checks, and packaging, not hands-on UI rendering, a live AI reply, or state persistence on a physical Mac.
 
 ## Проверка соответствия панелей / Control Center pane mapping check
 
@@ -26,9 +28,9 @@ Choose the artifact that matches the Mac. These are CI archives, not a signed in
 
 Выбери архив под свой Mac. Это архивы из CI, а не подписанный установщик. **Приложение не подписано и не нотарифицировано**, поэтому macOS может показать предупреждение Gatekeeper. Для публичного распространения ещё нужны подпись и нотарификация.
 
-- [macOS 15 ARM / Apple Silicon](https://github.com/invinby/coli-dev/actions/runs/38753835401/artifacts/11982512745) — доступен до 29.10.2026 14:49 UTC / available until 2026-10-29 14:49 UTC.
-- [macOS 26 ARM / Apple Silicon](https://github.com/invinby/coli-dev/actions/runs/38753835401/artifacts/11983345425) — доступен до 29.10.2026 14:47 UTC / available until 2026-10-29 14:47 UTC.
-- [macOS 26 Intel](https://github.com/invinby/coli-dev/actions/runs/38753835401/artifacts/11982768389) — доступен до 29.10.2026 14:53 UTC / available until 2026-10-29 14:53 UTC.
+- [Apple Silicon (M1/M2/M3/M4)](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.3/ColiDev-beta-AppleSilicon.zip) — Beta 3.
+- [Intel Mac](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.3/ColiDev-beta-Intel.zip) — Beta 3.
+- [Release notes / Описание Beta 3](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.3)
 
 ## Что ещё нужно проверить на Mac / What still needs hands-on Mac acceptance
 
@@ -46,6 +48,8 @@ Choose the artifact that matches the Mac. These are CI archives, not a signed in
 - **EN:** Progress persistence after quit/relaunch and secret handling in macOS Keychain on this Mac.
 - **RU:** Сохранение урока в настроенное локальное Obsidian через Local REST API; экспорт Markdown для ручного добавления в NotebookLM. Автоматическая связь с аккаунтом NotebookLM не заявлена.
 - **EN:** Saving a lesson to a configured local Obsidian instance through its Local REST API; exporting Markdown for manual import into NotebookLM. Direct account-level NotebookLM integration is not claimed.
+- **RU:** После трёх ответов о формате проверить в «Настройках», что показано именно однозначное предпочтение; очистить историю с подтверждением и убедиться, что подсказка тьютору исчезла. Проверить русский и английский интерфейс.
+- **EN:** After three format responses, confirm Settings shows only an unambiguous preference; clear the history with confirmation and verify the tutor guidance disappears. Check both Russian and English UI.
 
 ## Актуальность источников и границы / Source freshness and limits
 
