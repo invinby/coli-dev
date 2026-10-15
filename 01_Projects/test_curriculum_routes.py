@@ -14,6 +14,39 @@ def test_all_published_curriculum_routes_resolve_in_the_repository():
     assert audit.routed_lesson_count >= 49
 
 
+def test_english_foundations_route_the_bilingual_subject_pronouns_and_be_lesson():
+    curriculum = (REPOSITORY_ROOT / "02_Areas/English/curriculum.md").read_text(encoding="utf-8")
+    foundations = curriculum.split("## База / Foundations", maxsplit=1)[1].split(
+        "## Углубление / Intermediate", maxsplit=1
+    )[0]
+    assert "lesson:subject_pronouns_and_be" in foundations
+    assert foundations.index("lesson:subject_pronouns_and_be") < foundations.index(
+        "lesson:sounds_stress_rhythm"
+    )
+
+    audit = audit_curriculum_routes(REPOSITORY_ROOT / "02_Areas", subjects=("English",))
+    assert audit.errors == (), "\n".join(audit.errors)
+
+    lesson = (
+        REPOSITORY_ROOT / "02_Areas/English/lessons/subject_pronouns_and_be.md"
+    ).read_text(encoding="utf-8")
+    assert "lesson_id: english.subject_pronouns_and_be" in lesson
+    assert "https://learnenglish.britishcouncil.org/free-resources/grammar/a1-a2/present-simple-be" in lesson
+    assert "https://learnenglish.britishcouncil.org/free-resources/grammar/english-grammar-reference/personal-pronouns" in lesson
+
+    for language, options_heading, answer_heading in (
+        ("Русский", "Варианты", "Ответ"),
+        ("English", "Options", "Answer"),
+    ):
+        options = _section_body(lesson, language, options_heading)
+        answer = _section_body(lesson, language, answer_heading)
+        assert options is not None
+        assert answer is not None
+        choices = [line[2:].strip() for line in options.splitlines() if line.strip().startswith("- ")]
+        answer_index = int(answer.strip())
+        assert 1 <= answer_index <= len(choices)
+
+
 def test_programming_intro_has_a_reproducible_bilingual_branching_example():
     lesson = (
         REPOSITORY_ROOT / "02_Areas/Programming/lessons/intro.md"

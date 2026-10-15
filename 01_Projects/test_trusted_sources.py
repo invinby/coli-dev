@@ -825,6 +825,23 @@ def test_british_council_daily_routine_is_monitored_metadata_only(tmp_path: Path
     assert all(item["rag_content_state"] == "metadata_only" for item in monitor.inventory()["sources"])
 
 
+def test_english_foundations_sources_are_exactly_monitored_without_rag_reuse(tmp_path: Path) -> None:
+    urls = [
+        "https://learnenglish.britishcouncil.org/free-resources/grammar/a1-a2/present-simple-be",
+        "https://learnenglish.britishcouncil.org/free-resources/grammar/english-grammar-reference/personal-pronouns",
+    ]
+    _write_lesson(tmp_path, "\n".join(f"[Official English grammar]({url})" for url in urls))
+    monitor = _monitor(tmp_path, tmp_path)
+
+    references, unsupported_count, omitted_count = monitor._references()
+
+    assert {reference.url for reference in references} == set(urls)
+    assert unsupported_count == 0
+    assert omitted_count == 0
+    assert all(monitor._rag_policy(url) is None for url in urls)
+    assert all(item["rag_content_state"] == "metadata_only" for item in monitor.inventory()["sources"])
+
+
 def test_british_council_reading_pages_are_monitored_metadata_only(tmp_path: Path) -> None:
     urls = [
         "https://learnenglish.britishcouncil.org/free-resources/reading/a1",

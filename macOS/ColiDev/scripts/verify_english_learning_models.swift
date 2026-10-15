@@ -238,6 +238,52 @@ enum EnglishLearningModelsVerification {
             "offline word-stress evidence should preserve its item identity and first result / офлайн-результат должен сохранять ID задания и первую оценку"
         )
 
-        print("English conditionals, reading, reported speech, word stress, and assessment event checks passed. / Проверки условных конструкций, чтения, косвенной речи, ударения и событий результатов пройдены.")
+        let beQuestions = EnglishBePractice.questions
+        precondition(beQuestions.count == 7, "beginner be practice should cover statements, negatives, questions, and short answers / базовый тренажёр be должен охватывать утверждения, отрицания, вопросы и краткие ответы")
+        precondition(Set(beQuestions.map(\.id)).count == beQuestions.count, "be-practice IDs should be unique / ID заданий be должны быть уникальными")
+        let expectedAnswers = [
+            "i-am": "am",
+            "she-is": "is",
+            "you-are": "are",
+            "we-are": "are",
+            "plural-negative": "are",
+            "inverted-question": "Are",
+            "short-answer": "are"
+        ]
+        precondition(Set(expectedAnswers.keys) == Set(beQuestions.map(\.id)), "the beginner be practice should cover the independently specified learner contexts / тренажёр должен покрывать все заданные контексты")
+        precondition(Set(beQuestions.map(\.correctOption)) == Set([0, 1, 2]), "correct answer positions should vary / позиции правильных ответов должны различаться")
+        for question in beQuestions {
+            precondition(question.options.count == 3, "each be question should offer three choices / в каждом задании be должны быть три варианта")
+            precondition(!question.prompt.isEmpty && !question.translation.isEmpty, "each prompt should have English and Russian learner text / каждое задание должно иметь английский и русский текст")
+            precondition(!question.explanationRussian.isEmpty && !question.explanationEnglish.isEmpty, "feedback should be bilingual / обратная связь должна быть двуязычной")
+            precondition((0..<question.options.count).contains(question.correctOption), "the correct answer index must be inside the options / индекс правильного ответа должен входить в список вариантов")
+            precondition(question.options[question.correctOption] == expectedAnswers[question.id], "the answer key must match the grammar in each context / ключ должен соответствовать грамматике контекста")
+            precondition(EnglishBePractice.isCorrect(question.correctOption, for: question.id), "the reference answer should pass for \(question.id) / правильный ответ должен приниматься для \(question.id)")
+            for alternative in question.options.indices where alternative != question.correctOption {
+                precondition(!EnglishBePractice.isCorrect(alternative, for: question.id), "a distractor should fail for \(question.id) / отвлекающий вариант должен отклоняться для \(question.id)")
+            }
+        }
+        precondition(!EnglishBePractice.isCorrect(3, for: "i-am"), "out-of-range answers should fail closed / выходящие за список ответы должны отклоняться")
+        precondition(!EnglishBePractice.isCorrect(0, for: "missing-be-question"), "unknown be questions should fail closed / неизвестный вопрос be должен отклоняться")
+
+        var beAssessment = EnglishBeAssessmentTracker()
+        let firstBeAttempt = beAssessment.recordSubmission(option: 1, for: "i-am")!
+        precondition(firstBeAttempt.taskType == "interactive_practice" && firstBeAttempt.attempts == 1 && !firstBeAttempt.firstTryCorrect && firstBeAttempt.itemID == "i-am", "save the incorrect first be response with its stable question ID / сохранять первую ошибку с постоянным ID вопроса")
+        precondition(beAssessment.recordSubmission(option: 1, for: "i-am") == nil, "do not count submitting the same be answer twice / повтор одинакового ответа не должен увеличивать попытки")
+        let beRetry = beAssessment.recordSubmission(option: 0, for: "i-am")!
+        precondition(beRetry.attempts == 2 && !beRetry.firstTryCorrect && beRetry.itemID == "i-am", "keep the first error after a correct retry / сохранять первую ошибку после исправления")
+        precondition(beAssessment.recordSubmission(option: 2, for: "you-are")?.firstTryCorrect == true, "track a separate correct be response / отдельно записывать правильный ответ")
+        precondition(beAssessment.recordSubmission(option: 3, for: "i-am") == nil && beAssessment.recordSubmission(option: 0, for: "missing-be-question") == nil, "reject invalid answers and unknown be questions / отклонять неверные индексы и неизвестные вопросы")
+
+        let beEvent = StudyAssessmentEvent(
+            id: "00000000-0000-0000-0000-000000000004",
+            lessonID: "english.subject_pronouns_and_be",
+            assessment: beRetry
+        )
+        let beEventObject = try JSONSerialization.jsonObject(with: encoder.encode(beEvent)) as! [String: Any]
+        let beEventAssessment = beEventObject["assessment"] as! [String: Any]
+        precondition(beEventObject["lesson_id"] as? String == "english.subject_pronouns_and_be" && beEventAssessment["item_id"] as? String == "i-am", "offline be evidence should use the lesson and item IDs consumed by progress and review / офлайн-свидетельства должны использовать ID урока и вопроса системы прогресса")
+
+        print("English conditionals, reading, reported speech, word stress, be practice, and assessment event checks passed. / Проверки условных конструкций, чтения, косвенной речи, ударения, тренажёра be и событий результатов пройдены.")
     }
 }
