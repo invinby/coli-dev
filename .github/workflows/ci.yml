@@ -379,6 +379,15 @@ jobs:
           -derivedDataPath "$RUNNER_TEMP/ColiDevUITestData"
           CODE_SIGN_IDENTITY=-
 
+      - name: Upload Control Center UI test diagnostics
+        if: failure() && matrix.runner == 'macos-15'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ColiDev-UI-Test-Diagnostics
+          path: ${{ runner.temp }}/ColiDevUITestData/Logs/Test
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Verify bundled curriculum roadmaps
         run: |
           resources="$RUNNER_TEMP/ColiDevDerivedData/Build/Products/Debug/ColiDev.app/Contents/Resources/02_Areas"
