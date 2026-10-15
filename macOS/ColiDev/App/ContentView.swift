@@ -643,6 +643,13 @@ private struct TodayView: View {
                     ))
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    Text(String(
+                        format: L10n.text("home.knowledgeEvidenceVariety", store.language),
+                        knowledgeEvidenceCoverage.topicsWithMultipleTaskTypes,
+                        knowledgeEvidenceCoverage.totalTopicCount
+                    ))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     if knowledgeEvidenceCoverage.topicsNeedingPractice > 0 {
                         Text(String(
                             format: L10n.text("home.knowledgeNeedPractice", store.language),

@@ -216,9 +216,59 @@ enum StudyRecommendationVerification {
             checkCoverage.totalTopicCount == 7
                 && checkCoverage.topicsWithChecks == 3
                 && checkCoverage.topicsNeedingPractice == 1
+                && checkCoverage.topicsWithMultipleTaskTypes == 0
                 && checkCoverage.reportedErrorTopicCounts[.application] == 1
                 && checkCoverage.reportedErrorTopicCounts[.foundation] == 1,
             "Knowledge evidence must count only addressable roadmap topics and flag the latest check when it needed retries. / Свидетельства понимания должны учитывать только доступные темы плана и отмечать темы, где последняя проверка потребовала повторов."
+        )
+        let mixedFormatCoverage = StudyKnowledgeEvidenceCoverage(
+            roadmaps: roadmaps,
+            records: [
+                StudyAssessmentProgressRecord(
+                    lessonID: "mathematics.fractions",
+                    assessmentCount: 1,
+                    latestAssessment: StudyAssessmentEvidence(
+                        taskType: "knowledge_check",
+                        attempts: 1,
+                        firstTryCorrect: true,
+                        hintsUsed: 0
+                    )
+                ),
+            ],
+            additionalEvidence: [
+                StudyAssessmentEvidenceSummary(
+                    lessonID: "mathematics.fractions",
+                    assessmentCount: 1,
+                    taskTypeCounts: ["interactive_practice": 1],
+                    passedTaskTypeCounts: ["interactive_practice": 1],
+                    errorCategoryCounts: [:],
+                    latestAssessment: StudyAssessmentEvidence(
+                        taskType: "interactive_practice",
+                        attempts: 1,
+                        firstTryCorrect: true,
+                        hintsUsed: 0
+                    ),
+                    latestAt: "2026-10-15T12:00:00Z"
+                ),
+                StudyAssessmentEvidenceSummary(
+                    lessonID: "mathematics.not_in_roadmap",
+                    assessmentCount: 2,
+                    taskTypeCounts: ["knowledge_check": 1, "interactive_prediction": 1],
+                    passedTaskTypeCounts: [:],
+                    errorCategoryCounts: [:],
+                    latestAssessment: StudyAssessmentEvidence(
+                        taskType: "interactive_prediction",
+                        attempts: 1,
+                        firstTryCorrect: true,
+                        hintsUsed: 0
+                    ),
+                    latestAt: "2026-10-15T12:01:00Z"
+                ),
+            ]
+        )
+        precondition(
+            mixedFormatCoverage.topicsWithMultipleTaskTypes == 1,
+            "Multiple task types from local and synced evidence must count once for an in-roadmap topic, while unrelated records stay excluded. / Разные типы заданий из локальных и синхронизированных данных должны считать тему один раз; записи вне плана исключаются."
         )
         let interactiveEvidence = StudyAssessmentEvidenceSummary(
             lessonID: "zoology.thermoregulation",

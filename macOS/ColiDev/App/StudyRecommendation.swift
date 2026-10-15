@@ -203,6 +203,7 @@ struct StudyKnowledgeEvidenceCoverage: Equatable {
     let totalTopicCount: Int
     let topicsWithChecks: Int
     let topicsNeedingPractice: Int
+    let topicsWithMultipleTaskTypes: Int
     let reportedErrorTopicCounts: [StudyErrorCategory: Int]
 
     init(
@@ -214,6 +215,14 @@ struct StudyKnowledgeEvidenceCoverage: Equatable {
             roadmap.lessonResources.map { "\(roadmap.subjectID).\($0)" }
         })
         totalTopicCount = topicIDs.count
+
+        var taskTypesByTopic: [String: Set<String>] = [:]
+        for record in records where topicIDs.contains(record.lessonID) {
+            if let taskType = record.latestAssessment?.taskType.trimmingCharacters(in: .whitespacesAndNewlines),
+               !taskType.isEmpty {
+                taskTypesByTopic[record.lessonID, default: []].insert(taskType)
+            }
+        }
 
         var recordsByLesson = Dictionary(uniqueKeysWithValues: records.map { ($0.lessonID, $0) })
         for summary in additionalEvidence {
@@ -245,6 +254,16 @@ struct StudyKnowledgeEvidenceCoverage: Equatable {
             }
         }
         for summary in additionalEvidence where topicIDs.contains(summary.lessonID) {
+            for (taskType, count) in summary.taskTypeCounts where count > 0 {
+                let normalizedTaskType = taskType.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !normalizedTaskType.isEmpty {
+                    taskTypesByTopic[summary.lessonID, default: []].insert(normalizedTaskType)
+                }
+            }
+            let latestTaskType = summary.latestAssessment.taskType.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !latestTaskType.isEmpty {
+                taskTypesByTopic[summary.lessonID, default: []].insert(latestTaskType)
+            }
             for (rawCategory, count) in summary.errorCategoryCounts ?? [:] where count > 0 {
                 guard let category = StudyErrorCategory(rawValue: rawCategory) else { continue }
                 errorTopicIDsByCategory[category, default: []].insert(summary.lessonID)
@@ -252,6 +271,7 @@ struct StudyKnowledgeEvidenceCoverage: Equatable {
         }
         topicsWithChecks = checkedTopicIDs.count
         topicsNeedingPractice = practiceTopicIDs.count
+        topicsWithMultipleTaskTypes = taskTypesByTopic.values.filter { $0.count >= 2 }.count
         reportedErrorTopicCounts = errorTopicIDsByCategory.mapValues(\.count)
     }
 }
