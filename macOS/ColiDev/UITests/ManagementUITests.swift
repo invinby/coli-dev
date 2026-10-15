@@ -6,15 +6,9 @@ final class ManagementUITests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
 
-        let managementItem = app.descendants(matching: .any)["sidebar.management"]
+        let managementItem = app.staticTexts["sidebar.management"]
         XCTAssertTrue(managementItem.waitForExistence(timeout: 15))
-
-        let managementRow = app.outlineRows.containing(.staticText, identifier: "sidebar.management").firstMatch
-        if managementRow.waitForExistence(timeout: 2) {
-            managementRow.click()
-        } else {
-            managementItem.click()
-        }
+        managementItem.click()
 
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Control Center navigation result"

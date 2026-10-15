@@ -379,12 +379,24 @@ jobs:
           -derivedDataPath "$RUNNER_TEMP/ColiDevUITestData"
           CODE_SIGN_IDENTITY=-
 
-      - name: Upload Control Center UI test diagnostics
+      - name: Export Control Center UI screenshots
+        if: failure() && matrix.runner == 'macos-15'
+        run: |
+          mkdir -p "$RUNNER_TEMP/ColiDevUITestAttachments"
+          result="$(find "$RUNNER_TEMP/ColiDevUITestData/Logs/Test" -maxdepth 1 -name '*.xcresult' -print -quit)"
+          if [ -n "$result" ]; then
+            xcrun xcresulttool export attachments \
+              --path "$result" \
+              --output-path "$RUNNER_TEMP/ColiDevUITestAttachments" \
+              || true
+          fi
+
+      - name: Upload Control Center UI screenshots
         if: failure() && matrix.runner == 'macos-15'
         uses: actions/upload-artifact@v7
         with:
-          name: ColiDev-UI-Test-Diagnostics
-          path: ${{ runner.temp }}/ColiDevUITestData/Logs/Test
+          name: ColiDev-UI-Test-Screenshots
+          path: ${{ runner.temp }}/ColiDevUITestAttachments
           if-no-files-found: ignore
           retention-days: 7
 
