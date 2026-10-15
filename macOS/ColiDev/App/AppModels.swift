@@ -1092,6 +1092,7 @@ struct TrustedSourceInventory: Decodable {
     let omittedCount: Int
     let automaticCheckEnabled: Bool?
     let automaticCheckIntervalHours: Int?
+    let automaticCheckDueAt: String?
     let sources: [TrustedSourceInventoryItem]
 
     enum CodingKeys: String, CodingKey {
@@ -1109,6 +1110,7 @@ struct TrustedSourceInventory: Decodable {
         case omittedCount = "omitted_count"
         case automaticCheckEnabled = "automatic_check_enabled"
         case automaticCheckIntervalHours = "automatic_check_interval_hours"
+        case automaticCheckDueAt = "automatic_check_due_at"
     }
 }
 

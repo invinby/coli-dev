@@ -2239,6 +2239,21 @@ private struct ManagementView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+                if automaticCheckEnabled,
+                   let dueAt = sourceInventory?.automaticCheckDueAt {
+                    Label(
+                        String(
+                            format: L10n.text("management.autoSourceCheckDue", store.language),
+                            formatISODate(dueAt)
+                        ),
+                        systemImage: "calendar.badge.clock"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("control-center.sources.next-check")
+                }
             }
 
             HStack(spacing: 10) {
@@ -2448,6 +2463,7 @@ private struct ManagementView: View {
                 "needs_attention": inventory?.needsAttentionCount as Any? ?? NSNull(),
                 "automatic_check_enabled": inventory?.automaticCheckEnabled as Any? ?? NSNull(),
                 "automatic_check_interval_hours": inventory?.automaticCheckIntervalHours as Any? ?? NSNull(),
+                "automatic_check_due_at": inventory?.automaticCheckDueAt as Any? ?? NSNull(),
                 "unsupported": inventory?.unsupportedCount as Any? ?? NSNull(),
                 "omitted": inventory?.omittedCount as Any? ?? NSNull(),
             ],

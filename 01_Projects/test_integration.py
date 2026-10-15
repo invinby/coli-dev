@@ -740,6 +740,7 @@ def test_trusted_source_inventory_is_local_and_does_not_trigger_a_check(client_o
         **source_inventory,
         "automatic_check_enabled": False,
         "automatic_check_interval_hours": 24,
+        "automatic_check_due_at": None,
     }
     read_inventory = MagicMock(return_value=source_inventory)
     monkeypatch.setattr(orchestrator.trusted_source_monitor, "inventory", read_inventory)

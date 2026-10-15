@@ -4689,6 +4689,25 @@ async def get_trusted_source_inventory(request: Request):
         inventory["automatic_check_interval_hours"] = int(
             AUTO_SOURCE_CHECK_INTERVAL_SECONDS / 3600
         )
+        try:
+            next_check_delay = (
+                trusted_source_monitor.seconds_until_automatic_check()
+                if AUTO_SOURCE_CHECK_ENABLED
+                else None
+            )
+        except Exception as exc:
+            logger.warning(
+                "Could not calculate the next automatic trusted-source check",
+                extra={"error_type": type(exc).__name__},
+            )
+            next_check_delay = None
+        inventory["automatic_check_due_at"] = (
+            (datetime.now(timezone.utc) + timedelta(seconds=next_check_delay))
+            .isoformat(timespec="seconds")
+            .replace("+00:00", "Z")
+            if next_check_delay is not None
+            else None
+        )
         return inventory
     except Exception:
         logger.exception("Trusted course source inventory is unavailable")

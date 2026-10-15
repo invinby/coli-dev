@@ -6,6 +6,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 CONTENT_VIEW = ROOT / "macOS" / "ColiDev" / "App" / "ContentView.swift"
 source = CONTENT_VIEW.read_text(encoding="utf-8")
+APP_MODELS = ROOT / "macOS" / "ColiDev" / "App" / "AppModels.swift"
+LOCALIZATION = ROOT / "macOS" / "ColiDev" / "App" / "L10n.swift"
+app_models = APP_MODELS.read_text(encoding="utf-8")
+localization = LOCALIZATION.read_text(encoding="utf-8")
 
 
 def property_block(name: str) -> str:
@@ -50,6 +54,28 @@ if management_row < 0 or management_id < 0 or abs(management_row - management_id
     raise AssertionError(
         "Пункт Центра управления в боковой панели должен иметь стабильный ID / "
         "Management sidebar item needs a stable accessibility identifier"
+    )
+
+sources_pane = property_block("sourcesPane")
+if "sourceInventory?.automaticCheckDueAt" not in sources_pane:
+    raise AssertionError(
+        "Панель источников должна показывать следующую авто-проверку / "
+        "Sources pane must show the next automatic check"
+    )
+if '"control-center.sources.next-check"' not in sources_pane:
+    raise AssertionError(
+        "Строке следующей проверки нужен accessibility ID / "
+        "The next-check row needs an accessibility identifier"
+    )
+if '"management.autoSourceCheckDue"' not in localization:
+    raise AssertionError(
+        "Для времени следующей авто-проверки нужны RU/EN подписи / "
+        "The next automatic check needs RU/EN labels"
+    )
+if "automaticCheckDueAt" not in app_models or '"automatic_check_due_at"' not in app_models:
+    raise AssertionError(
+        "Модель источников должна декодировать следующее время проверки / "
+        "The source inventory model must decode the next check time"
     )
 
 print("Доступность панелей Центра управления проверена / Control Center pane accessibility mapping is consistent.")
