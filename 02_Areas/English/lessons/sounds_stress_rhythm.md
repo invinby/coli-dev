@@ -30,7 +30,7 @@ source_review_interval_days: 180
 
 Пройди четыре примера в тренажёре. Сначала прочитай предложение и назови роль слова — существительное или глагол. Затем выбери ударный слог. Заглавные буквы показывают, где находится ударение; после верного ответа сравни его с объяснением.
 
-В тренажёре сейчас нет встроенного проигрывателя произношения. Для проверки открой ссылки Cambridge Dictionary в разделе Sources, переключай UK/US audio и сравнивай произношение со знаком `ˈ`. Повтори слово в короткой фразе и объясни, какая часть контекста помогла.
+В тренажёре кнопка «Слушать пример» воспроизводит контекстное английское предложение голосом macOS; можно выбрать установленный системный вариант UK или US. Это синтезированная локальная озвучка, а не оригинальная запись Cambridge; приложение не записывает и не оценивает речь. Для эталонного произношения открой ссылки Cambridge Dictionary в разделе Sources, переключай UK/US audio и сравнивай услышанное со знаком `ˈ`. Повтори слово в короткой фразе и объясни, какая часть контекста помогла.
 
 ### Вопрос
 
@@ -52,7 +52,7 @@ source_review_interval_days: 180
 
 ### Границы модели
 
-Позиция ударения не выводится надёжно из одной лишь орфографии. Пары *present* и *record* иллюстрируют конкретное различие существительного и глагола; нельзя переносить его на любое двухсложное слово. Cambridge показывает UK и US произношения, которые могут различаться звуками и транскрипцией. Тренажёр проверяет выбор по тексту, но не распознаёт речь и не оценивает акцент. Воспроизведение аудио открывается на сайте словаря и требует интернета.
+Позиция ударения не выводится надёжно из одной лишь орфографии. Пары *present* и *record* иллюстрируют конкретное различие существительного и глагола; нельзя переносить его на любое двухсложное слово. Cambridge показывает UK и US произношения, которые могут различаться звуками и транскрипцией. Тренажёр проверяет выбор по тексту и не распознаёт речь. Озвучка macOS синтезируется на устройстве, если выбранный голос установлен; она не заменяет запись Cambridge и не оценивает акцент. Оригинальное аудио Cambridge открывается на сайте словаря и требует интернета.
 
 ## English
 
@@ -75,7 +75,7 @@ Context suggests the part of speech and meaning; it helps you choose the stress 
 
 Work through the four trainer prompts. Read the sentence first and identify the word's role—a noun or a verb. Then choose the stressed syllable. Capital letters show the stress position; after a correct answer, compare it with the explanation.
 
-The trainer does not currently include a built-in pronunciation player. To check the sound, open the Cambridge Dictionary links under Sources, switch between UK/US audio, and compare what you hear with the `ˈ` mark. Repeat the word in a short phrase and explain which part of the context helped.
+The trainer's “Listen to example” button reads the contextual English sentence using a macOS system voice; choose an installed UK or US voice. This is on-device synthesized speech, not Cambridge's original recording, and the app does not record or assess speech. For reference pronunciation, open the Cambridge Dictionary links under Sources, switch between UK/US audio, and compare what you hear with the `ˈ` mark. Repeat the word in a short phrase and explain which part of the context helped.
 
 ### Question
 
@@ -97,7 +97,7 @@ Option 2 matches these examples: *PRE-sent / pre-SENT* and *RE-cord / re-CORD*. 
 
 ### Limits
 
-Stress cannot be reliably predicted from spelling alone. The *present* and *record* pairs show particular noun/verb differences; do not apply them to every two-syllable word. Cambridge presents UK and US pronunciations, which may differ in sounds and transcription. This trainer checks a text choice; it does not recognise speech or assess an accent. Dictionary audio opens on the Cambridge website and needs an internet connection.
+Stress cannot be reliably predicted from spelling alone. The *present* and *record* pairs show particular noun/verb differences; do not apply them to every two-syllable word. Cambridge presents UK and US pronunciations, which may differ in sounds and transcription. This trainer checks a text choice and does not recognise speech. macOS speech is synthesized on-device when the selected voice is installed; it is not Cambridge's recording and does not assess an accent. Original Cambridge audio opens on its website and needs an internet connection.
 
 ## Sources
 

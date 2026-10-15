@@ -1,21 +1,20 @@
 # Статус готовности прототипа ColiDev / ColiDev prototype readiness
 
-**Дата обновления / Updated:** 2026-10-15
+**Дата обновления / Updated:** 2026-10-16
 
-**Проверенный коммит приложения / Verified application commit:** `ef859cb6a639bfb5843afbd14f3a7c932fa685cc`
+**Проверенный коммит приложения / Verified application commit:** `8b29fbed1fc4c7c0dd4746edad60954d1623120e`
 
-**CI:** [запуск 38775664175](https://github.com/invinby/coli-dev/actions/runs/38775664175) — все четыре задания успешно завершены / all four jobs passed
+**CI:** [запуск 38780599869](https://github.com/invinby/coli-dev/actions/runs/38780599869) — все четыре задания успешно завершены / all four jobs passed
 
-**Свежая бета / Current beta:** [ColiDev 0.1.0 Beta 4](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.4)
+**Свежая бета / Current beta:** [ColiDev 0.1.0 Beta 5](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.5)
 
-**Статус:** прототип готов к внутреннему тесту на Mac; это не релизный установщик. / **Status:** prototype is ready for internal Mac testing; this is not a release installer.
+**Статус:** прототип собран и готов к ручной проверке на Mac; это неподписанная тестовая сборка, не релизный установщик. / **Status:** the prototype is built and ready for hands-on Mac checks; this is an unsigned test build, not a release installer.
 
 ## Что подтверждено / What is verified
 
-**RU:** GitHub Actions [38775664175](https://github.com/invinby/coli-dev/actions/runs/38775664175) успешно завершил backend-набор и Control Center verifier; все три macOS job прошли Swift-verifier’ы, собрали приложение, встроили локальный backend, прошли smoke-проверку и аудит учебных маршрутов. Успешны все четыре задания: backend, macOS 15 ARM, macOS 26 ARM и macOS 26 Intel. В [Beta 4](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.4) предпочтение формата хранится с идентификатором предмета и подтверждается тремя одинаковыми выборами из разных уроков этого предмета. Тьютор применяет предметный выбор только к этому предмету; прежние записи Beta 3 без предмета работают как общий fallback. Восстановление старого профиля, независимость предметов, локальное сохранение, порог, ничьи и сброс покрыты Swift verifier’ом. Аудит каталога подтвердил 54 RU/EN-маршрута по шести предметам и 18 уровням. Исторический live-probe источников в [запуске 38753835401](https://github.com/invinby/coli-dev/actions/runs/38753835401) получил HTTP 200, сохранил разрешённый снимок Python в RAG и вернул официальный фрагмент с URL, лицензией и временем проверки. Sources API `/knowledge/sources` показывает расчётное время следующей проверки; уроки автоматически не переписываются и не публикуются. CI подтверждает компиляцию, автоматические проверки и упаковку, но не ручную отрисовку интерфейса, живой ответ ИИ или сохранение состояния на физическом Mac.
+**RU:** GitHub Actions [38780599869](https://github.com/invinby/coli-dev/actions/runs/38780599869) прошёл backend-набор и все три сборки macOS: macOS 15 ARM, macOS 26 ARM и macOS 26 Intel. Приложение собрано и упаковано, встроенный backend прошёл smoke-проверку, учебные маршруты проверены. В [Beta 5](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.5) тренажёр ударения произносит четыре контекстных предложения через системный синтез macOS и показывает UK/US только для установленных голосов. Синтез выполняется на устройстве, это не запись Cambridge; приложение не записывает и не оценивает речь. Swift verifier проверяет соответствие аудиопредложений вопросам и отбор доступных голосов. Сохранились предметные предпочтения формата из Beta 4. Каталог содержит 54 RU/EN-маршрута по шести предметам. CI не подтверждает слышимость аудио и визуальное поведение на физическом Mac; ручная проверка остаётся открытой.
 
-**EN:** GitHub Actions [38775664175](https://github.com/invinby/coli-dev/actions/runs/38775664175) passed the backend suite and Control Center verifier. All three macOS jobs passed their Swift verifiers, built the app, embedded the local backend, passed the backend smoke check, and audited curriculum routes. All four jobs passed: backend, macOS 15 ARM, macOS 26 ARM, and macOS 26 Intel. [Beta 4](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.4) stores format feedback with its subject ID and confirms a preference after three matching choices across different lessons in that subject. The tutor applies it only within that subject; older Beta 3 responses without a subject remain a general fallback. Swift verifiers cover legacy-profile decoding, independent subjects, local persistence, the threshold, ties, and clearing. The packaged catalog audit confirmed 54 RU/EN routes across six subjects and 18 levels. An earlier live source-monitor probe in [run 38753835401](https://github.com/invinby/coli-dev/actions/runs/38753835401) returned HTTP 200, stored a licensed Python documentation snapshot in RAG, and retrieved an official excerpt with its URL, license, and check timestamp. The Sources API `/knowledge/sources` exposes the calculated next check time; lessons are not automatically rewritten or published. CI proves compilation, automated checks, and packaging, not hands-on UI rendering, a live AI reply, or state persistence on a physical Mac.
-
+**EN:** GitHub Actions [38780599869](https://github.com/invinby/coli-dev/actions/runs/38780599869) passed the backend suite and all three macOS builds: macOS 15 ARM, macOS 26 ARM, and macOS 26 Intel. The app was built and packaged, the bundled backend passed its smoke check, and curriculum routes were verified. In [Beta 5](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.5), the word-stress trainer reads four contextual sentences through macOS speech synthesis and offers UK/US only when those voices are installed. Synthesis happens on-device; it is not Cambridge audio, and the app does not record or score speech. The Swift verifier checks sentence-to-question mapping and available-voice filtering. Beta 4's subject-scoped learning-format preferences remain included. The catalog contains 54 RU/EN routes across six subjects. CI does not prove that audio is audible or verify UI behavior on a physical Mac; hands-on acceptance remains open. [Apple speech synthesis documentation](https://developer.apple.com/documentation/avfoundation/speech-synthesis) describes on-device generation.
 ## Проверка соответствия панелей / Control Center pane mapping check
 
 **RU:** Исправлены ID для обзора, курсов, моделей, RAG, источников и интеграций, а также ID пунктов «Центр управления» и «Локальные модели» в боковой панели. Python-verifier проверяет, что каждому ID соответствует свой экран, и что переключатель и навигация имеют стабильные ID. В CI [38736168749](https://github.com/invinby/coli-dev/actions/runs/38736168749) verifier прошёл, и приложение собрано для трёх конфигураций macOS. Verifier не открывает окно; прежний пустой экран вручную не воспроизведён, его причина не установлена.
@@ -24,14 +23,17 @@
 
 ## Скачать тестовую сборку / Download the test build
 
-Choose the artifact that matches the Mac. These are CI archives, not a signed installer. **The app is unsigned and not notarized**, so macOS may show a Gatekeeper warning. Public distribution still needs signing and notarization.
+Выбери архив под свой Mac. Это CI-сборки, а не подписанный установщик. Приложение не подписано и не нотарифицировано, поэтому macOS может показать предупреждение Gatekeeper.
 
-Выбери архив под свой Mac. Это архивы из CI, а не подписанный установщик. **Приложение не подписано и не нотарифицировано**, поэтому macOS может показать предупреждение Gatekeeper. Для публичного распространения ещё нужны подпись и нотарификация.
+Choose the archive for your Mac. These are CI builds, not signed installers. The app is unsigned and not notarized, so macOS may show a Gatekeeper warning.
 
-- [Apple Silicon (M1/M2/M3/M4)](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.3/ColiDev-beta-AppleSilicon.zip) — Beta 3.
-- [Intel Mac](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.3/ColiDev-beta-Intel.zip) — Beta 3.
-- [Release notes / Описание Beta 3](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.3)
+- [Apple Silicon (M1/M2/M3/M4)](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.5/ColiDev-beta-AppleSilicon.zip) — Beta 5.
+- [Intel Mac](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.5/ColiDev-beta-Intel.zip) — Beta 5.
+- [Release notes / Описание Beta 5](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.5)
 
+Распакуй архив, перемести `ColiDev.app` в «Программы» и запусти. При предупреждении нажми Control-кликом по приложению в Finder → «Открыть» → «Открыть». Не отключай Gatekeeper целиком.
+
+Extract the archive, move `ColiDev.app` to Applications, and launch it. If macOS warns, Control-click the app in Finder → Open → Open. Do not disable Gatekeeper globally.
 ## Что ещё нужно проверить на Mac / What still needs hands-on Mac acceptance
 
 - **RU:** Запуск приложения и навигацию по предметам, картам, урокам, тренажёрам, добавленным темам и «Продолжить обучение».
@@ -51,7 +53,8 @@ Choose the artifact that matches the Mac. These are CI archives, not a signed in
 - **RU:** После трёх ответов о формате проверить в «Настройках», что показано именно однозначное предпочтение; очистить историю с подтверждением и убедиться, что подсказка тьютору исчезла. Проверить русский и английский интерфейс.
 - **EN:** After three format responses, confirm Settings shows only an unambiguous preference; clear the history with confirmation and verify the tutor guidance disappears. Check both Russian and English UI.
 
-## Актуальность источников и границы / Source freshness and limits
+- **RU:** В уроке об ударении прослушать все четыре предложения; проверить доступные UK/US голоса и их переключение, подпись о синтезе и поведение, если нужный голос не установлен. Сравнить с Cambridge; проверить RU/EN. Не считать этот тест оценкой речи.
+- **EN:** In the word-stress lesson, play all four sentences; check available UK/US voices and switching, the synthesis disclosure, and the fallback when a voice is missing. Compare with Cambridge and check RU/EN. This feature does not assess speech.## Актуальность источников и границы / Source freshness and limits
 
 **RU:** Монитор автоматически перепроверяет разрешённые источники примерно раз в 24 часа, пока работает локальный backend; успешно проверенный снимок может использоваться в RAG до 48 часов. Он обновляет индексируемый снимок и сигнал о смене страницы, но не переписывает редакторский урок автоматически. Даты издателя, сетевой проверки и редакторской проверки отображаются отдельно. После аудита прямых адресов реестр содержит 139 точных URL при лимите 150. Три издательские ссылки на научные статьи остаются за пределами автопроверки: две DOI-ссылки перенаправляют на издателей, а полная страница JEB вернула 403 из текущего сетевого окружения; монитор сознательно не следует редиректам. Четыре урока программирования используют прямые актуальные маршруты Python `/3/builtins/` и `/3/library/sys.html`. Проверены точные доступные адреса Cambridge, Python, NHGRI, NCBI, MedlinePlus, OpenStax и NIST; содержимое страниц проверяется отдельно, свежесть не доказывает каждое утверждение. Подробнее: [билингвальный аудит](research/python-current-documentation-source-audit.md).
 
