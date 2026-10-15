@@ -369,6 +369,16 @@ jobs:
           app="$RUNNER_TEMP/ColiDevDerivedData/Build/Products/Debug/ColiDev.app"
           ./macOS/ColiDev/scripts/smoke_test_backend_runtime.sh "$app"
 
+      - name: Verify Control Center opens and renders its overview
+        if: matrix.runner == 'macos-15'
+        run: >-
+          xcodebuild test
+          -project macOS/ColiDev/ColiDev.xcodeproj
+          -scheme ColiDev
+          -destination 'platform=macOS'
+          -derivedDataPath "$RUNNER_TEMP/ColiDevUITestData"
+          CODE_SIGN_IDENTITY=-
+
       - name: Verify bundled curriculum roadmaps
         run: |
           resources="$RUNNER_TEMP/ColiDevDerivedData/Build/Products/Debug/ColiDev.app/Contents/Resources/02_Areas"

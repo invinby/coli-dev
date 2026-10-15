@@ -1737,7 +1737,8 @@ private struct ManagementView: View {
                     )
                 }
 
-                GroupBox(label: Text(L10n.text("management.systemStatus", store.language))) {
+                GroupBox(label: Text(L10n.text("management.systemStatus", store.language))
+                    .accessibilityIdentifier("control-center.overview.system-status")) {
                     VStack(spacing: 10) {
                         statusRow(
                             title: L10n.text("management.network", store.language),
