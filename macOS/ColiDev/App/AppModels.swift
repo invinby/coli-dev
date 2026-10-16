@@ -828,6 +828,9 @@ final class LocalBackendSupervisor: ObservableObject {
         child.executableURL = executable
         child.currentDirectoryURL = resources
         var environment = ProcessInfo.processInfo.environment
+        for key in environment.keys.filter({ $0.hasPrefix("DYLD_") || $0.hasPrefix("__XPC_DYLD_") }) {
+            environment.removeValue(forKey: key)
+        }
         environment["COLIDEV_PROJECT_ROOT"] = resources.path
         environment["HOST"] = "127.0.0.1"
         environment["PORT"] = "8000"
