@@ -36,6 +36,7 @@ for snippet in (
     ".pickerStyle(.menu)",
     '.accessibilityIdentifier("biology.cell3d.organelles")',
     '.accessibilityIdentifier("biology.cell3d.scene")',
+    ".accessibilityElement(children: .ignore)",
     '.accessibilityIdentifier("biology.cell3d.description")',
     '.accessibilityValue(Text(L10n.text("biology.cell3d.\\(selectedPart)", store.language)))',
     'Text(L10n.text("biology.cell3d.\\(selectedPart).function", store.language))',

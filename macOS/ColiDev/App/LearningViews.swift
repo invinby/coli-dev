@@ -7693,6 +7693,7 @@ private struct EukaryoticCellLab: View {
                 EukaryoticCellScene(selectedPart: $selectedPart)
                     .frame(height: 260)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .accessibilityElement(children: .ignore)
                     .accessibilityLabel(Text(L10n.text("lab.cell3d.accessibility", store.language)))
                     .accessibilityValue(Text(L10n.text("biology.cell3d.\(selectedPart)", store.language)))
                     .accessibilityIdentifier("biology.cell3d.scene")
