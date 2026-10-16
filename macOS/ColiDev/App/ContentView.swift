@@ -231,6 +231,7 @@ struct ContentView: View {
         }
         if route.subjectID == "intro", let subject = Subject(rawValue: route.resource) {
             practiceFocusRoute = focusPractice ? route : nil
+            store.rememberStudyRoute(route)
             selection = .lesson(subject)
             return
         }
@@ -426,6 +427,17 @@ private struct TodayView: View {
         )
     }
 
+    private var studyReturnSnapshot: StudyReturnSnapshot? {
+        StudyReturnSnapshot.make(
+            lastActivityAt: store.lastLearningActivityAt,
+            now: Date(),
+            lastOpenedRoute: store.lastOpenedCourseRoute,
+            completedLessonCount: store.completedLessonIDs.count,
+            passedKnowledgeCheckCount: store.studyProgressionEvidence.successfulKnowledgeCheckLessonIDs.count,
+            nextRoute: nextDueReviewRoute ?? studyRecommendation?.route
+        )
+    }
+
     private var nextLessonRoute: StudyLessonRoute? { studyRecommendation?.route }
 
     private var nextDueReviewRoute: StudyLessonRoute? { addressableDueReviewRoutes.first }
@@ -451,6 +463,9 @@ private struct TodayView: View {
                 .padding(.top, 28)
 
                 progressCard
+                if let studyReturnSnapshot {
+                    studyReturnCard(studyReturnSnapshot)
+                }
                 studyGoalCard
 
                 VStack(alignment: .leading, spacing: 16) {
@@ -628,6 +643,61 @@ private struct TodayView: View {
     private func goalStepTitle(_ route: StudyLessonRoute) -> String {
         studyGoalOptions.first { $0.id == route.lessonID }?.topicTitle
             ?? route.resource.replacingOccurrences(of: "_", with: " ")
+    }
+
+    private func studyReturnCard(_ snapshot: StudyReturnSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(L10n.text("home.return.title", store.language), systemImage: "arrow.uturn.forward")
+                .font(.headline)
+            if let lastRoute = snapshot.lastOpenedRoute {
+                Text(L10n.text("home.return.lastStop", store.language)
+                    .replacingOccurrences(of: "%@", with: goalStepTitle(lastRoute)))
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Text(String(
+                format: L10n.text("home.return.completed", store.language),
+                snapshot.completedLessonCount
+            ))
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            Text(String(
+                format: L10n.text("home.return.checks", store.language),
+                snapshot.passedKnowledgeCheckCount
+            ))
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            if let nextRoute = snapshot.nextRoute {
+                Text(L10n.text("home.return.next", store.language)
+                    .replacingOccurrences(of: "%@", with: goalStepTitle(nextRoute)))
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(Color.accentColor)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text(L10n.text("home.return.noNext", store.language))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Text(L10n.text("home.return.noDebt", store.language))
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(
+                colors: [Color.accentColor.opacity(0.09), Color.teal.opacity(0.06)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 16)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 16)
+                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+        }
+        .coliGlassControl(cornerRadius: 16)
     }
 
     private var progressCard: some View {

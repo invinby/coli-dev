@@ -3,6 +3,53 @@ import Foundation
 @main
 enum StudyRecommendationVerification {
     static func main() throws {
+        let returnNow = Date(timeIntervalSince1970: 1_800_000_000)
+        let stoppedAt = returnNow.addingTimeInterval(-7 * 24 * 60 * 60)
+        let returnSnapshot = StudyReturnSnapshot.make(
+            lastActivityAt: stoppedAt,
+            now: returnNow,
+            lastOpenedRoute: StudyLessonRoute(subjectID: "programming", resource: "loops"),
+            completedLessonCount: 3,
+            passedKnowledgeCheckCount: 2,
+            nextRoute: StudyLessonRoute(subjectID: "programming", resource: "functions")
+        )
+        precondition(
+            returnSnapshot == StudyReturnSnapshot(
+                lastOpenedRoute: StudyLessonRoute(subjectID: "programming", resource: "loops"),
+                completedLessonCount: 3,
+                passedKnowledgeCheckCount: 2,
+                nextRoute: StudyLessonRoute(subjectID: "programming", resource: "functions")
+            ),
+            "After a week away, return context must restore the stop, completed evidence, and one next step. / После недельного перерыва контекст должен восстановить место остановки, завершённые результаты и один следующий шаг."
+        )
+        precondition(
+            StudyReturnSnapshot.make(
+                lastActivityAt: returnNow.addingTimeInterval(-6 * 24 * 60 * 60 - 1),
+                now: returnNow,
+                lastOpenedRoute: nil,
+                completedLessonCount: 0,
+                passedKnowledgeCheckCount: 0,
+                nextRoute: nil
+            ) == nil
+                && StudyReturnSnapshot.make(
+                    lastActivityAt: returnNow.addingTimeInterval(60),
+                    now: returnNow,
+                    lastOpenedRoute: nil,
+                    completedLessonCount: 0,
+                    passedKnowledgeCheckCount: 0,
+                    nextRoute: nil
+                ) == nil
+                && StudyReturnSnapshot.make(
+                    lastActivityAt: nil,
+                    now: returnNow,
+                    lastOpenedRoute: nil,
+                    completedLessonCount: 0,
+                    passedKnowledgeCheckCount: 0,
+                    nextRoute: nil
+                ) == nil,
+            "Return context must not appear before the threshold, for a future clock, or without known activity. / Контекст возвращения не должен появляться раньше срока, при неверном времени в будущем или без известной активности."
+        )
+
         let practiceFocusedReasons: [StudyRecommendationReason] = [
             .practiceReview,
             .reportedDifficulty(.foundation),

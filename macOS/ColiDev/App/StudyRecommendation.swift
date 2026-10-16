@@ -668,6 +668,35 @@ struct StudyGoalProgress: Equatable {
     }
 }
 
+struct StudyReturnSnapshot: Equatable {
+    static let minimumBreakInterval: TimeInterval = 7 * 24 * 60 * 60
+
+    let lastOpenedRoute: StudyLessonRoute?
+    let completedLessonCount: Int
+    let passedKnowledgeCheckCount: Int
+    let nextRoute: StudyLessonRoute?
+
+    static func make(
+        lastActivityAt: Date?,
+        now: Date,
+        lastOpenedRoute: StudyLessonRoute?,
+        completedLessonCount: Int,
+        passedKnowledgeCheckCount: Int,
+        nextRoute: StudyLessonRoute?
+    ) -> StudyReturnSnapshot? {
+        guard let lastActivityAt,
+              now.timeIntervalSince(lastActivityAt) >= minimumBreakInterval else {
+            return nil
+        }
+        return StudyReturnSnapshot(
+            lastOpenedRoute: lastOpenedRoute,
+            completedLessonCount: max(0, completedLessonCount),
+            passedKnowledgeCheckCount: max(0, passedKnowledgeCheckCount),
+            nextRoute: nextRoute
+        )
+    }
+}
+
 enum StudyGoalPlanner {
     static func milestoneRoutes(
         for goal: StudyGoal,

@@ -173,6 +173,15 @@ final class LearningStore: ObservableObject {
             UserDefaults.standard.set(data, forKey: "colidev.lastOpenedCourseRoute")
         }
     }
+    @Published private(set) var lastLearningActivityAt: Date? {
+        didSet {
+            guard let lastLearningActivityAt else {
+                UserDefaults.standard.removeObject(forKey: "colidev.lastLearningActivityAt")
+                return
+            }
+            UserDefaults.standard.set(lastLearningActivityAt, forKey: "colidev.lastLearningActivityAt")
+        }
+    }
     @Published private(set) var activeStudyGoal: StudyGoal? {
         didSet {
             guard let activeStudyGoal,
@@ -261,6 +270,7 @@ final class LearningStore: ObservableObject {
         } else {
             lastOpenedCourseRoute = nil
         }
+        lastLearningActivityAt = UserDefaults.standard.object(forKey: "colidev.lastLearningActivityAt") as? Date
         if let data = UserDefaults.standard.data(forKey: "colidev.activeStudyGoal"),
            let savedGoal = try? JSONDecoder().decode(StudyGoal.self, from: data) {
             activeStudyGoal = savedGoal
@@ -470,6 +480,7 @@ final class LearningStore: ObservableObject {
 
     func rememberStudyRoute(_ route: StudyLessonRoute) {
         lastOpenedCourseRoute = route
+        recordLearningActivity()
     }
 
     func setActiveStudyGoal(_ goal: StudyGoal?) {
@@ -591,6 +602,7 @@ final class LearningStore: ObservableObject {
             studyAssessmentEvidence = Dictionary(
                 uniqueKeysWithValues: (snapshot.assessmentEvidence ?? []).map { ($0.lessonID, $0) }
             )
+            updateLastLearningActivity(from: snapshot.records)
             dueReviewCount = snapshot.records.filter { record in
                 (record.dueDate ?? .distantFuture) <= Date()
             }.count
@@ -698,6 +710,7 @@ final class LearningStore: ObservableObject {
     }
 
     func recordStudyAssessment(lessonID: String, evidence: StudyAssessmentEvidence) {
+        recordLearningActivity()
         pendingStudyAssessments.append(StudyAssessmentEvent(
             id: UUID().uuidString.lowercased(),
             lessonID: lessonID,
@@ -725,6 +738,7 @@ final class LearningStore: ObservableObject {
         completeLesson: Bool?,
         assessment: StudyAssessmentEvidence? = nil
     ) {
+        recordLearningActivity()
         guard !hasPendingReview(lessonID: lessonID) else { return }
         pendingStudyReviews.append(StudyReviewEvent(
             id: UUID().uuidString.lowercased(),
@@ -735,6 +749,17 @@ final class LearningStore: ObservableObject {
             assessment: assessment
         ))
         Task { await syncStudyProgress() }
+    }
+
+    private func updateLastLearningActivity(from records: [StudyProgressRecord]) {
+        let formatter = ISO8601DateFormatter()
+        guard let latestActivity = records.compactMap({ formatter.date(from: $0.updatedAt) }).max() else { return }
+        recordLearningActivity(at: latestActivity)
+    }
+
+    private func recordLearningActivity(at date: Date = Date()) {
+        guard lastLearningActivityAt.map({ date > $0 }) ?? true else { return }
+        lastLearningActivityAt = date
     }
 }
 

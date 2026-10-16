@@ -48,11 +48,45 @@ require(
     '"home.goal.lastOpened": (',
     "bilingual saved stop-point copy for returning learners",
 )
+require(
+    "macOS/ColiDev/App/StudyRecommendation.swift",
+    "struct StudyReturnSnapshot: Equatable",
+    "a bounded, calm return context derived from real inactivity",
+)
+require(
+    "macOS/ColiDev/App/AppModels.swift",
+    'forKey: "colidev.lastLearningActivityAt"',
+    "local persistence for the last meaningful learning activity",
+)
+require(
+    "macOS/ColiDev/App/AppModels.swift",
+    "updateLastLearningActivity(from: snapshot.records)",
+    "migration of existing learning activity from the local backend",
+)
+require(
+    "macOS/ColiDev/App/AppModels.swift",
+    "recordLearningActivity()",
+    "activity recording when a learner opens a study route or submits evidence",
+)
+require(
+    "macOS/ColiDev/App/ContentView.swift",
+    "studyReturnSnapshot",
+    "return context integrated into the existing Today dashboard",
+)
+require(
+    "macOS/ColiDev/App/ContentView.swift",
+    "nextDueReviewRoute ?? studyRecommendation?.route",
+    "the return card's next step matching the existing primary action",
+)
 
 l10n = (ROOT / "macOS/ColiDev/App/L10n.swift").read_text(encoding="utf-8")
 content_view = (ROOT / "macOS/ColiDev/App/ContentView.swift").read_text(encoding="utf-8")
 declared_keys = set(re.findall(r'^\s*"([^"]+)":\s*\(', l10n, flags=re.MULTILINE))
 goal_keys = set(re.findall(r'"(home\.goal\.[^"]+)"', content_view))
+return_keys = set(re.findall(r'"(home\.return\.[^"]+)"', content_view))
 missing_keys = sorted(goal_keys - declared_keys)
 if missing_keys:
     raise AssertionError(f"Study-goal UI uses undefined RU/EN localization keys: {missing_keys}")
+missing_return_keys = sorted(return_keys - declared_keys)
+if missing_return_keys:
+    raise AssertionError(f"Study-return UI uses undefined RU/EN localization keys: {missing_return_keys}")
