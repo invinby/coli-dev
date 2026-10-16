@@ -28,7 +28,11 @@ final class ManagementUITests: XCTestCase {
         )
 
         let backendReady = app.staticTexts.matching(
-            NSPredicate(format: "label IN %@", ["Работает", "Running"])
+            NSPredicate(
+                format: "value IN %@ OR label IN %@",
+                ["Работает", "Running"],
+                ["Работает", "Running"]
+            )
         ).firstMatch
         XCTAssertTrue(
             backendReady.waitForExistence(timeout: 30),
