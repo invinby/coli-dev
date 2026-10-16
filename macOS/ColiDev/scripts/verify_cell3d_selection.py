@@ -45,7 +45,9 @@ for snippet in (
     ".onTapGesture",
     "NSEvent.mouseLocation",
     "sceneTapSequence += 1",
-    'Text("tap=\\(sceneTapSequence), part=\\(selectedPart), \\(sceneTapDiagnostic)")',
+    'let diagnostic = "tap=\\(sceneTapSequence), part=\\(selectedPart), \\(sceneTapDiagnostic)"',
+    "Text(diagnostic)",
+    ".accessibilityValue(Text(diagnostic))",
     '.accessibilityIdentifier("biology.cell3d.tapState")',
 ):
     assert snippet in lab, f"3D cell lesson UI is missing: {snippet}"

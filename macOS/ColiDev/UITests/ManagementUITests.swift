@@ -85,7 +85,7 @@ final class ManagementUITests: XCTestCase {
         )
         let tapResult = await XCTWaiter.fulfillment(of: [tapReachedSwiftUI], timeout: 5)
         guard tapResult == .completed else {
-            XCTFail("The click did not reach the SwiftUI tap gesture. / Щелчок не дошёл до SwiftUI-жеста.\n\(app.debugDescription)")
+            XCTFail("The click did not reach the SwiftUI tap gesture. / Щелчок не дошёл до SwiftUI-жеста. Tap state / Состояние щелчка: \(tapState.value ?? tapState.label); scene frame after click / рамка сцены после щелчка: \(scene.frame); lesson viewport / область урока: \(viewport).\n\(app.debugDescription)")
             return
         }
 
@@ -98,7 +98,7 @@ final class ManagementUITests: XCTestCase {
         XCTAssertEqual(
             selectionResult,
             .completed,
-            "Clicking the mitochondrion did not synchronize its selection and description. / Нажатие на митохондрию не синхронизировало выбор и описание.\n\(app.debugDescription)"
+            "Clicking the mitochondrion did not synchronize its selection and description. / Нажатие на митохондрию не синхронизировало выбор и описание. Tap state / Состояние щелчка: \(tapState.value ?? tapState.label); scene frame / рамка сцены: \(scene.frame); lesson viewport / область урока: \(viewport).\n\(app.debugDescription)"
         )
 
         XCTAssertEqual(

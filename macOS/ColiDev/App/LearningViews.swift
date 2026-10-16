@@ -7715,10 +7715,13 @@ private struct EukaryoticCellLab: View {
                     .accessibilityIdentifier("biology.cell3d.scene")
                     .overlay(alignment: .topLeading) {
                         if isCell3DUITestRoute {
-                            Text("tap=\(sceneTapSequence), part=\(selectedPart), \(sceneTapDiagnostic)")
+                            let diagnostic = "tap=\(sceneTapSequence), part=\(selectedPart), \(sceneTapDiagnostic)"
+                            Text(diagnostic)
                                 .font(.system(size: 1))
                                 .foregroundStyle(.clear)
                                 .frame(width: 1, height: 1)
+                                .accessibilityLabel(Text(diagnostic))
+                                .accessibilityValue(Text(diagnostic))
                                 .accessibilityIdentifier("biology.cell3d.tapState")
                         }
                     }
