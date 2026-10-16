@@ -95,7 +95,24 @@ final class ManagementUITests: XCTestCase {
             )
             tab.click()
 
-            let paneContent = app.staticTexts[pane.anchorID]
+            let selectionExpectation = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "value == 1"),
+                object: tab
+            )
+            let selectionResult = await XCTWaiter.fulfillment(
+                of: [selectionExpectation],
+                timeout: 5
+            )
+            XCTAssertEqual(
+                selectionResult,
+                .completed,
+                "Clicking Control Center tab '\(pane.title)' did not select it.\n\(tab.debugDescription)\n\(app.debugDescription)"
+            )
+            guard selectionResult == .completed else { return }
+
+            let paneContent = app.descendants(matching: .any)
+                .matching(identifier: pane.anchorID)
+                .firstMatch
             XCTAssertTrue(
                 paneContent.waitForExistence(timeout: 10),
                 "Control Center tab '\(pane.title)' opened without its expected content.\n\(app.debugDescription)"

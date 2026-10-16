@@ -1649,6 +1649,7 @@ private struct ManagementView: View {
                     value: pane
                 )
             }
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("control-center.root")
             .padding(28)
             .frame(maxWidth: 1120, maxHeight: .infinity, alignment: .topLeading)
