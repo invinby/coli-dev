@@ -7660,11 +7660,21 @@ private struct FoodWebLab: View {
     }
 }
 
+private enum CellOrganelleID {
+    static let all: [String] = ["membrane", "nucleus", "rough_er", "golgi", "mitochondria", "ribosomes", "lysosome"]
+
+    static func from(sceneNodeName: String?) -> String? {
+        guard let sceneNodeName, sceneNodeName.hasPrefix("organelle-") else { return nil }
+        let part = String(sceneNodeName.dropFirst("organelle-".count))
+        return all.contains(part) ? part : nil
+    }
+}
+
 private struct EukaryoticCellLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var selectedPart = "nucleus"
 
-    private let parts = ["membrane", "nucleus", "rough_er", "golgi", "mitochondria", "ribosomes", "lysosome"]
+    private let parts = CellOrganelleID.all
 
     var body: some View {
         LabCard {
@@ -7676,12 +7686,12 @@ private struct EukaryoticCellLab: View {
                     )
                     .font(.headline)
                     Spacer()
-                    Text(L10n.text("lab.cell3d.rotateHint", store.language))
+                    Text(L10n.text("lab.cell3d.interactionHint", store.language))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
-                EukaryoticCellScene(selectedPart: selectedPart)
+                EukaryoticCellScene(selectedPart: $selectedPart)
                     .frame(height: 260)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                     .accessibilityLabel(Text(L10n.text("lab.cell3d.accessibility", store.language)))
@@ -7709,7 +7719,11 @@ private struct EukaryoticCellLab: View {
 }
 
 private struct EukaryoticCellScene: NSViewRepresentable {
-    let selectedPart: String
+    @Binding var selectedPart: String
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(selectedPart: $selectedPart)
+    }
 
     func makeNSView(context: Context) -> SCNView {
         let view = SCNView()
@@ -7719,11 +7733,39 @@ private struct EukaryoticCellScene: NSViewRepresentable {
         view.backgroundColor = .controlBackgroundColor
         view.antialiasingMode = .multisampling4X
         Self.highlight(selectedPart, in: view.scene)
+        view.addGestureRecognizer(NSClickGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.selectOrganelle(_:))))
         return view
     }
 
     func updateNSView(_ view: SCNView, context: Context) {
+        context.coordinator.selectedPart = $selectedPart
         Self.highlight(selectedPart, in: view.scene)
+    }
+
+    private final class Coordinator: NSObject {
+        var selectedPart: Binding<String>
+
+        init(selectedPart: Binding<String>) {
+            self.selectedPart = selectedPart
+        }
+
+        @objc func selectOrganelle(_ gesture: NSClickGestureRecognizer) {
+            guard let view = gesture.view as? SCNView else { return }
+            let point = gesture.location(in: view)
+            let hits = view.hitTest(point, options: [.searchMode: SCNHitTestSearchMode.all.rawValue])
+            let hitParts = hits.compactMap { hit -> String? in
+                var node: SCNNode? = hit.node
+                while let current = node {
+                    if let part = CellOrganelleID.from(sceneNodeName: current.name) { return part }
+                    node = current.parent
+                }
+                return nil
+            }
+            // The transparent outer membrane can be hit before the organelle behind it.
+            if let part = hitParts.first(where: { $0 != "membrane" }) ?? hitParts.first {
+                selectedPart.wrappedValue = part
+            }
+        }
     }
 
     private static func makeScene() -> SCNScene {
@@ -7845,17 +7887,20 @@ private struct EukaryoticCellScene: NSViewRepresentable {
 
     private static func highlight(_ selectedPart: String, in scene: SCNScene?) {
         guard let scene else { return }
-        for part in ["membrane", "nucleus", "rough_er", "golgi", "mitochondria", "ribosomes", "lysosome"] {
+        for part in CellOrganelleID.all {
             guard let node = scene.rootNode.childNode(withName: "organelle-\(part)", recursively: false) else { continue }
-            node.enumerateChildNodes { child, _ in setEmission(on: child, selected: false) }
             setEmission(on: node, selected: part == selectedPart)
         }
     }
 
     private static func setEmission(on node: SCNNode, selected: Bool) {
-        guard let materials = node.geometry?.materials else { return }
-        for material in materials {
-            material.emission.contents = selected ? NSColor.systemYellow : NSColor.black
+        if let materials = node.geometry?.materials {
+            for material in materials {
+                material.emission.contents = selected ? NSColor.systemYellow : NSColor.black
+            }
+        }
+        for child in node.childNodes {
+            setEmission(on: child, selected: selected)
         }
     }
 

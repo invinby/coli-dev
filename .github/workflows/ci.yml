@@ -262,6 +262,9 @@ jobs:
             -o "$RUNNER_TEMP/verify-cell-cycle-practice"
           "$RUNNER_TEMP/verify-cell-cycle-practice"
 
+      - name: Verify 3D cell organelle selection / Проверка выбора органелл в 3D-клетке
+        run: python macOS/ColiDev/scripts/verify_cell3d_selection.py
+
       - name: Verify animal function practice model
         run: |
           swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/AnimalFunctionPractice.swift macOS/ColiDev/scripts/verify_animal_function_practice.swift \
