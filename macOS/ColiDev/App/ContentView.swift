@@ -1963,6 +1963,7 @@ private struct ManagementView: View {
         return ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text(L10n.text("management.modelsSubtitle", store.language))
+                    .accessibilityIdentifier("control-center.models.description")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -2066,6 +2067,7 @@ private struct ManagementView: View {
         return ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text(L10n.text("management.coursesDescription", store.language))
+                    .accessibilityIdentifier("control-center.courses.description")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -2211,6 +2213,7 @@ private struct ManagementView: View {
     private var ragPane: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(L10n.text("management.ragExplanation", store.language))
+                .accessibilityIdentifier("control-center.rag.description")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -2369,6 +2372,7 @@ private struct ManagementView: View {
     private var sourcesPane: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(L10n.text("management.sourceExplanation", store.language))
+                .accessibilityIdentifier("control-center.sources.description")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -2654,7 +2658,10 @@ private struct ManagementView: View {
     private var integrationsPane: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                GroupBox(label: Text(L10n.text("management.providers", store.language))) {
+                GroupBox(
+                    label: Text(L10n.text("management.providers", store.language))
+                        .accessibilityIdentifier("control-center.integrations.providers-heading")
+                ) {
                     VStack(spacing: 10) {
                         integrationRow(
                             title: "Gemini",
