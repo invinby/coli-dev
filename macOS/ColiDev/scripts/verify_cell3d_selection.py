@@ -32,7 +32,7 @@ for part in ids:
 
 for snippet in (
     "EukaryoticCellScene(",
-    "tapLocation: $sceneTapLocation",
+    "tapScreenLocation: $sceneTapScreenLocation",
     "Picker(L10n.text(\"lab.cellPart\", store.language), selection: $selectedPart)",
     ".pickerStyle(.menu)",
     '.accessibilityIdentifier("biology.cell3d.organelles")',
@@ -42,7 +42,8 @@ for snippet in (
     '.accessibilityValue(Text(L10n.text("biology.cell3d.\\(selectedPart)", store.language)))',
     'Text(L10n.text("biology.cell3d.\\(selectedPart).function", store.language))',
     "lab.cell3d.interactionHint",
-    "SpatialTapGesture(coordinateSpace: .local)",
+    ".onTapGesture",
+    "NSEvent.mouseLocation",
     "sceneTapSequence += 1",
     'Text("tap=\\(sceneTapSequence), part=\\(selectedPart)")',
     '.accessibilityIdentifier("biology.cell3d.tapState")',
@@ -50,8 +51,9 @@ for snippet in (
     assert snippet in lab, f"3D cell lesson UI is missing: {snippet}"
 
 for snippet in (
-    "func handleSceneTap(at point: CGPoint, sequence: Int, in view: SCNView)",
-    "view.isFlipped ? point.y : view.bounds.height - point.y",
+    "func handleSceneTap(atScreenPoint point: CGPoint, sequence: Int, in view: SCNView)",
+    "window.convertPoint(fromScreen: point)",
+    "view.convert(windowPoint, from: nil)",
     "view.hitTest(point, options: [.searchMode: SCNHitTestSearchMode.all.rawValue])",
     "selectedPart.wrappedValue = part",
     "for child in node.childNodes",

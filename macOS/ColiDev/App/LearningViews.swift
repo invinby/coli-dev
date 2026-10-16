@@ -7672,7 +7672,7 @@ private enum CellOrganelleID {
 private struct EukaryoticCellLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var selectedPart = "nucleus"
-    @State private var sceneTapLocation = CGPoint.zero
+    @State private var sceneTapScreenLocation = CGPoint.zero
     @State private var sceneTapSequence = 0
 
     private var isCell3DUITestRoute: Bool {
@@ -7698,17 +7698,14 @@ private struct EukaryoticCellLab: View {
 
                 EukaryoticCellScene(
                     selectedPart: $selectedPart,
-                    tapLocation: $sceneTapLocation,
+                    tapScreenLocation: $sceneTapScreenLocation,
                     tapSequence: $sceneTapSequence
                 )
                     .frame(height: 260)
-                    .simultaneousGesture(
-                        SpatialTapGesture(coordinateSpace: .local)
-                            .onEnded { value in
-                                sceneTapLocation = value.location
-                                sceneTapSequence += 1
-                            }
-                    )
+                    .onTapGesture {
+                        sceneTapScreenLocation = NSEvent.mouseLocation
+                        sceneTapSequence += 1
+                    }
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(Text(L10n.text("lab.cell3d.accessibility", store.language)))
@@ -7750,7 +7747,7 @@ private struct EukaryoticCellLab: View {
 
 private struct EukaryoticCellScene: NSViewRepresentable {
     @Binding var selectedPart: String
-    @Binding var tapLocation: CGPoint
+    @Binding var tapScreenLocation: CGPoint
     @Binding var tapSequence: Int
 
     fileprivate func makeCoordinator() -> Coordinator {
@@ -7772,7 +7769,7 @@ private struct EukaryoticCellScene: NSViewRepresentable {
         context.coordinator.selectedPart = $selectedPart
         Self.highlight(selectedPart, in: view.scene)
         context.coordinator.handleSceneTap(
-            at: tapLocation,
+            atScreenPoint: tapScreenLocation,
             sequence: tapSequence,
             in: view
         )
@@ -7786,16 +7783,15 @@ private struct EukaryoticCellScene: NSViewRepresentable {
             self.selectedPart = selectedPart
         }
 
-        func handleSceneTap(at point: CGPoint, sequence: Int, in view: SCNView) {
+        func handleSceneTap(atScreenPoint point: CGPoint, sequence: Int, in view: SCNView) {
             guard sequence != lastHandledTapSequence else { return }
             lastHandledTapSequence = sequence
+            guard let window = view.window else { return }
 
-            // SwiftUI reports the tap in top-left coordinates; convert for an unflipped NSView.
-            // SwiftUI сообщает координаты от верхнего края; для обычного NSView меняем ось Y.
-            let scenePoint = CGPoint(
-                x: point.x,
-                y: view.isFlipped ? point.y : view.bounds.height - point.y
-            )
+            // Convert the cursor's screen position to the SceneKit view's local coordinates.
+            // Переводим экранную позицию курсора в локальные координаты SceneKit-вида.
+            let windowPoint = window.convertPoint(fromScreen: point)
+            let scenePoint = view.convert(windowPoint, from: nil)
             selectOrganelle(at: scenePoint, in: view)
         }
 
