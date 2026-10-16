@@ -7721,7 +7721,7 @@ private struct EukaryoticCellLab: View {
 private struct EukaryoticCellScene: NSViewRepresentable {
     @Binding var selectedPart: String
 
-    private func makeCoordinator() -> Coordinator {
+    fileprivate func makeCoordinator() -> Coordinator {
         Coordinator(selectedPart: $selectedPart)
     }
 
