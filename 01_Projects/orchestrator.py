@@ -3744,6 +3744,22 @@ async def lifespan(app: FastAPI):
             extra={"error_type": type(exc).__name__},
         )
     await asyncio.to_thread(_load_provider_secrets)
+    try:
+        knowledge_status = await asyncio.to_thread(knowledge_index.refresh_sources)
+        logger.info(
+            "Local course index refreshed at startup",
+            extra={
+                "document_count": knowledge_status.get("document_count", 0),
+                "last_checked_at": knowledge_status.get("last_checked_at"),
+            },
+        )
+    except Exception as exc:
+        # Keep the tutor available if a bundle file or local index is temporarily
+        # unavailable; retrieval retries the incremental refresh on the next query.
+        logger.warning(
+            "Local course index startup refresh failed; retrieval can retry on demand",
+            extra={"error_type": type(exc).__name__},
+        )
     state.http_client = httpx.AsyncClient(
         timeout=httpx.Timeout(HTTP_TIMEOUT),
         limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),

@@ -4072,6 +4072,52 @@ class TestConsiliumEngine:
 
         worker.assert_not_called()
 
+    def test_lifespan_populates_local_course_index_before_health_status(self, monkeypatch, tmp_path):
+        project_root = tmp_path / "bundled-resources"
+        lesson_path = project_root / "02_Areas" / "Mathematics" / "startup-index.md"
+        lesson_path.parent.mkdir(parents=True)
+        lesson_path.write_text(
+            "# Fractions\n\nA fraction represents equal parts of one whole.\n",
+            encoding="utf-8",
+        )
+        index = orchestrator.KnowledgeIndex(project_root, tmp_path / "knowledge.sqlite3")
+        monkeypatch.setattr(orchestrator, "knowledge_index", index)
+        monkeypatch.setattr(orchestrator, "_load_provider_secrets", MagicMock())
+
+        with (
+            patch.object(orchestrator, "_check_network", AsyncMock(return_value=False)),
+            patch.object(orchestrator, "_check_ollama", AsyncMock(return_value={
+                "available": False,
+                "version": None,
+                "models": None,
+                "model_ready": None,
+            })),
+            patch.object(orchestrator, "_is_loopback_http_url", lambda _url: False),
+        ):
+            with TestClient(orchestrator.app, client=("127.0.0.1", 50000)) as client:
+                response = client.get("/health")
+
+        assert response.status_code == 200
+        assert response.json()["knowledge_document_count"] == 1
+        assert response.json()["knowledge_index_checked_at"]
+
+    def test_lifespan_keeps_backend_available_when_local_index_refresh_fails(self, monkeypatch, tmp_path):
+        index = orchestrator.KnowledgeIndex(tmp_path / "bundled-resources", tmp_path / "knowledge.sqlite3")
+        refresh = MagicMock(side_effect=OSError("course resources are temporarily unavailable"))
+        monkeypatch.setattr(index, "refresh_sources", refresh)
+        monkeypatch.setattr(orchestrator, "knowledge_index", index)
+        monkeypatch.setattr(orchestrator, "_load_provider_secrets", MagicMock())
+
+        with (
+            patch.object(orchestrator, "_check_network", AsyncMock(return_value=False)),
+            patch.object(orchestrator, "_is_loopback_http_url", lambda _url: False),
+        ):
+            with TestClient(orchestrator.app, client=("127.0.0.1", 50000)) as client:
+                response = client.get("/api/status")
+
+        assert response.status_code == 200
+        refresh.assert_called_once_with()
+
     def test_engine_run_returns_tuple(self):
         """run возвращает (answer, log) кортеж."""
         mock_client = MagicMock(spec=httpx.AsyncClient)
