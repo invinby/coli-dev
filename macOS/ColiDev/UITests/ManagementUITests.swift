@@ -27,8 +27,28 @@ final class ManagementUITests: XCTestCase {
             "Control Center overview tab was missing.\n\(app.debugDescription)"
         )
 
+        let backendReady = app.staticTexts.matching(
+            NSPredicate(format: "label IN %@", ["Работает", "Running"])
+        ).firstMatch
+        XCTAssertTrue(
+            backendReady.waitForExistence(timeout: 30),
+            "The app did not start its bundled local backend.\n\(app.debugDescription)"
+        )
+
+        let dashboardStatusMessage = app.descendants(matching: .any)["control-center.status-message"]
+        let dashboardLoaded = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"),
+            object: dashboardStatusMessage
+        )
+        let dashboardLoadResult = await XCTWaiter.fulfillment(of: [dashboardLoaded], timeout: 10)
+        XCTAssertEqual(
+            dashboardLoadResult,
+            .completed,
+            "The Control Center remained in a load-error state after the backend became ready.\n\(app.debugDescription)"
+        )
+
         let screenshot = XCTAttachment(screenshot: app.screenshot())
-        screenshot.name = "Control Center before visibility assertion"
+        screenshot.name = "Control Center after backend readiness"
         screenshot.lifetime = .keepAlways
         add(screenshot)
 

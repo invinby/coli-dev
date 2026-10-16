@@ -1552,6 +1552,7 @@ private struct ManagementView: View {
                         .font(.callout)
                         .foregroundStyle(statusIsError ? Color.orange : Color.secondary)
                         .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("control-center.status-message")
                 }
 
                 Group {
