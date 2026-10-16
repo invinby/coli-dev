@@ -31,7 +31,7 @@ final class ManagementUITests: XCTestCase {
             "The nucleus must be selected initially. / При открытии должно быть выбрано ядро."
         )
 
-        let lessonScrollView = app.scrollViews.firstMatch
+        let lessonScrollView = window.scrollViews.element(boundBy: 1)
         for _ in 0..<6 where !scene.isHittable {
             guard lessonScrollView.exists else { break }
             lessonScrollView.swipeUp()

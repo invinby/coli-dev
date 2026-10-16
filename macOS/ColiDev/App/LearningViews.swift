@@ -408,7 +408,6 @@ struct CurriculumModuleView: View {
                     }
                     PracticeLab(subject: subject, moduleResource: resource)
                         .id("module-interactive-practice")
-                        .accessibilityIdentifier("module.interactive-practice")
 
                     if !document.checkQuestion.isEmpty, !document.checkOptions.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {

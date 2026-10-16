@@ -10,6 +10,7 @@ l10n = (ROOT / "macOS/ColiDev/App/L10n.swift").read_text(encoding="utf-8")
 lesson = (ROOT / "02_Areas/Biology/lessons/eukaryotic_cell_organelles.md").read_text(encoding="utf-8")
 ui_tests = (ROOT / "macOS/ColiDev/UITests/ManagementUITests.swift").read_text(encoding="utf-8")
 content_view = (ROOT / "macOS/ColiDev/App/ContentView.swift").read_text(encoding="utf-8")
+module_views = (ROOT / "macOS/ColiDev/App/LearningViews.swift").read_text(encoding="utf-8")
 ids_start = views.index("private enum CellOrganelleID {")
 ids_end = views.index("private struct EukaryoticCellLab: View {", ids_start)
 ids_source = views[ids_start:ids_end]
@@ -60,6 +61,9 @@ assert "testClickingCellOrganelleUpdatesSelectionAndDescription" in ui_tests, "M
 assert 'app.launchArguments = ["-colidev.uiTestCell3D", "YES"]' in ui_tests, "UI test must use a standard UserDefaults argument, not an unknown -- option. / UI-тест должен использовать стандартный аргумент UserDefaults, без неизвестной опции с --."
 assert "app.activate()" in ui_tests, "UI test must bring ColiDev to the foreground before checking the window"
 assert "window.waitForExistence(timeout: 10)" in ui_tests, "UI test must verify that the main window opens"
+assert '.id("module-interactive-practice")' in module_views, "The interactive lesson scroll anchor must remain available. / Якорь прокрутки к интерактиву должен сохраниться."
+assert '.accessibilityIdentifier("module.interactive-practice")' not in module_views, "The practice container must not override child accessibility IDs. / Контейнер практики не должен перезаписывать ID вложенных элементов доступности."
+assert "window.scrollViews.element(boundBy: 1)" in ui_tests, "UI test must scroll the lesson pane instead of the sidebar. / UI-тест должен прокручивать урок, а не боковую панель."
 assert 'scene.coordinate(withNormalizedOffset: CGVector(dx: 0.56, dy: 0.38)).click()' in ui_tests, "UI test does not click the mitochondrion in the scene"
 assert 'app.staticTexts["biology.cell3d.description"]' in ui_tests, "UI test does not inspect the live organelle description"
 
