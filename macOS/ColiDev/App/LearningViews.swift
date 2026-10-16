@@ -8050,7 +8050,27 @@ private struct AlgorithmicThinkingLab: View {
                 Text(L10n.text(currentQuestion.contextKey, store.language))
                     .font(.headline)
 
-                if let scenario = AlgorithmicThinkingPractice.averageTestCase(forQuestionID: currentQuestion.id) {
+                if let scenario = AlgorithmicThinkingPractice.maximumTestCase(forQuestionID: currentQuestion.id) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(L10n.text("lab.algorithmMaximumListContract", store.language))
+                            .font(.callout)
+                        Text("\(L10n.text("lab.algorithmTestCaseInput", store.language)): [\(formattedValues(scenario.values))]")
+                            .font(.system(.body, design: .monospaced))
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 12))
+                } else if currentQuestion.contextKey == "lab.algorithm.context.maximumList" {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(L10n.text("lab.algorithmMaximumListContract", store.language))
+                            .font(.callout)
+                        Text("\(L10n.text("lab.algorithmTestCaseInput", store.language)): [\(formattedValues(AlgorithmicThinkingPractice.maximumListValues))]")
+                            .font(.system(.body, design: .monospaced))
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 12))
+                } else if let scenario = AlgorithmicThinkingPractice.averageTestCase(forQuestionID: currentQuestion.id) {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(L10n.text("lab.algorithmTestCaseContract", store.language))
                             .font(.callout)
@@ -8099,7 +8119,7 @@ private struct AlgorithmicThinkingLab: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            if completedSteps.count >= AlgorithmicThinkingPractice.maximumQuestionCount {
+            if AlgorithmicThinkingPractice.showsMaximumExperiment(completedQuestionCount: completedSteps.count) {
                 VStack(alignment: .leading, spacing: 10) {
                     Text(L10n.text("lab.algorithmInputs", store.language))
                         .font(.caption.weight(.semibold))
@@ -8119,6 +8139,33 @@ private struct AlgorithmicThinkingLab: View {
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(.background, in: RoundedRectangle(cornerRadius: 12))
+            }
+
+            if AlgorithmicThinkingPractice.showsMaximumTestResults(completedQuestionCount: completedSteps.count) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(L10n.text("lab.algorithmMaximumTestCaseExamples", store.language))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    ForEach(AlgorithmicThinkingPractice.maximumTestCases) { scenario in
+                        HStack {
+                            Text("[\(formattedValues(scenario.values))]")
+                                .font(.system(.callout, design: .monospaced))
+                            Spacer(minLength: 12)
+                            if let maximum = AlgorithmicThinkingPractice.maximum(of: scenario.values) {
+                                Text("→ \(maximum)")
+                                    .font(.system(.callout, design: .monospaced))
+                            } else {
+                                Text(L10n.text("lab.algorithmMaximumInvalidOutcome", store.language))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.background, in: RoundedRectangle(cornerRadius: 12))
+
             }
 
             if session.isComplete {
@@ -8164,13 +8211,20 @@ private struct AlgorithmicThinkingLab: View {
             store.recordStudyAssessment(lessonID: "programming.computational_thinking", evidence: evidence)
         }
         guard submission.isCorrect else {
-            let isTestCase = AlgorithmicThinkingPractice.averageTestCase(forQuestionID: submission.questionID) != nil
-            feedbackKey = isTestCase ? "lab.algorithmTestCaseIncorrect" : "lab.algorithmIncorrect"
+            if AlgorithmicThinkingPractice.maximumTestCase(forQuestionID: submission.questionID) != nil {
+                feedbackKey = "lab.algorithmMaximumTestCaseIncorrect"
+            } else if AlgorithmicThinkingPractice.averageTestCase(forQuestionID: submission.questionID) != nil {
+                feedbackKey = "lab.algorithmTestCaseIncorrect"
+            } else {
+                feedbackKey = "lab.algorithmIncorrect"
+            }
             feedbackIsSuccess = false
             return
         }
         feedbackIsSuccess = true
-        if let testCase = AlgorithmicThinkingPractice.averageTestCase(forQuestionID: submission.questionID) {
+        if let testCase = AlgorithmicThinkingPractice.maximumTestCase(forQuestionID: submission.questionID) {
+            feedbackKey = testCase.explanationKey
+        } else if let testCase = AlgorithmicThinkingPractice.averageTestCase(forQuestionID: submission.questionID) {
             feedbackKey = testCase.explanationKey
         } else {
             feedbackKey = "lab.algorithmStepCorrect"
@@ -8183,6 +8237,12 @@ private struct AlgorithmicThinkingLab: View {
         case "compare": "lab.algorithmCompare"
         case "otherwise": "lab.algorithmOtherwise"
         case "checkNonempty": "lab.algorithmCheckNonempty"
+        case "checkNonemptyList": "lab.algorithmCheckNonempty"
+        case "initializeCurrentMaximum": "lab.algorithmInitializeCurrentMaximum"
+        case "initializeFromZero": "lab.algorithmInitializeFromZero"
+        case "inspectRemainingValues": "lab.algorithmInspectRemainingValues"
+        case "updateIfGreater": "lab.algorithmUpdateIfGreater"
+        case "returnMaximum": "lab.algorithmReturnMaximum"
         case "initializeTotal": "lab.algorithmInitializeTotal"
         case "accumulateValues": "lab.algorithmAccumulateValues"
         case "divideByCount": "lab.algorithmDivideByCount"
@@ -8190,6 +8250,9 @@ private struct AlgorithmicThinkingLab: View {
         case "typical": "lab.algorithmCaseTypical"
         case "boundary": "lab.algorithmCaseBoundary"
         case "invalid": "lab.algorithmCaseInvalid"
+        case "lab.algorithmMaximumResult0", "lab.algorithmMaximumResult2", "lab.algorithmMaximumResult3",
+             "lab.algorithmMaximumResult7", "lab.algorithmMaximumResult9", "lab.algorithmMaximumResultMinus1",
+             "lab.algorithmMaximumResultMinus2", "lab.algorithmMaximumResultMinus8", "lab.algorithmEmptyError": step
         default: "lab.algorithmDisplay"
         }
     }

@@ -3,7 +3,7 @@ subject: programming
 lesson_id: programming.computational_thinking
 level: foundations
 languages: ru, en
-source_checked: 2026-10-15
+source_checked: 2026-10-16
 source_review_interval_days: 90
 ---
 
@@ -13,7 +13,7 @@ source_review_interval_days: 90
 
 ### Цель
 
-Разложить задачу на однозначные шаги, записать их до выбора языка программирования и проверить поведение на обычном и граничном примере.
+Задать контракт задачи, разложить её на однозначные шаги до выбора языка программирования и проверить обычные, граничные и недопустимые входы.
 
 ### Идея и механизм
 
@@ -32,7 +32,34 @@ source_review_interval_days: 90
 покажи выбранное число
 ```
 
-Разбивка работает для обычных значений и для границы: если числа равны, ветка «иначе» всё равно возвращает такое же по значению число. Этот пример решает только задачу выбора максимума из двух чисел; он не описывает ошибки ввода, список произвольной длины или обработку нечисловых значений.
+Разбивка работает для обычных значений и для границы: если числа равны, ветка «иначе» всё равно возвращает такое же по значению число. Этот пример решает только задачу выбора максимума из двух чисел; следующий раздел обобщает её на непустой список, а ошибки типов и произвольный ввод остаются за пределами контракта.
+
+### Обобщи максимум до списка
+
+Теперь измени контракт: принять непустой список целых чисел и вернуть наибольшее значение. Отрицательные и повторяющиеся числа допустимы, пустой список — нет. Перед чтением первого элемента проверь контракт; пустой список должен приводить к `ValueError`.
+
+```text
+проверь, что список не пуст
+установи current_maximum = первый элемент списка
+для каждого следующего значения:
+    если оно больше current_maximum:
+        замени current_maximum этим значением
+верни current_maximum
+```
+
+Начинай с первого элемента, а не с нуля: для `[-8, -2, -5]` правильный максимум равен `-2`, а старт с `0` вернул бы число, которого нет в списке. Трассировка: начальное значение `-8`; `-2` больше и становится максимумом; `-5` меньше и ничего не меняет; результат `-2`.
+
+Спланируй результаты до трассировки и сверь их после неё:
+
+| Назначение теста | Ввод | Ожидаемый результат |
+| --- | --- | --- |
+| Обычный, максимум в конце | `[2, 4, 9]` | `9` |
+| Граница: один допустимый элемент | `[7]` | `7` |
+| Все значения отрицательные | `[-8, -2, -5]` | `-2` |
+| Максимум повторяется | `[3, 9, 9]` | `9` |
+| Недопустимый ввод вне контракта | `[]` | Явная ошибка, например `ValueError` |
+
+Эти примеры проверяют разные ветви и условия цикла, включая ошибочную инициализацию максимума нулём. Они помогают находить дефекты, но не доказывают корректность для всех списков.
 
 ### Другой тип задачи: среднее непустого списка
 
@@ -67,13 +94,13 @@ def mean(values):
 - **Обычный случай:** `[2, 4, 6] → 4.0`; проходит полный цикл и деление на несколько элементов.
 - **Граничный случай:** `[7] → 7.0`; подтверждает поведение для одного допустимого значения.
 - **Недопустимый случай:** `[] → ValueError`; проверяет отклонение входа за границей контракта.
-- **Дополнительный вариант:** `[-2, 2] → 0.0`; проверяет отрицательные значения и взаимное сокращение.
+- **Дополнительный вариант:** `[-2, 2] → 0.0`; это допустимый обычный тест, который отдельно проверяет отрицательные значения и взаимное сокращение.
 
 Каждый тест отвечает на свой вопрос и помогает обнаружить конкретную ошибку; ни три, ни десять примеров не доказывают правильность для всех возможных входов.
 
 ### Исследуй и потренируйся
 
-В тренажёре последовательно собери алгоритм максимума, разложи вычисление среднего, затем отнеси три набора к обычному, граничному или недопустимому тесту. Сверь каждый с контрактом; после этого меняй `a` и `b`, включая равные значения, и проследи срабатывающую ветку. Перед проверкой алгоритма заранее выбери тесты для разных условий и границ, а не только примеры, где всё «обычно работает».
+В тренажёре собери алгоритм максимума из двух чисел, затем разложи максимум непустого списка на проверку контракта, начальное значение, обход, обновление и возврат. Проследи список `[-8, -2, -5]` и объясни, почему ошибочная инициализация максимумом `0` проваливает этот случай. Сверь ожидаемые результаты для пяти списков, включая один элемент, повтор максимума и пустой ввод. Затем разложи вычисление среднего и отнеси четыре набора к обычному, граничному или недопустимому тесту. Случай `[-2, 2]` допустим и отдельно проверяет отрицательные значения и взаимное сокращение. В конце меняй `a` и `b`, включая равные значения, и проследи срабатывающую ветку.
 
 ### Вопрос
 
@@ -95,13 +122,13 @@ def mean(values):
 
 ### Границы вывода
 
-Псевдокод сам по себе не проверяет типы данных, ошибки ввода, производительность или корректность реализации. Алгоритм для двух чисел нельзя без изменений применять к пустому списку или произвольному числу значений. Проверки нескольких тщательно выбранных примеров помогают обнаружить дефекты, но не являются математическим доказательством во всех случаях.
+Псевдокод сам по себе не проверяет типы данных, производительность или корректность программной реализации. Алгоритм для двух чисел нельзя без изменений применять к списку; вариант ниже принимает только непустые списки целых чисел и считает пустой список недопустимым. Другие типы и некорректный ввод здесь не рассматриваются. Тщательно выбранные примеры помогают обнаружить дефекты, но не доказывают математическую корректность во всех случаях.
 
 ## English
 
 ### Goal
 
-Break a task into unambiguous steps, describe them before choosing a programming language, and check both a typical input and a boundary case.
+Define the task contract, break it into unambiguous steps before choosing a programming language, and check typical, boundary, and invalid inputs.
 
 ### Idea and mechanism
 
@@ -120,7 +147,34 @@ otherwise:
 show the chosen number
 ```
 
-The steps handle ordinary values and the boundary: when the numbers are equal, the “otherwise” branch still returns a number with the correct maximum value. This example only chooses the maximum of two numbers; it does not define invalid-input behavior, a list of arbitrary length, or non-numeric values.
+The steps handle ordinary values and the boundary: when the numbers are equal, the “otherwise” branch still returns a number with the correct maximum value. This example only chooses the maximum of two numbers; the next section extends it to a non-empty list, while type errors and arbitrary malformed input remain outside the contract.
+
+### Generalize the maximum to a list
+
+Change the contract: accept a non-empty list of integers and return its greatest value. Negative and repeated values are valid; an empty list is not. Check the contract before reading the first item, and report an empty list with `ValueError`.
+
+```text
+check that the list is not empty
+set current_maximum = the first item
+for each remaining value:
+    if it is greater than current_maximum:
+        replace current_maximum with it
+return current_maximum
+```
+
+Start with the first item, not zero. For `[-8, -2, -5]`, the correct maximum is `-2`; starting at `0` would return a value that is not in the list. Trace: start at `-8`; `-2` is greater, so update; `-5` is smaller, so leave the maximum unchanged; return `-2`.
+
+Plan the expected outcomes before tracing, then compare them with the result:
+
+| Test purpose | Input | Expected result |
+| --- | --- | --- |
+| Typical, maximum at the end | `[2, 4, 9]` | `9` |
+| Boundary: one valid item | `[7]` | `7` |
+| All values are negative | `[-8, -2, -5]` | `-2` |
+| The maximum is repeated | `[3, 9, 9]` | `9` |
+| Invalid input outside the contract | `[]` | Explicit error, such as `ValueError` |
+
+These cases exercise different parts of the contract and loop. They can expose defects such as initializing the maximum to zero, but they do not prove correctness for every possible list.
 
 ### A different task: the mean of a non-empty list
 
@@ -155,13 +209,13 @@ Tests should check different parts of the contract, not just another ordinary ex
 - **Typical case:** `[2, 4, 6] → 4.0`; exercises the full loop and division over several items.
 - **Boundary case:** `[7] → 7.0`; checks behavior at the smallest valid input length.
 - **Invalid case:** `[] → ValueError`; checks rejection of input outside the contract.
-- **Additional variation:** `[-2, 2] → 0.0`; checks negative values and cancellation.
+- **Additional variation:** `[-2, 2] → 0.0`; this is a valid typical test that separately checks negative values and cancellation.
 
 Each test answers a different question and can expose a specific defect; three or ten examples still do not prove correctness for every possible input.
 
 ### Explore and practise
 
-In the trainer, assemble the maximum algorithm, decompose the mean calculation, then classify three inputs as a typical, boundary, or invalid test. Check each against the contract; afterward, change `a` and `b`, including equal values, and follow the branch that runs. Choose tests for different conditions and boundaries before trusting an algorithm, not only cases where it “usually works.”
+In the trainer, assemble the two-number maximum, then decompose the non-empty-list maximum into its contract check, starting value, scan, update, and return. Trace `[-8, -2, -5]` and explain why the faulty choice of `0` as the initial maximum fails. Check the expected outcomes for five lists, including a single item, a repeated maximum, and empty input. Next, decompose the mean calculation and classify four cases as typical, boundary, or invalid. `[-2, 2]` is valid and separately checks negative values and cancellation. Finally, change `a` and `b`, including equal values, and follow the branch that runs.
 
 ### Question
 
@@ -183,10 +237,13 @@ The first option is correct: when the numbers are equal, `a > b` is false, so th
 
 ### Limits
 
-Pseudocode does not validate data types, invalid input, performance, or an implementation. An algorithm for two numbers cannot be applied unchanged to an empty list or an arbitrary number of values. Carefully chosen examples can expose defects, but they do not constitute a mathematical proof for every case.
+Pseudocode alone does not validate data types, performance, or a program implementation. The two-number algorithm cannot be applied unchanged to a list; the list version in this lesson accepts only non-empty integer lists and reports an empty list as invalid. Other types and malformed input are not covered. Carefully chosen examples can expose defects, but they do not constitute a mathematical proof for every case.
 
 ## Sources
 
-- NIST CSRC Glossary, “Algorithm” (official definition; consulted 2026-10-06): <https://csrc.nist.gov/glossary/term/algorithm>
-- Python 3 Tutorial, “More Control Flow Tools” (official Python documentation; consulted 2026-10-15): <https://docs.python.org/3/tutorial/controlflow.html>
-- Python 3 built-in exceptions, “ValueError” (official Python documentation; consulted 2026-10-15): <https://docs.python.org/3/builtins/exceptions.html#ValueError>
+- NIST CSRC Glossary, “Algorithm” (official definition; consulted 2026-10-06) / Глоссарий NIST CSRC, “Algorithm” (официальное определение; проверен 2026-10-06): <https://csrc.nist.gov/glossary/term/algorithm>
+- CSTA, 2026 PK–12 Computer Science Standards, algorithmic problem-solving practices (official standards; consulted 2026-10-16) / CSTA, стандарты информатики для школ 2026 года, практики алгоритмического решения задач (официальный стандарт; проверен 2026-10-16): <https://csteachers.org/pk12standards/view/>
+- College Board, AP Computer Science Principles Course and Exam Description, CRD-2.J (expected outputs or behaviors for checking correctness; consulted 2026-10-16) / College Board, описание курса и экзамена AP Computer Science Principles, CRD-2.J (ожидаемые результаты или поведение для проверки корректности; проверено 2026-10-16): <https://apcentral.collegeboard.org/media/pdf/ap-computer-science-principles-course-and-exam-description.pdf>
+- Python 3 Tutorial, “More Control Flow Tools” (official Python documentation; consulted 2026-10-16) / Руководство Python 3, «Дополнительные средства управления потоком выполнения» (официальная документация Python; проверена 2026-10-16): <https://docs.python.org/3/tutorial/controlflow.html>
+- Python 3 built-in exceptions, “ValueError” (official Python documentation; consulted 2026-10-16) / Встроенные исключения Python 3, “ValueError” (официальная документация Python; проверена 2026-10-16): <https://docs.python.org/3/library/exceptions.html#ValueError>
+- Python 3 `unittest` documentation (unit-test cases and expected results; consulted 2026-10-16) / Документация Python 3 `unittest` (тест-кейсы и ожидаемые результаты; проверена 2026-10-16): <https://docs.python.org/3/library/unittest.html>

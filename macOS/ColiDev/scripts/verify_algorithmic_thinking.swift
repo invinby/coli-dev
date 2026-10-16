@@ -25,6 +25,16 @@ enum AlgorithmicThinkingVerification {
             "programming.computational_thinking.step.compare",
             "programming.computational_thinking.step.otherwise",
             "programming.computational_thinking.step.display",
+            "programming.computational_thinking.maximum_list.check_nonempty",
+            "programming.computational_thinking.maximum_list.initialize_current_maximum",
+            "programming.computational_thinking.maximum_list.inspect_remaining_values",
+            "programming.computational_thinking.maximum_list.update_if_greater",
+            "programming.computational_thinking.maximum_list.return_maximum",
+            "programming.computational_thinking.tests.maximum_list.typical_maximum_at_end",
+            "programming.computational_thinking.tests.maximum_list.single_value",
+            "programming.computational_thinking.tests.maximum_list.all_negative",
+            "programming.computational_thinking.tests.maximum_list.repeated_maximum",
+            "programming.computational_thinking.tests.maximum_list.empty_list",
             "programming.computational_thinking.average.check_nonempty",
             "programming.computational_thinking.average.initialize_total",
             "programming.computational_thinking.average.accumulate_values",
@@ -32,20 +42,54 @@ enum AlgorithmicThinkingVerification {
             "programming.computational_thinking.average.return_average",
             "programming.computational_thinking.tests.average.typical",
             "programming.computational_thinking.tests.average.single_value",
-            "programming.computational_thinking.tests.average.empty_list"
+            "programming.computational_thinking.tests.average.empty_list",
+            "programming.computational_thinking.tests.average.negative_cancellation"
         ]
-        precondition(questions.map(\.id) == expectedIDs, "Practice must cover two algorithm types and three test-case classes with stable identities.")
+        precondition(questions.map(\.id) == expectedIDs, "EN: Practice must cover two maximum algorithms, a mean algorithm, and stable test-case identities. / RU: Тренажёр должен охватывать два алгоритма поиска максимума, алгоритм среднего и постоянные идентификаторы тестов.")
         precondition(Set(questions.map(\.id)).count == questions.count, "Every pseudocode step needs a unique ID.")
         precondition(questions.map { $0.choiceKeys[$0.correctOptionIndex] } == [
             "input", "compare", "otherwise", "display",
+            "checkNonemptyList", "initializeCurrentMaximum", "inspectRemainingValues", "updateIfGreater", "returnMaximum",
+            "lab.algorithmMaximumResult9", "lab.algorithmMaximumResult7", "lab.algorithmMaximumResultMinus2",
+            "lab.algorithmMaximumResult9", "lab.algorithmEmptyError",
             "checkNonempty", "initializeTotal", "accumulateValues", "divideByCount", "returnAverage",
-            "typical", "boundary", "invalid"
+            "typical", "boundary", "invalid", "typical"
         ])
+        precondition(
+            AlgorithmicThinkingPractice.maximumAlgorithmQuestionCount == 9
+                && AlgorithmicThinkingPractice.maximumSectionQuestionCount == 14
+                && questions.count == 23
+                && !AlgorithmicThinkingPractice.showsMaximumExperiment(completedQuestionCount: 8)
+                && AlgorithmicThinkingPractice.showsMaximumExperiment(completedQuestionCount: 9)
+                && !AlgorithmicThinkingPractice.showsMaximumTestResults(completedQuestionCount: 13)
+                && AlgorithmicThinkingPractice.showsMaximumTestResults(completedQuestionCount: 14),
+            "EN: Interactive maximum controls must appear after the list-maximum algorithm and its five test questions, without delaying them until the mean section is complete. / RU: Интерактив для максимума должен появляться после алгоритма списка и пяти проверочных вопросов, не дожидаясь завершения раздела о среднем."
+        )
         precondition(questions.allSatisfy { $0.choiceKeys.count == 3 && $0.choiceKeys.indices.contains($0.correctOptionIndex) })
         precondition(
-            AlgorithmicThinkingPractice.averageTestCases.map(\.id) == ["typical", "single_value", "empty_list"]
-                && AlgorithmicThinkingPractice.averageTestCases.map(\.correctCategory) == [.typical, .boundary, .invalid],
-            "Average exercises must include a typical, one-item boundary, and invalid empty-list case."
+            AlgorithmicThinkingPractice.maximumTestCases.map(\.id) == [
+                "typical_maximum_at_end", "single_value", "all_negative", "repeated_maximum", "empty_list"
+            ]
+                && AlgorithmicThinkingPractice.maximumTestCases.map(\.expectedMaximum) == [9, 7, -2, 9, nil]
+                && AlgorithmicThinkingPractice.maximumTestCases.allSatisfy({
+                    AlgorithmicThinkingPractice.maximum(of: $0.values) == $0.expectedMaximum
+                }),
+            "EN: List-maximum tests must cover typical, boundary, negative, repeated, and invalid inputs with explicit outcomes. / RU: Тесты максимума списка должны охватывать обычный и граничный случаи, отрицательные и повторяющиеся значения, а также недопустимый ввод с явными результатами."
+        )
+        precondition(
+            AlgorithmicThinkingPractice.maximumTestCases.allSatisfy { testCase in
+                guard let question = questions.first(where: { $0.maximumTestCaseID == testCase.id }) else { return false }
+                return AlgorithmicThinkingPractice.maximumTestCase(forQuestionID: question.id) == testCase
+            },
+            "EN: Every maximum test question must resolve to its visible input, expected result, and explanation. / RU: Для каждого вопроса о максимуме должны находиться его видимый ввод, ожидаемый результат и объяснение."
+        )
+        precondition(AlgorithmicThinkingPractice.maximum(of: AlgorithmicThinkingPractice.maximumListValues) == -2)
+        precondition(AlgorithmicThinkingPractice.maximum(of: []) == nil, "EN: An empty maximum-list input must not produce a value. / RU: Для пустого списка алгоритм максимума не должен возвращать значение.")
+        precondition(
+            AlgorithmicThinkingPractice.averageTestCases.map(\.id) == ["typical", "single_value", "empty_list", "negative_cancellation"]
+                && AlgorithmicThinkingPractice.averageTestCases.map(\.correctCategory) == [.typical, .boundary, .invalid, .typical]
+                && AlgorithmicThinkingPractice.averageTestCases.last?.values == [-2, 2],
+            "EN: Mean exercises must include typical, boundary, invalid, and negative-cancellation test cases. / RU: Упражнения на среднее должны включать обычный и граничный случаи, недопустимый ввод и взаимное сокращение отрицательных и положительных значений."
         )
         precondition(AlgorithmicThinkingPractice.average(of: [2, 4, 6]) == 4)
         precondition(AlgorithmicThinkingPractice.average(of: [7]) == 7)
@@ -112,19 +156,42 @@ enum AlgorithmicThinkingVerification {
                 "Each completed step must save its own first-try evidence."
             )
         }
-        precondition(session.isComplete && session.completedStepKeys == [
-            "input", "compare", "otherwise", "display",
-            "checkNonempty", "initializeTotal", "accumulateValues", "divideByCount", "returnAverage",
-            "typical", "boundary", "invalid"
-        ])
+        precondition(session.isComplete && session.completedStepKeys == questions.map { $0.choiceKeys[$0.correctOptionIndex] })
         precondition(session.displayedChoiceKeys.isEmpty && session.submit(displayedIndex: 0) == nil)
 
+        let firstMaximumTestIndex = questions.firstIndex { $0.maximumTestCaseID != nil }!
+        var maximumTestSession = AlgorithmicThinkingPracticeSession(answerOrders: orders)
+        for index in 0..<firstMaximumTestIndex {
+            precondition(maximumTestSession.submit(displayedIndex: orders[index].correctDisplayedIndex)?.isCorrect == true)
+        }
+        let maximumTestQuestion = questions[firstMaximumTestIndex]
+        let maximumTestOrder = orders[firstMaximumTestIndex]
+        let wrongMaximumChoice = maximumTestOrder.displayedOriginalIndices.firstIndex {
+            $0 != maximumTestQuestion.correctOptionIndex
+        }!
+        let wrongMaximumTest = maximumTestSession.submit(displayedIndex: wrongMaximumChoice)
+        precondition(
+            wrongMaximumTest?.evidence?.itemID == maximumTestQuestion.id
+                && wrongMaximumTest?.evidence?.firstTryCorrect == false
+                && wrongMaximumTest?.questionID == maximumTestQuestion.id,
+            "EN: A wrong expected maximum must save evidence to that exact test case. / RU: Ошибочный ответ о максимуме должен сохранить учебное свидетельство с ID именно этого тест-кейса."
+        )
+        let correctMaximumTest = maximumTestSession.submit(displayedIndex: maximumTestOrder.correctDisplayedIndex)
+        precondition(
+            correctMaximumTest?.isCorrect == true
+                && correctMaximumTest?.evidence?.itemID == maximumTestQuestion.id
+                && correctMaximumTest?.evidence?.attempts == 2
+                && correctMaximumTest?.evidence?.firstTryCorrect == false,
+            "EN: A corrected maximum-test answer must preserve the initial failed attempt. / RU: После исправления ответа история должна сохранять первую неудачную попытку."
+        )
+
+        let firstAverageTestIndex = questions.firstIndex { $0.averageTestCaseID != nil }!
         var caseSession = AlgorithmicThinkingPracticeSession(answerOrders: orders)
-        for index in 0..<9 {
+        for index in 0..<firstAverageTestIndex {
             precondition(caseSession.submit(displayedIndex: orders[index].correctDisplayedIndex)?.isCorrect == true)
         }
-        let caseQuestion = questions[9]
-        let caseOrder = orders[9]
+        let caseQuestion = questions[firstAverageTestIndex]
+        let caseOrder = orders[firstAverageTestIndex]
         let wrongCategoryIndex = caseOrder.displayedOriginalIndices.firstIndex { $0 != caseQuestion.correctOptionIndex }!
         let wrongCategory = caseSession.submit(displayedIndex: wrongCategoryIndex)
         precondition(
