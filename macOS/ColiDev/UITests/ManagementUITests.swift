@@ -78,5 +78,39 @@ final class ManagementUITests: XCTestCase {
             .completed,
             "Control Center refresh button exists in accessibility but is not interactable.\n\(reloadButton.debugDescription)\n\(app.debugDescription)"
         )
+
+        let additionalPanes: [(title: String, anchorID: String)] = [
+            ("Курсы", "control-center.courses.description"),
+            ("Локальные модели", "control-center.models.description"),
+            ("RAG", "control-center.rag.description"),
+            ("Источники", "control-center.sources.description"),
+            ("Сервисы", "control-center.integrations.providers-heading"),
+        ]
+
+        for pane in additionalPanes {
+            let tab = app.radioButtons[pane.title]
+            XCTAssertTrue(
+                tab.waitForExistence(timeout: 10),
+                "Control Center tab '\(pane.title)' was missing.\n\(app.debugDescription)"
+            )
+            tab.click()
+
+            let paneContent = app.staticTexts[pane.anchorID]
+            XCTAssertTrue(
+                paneContent.waitForExistence(timeout: 10),
+                "Control Center tab '\(pane.title)' opened without its expected content.\n\(app.debugDescription)"
+            )
+
+            let paneScreenshot = XCTAttachment(screenshot: app.screenshot())
+            paneScreenshot.name = "Control Center pane: \(pane.title)"
+            paneScreenshot.lifetime = .keepAlways
+            add(paneScreenshot)
+        }
+
+        overviewTab.click()
+        XCTAssertTrue(
+            systemStatus.waitForExistence(timeout: 10),
+            "Control Center could not return to its overview after visiting every pane.\n\(app.debugDescription)"
+        )
     }
 }
