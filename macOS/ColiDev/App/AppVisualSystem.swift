@@ -26,6 +26,10 @@ enum ColiDevVisualSystem {
     static let soundPreferenceKey = "colidev.soundEffectsEnabled"
     static let routineTransitionDuration = 0.18
 
+    static let managementKnowledge = ColorToken(lightHex: 0x4B4294, darkHex: 0xB6A9FF)
+    static let managementSources = ColorToken(lightHex: 0x0E6F66, darkHex: 0x68DCCB)
+    static let managementReviewDue = ColorToken(lightHex: 0xA64055, darkHex: 0xFF98AA)
+
     static func subjectToken(_ subject: String) -> ColorToken {
         switch subject {
         case "mathematics": return ColorToken(lightHex: 0x5747B8, darkHex: 0xB6A8FF)

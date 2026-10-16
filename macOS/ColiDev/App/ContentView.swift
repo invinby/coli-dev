@@ -1711,13 +1711,13 @@ private struct ManagementView: View {
                         title: L10n.text("management.indexedDocuments", store.language),
                         value: store.aiHealth?.knowledgeDocumentCount.map { String($0) } ?? "—",
                         symbol: "doc.text.magnifyingglass",
-                        tint: .accentColor
+                        tint: ColiDevVisualSystem.managementKnowledge.color
                     )
                     metric(
                         title: L10n.text("management.sourcesTotal", store.language),
                         value: sourceInventory.map { String($0.listedCount) } ?? "—",
                         symbol: "link",
-                        tint: .accentColor
+                        tint: ColiDevVisualSystem.managementSources.color
                     )
                     metric(
                         title: L10n.text("management.sourcesAttention", store.language),
@@ -1729,7 +1729,7 @@ private struct ManagementView: View {
                         title: L10n.text("management.reviewDue", store.language),
                         value: store.aiHealth?.knowledgeReviewDueDocumentCount.map { String($0) } ?? "—",
                         symbol: "calendar.badge.exclamationmark",
-                        tint: .orange
+                        tint: ColiDevVisualSystem.managementReviewDue.color
                     )
                     metric(
                         title: L10n.text("management.reviewScheduleMissing", store.language),
