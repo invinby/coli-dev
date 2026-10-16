@@ -93,7 +93,15 @@ final class ManagementUITests: XCTestCase {
                 tab.waitForExistence(timeout: 10),
                 "Control Center tab '\(pane.title)' was missing.\n\(app.debugDescription)"
             )
-            tab.click()
+            XCTAssertTrue(
+                tab.isEnabled,
+                "Control Center tab '\(pane.title)' is disabled.\n\(tab.debugDescription)\n\(app.debugDescription)"
+            )
+            XCTAssertTrue(
+                tab.isHittable,
+                "Control Center tab '\(pane.title)' is not hittable.\n\(tab.debugDescription)\n\(app.debugDescription)"
+            )
+            tab.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
 
             let selectionExpectation = XCTNSPredicateExpectation(
                 predicate: NSPredicate(format: "value == 1"),
