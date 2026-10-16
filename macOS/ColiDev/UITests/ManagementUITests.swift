@@ -41,7 +41,7 @@ final class ManagementUITests: XCTestCase {
             "The nucleus must be selected initially. / При открытии должно быть выбрано ядро."
         )
         let initialTapState = tapState.value as? String
-        XCTAssertEqual(initialTapState, "tap=0, part=nucleus")
+        XCTAssertTrue(initialTapState?.hasPrefix("tap=0, part=nucleus") == true)
         XCTAssertEqual(organelleMenu.value as? String, "Ядро", "The menu must start on the nucleus. / В меню должно быть выбрано ядро.")
         XCTAssertEqual(
             scene.label,

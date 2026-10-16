@@ -7674,6 +7674,7 @@ private struct EukaryoticCellLab: View {
     @State private var selectedPart = "nucleus"
     @State private var sceneTapScreenLocation = CGPoint.zero
     @State private var sceneTapSequence = 0
+    @State private var sceneTapDiagnostic = "not tapped"
 
     private var isCell3DUITestRoute: Bool {
         ProcessInfo.processInfo.arguments.contains("-colidev.uiTestCell3D")
@@ -7699,7 +7700,8 @@ private struct EukaryoticCellLab: View {
                 EukaryoticCellScene(
                     selectedPart: $selectedPart,
                     tapScreenLocation: $sceneTapScreenLocation,
-                    tapSequence: $sceneTapSequence
+                    tapSequence: $sceneTapSequence,
+                    tapDiagnostic: $sceneTapDiagnostic
                 )
                     .frame(height: 260)
                     .onTapGesture {
@@ -7713,7 +7715,7 @@ private struct EukaryoticCellLab: View {
                     .accessibilityIdentifier("biology.cell3d.scene")
                     .overlay(alignment: .topLeading) {
                         if isCell3DUITestRoute {
-                            Text("tap=\(sceneTapSequence), part=\(selectedPart)")
+                            Text("tap=\(sceneTapSequence), part=\(selectedPart), \(sceneTapDiagnostic)")
                                 .font(.system(size: 1))
                                 .foregroundStyle(.clear)
                                 .frame(width: 1, height: 1)
@@ -7749,9 +7751,10 @@ private struct EukaryoticCellScene: NSViewRepresentable {
     @Binding var selectedPart: String
     @Binding var tapScreenLocation: CGPoint
     @Binding var tapSequence: Int
+    @Binding var tapDiagnostic: String
 
     fileprivate func makeCoordinator() -> Coordinator {
-        Coordinator(selectedPart: $selectedPart)
+        Coordinator(selectedPart: $selectedPart, tapDiagnostic: $tapDiagnostic)
     }
 
     func makeNSView(context: Context) -> SCNView {
@@ -7767,6 +7770,7 @@ private struct EukaryoticCellScene: NSViewRepresentable {
 
     func updateNSView(_ view: SCNView, context: Context) {
         context.coordinator.selectedPart = $selectedPart
+        context.coordinator.tapDiagnostic = $tapDiagnostic
         Self.highlight(selectedPart, in: view.scene)
         context.coordinator.handleSceneTap(
             atScreenPoint: tapScreenLocation,
@@ -7777,10 +7781,12 @@ private struct EukaryoticCellScene: NSViewRepresentable {
 
     fileprivate final class Coordinator: NSObject {
         var selectedPart: Binding<String>
+        var tapDiagnostic: Binding<String>
         private var lastHandledTapSequence = 0
 
-        init(selectedPart: Binding<String>) {
+        init(selectedPart: Binding<String>, tapDiagnostic: Binding<String>) {
             self.selectedPart = selectedPart
+            self.tapDiagnostic = tapDiagnostic
         }
 
         func handleSceneTap(atScreenPoint point: CGPoint, sequence: Int, in view: SCNView) {
@@ -7792,10 +7798,22 @@ private struct EukaryoticCellScene: NSViewRepresentable {
             // Переводим экранную позицию курсора в локальные координаты SceneKit-вида.
             let windowPoint = window.convertPoint(fromScreen: point)
             let scenePoint = view.convert(windowPoint, from: nil)
-            selectOrganelle(at: scenePoint, in: view)
+            let (part, selectionDetails) = organelleCandidate(at: scenePoint, in: view)
+            let diagnostic = "screen=(\(Int(point.x)),\(Int(point.y))) view=(\(Int(scenePoint.x)),\(Int(scenePoint.y))) size=(\(Int(view.bounds.width)),\(Int(view.bounds.height))) \(selectionDetails)"
+
+            // Update SwiftUI bindings after NSViewRepresentable finishes its update pass.
+            // Обновляем Binding после завершения прохода обновления NSViewRepresentable.
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                if let part {
+                    self.selectedPart.wrappedValue = part
+                }
+                let finalPart = part ?? self.selectedPart.wrappedValue
+                self.tapDiagnostic.wrappedValue = "\(diagnostic) selected=\(finalPart)"
+            }
         }
 
-        func selectOrganelle(at point: CGPoint, in view: SCNView) {
+        private func organelleCandidate(at point: CGPoint, in view: SCNView) -> (String?, String) {
             let hits = view.hitTest(point, options: [.searchMode: SCNHitTestSearchMode.all.rawValue])
             let hitParts = hits.compactMap { hit -> String? in
                 var node: SCNNode? = hit.node
@@ -7808,13 +7826,18 @@ private struct EukaryoticCellScene: NSViewRepresentable {
             // The transparent outer membrane can be hit before the organelle behind it.
             // Прозрачная мембрана может определиться раньше органеллы за ней.
             if let part = hitParts.first(where: { $0 != "membrane" }) {
-                selectedPart.wrappedValue = part
-            } else if let part = nearestOrganelle(to: point, in: view) ?? hitParts.first {
-                selectedPart.wrappedValue = part
+                return (part, "hit=\(hitParts.joined(separator: ","))")
             }
+
+            let nearest = nearestOrganelle(to: point, in: view)
+            if let nearest, nearest.distance <= 44 {
+                return (nearest.part, "hit=\(hitParts.joined(separator: ",")) nearest=\(nearest.part)@\(Int(nearest.distance))")
+            }
+            let nearestDetails = nearest.map { "\($0.part)@\(Int($0.distance))" } ?? "none"
+            return (hitParts.first, "hit=\(hitParts.joined(separator: ",")) nearest=\(nearestDetails)")
         }
 
-        private func nearestOrganelle(to point: CGPoint, in view: SCNView) -> String? {
+        private func nearestOrganelle(to point: CGPoint, in view: SCNView) -> (part: String, distance: CGFloat)? {
             guard let scene = view.scene else { return nil }
             var nearest: (part: String, distance: CGFloat)?
 
@@ -7843,8 +7866,7 @@ private struct EukaryoticCellScene: NSViewRepresentable {
             for node in scene.rootNode.childNodes {
                 inspect(node, inheritedPart: nil)
             }
-            guard let nearest, nearest.distance <= 44 else { return nil }
-            return nearest.part
+            return nearest
         }
     }
 

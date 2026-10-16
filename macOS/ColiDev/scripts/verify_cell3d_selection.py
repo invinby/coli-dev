@@ -45,7 +45,7 @@ for snippet in (
     ".onTapGesture",
     "NSEvent.mouseLocation",
     "sceneTapSequence += 1",
-    'Text("tap=\\(sceneTapSequence), part=\\(selectedPart)")',
+    'Text("tap=\\(sceneTapSequence), part=\\(selectedPart), \\(sceneTapDiagnostic)")',
     '.accessibilityIdentifier("biology.cell3d.tapState")',
 ):
     assert snippet in lab, f"3D cell lesson UI is missing: {snippet}"
@@ -54,6 +54,9 @@ for snippet in (
     "func handleSceneTap(atScreenPoint point: CGPoint, sequence: Int, in view: SCNView)",
     "window.convertPoint(fromScreen: point)",
     "view.convert(windowPoint, from: nil)",
+    "organelleCandidate(at: scenePoint, in: view)",
+    "DispatchQueue.main.async { [weak self] in",
+    'hitParts.joined(separator: ",")',
     "view.hitTest(point, options: [.searchMode: SCNHitTestSearchMode.all.rawValue])",
     "selectedPart.wrappedValue = part",
     "for child in node.childNodes",
