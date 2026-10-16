@@ -7674,6 +7674,7 @@ private struct EukaryoticCellLab: View {
     @State private var selectedPart = "nucleus"
     @State private var sceneTapSequence = 0
     @State private var sceneTapDiagnostic = "not tapped"
+    @State private var sceneTestTargetPoint = "unavailable"
 
     private var isCell3DUITestRoute: Bool {
         ProcessInfo.processInfo.arguments.contains("-colidev.uiTestCell3D")
@@ -7699,7 +7700,8 @@ private struct EukaryoticCellLab: View {
                 EukaryoticCellScene(
                     selectedPart: $selectedPart,
                     tapSequence: $sceneTapSequence,
-                    tapDiagnostic: $sceneTapDiagnostic
+                    tapDiagnostic: $sceneTapDiagnostic,
+                    testTargetPoint: $sceneTestTargetPoint
                 )
                     .frame(height: 260)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
@@ -7717,6 +7719,14 @@ private struct EukaryoticCellLab: View {
                                 .accessibilityLabel(Text(diagnostic))
                                 .accessibilityValue(Text(diagnostic))
                                 .accessibilityIdentifier("biology.cell3d.tapState")
+
+                            Text(sceneTestTargetPoint)
+                                .font(.system(size: 1))
+                                .foregroundStyle(.clear)
+                                .frame(width: 1, height: 1)
+                                .accessibilityLabel(Text(sceneTestTargetPoint))
+                                .accessibilityValue(Text(sceneTestTargetPoint))
+                                .accessibilityIdentifier("biology.cell3d.targetPoint")
                         }
                     }
 
@@ -7748,6 +7758,7 @@ private struct EukaryoticCellScene: NSViewRepresentable {
     @Binding var selectedPart: String
     @Binding var tapSequence: Int
     @Binding var tapDiagnostic: String
+    @Binding var testTargetPoint: String
 
     fileprivate func makeCoordinator() -> Coordinator {
         Coordinator(selectedPart: $selectedPart, tapSequence: $tapSequence, tapDiagnostic: $tapDiagnostic)
@@ -7775,6 +7786,34 @@ private struct EukaryoticCellScene: NSViewRepresentable {
         context.coordinator.tapSequence = $tapSequence
         context.coordinator.tapDiagnostic = $tapDiagnostic
         Self.highlight(selectedPart, in: view.scene)
+
+        guard ProcessInfo.processInfo.arguments.contains("-colidev.uiTestCell3D"),
+              let targetPoint = projectedTestTargetPoint(in: view),
+              targetPoint != testTargetPoint else { return }
+        DispatchQueue.main.async {
+            testTargetPoint = targetPoint
+        }
+    }
+
+    private func projectedTestTargetPoint(in view: SCNView) -> String? {
+        guard view.bounds.width > 0,
+              view.bounds.height > 0,
+              let mitochondria = view.scene?.rootNode.childNode(
+                withName: "organelle-mitochondria",
+                recursively: false
+              ),
+              let body = mitochondria.childNodes.first(where: { $0.geometry != nil }) else { return nil }
+
+        let projected = view.projectPoint(body.presentation.worldPosition)
+        guard (0...1).contains(projected.z) else { return nil }
+
+        let backingBounds = view.convertToBacking(CGRect(origin: .zero, size: view.bounds.size))
+        guard backingBounds.width > 0, backingBounds.height > 0 else { return nil }
+        let normalizedX = CGFloat(projected.x) / backingBounds.width
+        let normalizedY = 1 - CGFloat(projected.y) / backingBounds.height
+        guard (0...1).contains(normalizedX), (0...1).contains(normalizedY) else { return nil }
+
+        return String(format: "%.6f,%.6f", Double(normalizedX), Double(normalizedY))
     }
 
     fileprivate final class Coordinator: NSObject, NSGestureRecognizerDelegate {

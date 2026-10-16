@@ -69,9 +69,29 @@ final class ManagementUITests: XCTestCase {
             return
         }
 
-        // The first mitochondrion is in the front-right quadrant of the orthographic scene.
-        // Первая митохондрия находится в передней правой четверти ортографической сцены.
-        scene.coordinate(withNormalizedOffset: CGVector(dx: 0.56, dy: 0.38)).click()
+        let targetPoint = app.staticTexts["biology.cell3d.targetPoint"]
+        guard targetPoint.waitForExistence(timeout: 5) else {
+            XCTFail("The test-only projected mitochondrion point is missing. / Не найдена тестовая проекция митохондрии.\n\(app.debugDescription)")
+            return
+        }
+        let targetPointReady = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value != %@", "unavailable"),
+            object: targetPoint
+        )
+        let targetPointResult = await XCTWaiter.fulfillment(of: [targetPointReady], timeout: 5)
+        guard targetPointResult == .completed,
+              let targetValue = targetPoint.value as? String else {
+            XCTFail("The test-only projected mitochondrion point is not ready. / Тестовая проекция митохондрии не готова.\n\(targetPoint.value ?? targetPoint.label)")
+            return
+        }
+        let targetComponents = targetValue.split(separator: ",")
+        guard targetComponents.count == 2,
+              let targetX = Double(targetComponents[0]),
+              let targetY = Double(targetComponents[1]) else {
+            XCTFail("The projected mitochondrion point is invalid. / Неверные координаты проекции митохондрии: \(targetValue)")
+            return
+        }
+        scene.coordinate(withNormalizedOffset: CGVector(dx: CGFloat(targetX), dy: CGFloat(targetY))).click()
 
         let tapWasRecognized = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "value != %@", initialTapState ?? "tap=0, part=nucleus"),
