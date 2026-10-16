@@ -25,10 +25,21 @@ final class ManagementUITests: XCTestCase {
             XCTFail("The selected organelle description is missing. / Не найдено описание выбранной органеллы.\n\(app.debugDescription)")
             return
         }
+        let organelleMenu = app.popUpButtons["biology.cell3d.organelles"]
+        guard organelleMenu.waitForExistence(timeout: 5) else {
+            XCTFail("The organelle menu is missing. / Не найдено меню органелл.\n\(app.debugDescription)")
+            return
+        }
         XCTAssertEqual(
-            description.label,
+            description.value as? String,
             "Хранит большую часть ДНК клетки; оболочка ядра отделяет её от цитоплазмы.",
             "The nucleus must be selected initially. / При открытии должно быть выбрано ядро."
+        )
+        XCTAssertEqual(organelleMenu.value as? String, "Ядро", "The menu must start on the nucleus. / В меню должно быть выбрано ядро.")
+        XCTAssertEqual(
+            scene.label,
+            "Упрощённая вращаемая 3D-модель животной клетки; органеллу можно выбрать нажатием или в меню.",
+            "The 3D scene must expose its accessible label. / У 3D-сцены должна быть доступная подпись."
         )
 
         let lessonScrollView = window.scrollViews.element(boundBy: 1)
@@ -47,7 +58,7 @@ final class ManagementUITests: XCTestCase {
 
         let mitochondriaDescription = "Участвуют в клеточном дыхании и производстве ATP для многих процессов клетки."
         let descriptionChanged = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "label == %@", mitochondriaDescription),
+            predicate: NSPredicate(format: "value == %@", mitochondriaDescription),
             object: description
         )
         let selectionResult = await XCTWaiter.fulfillment(of: [descriptionChanged], timeout: 5)
@@ -57,11 +68,10 @@ final class ManagementUITests: XCTestCase {
             "Clicking the mitochondrion did not synchronize its selection and description. / Нажатие на митохондрию не синхронизировало выбор и описание.\n\(app.debugDescription)"
         )
 
-        let sceneSelection = app.descendants(matching: .any)["biology.cell3d.scene"]
         XCTAssertEqual(
-            sceneSelection.value as? String,
+            organelleMenu.value as? String,
             "Митохондрии",
-            "The accessible scene value must announce the selected organelle. / Значение сцены должно объявлять выбранную органеллу."
+            "The menu must follow the organelle selected in the scene. / Меню должно показывать органеллу, выбранную в сцене."
         )
     }
 

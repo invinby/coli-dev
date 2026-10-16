@@ -7737,7 +7737,12 @@ private struct EukaryoticCellScene: NSViewRepresentable {
         view.backgroundColor = .controlBackgroundColor
         view.antialiasingMode = .multisampling4X
         Self.highlight(selectedPart, in: view.scene)
-        view.addGestureRecognizer(NSClickGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.selectOrganelle(_:))))
+        let clickGesture = NSClickGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.selectOrganelle(_:))
+        )
+        clickGesture.delegate = context.coordinator
+        view.addGestureRecognizer(clickGesture)
         return view
     }
 
@@ -7746,11 +7751,20 @@ private struct EukaryoticCellScene: NSViewRepresentable {
         Self.highlight(selectedPart, in: view.scene)
     }
 
-    fileprivate final class Coordinator: NSObject {
+    fileprivate final class Coordinator: NSObject, NSGestureRecognizerDelegate {
         var selectedPart: Binding<String>
 
         init(selectedPart: Binding<String>) {
             self.selectedPart = selectedPart
+        }
+
+        func gestureRecognizer(
+            _ gestureRecognizer: NSGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: NSGestureRecognizer
+        ) -> Bool {
+            // Keep organelle selection available alongside SceneKit camera controls.
+            // Сохраняем выбор органелл вместе с жестами управления камерой SceneKit.
+            true
         }
 
         @objc func selectOrganelle(_ gesture: NSClickGestureRecognizer) {
@@ -7766,9 +7780,45 @@ private struct EukaryoticCellScene: NSViewRepresentable {
                 return nil
             }
             // The transparent outer membrane can be hit before the organelle behind it.
-            if let part = hitParts.first(where: { $0 != "membrane" }) ?? hitParts.first {
+            // Прозрачная мембрана может определиться раньше органеллы за ней.
+            if let part = hitParts.first(where: { $0 != "membrane" }) {
+                selectedPart.wrappedValue = part
+            } else if let part = nearestOrganelle(to: point, in: view) ?? hitParts.first {
                 selectedPart.wrappedValue = part
             }
+        }
+
+        private func nearestOrganelle(to point: CGPoint, in view: SCNView) -> String? {
+            guard let scene = view.scene else { return nil }
+            var nearest: (part: String, distance: CGFloat)?
+
+            func inspect(_ node: SCNNode, inheritedPart: String?) {
+                let part = CellOrganelleID.from(sceneNodeName: node.name) ?? inheritedPart
+                if let part, part != "membrane", node.geometry != nil {
+                    let projected = view.projectPoint(node.presentation.worldPosition)
+                    if (0...1).contains(projected.z) {
+                        let dx = CGFloat(projected.x) - point.x
+                        let dy = CGFloat(projected.y) - point.y
+                        let distance = hypot(dx, dy)
+                        if let current = nearest {
+                            if distance < current.distance {
+                                nearest = (part, distance)
+                            }
+                        } else {
+                            nearest = (part, distance)
+                        }
+                    }
+                }
+                for child in node.childNodes {
+                    inspect(child, inheritedPart: part)
+                }
+            }
+
+            for node in scene.rootNode.childNodes {
+                inspect(node, inheritedPart: nil)
+            }
+            guard let nearest, nearest.distance <= 44 else { return nil }
+            return nearest.part
         }
     }
 

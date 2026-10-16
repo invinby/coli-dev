@@ -49,6 +49,10 @@ for snippet in (
     "view.hitTest(point, options: [.searchMode: SCNHitTestSearchMode.all.rawValue])",
     "selectedPart.wrappedValue = part",
     "for child in node.childNodes",
+    "NSGestureRecognizerDelegate",
+    "shouldRecognizeSimultaneouslyWith otherGestureRecognizer",
+    "nearestOrganelle(to: point, in: view)",
+    "view.projectPoint(node.presentation.worldPosition)",
 ):
     assert snippet in scene, f"3D cell scene selection wiring is missing: {snippet}"
 
@@ -62,6 +66,9 @@ assert "testClickingCellOrganelleUpdatesSelectionAndDescription" in ui_tests, "M
 assert 'app.launchArguments = ["-colidev.uiTestCell3D", "YES"]' in ui_tests, "UI test must use a standard UserDefaults argument, not an unknown -- option. / UI-тест должен использовать стандартный аргумент UserDefaults, без неизвестной опции с --."
 assert "app.activate()" in ui_tests, "UI test must bring ColiDev to the foreground before checking the window"
 assert "window.waitForExistence(timeout: 10)" in ui_tests, "UI test must verify that the main window opens"
+assert "description.value as? String" in ui_tests, "UI test must read the lesson text from its accessibility value. / UI-тест должен читать текст урока из значения accessibility."
+assert 'NSPredicate(format: "value == %@", mitochondriaDescription)' in ui_tests, "UI test must wait for the selected description value. / UI-тест должен ждать изменения значения выбранного описания."
+assert 'app.popUpButtons["biology.cell3d.organelles"]' in ui_tests, "UI test must verify that the accessible organelle menu follows the scene selection. / UI-тест должен проверять, что доступное меню следует за выбором в 3D-сцене."
 assert '.id("module-interactive-practice")' in module_views, "The interactive lesson scroll anchor must remain available. / Якорь прокрутки к интерактиву должен сохраниться."
 assert '.accessibilityIdentifier("module.interactive-practice")' not in module_views, "The practice container must not override child accessibility IDs. / Контейнер практики не должен перезаписывать ID вложенных элементов доступности."
 assert "window.scrollViews.element(boundBy: 1)" in ui_tests, "UI test must scroll the lesson pane instead of the sidebar. / UI-тест должен прокручивать урок, а не боковую панель."
