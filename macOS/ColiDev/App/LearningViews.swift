@@ -7730,19 +7730,16 @@ private struct EukaryoticCellScene: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> SCNView {
-        let view = SCNView()
+        let view = CellSceneView()
         view.scene = Self.makeScene()
         view.allowsCameraControl = true
         view.autoenablesDefaultLighting = true
         view.backgroundColor = .controlBackgroundColor
         view.antialiasingMode = .multisampling4X
         Self.highlight(selectedPart, in: view.scene)
-        let clickGesture = NSClickGestureRecognizer(
-            target: context.coordinator,
-            action: #selector(Coordinator.selectOrganelle(_:))
-        )
-        clickGesture.delegate = context.coordinator
-        view.addGestureRecognizer(clickGesture)
+        view.onOrganelleClick = { [weak coordinator = context.coordinator] view, point in
+            coordinator?.selectOrganelle(at: point, in: view)
+        }
         return view
     }
 
@@ -7751,25 +7748,14 @@ private struct EukaryoticCellScene: NSViewRepresentable {
         Self.highlight(selectedPart, in: view.scene)
     }
 
-    fileprivate final class Coordinator: NSObject, NSGestureRecognizerDelegate {
+    fileprivate final class Coordinator: NSObject {
         var selectedPart: Binding<String>
 
         init(selectedPart: Binding<String>) {
             self.selectedPart = selectedPart
         }
 
-        func gestureRecognizer(
-            _ gestureRecognizer: NSGestureRecognizer,
-            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: NSGestureRecognizer
-        ) -> Bool {
-            // Keep organelle selection available alongside SceneKit camera controls.
-            // Сохраняем выбор органелл вместе с жестами управления камерой SceneKit.
-            true
-        }
-
-        @objc func selectOrganelle(_ gesture: NSClickGestureRecognizer) {
-            guard let view = gesture.view as? SCNView else { return }
-            let point = gesture.location(in: view)
+        func selectOrganelle(at point: CGPoint, in view: SCNView) {
             let hits = view.hitTest(point, options: [.searchMode: SCNHitTestSearchMode.all.rawValue])
             let hitParts = hits.compactMap { hit -> String? in
                 var node: SCNNode? = hit.node
@@ -7819,6 +7805,29 @@ private struct EukaryoticCellScene: NSViewRepresentable {
             }
             guard let nearest, nearest.distance <= 44 else { return nil }
             return nearest.part
+        }
+    }
+
+    private final class CellSceneView: SCNView {
+        var onOrganelleClick: ((SCNView, CGPoint) -> Void)?
+        private var mouseDownPoint: CGPoint?
+
+        override func mouseDown(with event: NSEvent) {
+            mouseDownPoint = convert(event.locationInWindow, from: nil)
+            super.mouseDown(with: event)
+        }
+
+        override func mouseUp(with event: NSEvent) {
+            let point = convert(event.locationInWindow, from: nil)
+            let isClick = mouseDownPoint.map { hypot($0.x - point.x, $0.y - point.y) <= 5 } ?? false
+            mouseDownPoint = nil
+            super.mouseUp(with: event)
+
+            // A short left click selects; a drag remains reserved for camera rotation.
+            // Короткий щелчок выбирает органеллу; перетаскивание остаётся вращением камеры.
+            if isClick {
+                onOrganelleClick?(self, point)
+            }
         }
     }
 

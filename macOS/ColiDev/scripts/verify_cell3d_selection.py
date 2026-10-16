@@ -45,12 +45,13 @@ for snippet in (
     assert snippet in lab, f"3D cell lesson UI is missing: {snippet}"
 
 for snippet in (
-    "NSClickGestureRecognizer",
+    "private final class CellSceneView: SCNView",
+    "override func mouseDown(with event: NSEvent)",
+    "override func mouseUp(with event: NSEvent)",
+    "onOrganelleClick?(self, point)",
     "view.hitTest(point, options: [.searchMode: SCNHitTestSearchMode.all.rawValue])",
     "selectedPart.wrappedValue = part",
     "for child in node.childNodes",
-    "NSGestureRecognizerDelegate",
-    "shouldRecognizeSimultaneouslyWith otherGestureRecognizer",
     "nearestOrganelle(to: point, in: view)",
     "view.projectPoint(node.presentation.worldPosition)",
 ):
@@ -72,6 +73,7 @@ assert 'app.popUpButtons["biology.cell3d.organelles"]' in ui_tests, "UI test mus
 assert '.id("module-interactive-practice")' in module_views, "The interactive lesson scroll anchor must remain available. / Якорь прокрутки к интерактиву должен сохраниться."
 assert '.accessibilityIdentifier("module.interactive-practice")' not in module_views, "The practice container must not override child accessibility IDs. / Контейнер практики не должен перезаписывать ID вложенных элементов доступности."
 assert "window.scrollViews.element(boundBy: 1)" in ui_tests, "UI test must scroll the lesson pane instead of the sidebar. / UI-тест должен прокручивать урок, а не боковую панель."
+assert "viewport.contains(scene.frame)" in ui_tests, "UI test must keep the 3D scene inside the visible lesson viewport before clicking. / Перед кликом UI-тест должен удерживать 3D-сцену внутри видимой области урока."
 assert 'scene.coordinate(withNormalizedOffset: CGVector(dx: 0.56, dy: 0.38)).click()' in ui_tests, "UI test does not click the mitochondrion in the scene"
 assert 'app.staticTexts["biology.cell3d.description"]' in ui_tests, "UI test does not inspect the live organelle description"
 
