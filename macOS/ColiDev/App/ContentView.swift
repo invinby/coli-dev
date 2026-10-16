@@ -1533,6 +1533,7 @@ private struct ManagementView: View {
     @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pane: ManagementPane = .overview
+    @State private var hoveredPane: ManagementPane?
     @State private var sourceInventory: TrustedSourceInventory?
     @State private var courseCoverage: [SubjectCurriculumCoverage] = []
     @State private var courseCoverageLoadTask: Task<[SubjectCurriculumCoverage], Never>?
@@ -1610,15 +1611,57 @@ private struct ManagementView: View {
                     .accessibilityLabel(L10n.text("management.reload", store.language))
                 }
 
-                Picker(L10n.text("management.title", store.language), selection: $pane) {
+                HStack(spacing: 3) {
+                    Text(L10n.text("management.title", store.language))
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .padding(.horizontal, 8)
+
                     ForEach(ManagementPane.allCases) { section in
-                        Text(L10n.text(section.titleKey, store.language)).tag(section)
+                        Button {
+                            pane = section
+                        } label: {
+                            Text(L10n.text(section.titleKey, store.language))
+                                .font(.system(size: 12, weight: pane == section ? .semibold : .regular))
+                                .foregroundStyle(pane == section ? Color.primary : Color.secondary)
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
+                                .padding(.horizontal, 10)
+                                .frame(minHeight: 24)
+                                .background {
+                                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                        .fill(
+                                            pane == section
+                                                ? Color.primary.opacity(0.12)
+                                                : hoveredPane == section
+                                                    ? Color.primary.opacity(0.06)
+                                                    : Color.clear
+                                        )
+                                }
+                                .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(L10n.text(section.titleKey, store.language))
+                        .accessibilityIdentifier("control-center.pane.\(section.id)")
+                        .accessibilityAddTraits(pane == section ? .isSelected : [])
+                        .onHover { isHovering in
+                            if isHovering {
+                                hoveredPane = section
+                            } else if hoveredPane == section {
+                                hoveredPane = nil
+                            }
+                        }
                     }
                 }
-                .pickerStyle(.segmented)
                 .padding(5)
                 .frame(maxWidth: 900)
                 .coliGlassControl(cornerRadius: 16)
+                .animation(
+                    reduceMotion ? nil : .easeInOut(duration: ColiDevVisualSystem.routineTransitionDuration),
+                    value: pane
+                )
+                .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("control-center.pane-picker")
 
                 if let statusMessage {

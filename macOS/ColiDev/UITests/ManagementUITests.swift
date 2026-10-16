@@ -21,7 +21,7 @@ final class ManagementUITests: XCTestCase {
             reloadButton.waitForExistence(timeout: 10),
             "Control Center overview did not expose its refresh button.\n\(app.debugDescription)"
         )
-        let overviewTab = app.radioButtons["Обзор"]
+        let overviewTab = app.buttons["control-center.pane.overview"]
         XCTAssertTrue(
             overviewTab.waitForExistence(timeout: 10),
             "Control Center overview tab was missing.\n\(app.debugDescription)"
@@ -79,16 +79,16 @@ final class ManagementUITests: XCTestCase {
             "Control Center refresh button exists in accessibility but is not interactable.\n\(reloadButton.debugDescription)\n\(app.debugDescription)"
         )
 
-        let additionalPanes: [(title: String, anchorID: String)] = [
-            ("Курсы", "control-center.courses.description"),
-            ("Локальные модели", "control-center.models.description"),
-            ("RAG", "control-center.rag.description"),
-            ("Источники", "control-center.sources.description"),
-            ("Сервисы", "control-center.integrations.providers-heading"),
+        let additionalPanes: [(title: String, id: String, anchorID: String)] = [
+            ("Курсы", "courses", "control-center.courses.description"),
+            ("Локальные модели", "models", "control-center.models.description"),
+            ("RAG", "rag", "control-center.rag.description"),
+            ("Источники", "sources", "control-center.sources.description"),
+            ("Сервисы", "integrations", "control-center.integrations.providers-heading"),
         ]
 
         for pane in additionalPanes {
-            let tab = app.radioButtons[pane.title]
+            let tab = app.buttons["control-center.pane.\(pane.id)"]
             XCTAssertTrue(
                 tab.waitForExistence(timeout: 10),
                 "Control Center tab '\(pane.title)' was missing.\n\(app.debugDescription)"
@@ -108,21 +108,6 @@ final class ManagementUITests: XCTestCase {
                 "ColiDev lost foreground focus before selecting Control Center tab '\(pane.title)'.\n\(app.debugDescription)"
             )
             tab.click()
-
-            let selectionExpectation = XCTNSPredicateExpectation(
-                predicate: NSPredicate(format: "value == 1"),
-                object: tab
-            )
-            let selectionResult = await XCTWaiter.fulfillment(
-                of: [selectionExpectation],
-                timeout: 5
-            )
-            XCTAssertEqual(
-                selectionResult,
-                .completed,
-                "Clicking Control Center tab '\(pane.title)' did not select it.\n\(tab.debugDescription)\n\(app.debugDescription)"
-            )
-            guard selectionResult == .completed else { return }
 
             let paneContent = app.descendants(matching: .any)
                 .matching(identifier: pane.anchorID)
