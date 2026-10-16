@@ -101,7 +101,13 @@ final class ManagementUITests: XCTestCase {
                 tab.isHittable,
                 "Control Center tab '\(pane.title)' is not hittable.\n\(tab.debugDescription)\n\(app.debugDescription)"
             )
-            tab.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+            app.activate()
+            XCTAssertEqual(
+                app.state,
+                .runningForeground,
+                "ColiDev lost foreground focus before selecting Control Center tab '\(pane.title)'.\n\(app.debugDescription)"
+            )
+            tab.click()
 
             let selectionExpectation = XCTNSPredicateExpectation(
                 predicate: NSPredicate(format: "value == 1"),
