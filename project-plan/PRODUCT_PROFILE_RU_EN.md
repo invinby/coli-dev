@@ -205,15 +205,19 @@
 
 **EN:** Free routes and local models are the defaults, but provider availability and quotas may change. Potentially paid routes remain blocked until the user explicitly enables them. Before sending context to a cloud model, the app discloses that data will leave the device. Secrets belong in macOS Keychain, not source code or Git.
 
+**RU:** Текущая статистика хранит только метаданные провайдера локально до 90 дней, без текста запросов, ответов или ключей. Показываются сообщённые токены и фактическая стоимость в USD только когда её возвращает OpenRouter; пропущенные суммы остаются неизвестными. Это не квота и не ограничитель расходов, а итог провайдера может отличаться от отображённых данных.
+
+**EN:** Current usage reporting keeps provider metadata locally for up to 90 days, without prompts, answers, or keys. It shows reported token counts and actual USD cost only when OpenRouter returns one; missing costs remain unknown. This is not a quota or spending limiter, and the provider’s final invoice may differ from the displayed telemetry.
+
 **RU:** Статусы должны различать локальный backend, службу Ollama, установленную модель, выбранный маршрут и фактический полезный ответ. Нельзя показывать «оркестратор работает», если обязательный агент или финальная сборка ответа завершились ошибкой. Для каждого сбоя показываются точная причина и понятное действие.
 
 **EN:** Status must distinguish the local backend, Ollama service, installed model, selected route, and an actual useful response. Do not report “orchestrator working” when a required agent or final synthesis has failed. Show the precise failure and a useful next action.
 
 ## 10. Центр управления / Control Center
 
-**RU:** Центр управления должен давать доступ к состоянию курсов и пользовательских материалов, источникам и RAG, провайдерам и моделям, локальным моделям, диагностике backend, ошибкам и использованию. Статусы доступности, индексирования, проверки фактов и редакторской готовности должны быть раздельными. Диагностический экспорт не должен включать API-ключи, чаты и личные заметки без явного выбора пользователя.
+**RU:** Центр управления должен давать доступ к состоянию курсов и пользовательских материалов, источникам и RAG, провайдерам и моделям, локальным моделям, диагностике backend, ошибкам и использованию. Сводка использования показывает только сообщённые провайдерами токены и USD-стоимость с охватом ответов; отсутствующие значения помечаются неизвестными, без оценки тарифов. Статусы доступности, индексирования, проверки фактов и редакторской готовности должны быть раздельными. Диагностический экспорт не должен включать API-ключи, чаты и личные заметки без явного выбора пользователя.
 
-**EN:** The Control Center should provide access to course and learner-created content status, sources and RAG, providers and models, local models, backend diagnostics, errors, and usage. Availability, indexing, fact-checking, and editorial-readiness statuses must remain separate. Diagnostic exports must not include API keys, chats, or private notes unless the user explicitly selects them.
+**EN:** The Control Center should provide access to course and learner-created content status, sources and RAG, providers and models, local models, backend diagnostics, errors, and usage. Usage summaries show only provider-reported token counts and USD cost with response coverage; missing values stay unknown rather than being estimated from tariffs. Availability, indexing, fact-checking, and editorial-readiness statuses must remain separate. Diagnostic exports must not include API keys, chats, or private notes unless the user explicitly selects them.
 
 ## 11. Интеграции и приватность / Integrations and privacy
 

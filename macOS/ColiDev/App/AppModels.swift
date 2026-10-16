@@ -978,6 +978,9 @@ struct ProviderUsageCounts: Decodable {
     let responsesWithInputCount: Int
     let responsesWithOutputCount: Int
     let responsesWithTotalCount: Int
+    let responsesWithReportedCost: Int?
+    let responsesWithoutReportedCost: Int?
+    let reportedCostUSD: String?
 
     enum CodingKeys: String, CodingKey {
         case successfulResponses = "successful_responses"
@@ -989,6 +992,9 @@ struct ProviderUsageCounts: Decodable {
         case responsesWithInputCount = "responses_with_input_count"
         case responsesWithOutputCount = "responses_with_output_count"
         case responsesWithTotalCount = "responses_with_total_count"
+        case responsesWithReportedCost = "responses_with_reported_cost"
+        case responsesWithoutReportedCost = "responses_without_reported_cost"
+        case reportedCostUSD = "reported_cost_usd"
     }
 }
 
@@ -1004,6 +1010,9 @@ struct ProviderUsageBreakdown: Decodable, Identifiable {
     let responsesWithInputCount: Int
     let responsesWithOutputCount: Int
     let responsesWithTotalCount: Int
+    let responsesWithReportedCost: Int?
+    let responsesWithoutReportedCost: Int?
+    let reportedCostUSD: String?
 
     var id: String { "\(provider):\(model)" }
 
@@ -1018,6 +1027,9 @@ struct ProviderUsageBreakdown: Decodable, Identifiable {
         case responsesWithInputCount = "responses_with_input_count"
         case responsesWithOutputCount = "responses_with_output_count"
         case responsesWithTotalCount = "responses_with_total_count"
+        case responsesWithReportedCost = "responses_with_reported_cost"
+        case responsesWithoutReportedCost = "responses_without_reported_cost"
+        case reportedCostUSD = "reported_cost_usd"
     }
 }
 

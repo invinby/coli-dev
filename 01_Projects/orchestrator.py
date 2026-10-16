@@ -58,6 +58,7 @@ from provider_usage import (
     gemini_usage,
     ollama_usage,
     openai_compatible_usage,
+    openrouter_usage,
 )
 from request_limits import RequestBodyLimitMiddleware
 from subject_rubrics import add_subject_rubric
@@ -1952,7 +1953,7 @@ class ConsiliumEngine:
                 "openrouter",
                 data.get("model") if isinstance(data, dict) else selected_model,
                 "openai-compatible",
-                openai_compatible_usage(data.get("usage") if isinstance(data, dict) else None),
+                openrouter_usage(data.get("usage") if isinstance(data, dict) else None),
             )
             choices = data.get("choices") if isinstance(data, dict) else None
             content = (
@@ -2545,6 +2546,8 @@ class ConsiliumEngine:
                 {"role": "user", "content": message},
             ],
         }
+        if provider == "openrouter":
+            payload["usage"] = {"include": True}
         answer_parts: list[str] = []
         data_lines: list[str] = []
         usage_data: Any = None
@@ -2639,7 +2642,11 @@ class ConsiliumEngine:
                 provider,
                 final_model,
                 "openai-compatible",
-                openai_compatible_usage(usage_data),
+                (
+                    openrouter_usage(usage_data)
+                    if provider == "openrouter"
+                    else openai_compatible_usage(usage_data)
+                ),
             )
         except CloudCallLimitExceeded:
             raise
@@ -4717,7 +4724,7 @@ async def get_provider_usage(
     days: int = Query(default=30, ge=1, le=90),
     language: Literal["ru", "en"] = "ru",
 ):
-    """Return locally stored provider-reported counters without chat content or costs."""
+    """Return locally stored provider-reported usage without chat content."""
     _require_local_settings_request(request)
     try:
         summary = await asyncio.to_thread(provider_usage_store.summary, days)
@@ -4728,9 +4735,9 @@ async def get_provider_usage(
         )
         raise HTTPException(status_code=503, detail="Provider usage summary is unavailable") from None
     summary["note"] = (
-        "Token counts are included only when returned by the provider. Missing values are not estimated; charges are not calculated."
+        "Token counts and costs are included only when returned by the provider. Missing values are not estimated; reported costs may differ from the provider invoice."
         if language == "en"
-        else "Токены показаны только когда их сообщает провайдер; отсутствующие значения не оцениваются. Стоимость не рассчитывается."
+        else "Токены и стоимость показаны только когда их сообщает провайдер; отсутствующие значения не оцениваются. Сообщённая стоимость может отличаться от счёта провайдера."
     )
     return summary
 

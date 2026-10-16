@@ -1829,6 +1829,14 @@ private struct ManagementView: View {
                             Text(String(format: L10n.text("management.usageResponses", store.language), usage.totals.successfulResponses))
                             Text(String(format: L10n.text("management.usageTokens", store.language), usage.totals.totalTokens))
                                 .foregroundStyle(.secondary)
+                            Text(String(
+                                format: L10n.text("management.usageCost", store.language),
+                                usage.totals.reportedCostUSD.map { "$\($0)" }
+                                    ?? L10n.text("management.usageUnknownCost", store.language),
+                                usage.totals.responsesWithReportedCost ?? 0,
+                                usage.totals.successfulResponses
+                            ))
+                            .font(.caption)
                             if usage.providers.isEmpty {
                                 Text(L10n.text("settings.usageNoCalls", store.language))
                                     .font(.caption)
@@ -1848,6 +1856,15 @@ private struct ManagementView: View {
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                             .fixedSize(horizontal: false, vertical: true)
+                                        Text(String(
+                                            format: L10n.text("management.usageProviderCost", store.language),
+                                            provider.reportedCostUSD
+                                                ?? L10n.text("management.usageUnknownCost", store.language),
+                                            provider.responsesWithReportedCost ?? 0,
+                                            provider.successfulResponses
+                                        ))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
                                     }
                                     .padding(.vertical, 3)
                                 }
@@ -2483,6 +2500,8 @@ private struct ManagementView: View {
                 "model": provider.model,
                 "successful_responses": provider.successfulResponses,
                 "reported_tokens": provider.totalTokens,
+                "reported_cost_usd": provider.reportedCostUSD as Any? ?? NSNull(),
+                "responses_with_reported_cost": provider.responsesWithReportedCost as Any? ?? NSNull(),
             ]
         } ?? []
         let report: [String: Any] = [
@@ -2532,6 +2551,8 @@ private struct ManagementView: View {
                 "period_days": usage?.periodDays as Any? ?? NSNull(),
                 "successful_responses": usage?.totals.successfulResponses as Any? ?? NSNull(),
                 "reported_tokens": usage?.totals.totalTokens as Any? ?? NSNull(),
+                "reported_cost_usd": usage?.totals.reportedCostUSD as Any? ?? NSNull(),
+                "responses_with_reported_cost": usage?.totals.responsesWithReportedCost as Any? ?? NSNull(),
                 "models": modelUsage,
             ],
             "privacy": [

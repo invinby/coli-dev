@@ -2340,6 +2340,34 @@ def test_openrouter_http_error_does_not_echo_provider_body_or_key(monkeypatch, c
     assert "provider echoed" not in caplog.text
 
 
+def test_openrouter_nonstream_records_provider_reported_cost(monkeypatch):
+    monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "openrouter-test-key")
+    monkeypatch.setattr(orchestrator, "_reserve_cloud_model_call", AsyncMock())
+    record_usage = AsyncMock()
+    monkeypatch.setattr(orchestrator, "_record_provider_usage", record_usage)
+    response = MagicMock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = {
+        "model": "openai/gpt-test",
+        "choices": [{"message": {"content": "Reported-cost answer"}}],
+        "usage": {
+            "prompt_tokens": 120,
+            "completion_tokens": 80,
+            "total_tokens": 200,
+            "cost": 0.00000123,
+        },
+    }
+    http_client = MagicMock(spec=httpx.AsyncClient)
+    http_client.post = AsyncMock(return_value=response)
+    engine = orchestrator.ConsiliumEngine(http_client)
+
+    answer = asyncio.run(engine._ask_openrouter("Question", "System", "test"))
+
+    assert answer == "Reported-cost answer"
+    recorded_usage = record_usage.await_args.args[3]
+    assert str(getattr(recorded_usage, "cost_usd", None)) == "0.00000123"
+
+
 def test_custom_compatible_request_uses_configured_model_and_bearer_key(monkeypatch):
     monkeypatch.setattr(orchestrator, "OPENAI_COMPATIBLE_KEY", "compatible-test-secret")
     orchestrator.openai_compatible_settings.set(
@@ -2442,6 +2470,7 @@ def test_openrouter_stream_emits_sse_deltas_and_uses_openrouter_budget(monkeypat
     events = [
         {"model": "openrouter/free", "choices": [{"delta": {"content": "Free "}, "finish_reason": None}]},
         {"choices": [{"delta": {"content": "answer."}, "finish_reason": "stop"}]},
+        {"choices": [], "usage": {"prompt_tokens": 120, "completion_tokens": 80, "total_tokens": 200, "cost": 0.00000123}},
     ]
     body = "".join(f"data: {json.dumps(event)}\n\n" for event in events) + "data: [DONE]\n\n"
 
@@ -2464,6 +2493,7 @@ def test_openrouter_stream_emits_sse_deltas_and_uses_openrouter_budget(monkeypat
         assert request.headers["X-Title"] == "ColiDev"
         assert payload["model"] == orchestrator.OPENROUTER_FREE_MODEL
         assert payload["stream"] is True
+        assert payload["usage"] == {"include": True}
         return httpx.Response(200, stream=ChunkedBody())
 
     async def collect():
@@ -2488,12 +2518,15 @@ def test_openrouter_stream_emits_sse_deltas_and_uses_openrouter_budget(monkeypat
     orchestrator._reserve_cloud_model_call.assert_awaited_once_with(
         "openrouter", orchestrator.OPENROUTER_FREE_MODEL
     )
-    record_usage.assert_awaited_once_with(
+    record_usage.assert_awaited_once()
+    call = record_usage.await_args.args
+    assert call[:3] == (
         "openrouter",
         orchestrator.OPENROUTER_FREE_MODEL,
         "openai-compatible",
-        orchestrator.openai_compatible_usage(None),
     )
+    assert (call[3].input_tokens, call[3].output_tokens, call[3].total_tokens) == (120, 80, 200)
+    assert str(call[3].cost_usd) == "0.00000123"
 
 
 def test_selected_custom_provider_returns_custom_provider_label_and_answer(monkeypatch):
