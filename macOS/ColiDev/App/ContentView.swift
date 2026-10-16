@@ -193,7 +193,7 @@ struct ContentView: View {
     private func openCell3DUITestRouteIfNeeded() {
 #if DEBUG
         guard !didOpenCell3DUITestRoute,
-              ProcessInfo.processInfo.arguments.contains("--coli-dev-ui-test-cell3d") else { return }
+              ProcessInfo.processInfo.environment["COLIDEV_UI_TEST_CELL3D"] == "1" else { return }
 
         didOpenCell3DUITestRoute = true
         // Let SwiftUI present its first valid sidebar selection before navigating to a lesson.
