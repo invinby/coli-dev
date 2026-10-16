@@ -30,11 +30,18 @@ final class ManagementUITests: XCTestCase {
             XCTFail("The organelle menu is missing. / Не найдено меню органелл.\n\(app.debugDescription)")
             return
         }
+        let tapState = app.staticTexts["biology.cell3d.tapState"]
+        guard tapState.waitForExistence(timeout: 5) else {
+            XCTFail("The test-only scene tap diagnostic is missing. / Не найден тестовый счётчик щелчков сцены.\n\(app.debugDescription)")
+            return
+        }
         XCTAssertEqual(
             description.value as? String,
             "Хранит большую часть ДНК клетки; оболочка ядра отделяет её от цитоплазмы.",
             "The nucleus must be selected initially. / При открытии должно быть выбрано ядро."
         )
+        let initialTapState = tapState.value as? String
+        XCTAssertEqual(initialTapState, "tap=0, part=nucleus")
         XCTAssertEqual(organelleMenu.value as? String, "Ядро", "The menu must start on the nucleus. / В меню должно быть выбрано ядро.")
         XCTAssertEqual(
             scene.label,
@@ -71,6 +78,16 @@ final class ManagementUITests: XCTestCase {
         // The first mitochondrion is in the front-right quadrant of the orthographic scene.
         // Первая митохондрия находится в передней правой четверти ортографической сцены.
         scene.coordinate(withNormalizedOffset: CGVector(dx: 0.56, dy: 0.38)).click()
+
+        let tapReachedSwiftUI = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value != %@", initialTapState ?? "tap=0, part=nucleus"),
+            object: tapState
+        )
+        let tapResult = await XCTWaiter.fulfillment(of: [tapReachedSwiftUI], timeout: 5)
+        guard tapResult == .completed else {
+            XCTFail("The click did not reach the SwiftUI tap gesture. / Щелчок не дошёл до SwiftUI-жеста.\n\(app.debugDescription)")
+            return
+        }
 
         let mitochondriaDescription = "Участвуют в клеточном дыхании и производстве ATP для многих процессов клетки."
         let descriptionChanged = XCTNSPredicateExpectation(

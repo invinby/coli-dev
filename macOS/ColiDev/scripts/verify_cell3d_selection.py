@@ -44,6 +44,8 @@ for snippet in (
     "lab.cell3d.interactionHint",
     "SpatialTapGesture(coordinateSpace: .local)",
     "sceneTapSequence += 1",
+    'Text("tap=\\(sceneTapSequence), part=\\(selectedPart)")',
+    '.accessibilityIdentifier("biology.cell3d.tapState")',
 ):
     assert snippet in lab, f"3D cell lesson UI is missing: {snippet}"
 
@@ -77,5 +79,7 @@ assert "window.scrollViews.element(boundBy: 1)" in ui_tests, "UI test must scrol
 assert "viewport.contains(scene.frame)" in ui_tests, "UI test must keep the 3D scene inside the visible lesson viewport before clicking. / Перед кликом UI-тест должен удерживать 3D-сцену внутри видимой области урока."
 assert 'scene.coordinate(withNormalizedOffset: CGVector(dx: 0.56, dy: 0.38)).click()' in ui_tests, "UI test does not click the mitochondrion in the scene"
 assert 'app.staticTexts["biology.cell3d.description"]' in ui_tests, "UI test does not inspect the live organelle description"
+assert 'app.staticTexts["biology.cell3d.tapState"]' in ui_tests, "UI test does not verify that the scene tap reaches SwiftUI"
+assert "The click did not reach the SwiftUI tap gesture." in ui_tests, "UI test does not diagnose whether SwiftUI received the scene tap"
 
 print("3D cell selection IDs, bilingual labels, click handling, keyboard menu, and deferred UI-test routing are aligned. / Идентификаторы органелл, RU/EN-подписи, выбор щелчком, меню и отложенный тестовый маршрут согласованы.")

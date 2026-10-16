@@ -7675,6 +7675,10 @@ private struct EukaryoticCellLab: View {
     @State private var sceneTapLocation = CGPoint.zero
     @State private var sceneTapSequence = 0
 
+    private var isCell3DUITestRoute: Bool {
+        ProcessInfo.processInfo.arguments.contains("-colidev.uiTestCell3D")
+    }
+
     private let parts = CellOrganelleID.all
 
     var body: some View {
@@ -7710,6 +7714,15 @@ private struct EukaryoticCellLab: View {
                     .accessibilityLabel(Text(L10n.text("lab.cell3d.accessibility", store.language)))
                     .accessibilityValue(Text(L10n.text("biology.cell3d.\(selectedPart)", store.language)))
                     .accessibilityIdentifier("biology.cell3d.scene")
+                    .overlay(alignment: .topLeading) {
+                        if isCell3DUITestRoute {
+                            Text("tap=\(sceneTapSequence), part=\(selectedPart)")
+                                .font(.system(size: 1))
+                                .foregroundStyle(.clear)
+                                .frame(width: 1, height: 1)
+                                .accessibilityIdentifier("biology.cell3d.tapState")
+                        }
+                    }
 
                 Picker(L10n.text("lab.cellPart", store.language), selection: $selectedPart) {
                     ForEach(parts, id: \.self) { part in
