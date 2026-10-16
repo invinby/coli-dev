@@ -370,7 +370,7 @@ jobs:
           ./macOS/ColiDev/scripts/smoke_test_backend_runtime.sh "$app"
 
       - name: Verify Control Center opens and renders its overview
-        if: matrix.runner == 'macos-15'
+        if: matrix.runner == 'macos-15' || matrix.runner == 'macos-26'
         run: >-
           xcodebuild test
           -project macOS/ColiDev/ColiDev.xcodeproj
@@ -380,7 +380,7 @@ jobs:
           CODE_SIGN_IDENTITY=-
 
       - name: Export Control Center UI screenshots
-        if: always() && matrix.runner == 'macos-15'
+        if: always() && (matrix.runner == 'macos-15' || matrix.runner == 'macos-26')
         run: |
           mkdir -p "$RUNNER_TEMP/ColiDevUITestAttachments"
           result="$(find "$RUNNER_TEMP/ColiDevUITestData/Logs/Test" -maxdepth 1 -name '*.xcresult' -print -quit)"
@@ -392,10 +392,10 @@ jobs:
           fi
 
       - name: Upload Control Center UI screenshots
-        if: always() && matrix.runner == 'macos-15'
+        if: always() && (matrix.runner == 'macos-15' || matrix.runner == 'macos-26')
         uses: actions/upload-artifact@v7
         with:
-          name: ColiDev-UI-Test-Screenshots
+          name: ColiDev-UI-Test-Screenshots-${{ matrix.runner }}
           path: ${{ runner.temp }}/ColiDevUITestAttachments
           if-no-files-found: ignore
           retention-days: 7
