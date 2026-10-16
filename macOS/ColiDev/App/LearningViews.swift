@@ -7672,7 +7672,6 @@ private enum CellOrganelleID {
 private struct EukaryoticCellLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var selectedPart = "nucleus"
-    @State private var sceneTapScreenLocation = CGPoint.zero
     @State private var sceneTapSequence = 0
     @State private var sceneTapDiagnostic = "not tapped"
 
@@ -7699,15 +7698,10 @@ private struct EukaryoticCellLab: View {
 
                 EukaryoticCellScene(
                     selectedPart: $selectedPart,
-                    tapScreenLocation: $sceneTapScreenLocation,
                     tapSequence: $sceneTapSequence,
                     tapDiagnostic: $sceneTapDiagnostic
                 )
                     .frame(height: 260)
-                    .onTapGesture {
-                        sceneTapScreenLocation = NSEvent.mouseLocation
-                        sceneTapSequence += 1
-                    }
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(Text(L10n.text("lab.cell3d.accessibility", store.language)))
@@ -7752,12 +7746,11 @@ private struct EukaryoticCellLab: View {
 
 private struct EukaryoticCellScene: NSViewRepresentable {
     @Binding var selectedPart: String
-    @Binding var tapScreenLocation: CGPoint
     @Binding var tapSequence: Int
     @Binding var tapDiagnostic: String
 
     fileprivate func makeCoordinator() -> Coordinator {
-        Coordinator(selectedPart: $selectedPart, tapDiagnostic: $tapDiagnostic)
+        Coordinator(selectedPart: $selectedPart, tapSequence: $tapSequence, tapDiagnostic: $tapDiagnostic)
     }
 
     func makeNSView(context: Context) -> SCNView {
@@ -7768,46 +7761,53 @@ private struct EukaryoticCellScene: NSViewRepresentable {
         view.backgroundColor = .controlBackgroundColor
         view.antialiasingMode = .multisampling4X
         Self.highlight(selectedPart, in: view.scene)
+        let clickGesture = NSClickGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.selectOrganelle(_:))
+        )
+        clickGesture.delegate = context.coordinator
+        view.addGestureRecognizer(clickGesture)
         return view
     }
 
     func updateNSView(_ view: SCNView, context: Context) {
         context.coordinator.selectedPart = $selectedPart
+        context.coordinator.tapSequence = $tapSequence
         context.coordinator.tapDiagnostic = $tapDiagnostic
         Self.highlight(selectedPart, in: view.scene)
-        context.coordinator.handleSceneTap(
-            atScreenPoint: tapScreenLocation,
-            sequence: tapSequence,
-            in: view
-        )
     }
 
-    fileprivate final class Coordinator: NSObject {
+    fileprivate final class Coordinator: NSObject, NSGestureRecognizerDelegate {
         var selectedPart: Binding<String>
+        var tapSequence: Binding<Int>
         var tapDiagnostic: Binding<String>
-        private var lastHandledTapSequence = 0
 
-        init(selectedPart: Binding<String>, tapDiagnostic: Binding<String>) {
+        init(selectedPart: Binding<String>, tapSequence: Binding<Int>, tapDiagnostic: Binding<String>) {
             self.selectedPart = selectedPart
+            self.tapSequence = tapSequence
             self.tapDiagnostic = tapDiagnostic
         }
 
-        func handleSceneTap(atScreenPoint point: CGPoint, sequence: Int, in view: SCNView) {
-            guard sequence != lastHandledTapSequence else { return }
-            lastHandledTapSequence = sequence
-            guard let window = view.window else { return }
+        func gestureRecognizer(
+            _ gestureRecognizer: NSGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: NSGestureRecognizer
+        ) -> Bool {
+            // Keep selection available alongside SceneKit's camera controls.
+            // Сохраняем выбор органеллы вместе с управлением камерой SceneKit.
+            true
+        }
 
-            // Convert the cursor's screen position to the SceneKit view's local coordinates.
-            // Переводим экранную позицию курсора в локальные координаты SceneKit-вида.
-            let windowPoint = window.convertPoint(fromScreen: point)
-            let scenePoint = view.convert(windowPoint, from: nil)
-            let (part, selectionDetails) = organelleCandidate(at: scenePoint, in: view)
-            let diagnostic = "screen=(\(Int(point.x)),\(Int(point.y))) view=(\(Int(scenePoint.x)),\(Int(scenePoint.y))) size=(\(Int(view.bounds.width)),\(Int(view.bounds.height))) \(selectionDetails)"
+        @objc func selectOrganelle(_ gesture: NSClickGestureRecognizer) {
+            guard let view = gesture.view as? SCNView else { return }
+            let point = gesture.location(in: view)
+            let (part, selectionDetails) = organelleCandidate(at: point, in: view)
+            let diagnostic = "view=(\(Int(point.x)),\(Int(point.y))) size=(\(Int(view.bounds.width)),\(Int(view.bounds.height))) scale=\(view.window?.backingScaleFactor ?? 1) \(selectionDetails)"
 
-            // Update SwiftUI bindings after NSViewRepresentable finishes its update pass.
-            // Обновляем Binding после завершения прохода обновления NSViewRepresentable.
+            // Update SwiftUI state after the AppKit click recognizer finishes its event.
+            // Обновляем состояние SwiftUI после завершения обработки щелчка AppKit.
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
+                self.tapSequence.wrappedValue += 1
                 if let part {
                     self.selectedPart.wrappedValue = part
                 }
@@ -7817,7 +7817,13 @@ private struct EukaryoticCellScene: NSViewRepresentable {
         }
 
         private func organelleCandidate(at point: CGPoint, in view: SCNView) -> (String?, String) {
-            let hits = view.hitTest(point, options: [.searchMode: SCNHitTestSearchMode.all.rawValue])
+            // SceneKit hit testing and projectPoint use renderer-space pixels;
+            // NSView event locations are in logical points.
+            // Хит-тест и projectPoint в SceneKit используют пиксели рендерера,
+            // а координаты событий NSView заданы в логических пунктах.
+            let rendererPoint = view.convertToBacking(point)
+            let pickRadius = 44 * (view.window?.backingScaleFactor ?? 1)
+            let hits = view.hitTest(rendererPoint, options: [.searchMode: SCNHitTestSearchMode.all.rawValue])
             let hitParts = hits.compactMap { hit -> String? in
                 var node: SCNNode? = hit.node
                 while let current = node {
@@ -7832,32 +7838,33 @@ private struct EukaryoticCellScene: NSViewRepresentable {
                 return (part, "hit=\(hitParts.joined(separator: ","))")
             }
 
-            let nearest = nearestOrganelle(to: point, in: view)
-            if let nearest, nearest.distance <= 44 {
-                return (nearest.part, "hit=\(hitParts.joined(separator: ",")) nearest=\(nearest.part)@\(Int(nearest.distance))")
+            let nearest = nearestOrganelle(to: rendererPoint, in: view)
+            if let nearest, nearest.distance <= pickRadius {
+                return (nearest.part, "renderer=(\(Int(rendererPoint.x)),\(Int(rendererPoint.y))) nearest=\(nearest.part)@\(Int(nearest.distance)) projected=(\(Int(nearest.projected.x)),\(Int(nearest.projected.y))) hit=\(hitParts.joined(separator: ","))")
             }
-            let nearestDetails = nearest.map { "\($0.part)@\(Int($0.distance))" } ?? "none"
-            return (hitParts.first, "hit=\(hitParts.joined(separator: ",")) nearest=\(nearestDetails)")
+            let nearestDetails = nearest.map { "\($0.part)@\(Int($0.distance)) projected=(\(Int($0.projected.x)),\(Int($0.projected.y)))" } ?? "none"
+            return (hitParts.first, "renderer=(\(Int(rendererPoint.x)),\(Int(rendererPoint.y))) nearest=\(nearestDetails) hit=\(hitParts.joined(separator: ","))")
         }
 
-        private func nearestOrganelle(to point: CGPoint, in view: SCNView) -> (part: String, distance: CGFloat)? {
+        private func nearestOrganelle(to point: CGPoint, in view: SCNView) -> (part: String, distance: CGFloat, projected: CGPoint)? {
             guard let scene = view.scene else { return nil }
-            var nearest: (part: String, distance: CGFloat)?
+            var nearest: (part: String, distance: CGFloat, projected: CGPoint)?
 
             func inspect(_ node: SCNNode, inheritedPart: String?) {
                 let part = CellOrganelleID.from(sceneNodeName: node.name) ?? inheritedPart
                 if let part, part != "membrane", node.geometry != nil {
                     let projected = view.projectPoint(node.presentation.worldPosition)
                     if (0...1).contains(projected.z) {
-                        let dx = CGFloat(projected.x) - point.x
-                        let dy = CGFloat(projected.y) - point.y
+                        let projectedPoint = CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y))
+                        let dx = projectedPoint.x - point.x
+                        let dy = projectedPoint.y - point.y
                         let distance = hypot(dx, dy)
                         if let current = nearest {
                             if distance < current.distance {
-                                nearest = (part, distance)
+                                nearest = (part, distance, projectedPoint)
                             }
                         } else {
-                            nearest = (part, distance)
+                            nearest = (part, distance, projectedPoint)
                         }
                     }
                 }

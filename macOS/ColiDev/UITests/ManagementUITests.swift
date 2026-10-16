@@ -79,13 +79,13 @@ final class ManagementUITests: XCTestCase {
         // Первая митохондрия находится в передней правой четверти ортографической сцены.
         scene.coordinate(withNormalizedOffset: CGVector(dx: 0.56, dy: 0.38)).click()
 
-        let tapReachedSwiftUI = XCTNSPredicateExpectation(
+        let tapWasRecognized = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "value != %@", initialTapState ?? "tap=0, part=nucleus"),
             object: tapState
         )
-        let tapResult = await XCTWaiter.fulfillment(of: [tapReachedSwiftUI], timeout: 5)
+        let tapResult = await XCTWaiter.fulfillment(of: [tapWasRecognized], timeout: 5)
         guard tapResult == .completed else {
-            XCTFail("The click did not reach the SwiftUI tap gesture. / Щелчок не дошёл до SwiftUI-жеста. Tap state / Состояние щелчка: \(tapState.value ?? tapState.label); scene frame after click / рамка сцены после щелчка: \(scene.frame); lesson viewport / область урока: \(viewport).\n\(app.debugDescription)")
+            XCTFail("The click did not reach the native SceneKit click recognizer. / Щелчок не дошёл до нативного обработчика SceneKit. Tap state / Состояние щелчка: \(tapState.value ?? tapState.label); scene frame after click / рамка сцены после щелчка: \(scene.frame); lesson viewport / область урока: \(viewport).\n\(app.debugDescription)")
             return
         }
 

@@ -32,7 +32,7 @@ for part in ids:
 
 for snippet in (
     "EukaryoticCellScene(",
-    "tapScreenLocation: $sceneTapScreenLocation",
+    "tapSequence: $sceneTapSequence",
     "Picker(L10n.text(\"lab.cellPart\", store.language), selection: $selectedPart)",
     ".pickerStyle(.menu)",
     '.accessibilityIdentifier("biology.cell3d.organelles")',
@@ -42,9 +42,6 @@ for snippet in (
     '.accessibilityValue(Text(L10n.text("biology.cell3d.\\(selectedPart)", store.language)))',
     'Text(L10n.text("biology.cell3d.\\(selectedPart).function", store.language))',
     "lab.cell3d.interactionHint",
-    ".onTapGesture",
-    "NSEvent.mouseLocation",
-    "sceneTapSequence += 1",
     'let diagnostic = "tap=\\(sceneTapSequence), part=\\(selectedPart), \\(sceneTapDiagnostic)"',
     "Text(diagnostic)",
     ".accessibilityValue(Text(diagnostic))",
@@ -53,16 +50,20 @@ for snippet in (
     assert snippet in lab, f"3D cell lesson UI is missing: {snippet}"
 
 for snippet in (
-    "func handleSceneTap(atScreenPoint point: CGPoint, sequence: Int, in view: SCNView)",
-    "window.convertPoint(fromScreen: point)",
-    "view.convert(windowPoint, from: nil)",
-    "organelleCandidate(at: scenePoint, in: view)",
+    "NSClickGestureRecognizer(",
+    "action: #selector(Coordinator.selectOrganelle(_:))",
+    "@objc func selectOrganelle(_ gesture: NSClickGestureRecognizer)",
+    "gesture.location(in: view)",
+    "shouldRecognizeSimultaneouslyWith otherGestureRecognizer: NSGestureRecognizer",
+    "organelleCandidate(at: point, in: view)",
     "DispatchQueue.main.async { [weak self] in",
     'hitParts.joined(separator: ",")',
-    "view.hitTest(point, options: [.searchMode: SCNHitTestSearchMode.all.rawValue])",
+    "let rendererPoint = view.convertToBacking(point)",
+    "let pickRadius = 44 * (view.window?.backingScaleFactor ?? 1)",
+    "view.hitTest(rendererPoint, options: [.searchMode: SCNHitTestSearchMode.all.rawValue])",
+    "nearestOrganelle(to: rendererPoint, in: view)",
     "selectedPart.wrappedValue = part",
     "for child in node.childNodes",
-    "nearestOrganelle(to: point, in: view)",
     "view.projectPoint(node.presentation.worldPosition)",
 ):
     assert snippet in scene, f"3D cell scene selection wiring is missing: {snippet}"
@@ -87,6 +88,6 @@ assert "viewport.contains(scene.frame)" in ui_tests, "UI test must keep the 3D s
 assert 'scene.coordinate(withNormalizedOffset: CGVector(dx: 0.56, dy: 0.38)).click()' in ui_tests, "UI test does not click the mitochondrion in the scene"
 assert 'app.staticTexts["biology.cell3d.description"]' in ui_tests, "UI test does not inspect the live organelle description"
 assert 'app.staticTexts["biology.cell3d.tapState"]' in ui_tests, "UI test does not verify that the scene tap reaches SwiftUI"
-assert "The click did not reach the SwiftUI tap gesture." in ui_tests, "UI test does not diagnose whether SwiftUI received the scene tap"
+assert "The click did not reach the native SceneKit click recognizer." in ui_tests, "UI test does not diagnose whether the native scene click was received"
 
 print("3D cell selection IDs, bilingual labels, click handling, keyboard menu, and deferred UI-test routing are aligned. / Идентификаторы органелл, RU/EN-подписи, выбор щелчком, меню и отложенный тестовый маршрут согласованы.")
