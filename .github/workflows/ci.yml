@@ -359,10 +359,26 @@ jobs:
           CODE_SIGNING_ALLOWED=NO
           build
 
+      - name: Build Control Center UI tests for macOS
+        if: matrix.runner == 'macos-15' || matrix.runner == 'macos-26'
+        run: >-
+          xcodebuild build-for-testing
+          -project macOS/ColiDev/ColiDev.xcodeproj
+          -scheme ColiDev
+          -destination 'platform=macOS'
+          -derivedDataPath "$RUNNER_TEMP/ColiDevDerivedData"
+          CODE_SIGN_IDENTITY=-
+
       - name: Embed the local backend runtime in the app
         run: |
           app="$RUNNER_TEMP/ColiDevDerivedData/Build/Products/Debug/ColiDev.app"
           ./macOS/ColiDev/scripts/package_backend_runtime.sh "$app"
+
+      - name: Sign packaged app for UI tests
+        if: matrix.runner == 'macos-15' || matrix.runner == 'macos-26'
+        run: |
+          app="$RUNNER_TEMP/ColiDevDerivedData/Build/Products/Debug/ColiDev.app"
+          codesign --force --deep --sign - "$app"
 
       - name: Smoke test the bundled local backend
         run: |
@@ -372,11 +388,11 @@ jobs:
       - name: Verify Control Center opens and renders its overview
         if: matrix.runner == 'macos-15' || matrix.runner == 'macos-26'
         run: >-
-          xcodebuild test
+          xcodebuild test-without-building
           -project macOS/ColiDev/ColiDev.xcodeproj
           -scheme ColiDev
           -destination 'platform=macOS'
-          -derivedDataPath "$RUNNER_TEMP/ColiDevUITestData"
+          -derivedDataPath "$RUNNER_TEMP/ColiDevDerivedData"
           CODE_SIGN_IDENTITY=-
 
       - name: Show local backend startup log / Показать журнал запуска backend
@@ -393,7 +409,7 @@ jobs:
         if: always() && (matrix.runner == 'macos-15' || matrix.runner == 'macos-26')
         run: |
           mkdir -p "$RUNNER_TEMP/ColiDevUITestAttachments"
-          result="$(find "$RUNNER_TEMP/ColiDevUITestData/Logs/Test" -maxdepth 1 -name '*.xcresult' -print -quit)"
+          result="$(find "$RUNNER_TEMP/ColiDevDerivedData/Logs/Test" -maxdepth 1 -name '*.xcresult' -print -quit)"
           if [ -n "$result" ]; then
             xcrun xcresulttool export attachments \
               --path "$result" \
