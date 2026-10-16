@@ -1419,6 +1419,8 @@ enum L10n {
         "management.courseBilingual": ("Полные уроки на двух языках", "Full bilingual lessons"),
         "management.courseWithSources": ("Уроков со ссылками на источники", "Lessons with source links"),
         "management.courseStructured": ("Структура полна на RU/EN", "Complete RU/EN structure"),
+        "management.courseCoverageLoading": ("Считаю покрытие курсов в фоне…", "Calculating course coverage in the background…"),
+        "management.courseCoverageEmpty": ("Сводка курсов пока недоступна.", "Course coverage is not available yet."),
         "management.courseSubjectSummary": ("Двуязычных уроков: %d / %d · структура полна: %d · тем: %d", "Bilingual lessons: %d / %d · complete structure: %d · roadmap topics: %d"),
         "management.courseLevelSummary": ("Связано уроков: %d / %d тем", "%d / %d topics linked to full lessons"),
         "management.courseStructureIssues": ("Пробелов по урокам: %d", "Lessons with gaps: %d"),

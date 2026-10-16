@@ -11,7 +11,7 @@ enum AppLanguage: String, CaseIterable, Identifiable, Hashable {
     var shortLabel: String { rawValue.uppercased() }
 }
 
-enum Subject: String, CaseIterable, Identifiable, Hashable {
+enum Subject: String, CaseIterable, Identifiable, Hashable, Sendable {
     case mathematics
     case english
     case physics

@@ -1,6 +1,6 @@
 import Foundation
 
-struct CurriculumText {
+struct CurriculumText: Sendable {
     let russian: String
     let english: String
 
@@ -9,7 +9,7 @@ struct CurriculumText {
     }
 }
 
-struct CurriculumTopic: Identifiable {
+struct CurriculumTopic: Identifiable, Sendable {
     let name: CurriculumText
     let learningOutcome: CurriculumText
     let lessonResource: String?
@@ -17,14 +17,14 @@ struct CurriculumTopic: Identifiable {
     var id: String { "\(name.russian)|\(name.english)" }
 }
 
-struct CurriculumLevel: Identifiable {
+struct CurriculumLevel: Identifiable, Sendable {
     let title: CurriculumText
     let topics: [CurriculumTopic]
 
     var id: String { title.english }
 }
 
-struct CurriculumLevelCoverage: Identifiable {
+struct CurriculumLevelCoverage: Identifiable, Sendable {
     let level: CurriculumText
     let topicCount: Int
     let linkedLessonCount: Int
@@ -32,7 +32,7 @@ struct CurriculumLevelCoverage: Identifiable {
     var id: String { level.english }
 }
 
-struct CurriculumLessonStructureIssue: Identifiable {
+struct CurriculumLessonStructureIssue: Identifiable, Sendable {
     let resource: String
     let missingRussianSections: [String]
     let missingEnglishSections: [String]
@@ -55,7 +55,7 @@ struct IntroLessonRoute: Decodable, Identifiable {
     }
 }
 
-struct SubjectCurriculumCoverage: Identifiable {
+struct SubjectCurriculumCoverage: Identifiable, Sendable {
     let subject: Subject
     let levels: [CurriculumLevelCoverage]
     let bundledLessonCount: Int
