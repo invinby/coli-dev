@@ -7695,6 +7695,7 @@ private struct EukaryoticCellLab: View {
                     .frame(height: 260)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                     .accessibilityLabel(Text(L10n.text("lab.cell3d.accessibility", store.language)))
+                    .accessibilityValue(Text(L10n.text("biology.cell3d.\(selectedPart)", store.language)))
 
                 Picker(L10n.text("lab.cellPart", store.language), selection: $selectedPart) {
                     ForEach(parts, id: \.self) { part in
@@ -7702,6 +7703,7 @@ private struct EukaryoticCellLab: View {
                     }
                 }
                 .pickerStyle(.menu)
+                .accessibilityIdentifier("biology.cell3d.organelles")
 
                 Text(L10n.text("biology.cell3d.\(selectedPart).function", store.language))
                     .font(.callout)

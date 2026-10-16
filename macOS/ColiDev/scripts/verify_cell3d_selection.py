@@ -30,6 +30,9 @@ for snippet in (
     "EukaryoticCellScene(selectedPart: $selectedPart)",
     "Picker(L10n.text(\"lab.cellPart\", store.language), selection: $selectedPart)",
     ".pickerStyle(.menu)",
+    '.accessibilityIdentifier("biology.cell3d.organelles")',
+    '.accessibilityValue(Text(L10n.text("biology.cell3d.\\(selectedPart)", store.language)))',
+    'Text(L10n.text("biology.cell3d.\\(selectedPart).function", store.language))',
     "lab.cell3d.interactionHint",
 ):
     assert snippet in lab, f"3D cell lesson UI is missing: {snippet}"
