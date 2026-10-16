@@ -43,13 +43,29 @@ final class ManagementUITests: XCTestCase {
         )
 
         let lessonScrollView = window.scrollViews.element(boundBy: 1)
-        for _ in 0..<6 where !scene.isHittable {
-            guard lessonScrollView.exists else { break }
-            lessonScrollView.swipeUp()
+        guard lessonScrollView.waitForExistence(timeout: 5) else {
+            XCTFail("The lesson scroll area is missing. / Не найдена область прокрутки урока.\n\(app.debugDescription)")
+            return
+        }
+        let viewport = lessonScrollView.frame.insetBy(dx: 0, dy: 12)
+        for _ in 0..<10 {
+            let sceneFrame = scene.frame
+            if viewport.contains(sceneFrame) { break }
+
+            // Scroll toward the scene using its live accessibility frame. A fixed
+            // series of upward swipes can carry the scene completely past the viewport.
+            // Прокручиваем к сцене по её текущей рамке: фиксированные свайпы вверх
+            // могут унести сцену далеко за видимую область.
+            if sceneFrame.minY < viewport.minY {
+                lessonScrollView.swipeDown()
+            } else {
+                lessonScrollView.swipeUp()
+            }
+            try await Task.sleep(nanoseconds: 150_000_000)
         }
         XCTAssertTrue(
-            scene.isHittable,
-            "The 3D cell scene is not hittable. / По 3D-сцене клетки нельзя нажать.\n\(scene.debugDescription)"
+            viewport.contains(scene.frame),
+            "The 3D cell scene is outside the lesson viewport. / 3D-сцена клетки за пределами области урока.\nScene: \(scene.frame), viewport: \(viewport)\n\(scene.debugDescription)"
         )
 
         // The first mitochondrion is in the front-right quadrant of the orthographic scene.
