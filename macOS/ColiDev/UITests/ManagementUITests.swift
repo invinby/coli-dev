@@ -4,7 +4,7 @@ final class ManagementUITests: XCTestCase {
     @MainActor
     func testClickingCellOrganelleUpdatesSelectionAndDescription() async throws {
         let app = XCUIApplication()
-        app.launchEnvironment["COLIDEV_UI_TEST_CELL3D"] = "1"
+        app.launchArguments = ["-colidev.uiTestCell3D", "YES"]
         app.launch()
         app.activate()
 

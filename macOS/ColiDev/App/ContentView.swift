@@ -26,9 +26,7 @@ struct ContentView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selection: AppSection? = .today
     @State private var practiceFocusRoute: StudyLessonRoute?
-#if DEBUG
     @State private var didOpenCell3DUITestRoute = false
-#endif
 
     var body: some View {
         NavigationSplitView {
@@ -191,9 +189,8 @@ struct ContentView: View {
     }
 
     private func openCell3DUITestRouteIfNeeded() {
-#if DEBUG
         guard !didOpenCell3DUITestRoute,
-              ProcessInfo.processInfo.environment["COLIDEV_UI_TEST_CELL3D"] == "1" else { return }
+              UserDefaults.standard.bool(forKey: "colidev.uiTestCell3D") else { return }
 
         didOpenCell3DUITestRoute = true
         // Let SwiftUI present its first valid sidebar selection before navigating to a lesson.
@@ -201,7 +198,6 @@ struct ContentView: View {
         DispatchQueue.main.async {
             selection = .courseLesson(.biology, "eukaryotic_cell_organelles")
         }
-#endif
     }
 
     private func openCustom(_ subjectID: UUID) {
