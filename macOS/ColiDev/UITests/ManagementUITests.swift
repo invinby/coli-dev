@@ -273,6 +273,23 @@ final class ManagementUITests: XCTestCase {
             "RAG pane must expose a local Ollama embedding model field.\n\(app.debugDescription)"
         )
         XCTAssertTrue(app.buttons["control-center.rag.save-embedding-model"].exists)
-        XCTAssertTrue(app.buttons["control-center.rag.disable-embedding-model"].exists)
+
+        let disableButton = app.buttons["control-center.rag.disable-embedding-model"]
+        XCTAssertTrue(disableButton.waitForExistence(timeout: 10))
+        let disableButtonReady = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "isEnabled == true"),
+            object: disableButton
+        )
+        let disableButtonResult = await XCTWaiter.fulfillment(of: [disableButtonReady], timeout: 10)
+        XCTAssertEqual(disableButtonResult, .completed)
+
+        disableButton.click()
+        let statusMessage = app.descendants(matching: .any)["control-center.status-message"]
+        let disabledSuccessfully = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS %@ OR label CONTAINS %@", "отключена", "disabled"),
+            object: statusMessage
+        )
+        let disableResult = await XCTWaiter.fulfillment(of: [disabledSuccessfully], timeout: 15)
+        XCTAssertEqual(disableResult, .completed)
     }
 }

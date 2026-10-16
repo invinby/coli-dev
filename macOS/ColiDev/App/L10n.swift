@@ -1409,7 +1409,7 @@ enum L10n {
         "management.ragEmbeddingEnabled": ("Семантический поиск включён", "Semantic search enabled"),
         "management.ragEmbeddingKeywordOnly": ("Поиск по ключевым словам", "Keyword search"),
         "management.ragEmbeddingLoadFailed": ("Не удалось загрузить настройки семантического поиска. Проверь локальный сервер приложения и повтори.", "Could not load semantic-search settings. Check the local backend and try again."),
-        "management.ragEmbeddingSaveFailed": ("Не удалось проверить или сохранить модель для семантического поиска. Убедись, что Ollama запущена и модель уже установлена.", "Could not verify or save the embedding model. Make sure Ollama is running and the model is already installed."),
+        "management.ragEmbeddingSaveFailed": ("Не удалось проверить или сохранить модель для семантического поиска. Убедись, что Ollama запущена, модель уже установлена и поддерживает создание векторных представлений.", "Could not verify or save the embedding model. Make sure Ollama is running and the model is installed and supports embeddings."),
         "management.ragEmbeddingSaved": ("Локальная семантическая модель включена: %@", "Local semantic model enabled: %@"),
         "management.ragEmbeddingDisabled": ("Семантическая модель отключена; продолжит работать поиск по ключевым словам.", "Semantic model disabled; keyword search remains available."),
         "management.ragQuery": ("Что ищем в знаниях?", "What should we search for?"),

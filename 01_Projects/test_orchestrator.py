@@ -1600,6 +1600,7 @@ class TestOllamaEmbeddingModelSettings:
     def test_configuring_embedding_model_verifies_and_activates_local_model(
         self, client, monkeypatch
     ):
+        verification_timeouts = []
         monkeypatch.setattr(
             orchestrator,
             "_check_ollama",
@@ -1609,10 +1610,15 @@ class TestOllamaEmbeddingModelSettings:
                 "models": ["embeddinggemma:latest"],
             }),
         )
+
+        def embed_for_verification(provider, texts):
+            verification_timeouts.append(provider.timeout_seconds)
+            return [[0.6, 0.8] for _ in texts]
+
         monkeypatch.setattr(
             orchestrator.OllamaEmbeddingProvider,
             "embed",
-            lambda _provider, texts: [[0.6, 0.8] for _ in texts],
+            embed_for_verification,
         )
 
         saved = client.put(
@@ -1627,6 +1633,7 @@ class TestOllamaEmbeddingModelSettings:
             "configured": True,
         }
         assert orchestrator._embedding_provider.model_name == "embeddinggemma:latest"
+        assert verification_timeouts == [60]
         assert orchestrator.knowledge_index.embedding_provider is orchestrator._embedding_provider
         assert client.get("/settings/ollama-embedding-model").json() == saved.json()
 

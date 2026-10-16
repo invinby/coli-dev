@@ -4662,7 +4662,7 @@ async def save_ollama_embedding_model(
             detail="Install this embedding model in Ollama before selecting it",
         )
 
-    provider = OllamaEmbeddingProvider(OLLAMA_BASE, model)
+    provider = OllamaEmbeddingProvider(OLLAMA_BASE, model, timeout_seconds=60)
     try:
         sample_vectors = await asyncio.to_thread(
             provider.embed, ["ColiDev local embedding configuration check"]
