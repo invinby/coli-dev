@@ -62,6 +62,12 @@ if "sourceInventory?.automaticCheckDueAt" not in sources_pane:
         "Панель источников должна показывать следующую авто-проверку / "
         "Sources pane must show the next automatic check"
     )
+for pane_name in ("ragPane", "sourcesPane"):
+    if ".accessibilityElement(children: .contain)" not in property_block(pane_name):
+        raise AssertionError(
+            f"Панель {pane_name} должна сохранять отдельные ID вложенных элементов / "
+            f"Pane {pane_name} must preserve child accessibility identifiers"
+        )
 if '"control-center.sources.next-check"' not in sources_pane:
     raise AssertionError(
         "Строке следующей проверки нужен accessibility ID / "

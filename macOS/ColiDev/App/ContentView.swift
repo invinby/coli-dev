@@ -2431,6 +2431,7 @@ private struct ManagementView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("control-center.rag")
     }
 
@@ -2562,6 +2563,7 @@ private struct ManagementView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("control-center.sources")
     }
 
