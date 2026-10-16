@@ -24,15 +24,11 @@ struct ContentView: View {
     @EnvironmentObject private var store: LearningStore
     @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var selection: AppSection? = {
-#if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--coli-dev-ui-test-cell3d") {
-            return .courseLesson(.biology, "eukaryotic_cell_organelles")
-        }
-#endif
-        return .today
-    }()
+    @State private var selection: AppSection? = .today
     @State private var practiceFocusRoute: StudyLessonRoute?
+#if DEBUG
+    @State private var didOpenCell3DUITestRoute = false
+#endif
 
     var body: some View {
         NavigationSplitView {
@@ -95,6 +91,7 @@ struct ContentView: View {
                         },
                         openDueReview: openDueReview
                     )
+                    .onAppear(perform: openCell3DUITestRouteIfNeeded)
                 case .subjects:
                     SubjectCatalogView(open: open, openCustom: openCustom)
                 case .subject(let subject):
@@ -191,6 +188,20 @@ struct ContentView: View {
     private func open(_ subject: Subject) {
         practiceFocusRoute = nil
         selection = .subject(subject)
+    }
+
+    private func openCell3DUITestRouteIfNeeded() {
+#if DEBUG
+        guard !didOpenCell3DUITestRoute,
+              ProcessInfo.processInfo.arguments.contains("--coli-dev-ui-test-cell3d") else { return }
+
+        didOpenCell3DUITestRoute = true
+        // Let SwiftUI present its first valid sidebar selection before navigating to a lesson.
+        // Даём SwiftUI сначала показать валидный пункт боковой панели, а затем открываем урок.
+        DispatchQueue.main.async {
+            selection = .courseLesson(.biology, "eukaryotic_cell_organelles")
+        }
+#endif
     }
 
     private func openCustom(_ subjectID: UUID) {

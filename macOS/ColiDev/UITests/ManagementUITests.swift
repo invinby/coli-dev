@@ -6,26 +6,35 @@ final class ManagementUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--coli-dev-ui-test-cell3d", "-colidev.language", "ru"]
         app.launch()
+        app.activate()
+
+        let window = app.windows.firstMatch
+        guard window.waitForExistence(timeout: 10) else {
+            XCTFail("ColiDev did not present its main window. / ColiDev не показал главное окно.\n\(app.debugDescription)")
+            return
+        }
 
         let scene = app.descendants(matching: .any)["biology.cell3d.scene"]
-        XCTAssertTrue(
-            scene.waitForExistence(timeout: 15),
-            "3D cell scene was not opened by the UI-test route. / UI-тест не открыл 3D-сцену клетки.\n\(app.debugDescription)"
-        )
+        guard scene.waitForExistence(timeout: 15) else {
+            XCTFail("3D cell scene was not opened by the UI-test route. / UI-тест не открыл 3D-сцену клетки.\n\(app.debugDescription)")
+            return
+        }
 
         let description = app.staticTexts["biology.cell3d.description"]
-        XCTAssertTrue(
-            description.waitForExistence(timeout: 10),
-            "The selected organelle description is missing. / Не найдено описание выбранной органеллы.\n\(app.debugDescription)"
-        )
+        guard description.waitForExistence(timeout: 10) else {
+            XCTFail("The selected organelle description is missing. / Не найдено описание выбранной органеллы.\n\(app.debugDescription)")
+            return
+        }
         XCTAssertEqual(
             description.label,
             "Хранит большую часть ДНК клетки; оболочка ядра отделяет её от цитоплазмы.",
             "The nucleus must be selected initially. / При открытии должно быть выбрано ядро."
         )
 
-        if !scene.isHittable {
-            app.scrollViews.firstMatch.swipeUp()
+        let lessonScrollView = app.scrollViews.firstMatch
+        for _ in 0..<6 where !scene.isHittable {
+            guard lessonScrollView.exists else { break }
+            lessonScrollView.swipeUp()
         }
         XCTAssertTrue(
             scene.isHittable,

@@ -9,6 +9,7 @@ views = (ROOT / "macOS/ColiDev/App/LearningViews.swift").read_text(encoding="utf
 l10n = (ROOT / "macOS/ColiDev/App/L10n.swift").read_text(encoding="utf-8")
 lesson = (ROOT / "02_Areas/Biology/lessons/eukaryotic_cell_organelles.md").read_text(encoding="utf-8")
 ui_tests = (ROOT / "macOS/ColiDev/UITests/ManagementUITests.swift").read_text(encoding="utf-8")
+content_view = (ROOT / "macOS/ColiDev/App/ContentView.swift").read_text(encoding="utf-8")
 ids_start = views.index("private enum CellOrganelleID {")
 ids_end = views.index("private struct EukaryoticCellLab: View {", ids_start)
 ids_source = views[ids_start:ids_end]
@@ -51,8 +52,13 @@ for snippet in (
 
 assert "Нажми прямо на органеллу в 3D-сцене" in lesson, "Russian lesson does not explain direct scene selection"
 assert "Click an organelle directly in the 3D scene" in lesson, "English lesson does not explain direct scene selection"
+assert "@State private var selection: AppSection? = .today" in content_view, "UI-test launch must start from a valid visible sidebar selection"
+assert ".onAppear(perform: openCell3DUITestRouteIfNeeded)" in content_view, "UI-test lesson route must wait until the first screen appears"
+assert "DispatchQueue.main.async" in content_view, "UI-test lesson route must be deferred until after the first render"
 assert "testClickingCellOrganelleUpdatesSelectionAndDescription" in ui_tests, "Missing macOS UI coverage for scene selection"
+assert "app.activate()" in ui_tests, "UI test must bring ColiDev to the foreground before checking the window"
+assert "window.waitForExistence(timeout: 10)" in ui_tests, "UI test must verify that the main window opens"
 assert 'scene.coordinate(withNormalizedOffset: CGVector(dx: 0.56, dy: 0.38)).click()' in ui_tests, "UI test does not click the mitochondrion in the scene"
 assert 'app.staticTexts["biology.cell3d.description"]' in ui_tests, "UI test does not inspect the live organelle description"
 
-print("3D cell selection IDs, bilingual labels, click handling, and keyboard menu are aligned.")
+print("3D cell selection IDs, bilingual labels, click handling, keyboard menu, and deferred UI-test routing are aligned. / Идентификаторы органелл, RU/EN-подписи, выбор щелчком, меню и отложенный тестовый маршрут согласованы.")
