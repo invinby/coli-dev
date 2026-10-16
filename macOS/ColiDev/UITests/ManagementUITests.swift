@@ -69,32 +69,35 @@ final class ManagementUITests: XCTestCase {
             return
         }
 
-        let targetPoint = app.staticTexts["biology.cell3d.targetPoint"]
-        guard targetPoint.waitForExistence(timeout: 5) else {
-            XCTFail("The test-only projected mitochondrion point is missing. / Не найдена тестовая проекция митохондрии.\n\(app.debugDescription)")
-            return
-        }
-        let targetPointReady = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "value != %@", "unavailable"),
-            object: targetPoint
+        // A seed click lets the live SceneKit renderer report its current target projection.
+        // Первый щелчок активирует SceneKit; рендерер сообщит актуальную проекцию цели.
+        scene.coordinate(withNormalizedOffset: CGVector(dx: 0.56, dy: 0.38)).click()
+        let seedTapRecognized = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value != %@", initialTapState ?? "tap=0, part=nucleus"),
+            object: tapState
         )
-        let targetPointResult = await XCTWaiter.fulfillment(of: [targetPointReady], timeout: 5)
-        guard targetPointResult == .completed,
-              let targetValue = targetPoint.value as? String else {
-            XCTFail("The test-only projected mitochondrion point is not ready. / Тестовая проекция митохондрии не готова.\n\(targetPoint.value ?? targetPoint.label)")
+        let seedTapResult = await XCTWaiter.fulfillment(of: [seedTapRecognized], timeout: 5)
+        guard seedTapResult == .completed,
+              let seedDiagnostic = tapState.value as? String,
+              let targetField = seedDiagnostic.split(separator: " ").first(where: { $0.hasPrefix("mitochondriaTarget=") }) else {
+            XCTFail("The live SceneKit click did not provide a mitochondrion target point. / Активный рендерер SceneKit не сообщил координаты митохондрии.\n\(tapState.value ?? tapState.label)")
             return
         }
+        let targetValue = targetField.dropFirst("mitochondriaTarget=".count)
         let targetComponents = targetValue.split(separator: ",")
         guard targetComponents.count == 2,
               let targetX = Double(targetComponents[0]),
-              let targetY = Double(targetComponents[1]) else {
+              let targetY = Double(targetComponents[1]),
+              (0...1).contains(targetX),
+              (0...1).contains(targetY) else {
             XCTFail("The projected mitochondrion point is invalid. / Неверные координаты проекции митохондрии: \(targetValue)")
             return
         }
+        let tapStateBeforeProjectedClick = tapState.value as? String
         scene.coordinate(withNormalizedOffset: CGVector(dx: CGFloat(targetX), dy: CGFloat(targetY))).click()
 
         let tapWasRecognized = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "value != %@", initialTapState ?? "tap=0, part=nucleus"),
+            predicate: NSPredicate(format: "value != %@", tapStateBeforeProjectedClick ?? ""),
             object: tapState
         )
         let tapResult = await XCTWaiter.fulfillment(of: [tapWasRecognized], timeout: 5)

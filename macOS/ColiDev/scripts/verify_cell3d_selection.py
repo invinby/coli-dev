@@ -46,8 +46,6 @@ for snippet in (
     "Text(diagnostic)",
     ".accessibilityValue(Text(diagnostic))",
     '.accessibilityIdentifier("biology.cell3d.tapState")',
-    "sceneTestTargetPoint",
-    '.accessibilityIdentifier("biology.cell3d.targetPoint")',
 ):
     assert snippet in lab, f"3D cell lesson UI is missing: {snippet}"
 
@@ -95,7 +93,7 @@ assert '.accessibilityIdentifier("module.interactive-practice")' not in module_v
 assert "window.scrollViews.element(boundBy: 1)" in ui_tests, "UI test must scroll the lesson pane instead of the sidebar. / UI-тест должен прокручивать урок, а не боковую панель."
 assert 'NSPredicate(format: "hittable == true")' in ui_tests, "UI test must wait for the 3D scene to become visible before clicking. / Перед нажатием UI-тест должен дождаться видимости 3D-сцены."
 assert "swipeUp()" not in ui_tests and "swipeDown()" not in ui_tests, "UI test must not fling the long lesson past the 3D scene. / UI-тест не должен резкими свайпами прокручивать длинный урок мимо 3D-сцены."
-assert 'app.staticTexts["biology.cell3d.targetPoint"]' in ui_tests, "UI test must read the current projected mitochondrion point. / UI-тест должен читать актуальную экранную проекцию митохондрии."
+assert 'hasPrefix("mitochondriaTarget=")' in ui_tests, "UI test must read the current projected mitochondrion point from the live click diagnostic. / UI-тест должен читать проекцию митохондрии из диагностики живого щелчка."
 assert 'CGVector(dx: CGFloat(targetX), dy: CGFloat(targetY))' in ui_tests, "UI test must click using the projected organelle point instead of a guessed offset. / UI-тест должен нажимать на рассчитанную проекцию органеллы, а не на примерную точку."
 assert "viewport.contains(scene.frame)" in ui_tests, "UI test must keep the 3D scene inside the visible lesson viewport before clicking. / Перед кликом UI-тест должен удерживать 3D-сцену внутри видимой области урока."
 assert 'scene.coordinate(withNormalizedOffset: CGVector(dx: CGFloat(targetX), dy: CGFloat(targetY))).click()' in ui_tests, "UI test does not click the projected mitochondrion in the scene"

@@ -7674,7 +7674,6 @@ private struct EukaryoticCellLab: View {
     @State private var selectedPart = "nucleus"
     @State private var sceneTapSequence = 0
     @State private var sceneTapDiagnostic = "not tapped"
-    @State private var sceneTestTargetPoint = "unavailable"
 
     private var isCell3DUITestRoute: Bool {
         ProcessInfo.processInfo.arguments.contains("-colidev.uiTestCell3D")
@@ -7700,8 +7699,7 @@ private struct EukaryoticCellLab: View {
                 EukaryoticCellScene(
                     selectedPart: $selectedPart,
                     tapSequence: $sceneTapSequence,
-                    tapDiagnostic: $sceneTapDiagnostic,
-                    testTargetPoint: $sceneTestTargetPoint
+                    tapDiagnostic: $sceneTapDiagnostic
                 )
                     .frame(height: 260)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
@@ -7720,13 +7718,6 @@ private struct EukaryoticCellLab: View {
                                 .accessibilityValue(Text(diagnostic))
                                 .accessibilityIdentifier("biology.cell3d.tapState")
 
-                            Text(sceneTestTargetPoint)
-                                .font(.system(size: 1))
-                                .foregroundStyle(.clear)
-                                .frame(width: 1, height: 1)
-                                .accessibilityLabel(Text(sceneTestTargetPoint))
-                                .accessibilityValue(Text(sceneTestTargetPoint))
-                                .accessibilityIdentifier("biology.cell3d.targetPoint")
                         }
                     }
 
@@ -7758,7 +7749,6 @@ private struct EukaryoticCellScene: NSViewRepresentable {
     @Binding var selectedPart: String
     @Binding var tapSequence: Int
     @Binding var tapDiagnostic: String
-    @Binding var testTargetPoint: String
 
     fileprivate func makeCoordinator() -> Coordinator {
         Coordinator(selectedPart: $selectedPart, tapSequence: $tapSequence, tapDiagnostic: $tapDiagnostic)
@@ -7786,34 +7776,6 @@ private struct EukaryoticCellScene: NSViewRepresentable {
         context.coordinator.tapSequence = $tapSequence
         context.coordinator.tapDiagnostic = $tapDiagnostic
         Self.highlight(selectedPart, in: view.scene)
-
-        guard ProcessInfo.processInfo.arguments.contains("-colidev.uiTestCell3D"),
-              let targetPoint = projectedTestTargetPoint(in: view),
-              targetPoint != testTargetPoint else { return }
-        DispatchQueue.main.async {
-            testTargetPoint = targetPoint
-        }
-    }
-
-    private func projectedTestTargetPoint(in view: SCNView) -> String? {
-        guard view.bounds.width > 0,
-              view.bounds.height > 0,
-              let mitochondria = view.scene?.rootNode.childNode(
-                withName: "organelle-mitochondria",
-                recursively: false
-              ),
-              let body = mitochondria.childNodes.first(where: { $0.geometry != nil }) else { return nil }
-
-        let projected = view.projectPoint(body.presentation.worldPosition)
-        guard (0...1).contains(projected.z) else { return nil }
-
-        let backingBounds = view.convertToBacking(CGRect(origin: .zero, size: view.bounds.size))
-        guard backingBounds.width > 0, backingBounds.height > 0 else { return nil }
-        let normalizedX = CGFloat(projected.x) / backingBounds.width
-        let normalizedY = 1 - CGFloat(projected.y) / backingBounds.height
-        guard (0...1).contains(normalizedX), (0...1).contains(normalizedY) else { return nil }
-
-        return String(format: "%.6f,%.6f", Double(normalizedX), Double(normalizedY))
     }
 
     fileprivate final class Coordinator: NSObject, NSGestureRecognizerDelegate {
@@ -7840,7 +7802,10 @@ private struct EukaryoticCellScene: NSViewRepresentable {
             guard let view = gesture.view as? SCNView else { return }
             let point = gesture.location(in: view)
             let (part, selectionDetails) = organelleCandidate(at: point, in: view)
-            let diagnostic = "view=(\(Int(point.x)),\(Int(point.y))) size=(\(Int(view.bounds.width)),\(Int(view.bounds.height))) scale=\(view.window?.backingScaleFactor ?? 1) \(selectionDetails)"
+            let testTargetDetails = ProcessInfo.processInfo.arguments.contains("-colidev.uiTestCell3D")
+                ? " mitochondriaTarget=\(projectedTestTargetPoint(in: view))"
+                : ""
+            let diagnostic = "view=(\(Int(point.x)),\(Int(point.y))) size=(\(Int(view.bounds.width)),\(Int(view.bounds.height))) scale=\(view.window?.backingScaleFactor ?? 1) \(selectionDetails)\(testTargetDetails)"
 
             // Update SwiftUI state after the AppKit click recognizer finishes its event.
             // Обновляем состояние SwiftUI после завершения обработки щелчка AppKit.
@@ -7853,6 +7818,25 @@ private struct EukaryoticCellScene: NSViewRepresentable {
                 let finalPart = part ?? self.selectedPart.wrappedValue
                 self.tapDiagnostic.wrappedValue = "\(diagnostic) selected=\(finalPart)"
             }
+        }
+
+        private func projectedTestTargetPoint(in view: SCNView) -> String {
+            guard let mitochondria = view.scene?.rootNode.childNode(
+                withName: "organelle-mitochondria",
+                recursively: false
+            ),
+                let body = mitochondria.childNodes.first(where: { $0.geometry != nil }) else {
+                return "unavailable(no-mitochondrion)"
+            }
+
+            let projected = view.projectPoint(body.presentation.worldPosition)
+            let backingBounds = view.convertToBacking(CGRect(origin: .zero, size: view.bounds.size))
+            guard backingBounds.width > 0, backingBounds.height > 0 else {
+                return "unavailable(backing-size)"
+            }
+            let normalizedX = CGFloat(projected.x) / backingBounds.width
+            let normalizedY = 1 - CGFloat(projected.y) / backingBounds.height
+            return String(format: "%.6f,%.6f", Double(normalizedX), Double(normalizedY))
         }
 
         private func organelleCandidate(at point: CGPoint, in view: SCNView) -> (String?, String) {
