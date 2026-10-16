@@ -35,6 +35,8 @@ enum AlgorithmicThinkingVerification {
             "programming.computational_thinking.tests.maximum_list.all_negative",
             "programming.computational_thinking.tests.maximum_list.repeated_maximum",
             "programming.computational_thinking.tests.maximum_list.empty_list",
+            "programming.computational_thinking.debugging.find_counterexample",
+            "programming.computational_thinking.debugging.repair_initialization",
             "programming.computational_thinking.average.check_nonempty",
             "programming.computational_thinking.average.initialize_total",
             "programming.computational_thinking.average.accumulate_values",
@@ -45,20 +47,21 @@ enum AlgorithmicThinkingVerification {
             "programming.computational_thinking.tests.average.empty_list",
             "programming.computational_thinking.tests.average.negative_cancellation"
         ]
-        precondition(questions.map(\.id) == expectedIDs, "EN: Practice must cover two maximum algorithms, a mean algorithm, and stable test-case identities. / RU: Тренажёр должен охватывать два алгоритма поиска максимума, алгоритм среднего и постоянные идентификаторы тестов.")
+        precondition(questions.map(\.id) == expectedIDs, "EN: Practice must cover list-max debugging with stable question identities. / RU: Тренажёр должен включать отладку максимума списка и вопросы с постоянными идентификаторами.")
         precondition(Set(questions.map(\.id)).count == questions.count, "Every pseudocode step needs a unique ID.")
         precondition(questions.map { $0.choiceKeys[$0.correctOptionIndex] } == [
             "input", "compare", "otherwise", "display",
             "checkNonemptyList", "initializeCurrentMaximum", "inspectRemainingValues", "updateIfGreater", "returnMaximum",
             "lab.algorithmMaximumResult9", "lab.algorithmMaximumResult7", "lab.algorithmMaximumResultMinus2",
             "lab.algorithmMaximumResult9", "lab.algorithmEmptyError",
+            "lab.algorithmDebugInputNegativeSingleton", "initializeCurrentMaximum",
             "checkNonempty", "initializeTotal", "accumulateValues", "divideByCount", "returnAverage",
             "typical", "boundary", "invalid", "typical"
         ])
         precondition(
             AlgorithmicThinkingPractice.maximumAlgorithmQuestionCount == 9
                 && AlgorithmicThinkingPractice.maximumSectionQuestionCount == 14
-                && questions.count == 23
+                && questions.count == 25
                 && !AlgorithmicThinkingPractice.showsMaximumExperiment(completedQuestionCount: 8)
                 && AlgorithmicThinkingPractice.showsMaximumExperiment(completedQuestionCount: 9)
                 && !AlgorithmicThinkingPractice.showsMaximumTestResults(completedQuestionCount: 13)
