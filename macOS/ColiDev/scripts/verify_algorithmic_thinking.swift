@@ -69,6 +69,23 @@ enum AlgorithmicThinkingVerification {
             "EN: Interactive maximum controls must appear after the list-maximum algorithm and its five test questions, without delaying them until the mean section is complete. / RU: Интерактив для максимума должен появляться после алгоритма списка и пяти проверочных вопросов, не дожидаясь завершения раздела о среднем."
         )
         precondition(questions.allSatisfy { $0.choiceKeys.count == 3 && $0.choiceKeys.indices.contains($0.correctOptionIndex) })
+        let debuggingQuestions = questions.filter { $0.maximumDebuggingStage != nil }
+        precondition(
+            debuggingQuestions.compactMap(\.maximumDebuggingStage) == [.findCounterexample, .repairInitialization]
+                && AlgorithmicThinkingPractice.maximumDebuggingCounterexampleValues == [-1]
+                && AlgorithmicThinkingPractice.maximum(of: AlgorithmicThinkingPractice.maximumDebuggingCounterexampleValues) == -1
+                && AlgorithmicThinkingPractice.faultyMaximumInitializedAtZero(
+                    of: AlgorithmicThinkingPractice.maximumDebuggingCounterexampleValues
+                ) == 0,
+            "EN: The debugging task must expose a valid input where zero initialization violates the maximum contract. / RU: Задание по отладке должно показывать допустимый ввод, на котором инициализация нулём нарушает контракт максимума."
+        )
+        precondition(
+            debuggingQuestions.map(\.contextKey) == [
+                "lab.algorithm.context.maximumDebuggingFindCounterexample",
+                "lab.algorithm.context.maximumDebuggingRepairInitialization"
+            ],
+            "EN: Counterexample discovery must come before the repair prompt. / RU: Сначала ученик должен найти контрпример, а затем перейти к исправлению."
+        )
         precondition(
             AlgorithmicThinkingPractice.maximumTestCases.map(\.id) == [
                 "typical_maximum_at_end", "single_value", "all_negative", "repeated_maximum", "empty_list"
@@ -186,6 +203,28 @@ enum AlgorithmicThinkingVerification {
                 && correctMaximumTest?.evidence?.attempts == 2
                 && correctMaximumTest?.evidence?.firstTryCorrect == false,
             "EN: A corrected maximum-test answer must preserve the initial failed attempt. / RU: После исправления ответа история должна сохранять первую неудачную попытку."
+        )
+
+        let firstDebuggingIndex = questions.firstIndex { $0.maximumDebuggingStage == .findCounterexample }!
+        var debuggingSession = AlgorithmicThinkingPracticeSession(answerOrders: orders)
+        for index in 0..<firstDebuggingIndex {
+            precondition(debuggingSession.submit(displayedIndex: orders[index].correctDisplayedIndex)?.isCorrect == true)
+        }
+        let counterexampleQuestion = questions[firstDebuggingIndex]
+        let counterexampleOrder = orders[firstDebuggingIndex]
+        let wrongCounterexampleChoice = counterexampleOrder.displayedOriginalIndices.firstIndex {
+            $0 != counterexampleQuestion.correctOptionIndex
+        }!
+        let wrongCounterexample = debuggingSession.submit(displayedIndex: wrongCounterexampleChoice)
+        let correctedCounterexample = debuggingSession.submit(displayedIndex: counterexampleOrder.correctDisplayedIndex)
+        precondition(
+            wrongCounterexample?.questionID == counterexampleQuestion.id
+                && wrongCounterexample?.evidence?.firstTryCorrect == false
+                && correctedCounterexample?.isCorrect == true
+                && correctedCounterexample?.evidence?.itemID == counterexampleQuestion.id
+                && correctedCounterexample?.evidence?.attempts == 2
+                && correctedCounterexample?.evidence?.firstTryCorrect == false,
+            "EN: Finding a counterexample must retain the learner's wrong first attempt when corrected. / RU: При поиске контрпримера после исправления ответа должна сохраняться первая ошибка ученика."
         )
 
         let firstAverageTestIndex = questions.firstIndex { $0.averageTestCaseID != nil }!

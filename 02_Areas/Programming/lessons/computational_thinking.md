@@ -100,7 +100,7 @@ def mean(values):
 
 ### Исследуй и потренируйся
 
-В тренажёре собери алгоритм максимума из двух чисел, затем разложи максимум непустого списка на проверку контракта, начальное значение, обход, обновление и возврат. Проследи список `[-8, -2, -5]` и объясни, почему ошибочная инициализация максимумом `0` проваливает этот случай. Сверь ожидаемые результаты для пяти списков, включая один элемент, повтор максимума и пустой ввод. Затем разложи вычисление среднего и отнеси четыре набора к обычному, граничному или недопустимому тесту. Случай `[-2, 2]` допустим и отдельно проверяет отрицательные значения и взаимное сокращение. В конце меняй `a` и `b`, включая равные значения, и проследи срабатывающую ветку.
+В тренажёре собери алгоритм максимума из двух чисел, затем разложи максимум непустого списка на проверку контракта, начальное значение, обход, обновление и возврат. Проследи список `[-8, -2, -5]`, сверь ожидаемые результаты для пяти тестов, включая один элемент, повтор максимума и пустой ввод. Затем найди контрпример для ошибочной инициализации нулём и исправь алгоритм: для допустимого списка `[-1]` он возвращает `0`, хотя должен вернуть `-1`. После этого разложи вычисление среднего и отнеси четыре набора к обычному, граничному или недопустимому тесту. Случай `[-2, 2]` допустим и отдельно проверяет отрицательные значения и взаимное сокращение. В конце меняй `a` и `b`, включая равные значения, и проследи срабатывающую ветку.
 
 ### Вопрос
 
@@ -215,7 +215,7 @@ Each test answers a different question and can expose a specific defect; three o
 
 ### Explore and practise
 
-In the trainer, assemble the two-number maximum, then decompose the non-empty-list maximum into its contract check, starting value, scan, update, and return. Trace `[-8, -2, -5]` and explain why the faulty choice of `0` as the initial maximum fails. Check the expected outcomes for five lists, including a single item, a repeated maximum, and empty input. Next, decompose the mean calculation and classify four cases as typical, boundary, or invalid. `[-2, 2]` is valid and separately checks negative values and cancellation. Finally, change `a` and `b`, including equal values, and follow the branch that runs.
+In the trainer, assemble the two-number maximum, then decompose the non-empty-list maximum into its contract check, starting value, scan, update, and return. Trace `[-8, -2, -5]` and check the expected outcomes for five tests, including a single item, a repeated maximum, and empty input. Then find a counterexample for the faulty zero initialization and repair the algorithm: for the valid list `[-1]`, it returns `0` although it must return `-1`. Next, decompose the mean calculation and classify four cases as typical, boundary, or invalid. `[-2, 2]` is valid and separately checks negative values and cancellation. Finally, change `a` and `b`, including equal values, and follow the branch that runs.
 
 ### Question
 

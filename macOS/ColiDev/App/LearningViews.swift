@@ -8050,7 +8050,38 @@ private struct AlgorithmicThinkingLab: View {
                 Text(L10n.text(currentQuestion.contextKey, store.language))
                     .font(.headline)
 
-                if let scenario = AlgorithmicThinkingPractice.maximumTestCase(forQuestionID: currentQuestion.id) {
+                if let stage = currentQuestion.maximumDebuggingStage {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(L10n.text("lab.algorithmDebugSnippet", store.language))
+                            .font(.callout.weight(.semibold))
+                        Text("""
+                        func maximum(values):
+                            current_maximum = 0
+                            for value in values:
+                                if value > current_maximum:
+                                    current_maximum = value
+                            return current_maximum
+                        """)
+                        .font(.system(.callout, design: .monospaced))
+                        .textSelection(.enabled)
+
+                        if stage == .repairInitialization {
+                            let values = AlgorithmicThinkingPractice.maximumDebuggingCounterexampleValues
+                            if let expected = AlgorithmicThinkingPractice.maximum(of: values),
+                               let actual = AlgorithmicThinkingPractice.faultyMaximumInitializedAtZero(of: values) {
+                                Text("\(L10n.text("lab.algorithmTestCaseInput", store.language)): [\(formattedValues(values))]")
+                                    .font(.system(.callout, design: .monospaced))
+                                Text(String(format: L10n.text("lab.algorithmDebugFaultyOutput", store.language), actual))
+                                    .font(.system(.callout, design: .monospaced))
+                                Text(String(format: L10n.text("lab.algorithmDebugExpectedOutput", store.language), expected))
+                                    .font(.system(.callout, design: .monospaced))
+                            }
+                        }
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 12))
+                } else if let scenario = AlgorithmicThinkingPractice.maximumTestCase(forQuestionID: currentQuestion.id) {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(L10n.text("lab.algorithmMaximumListContract", store.language))
                             .font(.callout)
@@ -8211,7 +8242,11 @@ private struct AlgorithmicThinkingLab: View {
             store.recordStudyAssessment(lessonID: "programming.computational_thinking", evidence: evidence)
         }
         guard submission.isCorrect else {
-            if AlgorithmicThinkingPractice.maximumTestCase(forQuestionID: submission.questionID) != nil {
+            if let stage = AlgorithmicThinkingPractice.maximumDebuggingStage(forQuestionID: submission.questionID) {
+                feedbackKey = stage == .findCounterexample
+                    ? "lab.algorithmDebugFindIncorrect"
+                    : "lab.algorithmDebugRepairIncorrect"
+            } else if AlgorithmicThinkingPractice.maximumTestCase(forQuestionID: submission.questionID) != nil {
                 feedbackKey = "lab.algorithmMaximumTestCaseIncorrect"
             } else if AlgorithmicThinkingPractice.averageTestCase(forQuestionID: submission.questionID) != nil {
                 feedbackKey = "lab.algorithmTestCaseIncorrect"
@@ -8222,7 +8257,11 @@ private struct AlgorithmicThinkingLab: View {
             return
         }
         feedbackIsSuccess = true
-        if let testCase = AlgorithmicThinkingPractice.maximumTestCase(forQuestionID: submission.questionID) {
+        if let stage = AlgorithmicThinkingPractice.maximumDebuggingStage(forQuestionID: submission.questionID) {
+            feedbackKey = stage == .findCounterexample
+                ? "lab.algorithmDebugFindCorrect"
+                : "lab.algorithmDebugRepairCorrect"
+        } else if let testCase = AlgorithmicThinkingPractice.maximumTestCase(forQuestionID: submission.questionID) {
             feedbackKey = testCase.explanationKey
         } else if let testCase = AlgorithmicThinkingPractice.averageTestCase(forQuestionID: submission.questionID) {
             feedbackKey = testCase.explanationKey
@@ -8240,6 +8279,7 @@ private struct AlgorithmicThinkingLab: View {
         case "checkNonemptyList": "lab.algorithmCheckNonempty"
         case "initializeCurrentMaximum": "lab.algorithmInitializeCurrentMaximum"
         case "initializeFromZero": "lab.algorithmInitializeFromZero"
+        case "initializeFromLast": "lab.algorithmInitializeFromLast"
         case "inspectRemainingValues": "lab.algorithmInspectRemainingValues"
         case "updateIfGreater": "lab.algorithmUpdateIfGreater"
         case "returnMaximum": "lab.algorithmReturnMaximum"
@@ -8252,7 +8292,9 @@ private struct AlgorithmicThinkingLab: View {
         case "invalid": "lab.algorithmCaseInvalid"
         case "lab.algorithmMaximumResult0", "lab.algorithmMaximumResult2", "lab.algorithmMaximumResult3",
              "lab.algorithmMaximumResult7", "lab.algorithmMaximumResult9", "lab.algorithmMaximumResultMinus1",
-             "lab.algorithmMaximumResultMinus2", "lab.algorithmMaximumResultMinus8", "lab.algorithmEmptyError": step
+             "lab.algorithmMaximumResultMinus2", "lab.algorithmMaximumResultMinus8", "lab.algorithmEmptyError",
+             "lab.algorithmDebugInputNegativeSingleton", "lab.algorithmDebugInputPositiveSingleton",
+             "lab.algorithmDebugInputTypical": step
         default: "lab.algorithmDisplay"
         }
     }

@@ -1,5 +1,10 @@
 import Foundation
 
+enum AlgorithmicMaximumDebuggingStage: String, Equatable {
+    case findCounterexample
+    case repairInitialization
+}
+
 struct AlgorithmicThinkingQuestion: Equatable, Identifiable {
     let id: String
     let choiceKeys: [String]
@@ -7,6 +12,7 @@ struct AlgorithmicThinkingQuestion: Equatable, Identifiable {
     let contextKey: String
     let averageTestCaseID: String?
     let maximumTestCaseID: String?
+    let maximumDebuggingStage: AlgorithmicMaximumDebuggingStage?
 
     init(
         id: String,
@@ -14,7 +20,8 @@ struct AlgorithmicThinkingQuestion: Equatable, Identifiable {
         correctOptionIndex: Int,
         contextKey: String = "lab.algorithm.context.maximum",
         averageTestCaseID: String? = nil,
-        maximumTestCaseID: String? = nil
+        maximumTestCaseID: String? = nil,
+        maximumDebuggingStage: AlgorithmicMaximumDebuggingStage? = nil
     ) {
         self.id = id
         self.choiceKeys = choiceKeys
@@ -22,6 +29,7 @@ struct AlgorithmicThinkingQuestion: Equatable, Identifiable {
         self.contextKey = contextKey
         self.averageTestCaseID = averageTestCaseID
         self.maximumTestCaseID = maximumTestCaseID
+        self.maximumDebuggingStage = maximumDebuggingStage
     }
 }
 
@@ -57,6 +65,7 @@ struct AlgorithmicMaximumTestCase: Equatable, Identifiable {
 
 enum AlgorithmicThinkingPractice {
     static let maximumListValues = [-8, -2, -5]
+    static let maximumDebuggingCounterexampleValues = [-1]
 
     static let maximumTestCases = [
         AlgorithmicMaximumTestCase(
@@ -194,6 +203,27 @@ enum AlgorithmicThinkingPractice {
         )
     }
 
+    private static let maximumDebuggingQuestions = [
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.debugging.find_counterexample",
+            choiceKeys: [
+                "lab.algorithmDebugInputNegativeSingleton",
+                "lab.algorithmDebugInputPositiveSingleton",
+                "lab.algorithmDebugInputTypical"
+            ],
+            correctOptionIndex: 0,
+            contextKey: "lab.algorithm.context.maximumDebuggingFindCounterexample",
+            maximumDebuggingStage: .findCounterexample
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.debugging.repair_initialization",
+            choiceKeys: ["initializeFromZero", "initializeFromLast", "initializeCurrentMaximum"],
+            correctOptionIndex: 2,
+            contextKey: "lab.algorithm.context.maximumDebuggingRepairInitialization",
+            maximumDebuggingStage: .repairInitialization
+        )
+    ]
+
     private static let averageQuestions = [
         AlgorithmicThinkingQuestion(
             id: "programming.computational_thinking.average.check_nonempty",
@@ -239,7 +269,7 @@ enum AlgorithmicThinkingPractice {
 
     static let maximumAlgorithmQuestionCount = maximumQuestions.count + maximumListQuestions.count
     static let maximumSectionQuestionCount = maximumAlgorithmQuestionCount + maximumTestCaseQuestions.count
-    static let questions = maximumQuestions + maximumListQuestions + maximumTestCaseQuestions + averageQuestions + testCaseQuestions
+    static let questions = maximumQuestions + maximumListQuestions + maximumTestCaseQuestions + maximumDebuggingQuestions + averageQuestions + testCaseQuestions
 
     static func showsMaximumExperiment(completedQuestionCount: Int) -> Bool {
         completedQuestionCount >= maximumAlgorithmQuestionCount
@@ -251,6 +281,15 @@ enum AlgorithmicThinkingPractice {
 
     static func maximum(of values: [Int]) -> Int? {
         values.max()
+    }
+
+    static func faultyMaximumInitializedAtZero(of values: [Int]) -> Int? {
+        guard !values.isEmpty else { return nil }
+        return values.reduce(0, max)
+    }
+
+    static func maximumDebuggingStage(forQuestionID questionID: String) -> AlgorithmicMaximumDebuggingStage? {
+        questions.first(where: { $0.id == questionID })?.maximumDebuggingStage
     }
 
     static func average(of values: [Int]) -> Double? {
