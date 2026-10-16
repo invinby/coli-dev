@@ -253,4 +253,26 @@ final class ManagementUITests: XCTestCase {
             "Control Center could not return to its overview after visiting every pane.\n\(app.debugDescription)"
         )
     }
+
+    @MainActor
+    func testRAGPaneExposesLocalEmbeddingModelControls() async throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let managementItem = app.staticTexts["sidebar.management"]
+        XCTAssertTrue(managementItem.waitForExistence(timeout: 15))
+        managementItem.click()
+
+        let ragTab = app.buttons["control-center.pane.rag"]
+        XCTAssertTrue(ragTab.waitForExistence(timeout: 10))
+        ragTab.click()
+
+        let modelField = app.textFields["control-center.rag.embedding-model"]
+        XCTAssertTrue(
+            modelField.waitForExistence(timeout: 10),
+            "RAG pane must expose a local Ollama embedding model field.\n\(app.debugDescription)"
+        )
+        XCTAssertTrue(app.buttons["control-center.rag.save-embedding-model"].exists)
+        XCTAssertTrue(app.buttons["control-center.rag.disable-embedding-model"].exists)
+    }
 }

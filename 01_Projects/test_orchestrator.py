@@ -118,6 +118,17 @@ def _reset_session_tracker(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         orchestrator,
+        "ollama_embedding_model_settings",
+        orchestrator.OllamaEmbeddingModelSettingsStore(
+            tmp_path / "ollama-embedding-model.json",
+            default_model="",
+        ),
+    )
+    monkeypatch.setattr(orchestrator, "_embedding_provider", None)
+    monkeypatch.setattr(orchestrator.knowledge_index, "embedding_provider", None)
+    monkeypatch.setattr(orchestrator.knowledge_index, "_embedding_retry_after", 0.0)
+    monkeypatch.setattr(
+        orchestrator,
         "subject_model_routes",
         orchestrator.SubjectModelRouteStore(tmp_path / "subject-model-routing.json"),
     )
@@ -803,6 +814,8 @@ class TestAPIEndpoints:
     @pytest.mark.parametrize(("method", "path", "payload"), [
         ("GET", "/api/status", None),
         ("GET", "/health", None),
+        ("GET", "/settings/ollama-embedding-model", None),
+        ("PUT", "/settings/ollama-embedding-model", {"model": "embeddinggemma:latest"}),
         ("GET", "/api/session", None),
         ("POST", "/api/session/reset", None),
         ("POST", "/chat/stream", {"message": "private lesson context"}),
@@ -825,6 +838,8 @@ class TestAPIEndpoints:
 
     @pytest.mark.parametrize(("method", "path", "payload"), [
         ("GET", "/health", None),
+        ("GET", "/settings/ollama-embedding-model", None),
+        ("PUT", "/settings/ollama-embedding-model", {"model": "embeddinggemma:latest"}),
         ("POST", "/chat/stream", {"message": "private lesson context"}),
         ("GET", "/obsidian/read/private.md", None),
         ("PUT", "/obsidian/write/private.md", {"content": "private note"}),
@@ -1333,6 +1348,7 @@ class TestAutoAgentModelRouting:
             for role in ("local_draft", "critic", "verifier")
         )
 
+
     def test_role_models_persist_validate_and_reset_without_credentials(self, client):
         saved = client.put("/settings/agent-models/critic", json={"model": "qwen3:8b"})
         assert saved.status_code == 200
@@ -1568,6 +1584,76 @@ class TestAutoAgentModelRouting:
         assert answer == "Final answer"
         assert engine._ask_ollama.await_args_list[0].kwargs["model"] == "qwen3:8b"
         assert engine._ask_ollama.await_args_list[1].kwargs["model"] == "llama3.2:3b"
+
+
+class TestOllamaEmbeddingModelSettings:
+    def test_embedding_settings_show_keyword_only_mode_when_unconfigured(self, client):
+        response = client.get("/settings/ollama-embedding-model")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "model": None,
+            "source": "disabled",
+            "configured": False,
+        }
+
+    def test_configuring_embedding_model_verifies_and_activates_local_model(
+        self, client, monkeypatch
+    ):
+        monkeypatch.setattr(
+            orchestrator,
+            "_check_ollama",
+            AsyncMock(return_value={
+                "available": True,
+                "status": "ready",
+                "models": ["embeddinggemma:latest"],
+            }),
+        )
+        monkeypatch.setattr(
+            orchestrator.OllamaEmbeddingProvider,
+            "embed",
+            lambda _provider, texts: [[0.6, 0.8] for _ in texts],
+        )
+
+        saved = client.put(
+            "/settings/ollama-embedding-model",
+            json={"model": "embeddinggemma:latest"},
+        )
+
+        assert saved.status_code == 200
+        assert saved.json() == {
+            "model": "embeddinggemma:latest",
+            "source": "settings",
+            "configured": True,
+        }
+        assert orchestrator._embedding_provider.model_name == "embeddinggemma:latest"
+        assert orchestrator.knowledge_index.embedding_provider is orchestrator._embedding_provider
+        assert client.get("/settings/ollama-embedding-model").json() == saved.json()
+
+    def test_uninstalled_embedding_model_is_rejected_without_changing_configuration(
+        self, client, monkeypatch
+    ):
+        monkeypatch.setattr(
+            orchestrator,
+            "_check_ollama",
+            AsyncMock(return_value={
+                "available": True,
+                "status": "ready",
+                "models": ["qwen3:8b"],
+            }),
+        )
+
+        response = client.put(
+            "/settings/ollama-embedding-model",
+            json={"model": "embeddinggemma:latest"},
+        )
+
+        assert response.status_code == 422
+        assert client.get("/settings/ollama-embedding-model").json() == {
+            "model": None,
+            "source": "disabled",
+            "configured": False,
+        }
 
 
 class TestFinalSynthesisRouting:

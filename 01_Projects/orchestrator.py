@@ -531,6 +531,10 @@ class OpenAICompatibleSettingsRequest(BaseModel):
     model: str = Field(min_length=1, max_length=128)
 
 
+class OllamaEmbeddingModelRequest(BaseModel):
+    model: str | None = Field(default=None, max_length=200)
+
+
 class AgentModelRouteRequest(BaseModel):
     provider: Literal["auto", "gemini", "kimi", "openrouter", "compatible", "ollama"] = "ollama"
     model: str | None = Field(default=None, max_length=128)
@@ -2691,6 +2695,71 @@ class ConsiliumEngine:
 # ─── Application state ─────────────────────────────────
 
 
+class OllamaEmbeddingModelSettingsStore:
+    """Persist the selected local-only Ollama embedding model."""
+
+    _MODEL_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$")
+
+    def __init__(self, path: Path, default_model: str = "") -> None:
+        self.path = path.expanduser()
+        self.default_model = self._clean_model(default_model)
+        self._lock = threading.RLock()
+
+    @classmethod
+    def _clean_model(cls, model: Any) -> str | None:
+        if not isinstance(model, str):
+            return None
+        cleaned = model.strip()
+        if not cleaned:
+            return None
+        return cleaned if cls._MODEL_PATTERN.fullmatch(cleaned) else None
+
+    def get(self) -> dict[str, str | bool | None]:
+        with self._lock:
+            try:
+                payload = json.loads(self.path.read_text(encoding="utf-8"))
+            except FileNotFoundError:
+                model = self.default_model
+                source = "environment" if model else "disabled"
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                logger.warning(
+                    "Ollama embedding settings could not be read; using environment default",
+                    extra={"error_type": type(exc).__name__},
+                )
+                model = self.default_model
+                source = "environment" if model else "disabled"
+            else:
+                stored_model = payload.get("model") if isinstance(payload, dict) else None
+                model = self._clean_model(stored_model)
+                source = "settings"
+        return {"model": model, "source": source, "configured": model is not None}
+
+    def set(self, model: str | None) -> dict[str, str | bool | None]:
+        cleaned = self._clean_model(model)
+        if model is not None and model.strip() and cleaned is None:
+            raise ValueError("Invalid Ollama embedding model identifier")
+        with self._lock:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            temporary_path: Path | None = None
+            try:
+                with tempfile.NamedTemporaryFile(
+                    mode="w", encoding="utf-8", prefix=".ollama-embedding-model-",
+                    suffix=".tmp", dir=self.path.parent, delete=False,
+                ) as temporary:
+                    temporary_path = Path(temporary.name)
+                    json.dump({"schema_version": 1, "model": cleaned}, temporary, sort_keys=True)
+                    temporary.write("\n")
+                try:
+                    os.chmod(temporary_path, 0o600)
+                except OSError:
+                    pass
+                os.replace(temporary_path, self.path)
+            finally:
+                if temporary_path is not None and temporary_path.exists():
+                    temporary_path.unlink(missing_ok=True)
+        return self.get()
+
+
 class AppState:
     def __init__(self) -> None:
         self.online: bool = False
@@ -2713,10 +2782,15 @@ class AppState:
 
 
 state = AppState()
+ollama_embedding_model_settings = OllamaEmbeddingModelSettingsStore(
+    app_data_dir() / "ollama-embedding-model.json",
+    default_model=OLLAMA_EMBEDDING_MODEL,
+)
+_initial_embedding_model = ollama_embedding_model_settings.get()["model"]
 _embedding_provider = None
-if OLLAMA_EMBEDDING_MODEL and _is_loopback_http_url(OLLAMA_BASE):
-    _embedding_provider = OllamaEmbeddingProvider(OLLAMA_BASE, OLLAMA_EMBEDDING_MODEL)
-elif OLLAMA_EMBEDDING_MODEL:
+if _initial_embedding_model and _is_loopback_http_url(OLLAMA_BASE):
+    _embedding_provider = OllamaEmbeddingProvider(OLLAMA_BASE, str(_initial_embedding_model))
+elif _initial_embedding_model:
     logger.warning("Local embeddings disabled because OLLAMA_URL is not a loopback URL")
 knowledge_index = KnowledgeIndex(
     PROJECT_ROOT,
@@ -2725,6 +2799,21 @@ knowledge_index = KnowledgeIndex(
 study_progress_store = StudyProgressStore(default_database_path())
 trusted_source_monitor = TrustedSourceMonitor(PROJECT_ROOT, default_database_path())
 provider_usage_store = ProviderUsageStore(app_data_dir() / "provider-usage.sqlite3")
+
+
+def _ollama_embedding_model_payload() -> dict[str, str | bool | None]:
+    return ollama_embedding_model_settings.get()
+
+
+def _apply_ollama_embedding_model(model: str | None) -> None:
+    global _embedding_provider
+    provider = None
+    if model:
+        if not _is_loopback_http_url(OLLAMA_BASE):
+            raise ValueError("Ollama embeddings require a local loopback endpoint")
+        provider = OllamaEmbeddingProvider(OLLAMA_BASE, model)
+    _embedding_provider = provider
+    knowledge_index.set_embedding_provider(provider)
 
 SUBJECT_MODEL_ROUTE_SUBJECTS = (
     "mathematics", "english", "physics", "biology", "zoology", "programming",
@@ -4536,6 +4625,74 @@ async def reset_subject_model_route(subject: str, request: Request):
         item for item in _subject_model_route_payload()["subjects"]
         if item["subject"] == subject
     )
+
+
+@app.get("/settings/ollama-embedding-model")
+async def get_ollama_embedding_model(request: Request):
+    _require_local_settings_request(request)
+    return _ollama_embedding_model_payload()
+
+
+@app.put("/settings/ollama-embedding-model")
+async def save_ollama_embedding_model(
+    settings: OllamaEmbeddingModelRequest, request: Request
+):
+    _require_local_settings_request(request)
+    model = settings.model.strip() if settings.model is not None else None
+    if model is not None and not model:
+        raise HTTPException(status_code=422, detail="Embedding model name cannot be blank")
+
+    if model is None:
+        saved = ollama_embedding_model_settings.set(None)
+        _apply_ollama_embedding_model(None)
+        return saved
+
+    if OllamaEmbeddingModelSettingsStore._clean_model(model) is None:
+        raise HTTPException(status_code=422, detail="Invalid Ollama embedding model identifier")
+    if not _is_loopback_http_url(OLLAMA_BASE):
+        raise HTTPException(status_code=503, detail="Ollama embeddings require a local endpoint")
+
+    ollama_info = await _check_ollama()
+    if not ollama_info.get("available"):
+        raise HTTPException(status_code=503, detail="Ollama is not available on this Mac")
+    installed_models = ollama_info.get("models")
+    if not isinstance(installed_models, list) or model not in installed_models:
+        raise HTTPException(
+            status_code=422,
+            detail="Install this embedding model in Ollama before selecting it",
+        )
+
+    provider = OllamaEmbeddingProvider(OLLAMA_BASE, model)
+    try:
+        sample_vectors = await asyncio.to_thread(
+            provider.embed, ["ColiDev local embedding configuration check"]
+        )
+        KnowledgeIndex._normalise_vectors(sample_vectors, 1)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            raise HTTPException(
+                status_code=422,
+                detail="This installed Ollama model does not provide embeddings",
+            ) from None
+        logger.info(
+            "Could not verify the local Ollama embedding model",
+            extra={"status": exc.response.status_code},
+        )
+        raise HTTPException(status_code=502, detail="Ollama could not verify the embedding model") from None
+    except Exception as exc:
+        logger.info(
+            "Could not verify the local Ollama embedding model",
+            extra={"error_type": type(exc).__name__},
+        )
+        raise HTTPException(status_code=502, detail="Ollama could not verify the embedding model") from None
+
+    try:
+        saved = ollama_embedding_model_settings.set(model)
+    except OSError:
+        logger.exception("Could not persist the Ollama embedding model selection")
+        raise HTTPException(status_code=500, detail="Could not save the local embedding model") from None
+    _apply_ollama_embedding_model(model)
+    return saved
 
 
 @app.get("/settings/agent-models")
