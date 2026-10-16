@@ -31,7 +31,8 @@ for part in ids:
     assert f'"biology.cell3d.{part}.function"' in l10n, f"Missing bilingual organelle description: {part}"
 
 for snippet in (
-    "EukaryoticCellScene(selectedPart: $selectedPart)",
+    "EukaryoticCellScene(",
+    "tapLocation: $sceneTapLocation",
     "Picker(L10n.text(\"lab.cellPart\", store.language), selection: $selectedPart)",
     ".pickerStyle(.menu)",
     '.accessibilityIdentifier("biology.cell3d.organelles")',
@@ -41,14 +42,14 @@ for snippet in (
     '.accessibilityValue(Text(L10n.text("biology.cell3d.\\(selectedPart)", store.language)))',
     'Text(L10n.text("biology.cell3d.\\(selectedPart).function", store.language))',
     "lab.cell3d.interactionHint",
+    "SpatialTapGesture(coordinateSpace: .local)",
+    "sceneTapSequence += 1",
 ):
     assert snippet in lab, f"3D cell lesson UI is missing: {snippet}"
 
 for snippet in (
-    "private final class CellSceneView: SCNView",
-    "override func mouseDown(with event: NSEvent)",
-    "override func mouseUp(with event: NSEvent)",
-    "onOrganelleClick?(self, point)",
+    "func handleSceneTap(at point: CGPoint, sequence: Int, in view: SCNView)",
+    "view.isFlipped ? point.y : view.bounds.height - point.y",
     "view.hitTest(point, options: [.searchMode: SCNHitTestSearchMode.all.rawValue])",
     "selectedPart.wrappedValue = part",
     "for child in node.childNodes",

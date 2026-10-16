@@ -7672,6 +7672,8 @@ private enum CellOrganelleID {
 private struct EukaryoticCellLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var selectedPart = "nucleus"
+    @State private var sceneTapLocation = CGPoint.zero
+    @State private var sceneTapSequence = 0
 
     private let parts = CellOrganelleID.all
 
@@ -7690,8 +7692,19 @@ private struct EukaryoticCellLab: View {
                         .foregroundStyle(.secondary)
                 }
 
-                EukaryoticCellScene(selectedPart: $selectedPart)
+                EukaryoticCellScene(
+                    selectedPart: $selectedPart,
+                    tapLocation: $sceneTapLocation,
+                    tapSequence: $sceneTapSequence
+                )
                     .frame(height: 260)
+                    .simultaneousGesture(
+                        SpatialTapGesture(coordinateSpace: .local)
+                            .onEnded { value in
+                                sceneTapLocation = value.location
+                                sceneTapSequence += 1
+                            }
+                    )
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(Text(L10n.text("lab.cell3d.accessibility", store.language)))
@@ -7724,35 +7737,53 @@ private struct EukaryoticCellLab: View {
 
 private struct EukaryoticCellScene: NSViewRepresentable {
     @Binding var selectedPart: String
+    @Binding var tapLocation: CGPoint
+    @Binding var tapSequence: Int
 
     fileprivate func makeCoordinator() -> Coordinator {
         Coordinator(selectedPart: $selectedPart)
     }
 
     func makeNSView(context: Context) -> SCNView {
-        let view = CellSceneView()
+        let view = SCNView()
         view.scene = Self.makeScene()
         view.allowsCameraControl = true
         view.autoenablesDefaultLighting = true
         view.backgroundColor = .controlBackgroundColor
         view.antialiasingMode = .multisampling4X
         Self.highlight(selectedPart, in: view.scene)
-        view.onOrganelleClick = { [weak coordinator = context.coordinator] view, point in
-            coordinator?.selectOrganelle(at: point, in: view)
-        }
         return view
     }
 
     func updateNSView(_ view: SCNView, context: Context) {
         context.coordinator.selectedPart = $selectedPart
         Self.highlight(selectedPart, in: view.scene)
+        context.coordinator.handleSceneTap(
+            at: tapLocation,
+            sequence: tapSequence,
+            in: view
+        )
     }
 
     fileprivate final class Coordinator: NSObject {
         var selectedPart: Binding<String>
+        private var lastHandledTapSequence = 0
 
         init(selectedPart: Binding<String>) {
             self.selectedPart = selectedPart
+        }
+
+        func handleSceneTap(at point: CGPoint, sequence: Int, in view: SCNView) {
+            guard sequence != lastHandledTapSequence else { return }
+            lastHandledTapSequence = sequence
+
+            // SwiftUI reports the tap in top-left coordinates; convert for an unflipped NSView.
+            // SwiftUI сообщает координаты от верхнего края; для обычного NSView меняем ось Y.
+            let scenePoint = CGPoint(
+                x: point.x,
+                y: view.isFlipped ? point.y : view.bounds.height - point.y
+            )
+            selectOrganelle(at: scenePoint, in: view)
         }
 
         func selectOrganelle(at point: CGPoint, in view: SCNView) {
@@ -7805,29 +7836,6 @@ private struct EukaryoticCellScene: NSViewRepresentable {
             }
             guard let nearest, nearest.distance <= 44 else { return nil }
             return nearest.part
-        }
-    }
-
-    private final class CellSceneView: SCNView {
-        var onOrganelleClick: ((SCNView, CGPoint) -> Void)?
-        private var mouseDownPoint: CGPoint?
-
-        override func mouseDown(with event: NSEvent) {
-            mouseDownPoint = convert(event.locationInWindow, from: nil)
-            super.mouseDown(with: event)
-        }
-
-        override func mouseUp(with event: NSEvent) {
-            let point = convert(event.locationInWindow, from: nil)
-            let isClick = mouseDownPoint.map { hypot($0.x - point.x, $0.y - point.y) <= 5 } ?? false
-            mouseDownPoint = nil
-            super.mouseUp(with: event)
-
-            // A short left click selects; a drag remains reserved for camera rotation.
-            // Короткий щелчок выбирает органеллу; перетаскивание остаётся вращением камеры.
-            if isClick {
-                onOrganelleClick?(self, point)
-            }
         }
     }
 
