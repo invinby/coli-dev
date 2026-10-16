@@ -1490,7 +1490,7 @@ enum L10n {
         "management.networkOffline": ("Работает офлайн", "Offline mode"),
         "management.indexedDocuments": ("Материалов в индексе", "Indexed materials"),
         "management.sourcesTotal": ("Официальных ссылок", "Official references"),
-        "management.sourcesAttention": ("Источников требуют проверки", "Sources need review"),
+        "management.sourcesAttention": ("Ссылки без проверки или с предупреждением", "Unchecked or flagged source links"),
         "management.editorialReviewSummary": ("Проверка источников: просрочено %d · без даты %d · без графика %d", "Source reviews: %d due · %d missing date · %d unscheduled"),
         "management.reviewDue": ("Уроков пора перепроверить", "Lessons due for review"),
         "management.reviewScheduleMissing": ("Без графика проверки", "No review schedule"),

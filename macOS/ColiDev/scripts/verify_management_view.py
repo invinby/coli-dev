@@ -85,5 +85,10 @@ if "formatManagementDate(dueAt)" not in sources_pane or "private func formatMana
         "Форматтер срока должен принадлежать ManagementView / "
         "The due-date formatter must be scoped to ManagementView"
     )
+if '"management.sourcesAttention": ("Ссылки без проверки или с предупреждением", "Unchecked or flagged source links")' not in localization:
+    raise AssertionError(
+        "Счётчик сетевого статуса ссылок должен отличаться от редакторского срока проверки / "
+        "The network source-status metric must be distinct from editorial review due dates"
+    )
 
 print("Доступность панелей Центра управления проверена / Control Center pane accessibility mapping is consistent.")
