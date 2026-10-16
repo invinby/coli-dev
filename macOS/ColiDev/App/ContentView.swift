@@ -195,6 +195,8 @@ struct ContentView: View {
         didOpenCell3DUITestRoute = true
         // Let SwiftUI present its first valid sidebar selection before navigating to a lesson.
         // Даём SwiftUI сначала показать валидный пункт боковой панели, а затем открываем урок.
+        let route = StudyLessonRoute(subjectID: "biology", resource: "eukaryotic_cell_organelles")
+        practiceFocusRoute = route
         DispatchQueue.main.async {
             selection = .courseLesson(.biology, "eukaryotic_cell_organelles")
         }

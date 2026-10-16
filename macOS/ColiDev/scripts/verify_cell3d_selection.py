@@ -74,6 +74,11 @@ assert "@State private var selection: AppSection? = .today" in content_view, "UI
 assert ".onAppear(perform: openCell3DUITestRouteIfNeeded)" in content_view, "UI-test lesson route must wait until the first screen appears"
 assert "DispatchQueue.main.async" in content_view, "UI-test lesson route must be deferred until after the first render"
 assert 'UserDefaults.standard.bool(forKey: "colidev.uiTestCell3D")' in content_view, "UI-test route must use a dedicated UserDefaults launch override. / Тестовый маршрут должен использовать отдельный флаг запуска UserDefaults."
+test_route_start = content_view.index("private func openCell3DUITestRouteIfNeeded()")
+test_route_end = content_view.index("private func openCustom", test_route_start)
+test_route = content_view[test_route_start:test_route_end]
+assert 'let route = StudyLessonRoute(subjectID: "biology", resource: "eukaryotic_cell_organelles")' in test_route, "UI-test route must identify the intended cell lesson. / Тестовый маршрут должен указывать нужный урок о клетке."
+assert "practiceFocusRoute = route" in test_route, "UI-test route must scroll the practice anchor into view before clicking. / Тестовый маршрут должен прокрутить к практике перед нажатием."
 assert "testClickingCellOrganelleUpdatesSelectionAndDescription" in ui_tests, "Missing macOS UI coverage for scene selection"
 assert 'app.launchArguments = ["-colidev.uiTestCell3D", "YES"]' in ui_tests, "UI test must use a standard UserDefaults argument, not an unknown -- option. / UI-тест должен использовать стандартный аргумент UserDefaults, без неизвестной опции с --."
 assert "app.activate()" in ui_tests, "UI test must bring ColiDev to the foreground before checking the window"
@@ -84,6 +89,8 @@ assert 'app.popUpButtons["biology.cell3d.organelles"]' in ui_tests, "UI test mus
 assert '.id("module-interactive-practice")' in module_views, "The interactive lesson scroll anchor must remain available. / Якорь прокрутки к интерактиву должен сохраниться."
 assert '.accessibilityIdentifier("module.interactive-practice")' not in module_views, "The practice container must not override child accessibility IDs. / Контейнер практики не должен перезаписывать ID вложенных элементов доступности."
 assert "window.scrollViews.element(boundBy: 1)" in ui_tests, "UI test must scroll the lesson pane instead of the sidebar. / UI-тест должен прокручивать урок, а не боковую панель."
+assert 'NSPredicate(format: "hittable == true")' in ui_tests, "UI test must wait for the 3D scene to become visible before clicking. / Перед нажатием UI-тест должен дождаться видимости 3D-сцены."
+assert "swipeUp()" not in ui_tests and "swipeDown()" not in ui_tests, "UI test must not fling the long lesson past the 3D scene. / UI-тест не должен резкими свайпами прокручивать длинный урок мимо 3D-сцены."
 assert "viewport.contains(scene.frame)" in ui_tests, "UI test must keep the 3D scene inside the visible lesson viewport before clicking. / Перед кликом UI-тест должен удерживать 3D-сцену внутри видимой области урока."
 assert 'scene.coordinate(withNormalizedOffset: CGVector(dx: 0.56, dy: 0.38)).click()' in ui_tests, "UI test does not click the mitochondrion in the scene"
 assert 'app.staticTexts["biology.cell3d.description"]' in ui_tests, "UI test does not inspect the live organelle description"
