@@ -763,6 +763,7 @@ final class LocalBackendSupervisor: ObservableObject {
     @Published private(set) var status: Status = .idle
     private var process: Process?
     private var startupTask: Task<Bool, Never>?
+    private var lastProbeError: String?
     private let baseURL = URL(string: "http://127.0.0.1:8000")!
 
     var isReady: Bool {
@@ -836,9 +837,25 @@ final class LocalBackendSupervisor: ObservableObject {
         environment["PORT"] = "8000"
         environment["DEV_MODE"] = "false"
         child.environment = environment
-        child.standardOutput = FileHandle.nullDevice
-        child.standardError = FileHandle.nullDevice
-        child.terminationHandler = { [weak self] _ in
+        let backendLogHandle = try? makeBackendLogHandle()
+        if let backendLogHandle {
+            environment["COLIDEV_LOG_DIR"] = backendLogHandleURL().deletingLastPathComponent().path
+            child.environment = environment
+            child.standardOutput = backendLogHandle
+            child.standardError = backendLogHandle
+            appendBackendDiagnostic("Starting bundled backend on 127.0.0.1:8000.", to: backendLogHandle)
+        } else {
+            child.standardOutput = FileHandle.nullDevice
+            child.standardError = FileHandle.nullDevice
+        }
+        child.terminationHandler = { [weak self, backendLogHandle] terminatedChild in
+            if let backendLogHandle {
+                let reason = terminatedChild.terminationReason == .exit ? "exit" : "signal"
+                let line = "\(Date().timeIntervalSince1970) Bundled backend terminated by \(reason) with status \(terminatedChild.terminationStatus).\n"
+                try? backendLogHandle.write(contentsOf: Data(line.utf8))
+                try? backendLogHandle.synchronize()
+                try? backendLogHandle.close()
+            }
             Task { @MainActor [weak self] in
                 guard let self, self.process === child else { return }
                 self.process = nil
@@ -849,15 +866,23 @@ final class LocalBackendSupervisor: ObservableObject {
         do {
             try child.run()
         } catch {
+            appendBackendDiagnostic("Could not launch bundled backend: \(error.localizedDescription)", to: backendLogHandle)
+            try? backendLogHandle?.synchronize()
+            try? backendLogHandle?.close()
             status = .failed
             return false
         }
         process = child
 
         if await waitUntilReady(timeout: 15) {
+            appendBackendDiagnostic("Local backend /api/status responded successfully.", to: backendLogHandle)
             status = .running
             return true
         }
+        appendBackendDiagnostic(
+            "Local backend did not become ready: \(lastProbeError ?? "no HTTP response").",
+            to: backendLogHandle
+        )
         if child.isRunning {
             child.terminate()
         }
@@ -886,12 +911,55 @@ final class LocalBackendSupervisor: ObservableObject {
                   (200..<300).contains(response.statusCode),
                   let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let service = payload["service"] as? String else {
+                lastProbeError = "Unexpected HTTP response from the local backend."
                 return false
             }
-            return service.hasPrefix("coli-dev Orchestrator")
+            guard service.hasPrefix("coli-dev Orchestrator") else {
+                lastProbeError = "The service at 127.0.0.1:8000 is not the ColiDev orchestrator."
+                return false
+            }
+            lastProbeError = nil
+            return true
         } catch {
+            lastProbeError = String(describing: error)
             return false
         }
+    }
+
+    private func backendLogHandleURL() -> URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Logs/coli-dev", isDirectory: true)
+            .appendingPathComponent("backend-launch.log")
+    }
+
+    private func makeBackendLogHandle() throws -> FileHandle {
+        let logURL = backendLogHandleURL()
+        try FileManager.default.createDirectory(
+            at: logURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        if !FileManager.default.fileExists(atPath: logURL.path) {
+            FileManager.default.createFile(
+                atPath: logURL.path,
+                contents: nil,
+                attributes: [.posixPermissions: 0o600]
+            )
+        }
+        let handle = try FileHandle(forWritingTo: logURL)
+        let attributes = try? FileManager.default.attributesOfItem(atPath: logURL.path)
+        let existingSize = (attributes?[.size] as? NSNumber)?.uint64Value ?? 0
+        if existingSize >= 256 * 1024 {
+            try handle.truncate(atOffset: 0)
+        } else {
+            try handle.seekToEnd()
+        }
+        return handle
+    }
+
+    private func appendBackendDiagnostic(_ message: String, to handle: FileHandle?) {
+        guard let handle else { return }
+        let line = "\(Date().timeIntervalSince1970) \(message)\n"
+        try? handle.write(contentsOf: Data(line.utf8))
     }
 }
 
