@@ -27,7 +27,7 @@ source_review_interval_days: 365
 
 ### Исследуй 3D-модель
 
-Поверни модель мышью или трекпадом, выбери органеллу в списке и посмотри, где она расположена и за что отвечает. Затем выбери «аппарат Гольджи» и «мембрана»: объясни, что должно произойти с пузырьком, чтобы содержимое оказалось снаружи клетки. Модель упрощена; число и размеры объектов не передают реальные масштабы или разнообразие клеток.
+Поверни модель мышью или трекпадом. Нажми прямо на органеллу в 3D-сцене: она подсветится, а описание под моделью изменится. Если удобнее, выбери её из доступного меню. Затем найди «аппарат Гольджи» и «мембрану»: объясни, что должно произойти с пузырьком, чтобы содержимое оказалось снаружи клетки. Модель упрощена; число и размеры объектов не передают реальные масштабы или разнообразие клеток.
 
 ### Вопрос
 
@@ -69,7 +69,7 @@ Imagine a protein that a cell will release. Information is read from a gene thro
 
 ### Explore the 3D model
 
-Rotate the model with a mouse or trackpad, choose an organelle from the menu, and inspect its location and role. Then select “Golgi apparatus” and “membrane”: explain what must happen to a vesicle for its contents to reach the outside of the cell. The model is simplified; object counts and sizes do not represent real scale or cellular diversity.
+Rotate the model with a mouse or trackpad. Click an organelle directly in the 3D scene: it is highlighted and the description below the model changes. If preferred, select it from the available menu. Then find the “Golgi apparatus” and “membrane”: explain what must happen to a vesicle for its contents to reach the outside of the cell. The model is simplified; object counts and sizes do not represent real scale or cellular diversity.
 
 ### Question
 

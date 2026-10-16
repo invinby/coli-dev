@@ -7696,6 +7696,7 @@ private struct EukaryoticCellLab: View {
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                     .accessibilityLabel(Text(L10n.text("lab.cell3d.accessibility", store.language)))
                     .accessibilityValue(Text(L10n.text("biology.cell3d.\(selectedPart)", store.language)))
+                    .accessibilityIdentifier("biology.cell3d.scene")
 
                 Picker(L10n.text("lab.cellPart", store.language), selection: $selectedPart) {
                     ForEach(parts, id: \.self) { part in
@@ -7711,6 +7712,7 @@ private struct EukaryoticCellLab: View {
                     .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(.background, in: RoundedRectangle(cornerRadius: 10))
+                    .accessibilityIdentifier("biology.cell3d.description")
 
                 Text(L10n.text("lab.cell3d.scaleNote", store.language))
                     .font(.caption)

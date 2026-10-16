@@ -7,6 +7,8 @@ import re
 ROOT = Path(__file__).resolve().parents[3]
 views = (ROOT / "macOS/ColiDev/App/LearningViews.swift").read_text(encoding="utf-8")
 l10n = (ROOT / "macOS/ColiDev/App/L10n.swift").read_text(encoding="utf-8")
+lesson = (ROOT / "02_Areas/Biology/lessons/eukaryotic_cell_organelles.md").read_text(encoding="utf-8")
+ui_tests = (ROOT / "macOS/ColiDev/UITests/ManagementUITests.swift").read_text(encoding="utf-8")
 ids_start = views.index("private enum CellOrganelleID {")
 ids_end = views.index("private struct EukaryoticCellLab: View {", ids_start)
 ids_source = views[ids_start:ids_end]
@@ -31,6 +33,8 @@ for snippet in (
     "Picker(L10n.text(\"lab.cellPart\", store.language), selection: $selectedPart)",
     ".pickerStyle(.menu)",
     '.accessibilityIdentifier("biology.cell3d.organelles")',
+    '.accessibilityIdentifier("biology.cell3d.scene")',
+    '.accessibilityIdentifier("biology.cell3d.description")',
     '.accessibilityValue(Text(L10n.text("biology.cell3d.\\(selectedPart)", store.language)))',
     'Text(L10n.text("biology.cell3d.\\(selectedPart).function", store.language))',
     "lab.cell3d.interactionHint",
@@ -44,5 +48,11 @@ for snippet in (
     "for child in node.childNodes",
 ):
     assert snippet in scene, f"3D cell scene selection wiring is missing: {snippet}"
+
+assert "Нажми прямо на органеллу в 3D-сцене" in lesson, "Russian lesson does not explain direct scene selection"
+assert "Click an organelle directly in the 3D scene" in lesson, "English lesson does not explain direct scene selection"
+assert "testClickingCellOrganelleUpdatesSelectionAndDescription" in ui_tests, "Missing macOS UI coverage for scene selection"
+assert 'scene.coordinate(withNormalizedOffset: CGVector(dx: 0.56, dy: 0.38)).click()' in ui_tests, "UI test does not click the mitochondrion in the scene"
+assert 'app.staticTexts["biology.cell3d.description"]' in ui_tests, "UI test does not inspect the live organelle description"
 
 print("3D cell selection IDs, bilingual labels, click handling, and keyboard menu are aligned.")

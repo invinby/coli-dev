@@ -2,6 +2,61 @@ import XCTest
 
 final class ManagementUITests: XCTestCase {
     @MainActor
+    func testClickingCellOrganelleUpdatesSelectionAndDescription() async throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--coli-dev-ui-test-cell3d", "-colidev.language", "ru"]
+        app.launch()
+
+        let scene = app.descendants(matching: .any)["biology.cell3d.scene"]
+        XCTAssertTrue(
+            scene.waitForExistence(timeout: 15),
+            "3D cell scene was not opened by the UI-test route. / UI-тест не открыл 3D-сцену клетки.\n\(app.debugDescription)"
+        )
+
+        let description = app.staticTexts["biology.cell3d.description"]
+        XCTAssertTrue(
+            description.waitForExistence(timeout: 10),
+            "The selected organelle description is missing. / Не найдено описание выбранной органеллы.\n\(app.debugDescription)"
+        )
+        XCTAssertEqual(
+            description.label,
+            "Хранит большую часть ДНК клетки; оболочка ядра отделяет её от цитоплазмы.",
+            "The nucleus must be selected initially. / При открытии должно быть выбрано ядро."
+        )
+
+        if !scene.isHittable {
+            app.scrollViews.firstMatch.swipeUp()
+        }
+        XCTAssertTrue(
+            scene.isHittable,
+            "The 3D cell scene is not hittable. / По 3D-сцене клетки нельзя нажать.\n\(scene.debugDescription)"
+        )
+
+        // The first mitochondrion is in the front-right quadrant of the orthographic scene.
+        // Первая митохондрия находится в передней правой четверти ортографической сцены.
+        scene.coordinate(withNormalizedOffset: CGVector(dx: 0.56, dy: 0.38)).click()
+
+        let mitochondriaDescription = "Участвуют в клеточном дыхании и производстве ATP для многих процессов клетки."
+        let descriptionChanged = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", mitochondriaDescription),
+            object: description
+        )
+        let selectionResult = await XCTWaiter.fulfillment(of: [descriptionChanged], timeout: 5)
+        XCTAssertEqual(
+            selectionResult,
+            .completed,
+            "Clicking the mitochondrion did not synchronize its selection and description. / Нажатие на митохондрию не синхронизировало выбор и описание.\n\(app.debugDescription)"
+        )
+
+        let sceneSelection = app.descendants(matching: .any)["biology.cell3d.scene"]
+        XCTAssertEqual(
+            sceneSelection.value as? String,
+            "Митохондрии",
+            "The accessible scene value must announce the selected organelle. / Значение сцены должно объявлять выбранную органеллу."
+        )
+    }
+
+    @MainActor
     func testSelectingManagementRendersOverviewContent() async throws {
         let app = XCUIApplication()
         app.launch()

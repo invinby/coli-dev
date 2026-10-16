@@ -24,7 +24,14 @@ struct ContentView: View {
     @EnvironmentObject private var store: LearningStore
     @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var selection: AppSection? = .today
+    @State private var selection: AppSection? = {
+#if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--coli-dev-ui-test-cell3d") {
+            return .courseLesson(.biology, "eukaryotic_cell_organelles")
+        }
+#endif
+        return .today
+    }()
     @State private var practiceFocusRoute: StudyLessonRoute?
 
     var body: some View {
