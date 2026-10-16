@@ -1561,6 +1561,11 @@ private struct ManagementView: View {
     @State private var ragSearchResult: KnowledgeRAGSearchResult?
     @State private var includeObsidianRAG = false
     @State private var isSearchingRAG = false
+    @State private var ollamaEmbeddingModelSettings: OllamaEmbeddingModelSettings?
+    @State private var ollamaEmbeddingModelDraft = ""
+    @State private var isLoadingOllamaEmbeddingSettings = false
+    @State private var isSavingOllamaEmbeddingSettings = false
+    @State private var hasLoadedOllamaEmbeddingSettings = false
     @State private var isLoading = false
     @State private var isRefreshingIndex = false
     @State private var isCheckingSources = false
@@ -1733,6 +1738,9 @@ private struct ManagementView: View {
         .task { await reload() }
         .task { _ = await loadCourseCoverageIfNeeded() }
         .task(id: pane) {
+            if pane == .rag {
+                await loadOllamaEmbeddingSettingsIfNeeded()
+            }
             guard pane == .sources else { return }
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 300_000_000_000)
@@ -2299,6 +2307,8 @@ private struct ManagementView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            ollamaEmbeddingSettingsCard
+
             HStack(spacing: 10) {
                 TextField(L10n.text("management.ragQuery", store.language), text: $ragQuery)
                     .textFieldStyle(.roundedBorder)
@@ -2627,6 +2637,90 @@ private struct ManagementView: View {
                 return reviewStatuses.contains { $0 != "review_scheduled" }
             }
         }
+    }
+
+    private var ollamaEmbeddingSettingsCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label {
+                Text(L10n.text("management.ragEmbeddingTitle", store.language))
+                    .font(.headline)
+            } icon: {
+                Image(systemName: "point.3.connected.trianglepath.dotted")
+                    .foregroundStyle(ColiDevVisualSystem.managementSources.color)
+            }
+
+            Text(L10n.text("management.ragEmbeddingDescription", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 10) {
+                TextField(
+                    L10n.text("management.ragEmbeddingModelPlaceholder", store.language),
+                    text: $ollamaEmbeddingModelDraft
+                )
+                .textFieldStyle(.roundedBorder)
+                .disabled(isSavingOllamaEmbeddingSettings)
+                .accessibilityIdentifier("control-center.rag.embedding-model")
+
+                Menu {
+                    ForEach(store.localOllamaModelCatalog.models, id: \.self) { model in
+                        Button(model) { ollamaEmbeddingModelDraft = model }
+                    }
+                } label: {
+                    Label(L10n.text("management.ragEmbeddingInstalledModels", store.language), systemImage: "chevron.down")
+                }
+                .disabled(store.localOllamaModelCatalog.models.isEmpty || isSavingOllamaEmbeddingSettings)
+            }
+
+            HStack(spacing: 10) {
+                Button {
+                    Task { await saveOllamaEmbeddingModel() }
+                } label: {
+                    if isSavingOllamaEmbeddingSettings {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Label(L10n.text("management.ragEmbeddingSave", store.language), systemImage: "checkmark")
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(
+                    isLoadingOllamaEmbeddingSettings
+                        || isSavingOllamaEmbeddingSettings
+                        || ollamaEmbeddingModelDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                )
+                .accessibilityIdentifier("control-center.rag.save-embedding-model")
+
+                Button {
+                    Task { await disableOllamaEmbeddingModel() }
+                } label: {
+                    Label(L10n.text("management.ragEmbeddingDisable", store.language), systemImage: "text.magnifyingglass")
+                }
+                .buttonStyle(.bordered)
+                .disabled(isLoadingOllamaEmbeddingSettings || isSavingOllamaEmbeddingSettings)
+                .accessibilityIdentifier("control-center.rag.disable-embedding-model")
+
+                Spacer(minLength: 0)
+
+                if isLoadingOllamaEmbeddingSettings {
+                    ProgressView().controlSize(.small)
+                } else if let settings = ollamaEmbeddingModelSettings {
+                    Label(
+                        L10n.text(
+                            settings.configured ? "management.ragEmbeddingEnabled" : "management.ragEmbeddingKeywordOnly",
+                            store.language
+                        ),
+                        systemImage: settings.configured ? "checkmark.circle.fill" : "text.magnifyingglass"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(settings.configured ? Color.green : Color.secondary)
+                    .accessibilityIdentifier("control-center.rag.embedding-status")
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .coliGlassControl(cornerRadius: 16)
     }
 
     private var dailyOnlineLimitSummary: String {
@@ -3495,6 +3589,68 @@ private struct ManagementView: View {
             statusIsError = result.needsAttentionCount > 0
         } catch {
             reportError("management.checkSourcesFailed")
+        }
+    }
+
+    @MainActor
+    private func loadOllamaEmbeddingSettingsIfNeeded() async {
+        guard !hasLoadedOllamaEmbeddingSettings else { return }
+        hasLoadedOllamaEmbeddingSettings = true
+        isLoadingOllamaEmbeddingSettings = true
+        defer { isLoadingOllamaEmbeddingSettings = false }
+        guard await backendSupervisor.ensureRunning() else {
+            hasLoadedOllamaEmbeddingSettings = false
+            reportError("management.ragEmbeddingLoadFailed")
+            return
+        }
+        do {
+            let settings = try await OrchestratorClient.ollamaEmbeddingModelSettings()
+            ollamaEmbeddingModelSettings = settings
+            ollamaEmbeddingModelDraft = settings.model ?? ""
+            statusMessage = nil
+            statusIsError = false
+        } catch {
+            hasLoadedOllamaEmbeddingSettings = false
+            reportError("management.ragEmbeddingLoadFailed")
+        }
+    }
+
+    @MainActor
+    private func saveOllamaEmbeddingModel() async {
+        let model = ollamaEmbeddingModelDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !model.isEmpty else { return }
+        await updateOllamaEmbeddingModel(model)
+    }
+
+    @MainActor
+    private func disableOllamaEmbeddingModel() async {
+        await updateOllamaEmbeddingModel(nil)
+    }
+
+    @MainActor
+    private func updateOllamaEmbeddingModel(_ model: String?) async {
+        isSavingOllamaEmbeddingSettings = true
+        defer { isSavingOllamaEmbeddingSettings = false }
+        guard await backendSupervisor.ensureRunning() else {
+            reportError("management.ragEmbeddingSaveFailed")
+            return
+        }
+        do {
+            let settings = try await OrchestratorClient.saveOllamaEmbeddingModel(model)
+            ollamaEmbeddingModelSettings = settings
+            ollamaEmbeddingModelDraft = settings.model ?? ""
+            await store.refreshAIStatus()
+            if let savedModel = settings.model, settings.configured {
+                statusMessage = String(
+                    format: L10n.text("management.ragEmbeddingSaved", store.language),
+                    savedModel
+                )
+            } else {
+                statusMessage = L10n.text("management.ragEmbeddingDisabled", store.language)
+            }
+            statusIsError = false
+        } catch {
+            reportError("management.ragEmbeddingSaveFailed")
         }
     }
 

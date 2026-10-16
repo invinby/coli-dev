@@ -1464,6 +1464,12 @@ struct LocalOllamaModelCatalog: Decodable, Equatable {
     static let unavailable = Self(available: false, status: "unavailable", models: [])
 }
 
+struct OllamaEmbeddingModelSettings: Decodable, Equatable {
+    let model: String?
+    let source: String
+    let configured: Bool
+}
+
 struct FinalSynthesisModelRoute: Decodable, Hashable {
     let provider: String
     let model: String?
@@ -1509,6 +1515,10 @@ private struct OpenAICompatibleSettingsUpdate: Encodable {
         case model
         case baseURL = "base_url"
     }
+}
+
+private struct OllamaEmbeddingModelUpdate: Encodable {
+    let model: String?
 }
 
 private struct AutoAgentModelUpdate: Encodable {
@@ -2049,6 +2059,35 @@ enum OrchestratorClient {
             throw ClientError.unavailable
         }
         return try JSONDecoder().decode(LocalOllamaModelCatalog.self, from: data)
+    }
+
+    static func ollamaEmbeddingModelSettings() async throws -> OllamaEmbeddingModelSettings {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/settings/ollama-embedding-model") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 8
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(OllamaEmbeddingModelSettings.self, from: data)
+    }
+
+    static func saveOllamaEmbeddingModel(_ model: String?) async throws -> OllamaEmbeddingModelSettings {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/settings/ollama-embedding-model") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.timeoutInterval = 30
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(OllamaEmbeddingModelUpdate(model: model))
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(OllamaEmbeddingModelSettings.self, from: data)
     }
 
     static func saveAutoAgentModelRoute(
