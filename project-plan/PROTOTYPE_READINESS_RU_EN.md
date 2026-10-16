@@ -2,21 +2,21 @@
 
 **Дата обновления / Updated:** 2026-10-16
 
-**Проверенный коммит приложения / Verified application commit:** `b3dd9239771f71ae33b1c3374c93544a133c5eb4`
+**Проверенный коммит приложения / Verified application commit:** `c55272b3a87a1b3e5fdf5e561c64819f47dcbaa8`
 
-**Последний CI / Latest CI:** [запуск 38826052840](https://github.com/invinby/coli-dev/actions/runs/38826052840) — backend, UI-проверка и все три сборки macOS успешно завершены / backend, UI check, and all three macOS builds passed
+**Последний CI / Latest CI:** [запуск 38829521715](https://github.com/invinby/coli-dev/actions/runs/38829521715) — backend, UI-проверка и все три сборки macOS успешно завершены / backend, UI check, and all three macOS builds passed
 
 **Последний опубликованный релиз / Latest published release:** [ColiDev 0.1.0 Beta 7](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.7). Более новые коммиты доступны во временных архивах CI ниже. / Newer commits are available in the temporary CI archives below.
 
 **Статус:** свежая неподписанная тестовая сборка готова к приёмке на Mac. Продукт ещё не завершён; проверка живых ИИ-маршрутов, сохранения после перезапуска и интеграций на устройстве остаётся открытой. / **Status:** the newest unsigned test build is ready for Mac acceptance. The product is not complete; live AI routes, persistence after relaunch, and integrations still need device checks.
 
-**Свежая CI-сборка / Latest CI build:** [macOS 15 Apple Silicon](https://github.com/invinby/coli-dev/actions/runs/38826052840/artifacts/12015800433), [macOS 26 Apple Silicon](https://github.com/invinby/coli-dev/actions/runs/38826052840/artifacts/12015530697), [macOS 26 Intel](https://github.com/invinby/coli-dev/actions/runs/38826052840/artifacts/12015945742). Артефакты истекают 29–30 октября 2026 года. / Artifacts expire on 29–30 October 2026.
+**Свежая CI-сборка / Latest CI build:** [macOS 15 Apple Silicon](https://github.com/invinby/coli-dev/actions/runs/38829521715/artifacts/12017310329), [macOS 26 Apple Silicon](https://github.com/invinby/coli-dev/actions/runs/38829521715/artifacts/12016946960), [macOS 26 Intel](https://github.com/invinby/coli-dev/actions/runs/38829521715/artifacts/12016942605). Архивы истекают 30 октября 2026 года, около 00:35–00:38 UTC. / Archives expire on 30 October 2026, around 00:35–00:38 UTC.
 
 ## Свежая проверенная сборка CI / Latest verified CI build
 
-**RU:** GitHub Actions [38826052840](https://github.com/invinby/coli-dev/actions/runs/38826052840) прошёл backend-проверки и сборки/упаковки для macOS 15 ARM, macOS 26 ARM и macOS 26 Intel на коммите `b3dd9239771f71ae33b1c3374c93544a133c5eb4`. UI-проверка Центра управления подтвердила доступность «Обзора» и кнопки «Обновить»; [скриншот](https://github.com/invinby/coli-dev/actions/runs/38826052840/artifacts/12015388748) сохранён отдельным артефактом до 23 октября 2026 года. Этот коммит также ограничивает автоматические запросы RAG источниками, срок проверки которых наступил. CI подтверждает рендер тестового окна, но не заменяет запуск на физическом Mac и не проверяет все панели. Реальные ответы ИИ, сохранение после перезапуска и интеграции требуют отдельной приёмки.
+**RU:** GitHub Actions [38829521715](https://github.com/invinby/coli-dev/actions/runs/38829521715) прошёл backend-проверки, Swift-verifier’ы, сборку/упаковку и smoke-проверку встроенного backend на macOS 15 ARM, macOS 26 ARM и macOS 26 Intel для коммита `c55272b3a87a1b3e5fdf5e561c64819f47dcbaa8`. CI-проверка окна на macOS 15 подтвердила доступность «Обзора» и кнопки «Обновить»; [скриншот](https://github.com/invinby/coli-dev/actions/runs/38829521715/artifacts/12017340073) хранится до 23 октября 2026 года, 00:36 UTC. В коммит вошли двуязычный урок и интерактивный тренажёр для максимума списка с пятью тест-кейсами, а также дополнительный случай среднего `[-2, 2]`. CI подтверждает тестовую сборку и ограниченный сценарий UI, но не заменяет полную проверку на физическом Mac и не охватывает все панели. Реальные ответы ИИ, сохранение после перезапуска и интеграции требуют отдельной приёмки.
 
-**EN:** GitHub Actions [38826052840](https://github.com/invinby/coli-dev/actions/runs/38826052840) passed backend checks and build/packaging for macOS 15 ARM, macOS 26 ARM, and macOS 26 Intel at commit `b3dd9239771f71ae33b1c3374c93544a133c5eb4`. The Control Center UI test confirmed that Overview and Refresh were hittable; the [screenshot](https://github.com/invinby/coli-dev/actions/runs/38826052840/artifacts/12015388748) is a separate artifact that expires on 23 October 2026. This commit also limits automatic RAG requests to sources that are due for checking. CI confirms rendering of the test window, but does not replace running on a physical Mac or verify every pane. Live AI replies, persistence after relaunch, and integrations need separate acceptance.
+**EN:** GitHub Actions [38829521715](https://github.com/invinby/coli-dev/actions/runs/38829521715) passed backend checks, Swift verifiers, app builds/packaging, and bundled-backend smoke checks on macOS 15 ARM, macOS 26 ARM, and macOS 26 Intel for commit `c55272b3a87a1b3e5fdf5e561c64819f47dcbaa8`. The macOS 15 window test confirmed that Overview and Refresh are available; the [screenshot](https://github.com/invinby/coli-dev/actions/runs/38829521715/artifacts/12017340073) is retained through 23 October 2026, 00:36 UTC. This commit adds a bilingual lesson and interactive list-maximum trainer with five test cases, plus an additional mean case, `[-2, 2]`. CI confirms the test build and a limited UI scenario; it does not replace full acceptance on a physical Mac or cover every pane. Live AI replies, persistence after relaunch, and integrations need separate acceptance.
 
 ## Историческая проверка Beta 7 / Historical Beta 7 verification
 
@@ -35,12 +35,12 @@
 
 Choose the archive for your Mac. These are CI builds, not signed installers. The app is unsigned and not notarized, so macOS may show a Gatekeeper warning.
 
-- [macOS 15 Apple Silicon test ZIP](https://github.com/invinby/coli-dev/actions/runs/38826052840/artifacts/12015800433) — expires 30 October 2026, 00:00 UTC.<br>
-  [Тестовый ZIP macOS 15 Apple Silicon](https://github.com/invinby/coli-dev/actions/runs/38826052840/artifacts/12015800433) — истекает 30 октября 2026 года в 00:00 UTC.
-- [macOS 26 Apple Silicon test ZIP](https://github.com/invinby/coli-dev/actions/runs/38826052840/artifacts/12015530697) — expires 29 October 2026, 23:55 UTC.<br>
-  [Тестовый ZIP macOS 26 Apple Silicon](https://github.com/invinby/coli-dev/actions/runs/38826052840/artifacts/12015530697) — истекает 29 октября 2026 года в 23:55 UTC.
-- [macOS 26 Intel test ZIP](https://github.com/invinby/coli-dev/actions/runs/38826052840/artifacts/12015945742) — expires 30 October 2026, 00:03 UTC.<br>
-  [Тестовый ZIP macOS 26 Intel](https://github.com/invinby/coli-dev/actions/runs/38826052840/artifacts/12015945742) — истекает 30 октября 2026 года в 00:03 UTC.
+- [macOS 15 Apple Silicon test ZIP](https://github.com/invinby/coli-dev/actions/runs/38829521715/artifacts/12017310329) — expires 30 October 2026, 00:36 UTC.<br>
+  [Тестовый ZIP macOS 15 Apple Silicon](https://github.com/invinby/coli-dev/actions/runs/38829521715/artifacts/12017310329) — истекает 30 октября 2026 года в 00:36 UTC.
+- [macOS 26 Apple Silicon test ZIP](https://github.com/invinby/coli-dev/actions/runs/38829521715/artifacts/12016946960) — expires 30 October 2026, 00:34 UTC.<br>
+  [Тестовый ZIP macOS 26 Apple Silicon](https://github.com/invinby/coli-dev/actions/runs/38829521715/artifacts/12016946960) — истекает 30 октября 2026 года в 00:34 UTC.
+- [macOS 26 Intel test ZIP](https://github.com/invinby/coli-dev/actions/runs/38829521715/artifacts/12016942605) — expires 30 October 2026, 00:38 UTC.<br>
+  [Тестовый ZIP macOS 26 Intel](https://github.com/invinby/coli-dev/actions/runs/38829521715/artifacts/12016942605) — истекает 30 октября 2026 года в 00:38 UTC.
 - [Latest numbered release: Beta 7 / Последний нумерованный релиз: Beta 7](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.7)
 - [Release notes / Описание Beta 7](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.7)
 
