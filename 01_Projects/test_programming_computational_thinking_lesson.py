@@ -5,6 +5,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 LESSON_PATH = ROOT / "02_Areas" / "Programming" / "lessons" / "computational_thinking.md"
+PRACTICE_MODEL_PATH = ROOT / "macOS" / "ColiDev" / "App" / "AlgorithmicThinkingPractice.swift"
+LOCALIZATION_PATH = ROOT / "macOS" / "ColiDev" / "App" / "L10n.swift"
 
 
 class ComputationalThinkingLessonTests(unittest.TestCase):
@@ -60,6 +62,18 @@ class ComputationalThinkingLessonTests(unittest.TestCase):
 
         self.assertIn("ISTQB", lesson)
         self.assertIn("CS2023", lesson)
+
+    def test_practice_model_keys_have_bilingual_localizations(self):
+        practice_model = PRACTICE_MODEL_PATH.read_text(encoding="utf-8")
+        localization = LOCALIZATION_PATH.read_text(encoding="utf-8")
+        used_keys = set(re.findall(r'"(lab\.[A-Za-z0-9_.]+)"', practice_model))
+        localized_keys = set(re.findall(r'"(lab\.[A-Za-z0-9_.]+)"\s*:', localization))
+
+        self.assertTrue(used_keys, "The interactive practice must expose localized content keys.")
+        self.assertFalse(
+            used_keys - localized_keys,
+            f"Practice keys without RU/EN copy: {sorted(used_keys - localized_keys)}",
+        )
 
 
 if __name__ == "__main__":

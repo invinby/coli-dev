@@ -124,7 +124,7 @@ enum AlgorithmicThinkingPractice {
         AlgorithmicMaximumTestCase(
             id: "empty_list",
             values: [],
-            answerChoiceKeys: ["lab.algorithmMaximumResult0", "lab.algorithmMaximumResultMinusOne", "lab.algorithmEmptyError"],
+            answerChoiceKeys: ["lab.algorithmMaximumResult0", "lab.algorithmMaximumResultMinus1", "lab.algorithmEmptyError"],
             expectedMaximum: nil,
             correctOptionIndex: 2,
             explanationKey: "lab.algorithmMaximumEmptyExplanation"
