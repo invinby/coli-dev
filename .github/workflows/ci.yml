@@ -56,6 +56,12 @@ jobs:
       - name: Show Xcode version
         run: xcodebuild -version
 
+      - name: Verify the versioned local backend handshake / Проверка версии локального backend
+        run: |
+          swiftc macOS/ColiDev/App/BackendCompatibility.swift macOS/ColiDev/scripts/verify_backend_compatibility.swift \
+            -o "$RUNNER_TEMP/verify-backend-compatibility"
+          "$RUNNER_TEMP/verify-backend-compatibility"
+
       - name: Verify subject color and appearance tokens
         run: |
           swiftc -parse-as-library macOS/ColiDev/App/AppVisualSystem.swift macOS/ColiDev/scripts/verify_app_visual_system.swift \

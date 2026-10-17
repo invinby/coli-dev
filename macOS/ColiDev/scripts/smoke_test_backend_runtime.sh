@@ -9,13 +9,15 @@ test -s "$resources/02_Areas/Mathematics/curriculum.md"
 
 smoke_root="$(mktemp -d "${TMPDIR:-/tmp}/colidev-backend-smoke.XXXXXX")"
 mkdir -p "$smoke_root/data" "$smoke_root/logs"
-port=18763
+port_file="$smoke_root/backend.port"
 COLIDEV_PROJECT_ROOT="$resources" \
 COLIDEV_DATA_DIR="$smoke_root/data" \
 COLIDEV_LOG_DIR="$smoke_root/logs" \
 OPENAI_COMPATIBLE_API_KEY="colidev-smoke-local-only" \
 HOST=127.0.0.1 \
-PORT="$port" \
+PORT=0 \
+COLIDEV_PORT_FILE="$port_file" \
+COLIDEV_BUILD_ID="runtime-smoke" \
 DEV_MODE=false \
 NET_CHECK_TIMEOUT=0.5 \
 "$executable" >"$smoke_root/backend.log" 2>&1 &
@@ -46,9 +48,19 @@ cleanup() {
 trap cleanup EXIT
 
 ready=0
+port=""
 deadline=$((SECONDS + 30))
 while (( SECONDS < deadline )); do
-    if curl --silent --show-error --fail --max-time 2 "http://127.0.0.1:$port/api/status" \
+    if [[ -s "$port_file" ]]; then
+        candidate="$(cat "$port_file")"
+        if [[ "$candidate" =~ ^[0-9]{1,5}$ ]]; then
+            candidate_number=$((10#$candidate))
+            if (( candidate_number > 0 && candidate_number <= 65535 )); then
+                port="$candidate_number"
+            fi
+        fi
+    fi
+    if [[ -n "$port" ]] && curl --silent --show-error --fail --max-time 2 "http://127.0.0.1:$port/api/status" \
         --output "$smoke_root/status.json" 2>/dev/null; then
         ready=1
         break
@@ -67,7 +79,21 @@ if [[ "$ready" != "1" ]]; then
     exit 1
 fi
 
-grep -Eq '"service"[[:space:]]*:[[:space:]]*"coli-dev Orchestrator' "$smoke_root/status.json"
+python3 - "$smoke_root/status.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as stream:
+    status = json.load(stream)
+
+assert status["product_id"] == "colidev"
+assert status["api_version"] == 1
+assert status["api_compatibility"] == {
+    "minimum_client_version": 1,
+    "maximum_client_version": 1,
+}
+assert status["build_id"] == "runtime-smoke"
+PY
 curl --silent --show-error --fail --max-time 5 "http://127.0.0.1:$port/learning/progress" \
     --output "$smoke_root/progress.json"
 curl --silent --show-error --fail --max-time 10 -X POST "http://127.0.0.1:$port/knowledge/refresh" \

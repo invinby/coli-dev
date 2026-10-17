@@ -258,7 +258,7 @@ final class LearningStore: ObservableObject {
         didSet { UserDefaults.standard.set(aiMode.rawValue, forKey: "colidev.aiMode") }
     }
 
-    static let orchestratorBaseURL = "http://127.0.0.1:8000"
+    static var orchestratorBaseURL: String { BackendEndpointRegistry.baseURL.absoluteString }
 
     init() {
         let savedLanguage = UserDefaults.standard.string(forKey: "colidev.language")
@@ -789,7 +789,14 @@ final class LocalBackendSupervisor: ObservableObject {
     private var process: Process?
     private var startupTask: Task<Bool, Never>?
     private var lastProbeError: String?
-    private let baseURL = URL(string: "http://127.0.0.1:8000")!
+    private var lastBackendIdentity: String?
+    private var portFileDirectoryURL: URL?
+    private var baseURL: URL { BackendEndpointRegistry.baseURL }
+
+    init() {
+        // The bundled backend chooses a fresh ephemeral port for each app launch.
+        BackendEndpointRegistry.reset()
+    }
 
     var isReady: Bool {
         status == .alreadyRunning || (status == .running && process?.isRunning == true)
@@ -810,6 +817,7 @@ final class LocalBackendSupervisor: ObservableObject {
             return false
         }
         process = nil
+        BackendEndpointRegistry.reset()
 
         if await orchestratorResponds() {
             status = .alreadyRunning
@@ -835,6 +843,8 @@ final class LocalBackendSupervisor: ObservableObject {
         }
         process = nil
         startupTask = nil
+        BackendEndpointRegistry.reset()
+        cleanupPortFileDirectory()
         status = .idle
     }
 
@@ -849,6 +859,22 @@ final class LocalBackendSupervisor: ObservableObject {
             return false
         }
 
+        let portFileDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ColiDevBackend-\(UUID().uuidString)", isDirectory: true)
+        let portFileURL = portFileDirectory.appendingPathComponent("bound-port")
+        do {
+            try FileManager.default.createDirectory(
+                at: portFileDirectory,
+                withIntermediateDirectories: false,
+                attributes: [.posixPermissions: 0o700]
+            )
+        } catch {
+            lastProbeError = "Could not create a private backend handshake directory: \(error.localizedDescription)"
+            status = .failed
+            return false
+        }
+        portFileDirectoryURL = portFileDirectory
+
         status = .starting
         let child = Process()
         child.executableURL = executable
@@ -859,7 +885,11 @@ final class LocalBackendSupervisor: ObservableObject {
         }
         environment["COLIDEV_PROJECT_ROOT"] = resources.path
         environment["HOST"] = "127.0.0.1"
-        environment["PORT"] = "8000"
+        environment["PORT"] = "0"
+        environment["COLIDEV_PORT_FILE"] = portFileURL.path
+        environment["COLIDEV_BUILD_ID"] =
+            (Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String)
+            .flatMap { $0.isEmpty ? nil : $0 } ?? "local"
         environment["DEV_MODE"] = "false"
         child.environment = environment
         let backendLogHandle = try? makeBackendLogHandle()
@@ -868,7 +898,11 @@ final class LocalBackendSupervisor: ObservableObject {
             child.environment = environment
             child.standardOutput = backendLogHandle
             child.standardError = backendLogHandle
-            appendBackendDiagnostic("Starting bundled backend on 127.0.0.1:8000.", to: backendLogHandle)
+            let ignoredService = lastProbeError.map { " The default port was not accepted: \($0)" } ?? ""
+            appendBackendDiagnostic(
+                "Starting bundled backend on an OS-selected loopback port.\(ignoredService)",
+                to: backendLogHandle
+            )
         } else {
             child.standardOutput = FileHandle.nullDevice
             child.standardError = FileHandle.nullDevice
@@ -884,6 +918,8 @@ final class LocalBackendSupervisor: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self, self.process === child else { return }
                 self.process = nil
+                BackendEndpointRegistry.reset()
+                self.cleanupPortFileDirectory()
                 self.status = .failed
             }
         }
@@ -894,13 +930,19 @@ final class LocalBackendSupervisor: ObservableObject {
             appendBackendDiagnostic("Could not launch bundled backend: \(error.localizedDescription)", to: backendLogHandle)
             try? backendLogHandle?.synchronize()
             try? backendLogHandle?.close()
+            cleanupPortFileDirectory()
             status = .failed
             return false
         }
         process = child
 
-        if await waitUntilReady(timeout: 15) {
-            appendBackendDiagnostic("Local backend /api/status responded successfully.", to: backendLogHandle)
+        if await waitUntilReady(portFileURL: portFileURL, timeout: 15) {
+            appendBackendDiagnostic(
+                "Compatible local backend (\(lastBackendIdentity ?? "identity unavailable")) responded on " +
+                    "127.0.0.1:\(BackendEndpointRegistry.port).",
+                to: backendLogHandle
+            )
+            cleanupPortFileDirectory()
             status = .running
             return true
         }
@@ -912,8 +954,16 @@ final class LocalBackendSupervisor: ObservableObject {
             child.terminate()
         }
         process = nil
+        BackendEndpointRegistry.reset()
+        cleanupPortFileDirectory()
         status = .failed
         return false
+    }
+
+    private func cleanupPortFileDirectory() {
+        guard let portFileDirectoryURL else { return }
+        try? FileManager.default.removeItem(at: portFileDirectoryURL)
+        self.portFileDirectoryURL = nil
     }
 
     private func waitUntilReady(timeout: TimeInterval) async -> Bool {
@@ -926,25 +976,46 @@ final class LocalBackendSupervisor: ObservableObject {
         return false
     }
 
-    private func orchestratorResponds() async -> Bool {
-        let endpoint = baseURL.appendingPathComponent("api/status")
+    private func waitUntilReady(portFileURL: URL, timeout: TimeInterval) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if let portData = try? Data(contentsOf: portFileURL),
+               let portText = String(data: portData, encoding: .ascii)?.trimmingCharacters(in: .whitespacesAndNewlines),
+               let port = Int(portText),
+               (1...65_535).contains(port),
+               let endpoint = URL(string: "http://127.0.0.1:\(port)"),
+               await orchestratorResponds(at: endpoint) {
+                BackendEndpointRegistry.updatePort(port)
+                return true
+            }
+            if let process, !process.isRunning { return false }
+            try? await Task.sleep(nanoseconds: 250_000_000)
+        }
+        return false
+    }
+
+    private func orchestratorResponds(at backendURL: URL? = nil) async -> Bool {
+        let endpoint = (backendURL ?? baseURL).appendingPathComponent("api/status")
         var request = URLRequest(url: endpoint)
         request.timeoutInterval = 0.5
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let response = response as? HTTPURLResponse,
                   (200..<300).contains(response.statusCode),
-                  let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let service = payload["service"] as? String else {
+                  !data.isEmpty else {
                 lastProbeError = "Unexpected HTTP response from the local backend."
                 return false
             }
-            guard service.hasPrefix("coli-dev Orchestrator") else {
-                lastProbeError = "The service at 127.0.0.1:8000 is not the ColiDev orchestrator."
+            switch BackendCompatibility.evaluate(data) {
+            case .compatible(let apiVersion, let buildID):
+                lastProbeError = nil
+                lastBackendIdentity = "API v\(apiVersion), build \(buildID)"
+                return true
+            case .incompatible(let reason):
+                lastProbeError = reason
+                lastBackendIdentity = nil
                 return false
             }
-            lastProbeError = nil
-            return true
         } catch {
             lastProbeError = String(describing: error)
             return false

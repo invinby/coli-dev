@@ -33,6 +33,7 @@ import json
 import logging
 import os
 import re
+import socket
 import sys
 import tempfile
 import threading
@@ -385,6 +386,10 @@ def _provider_secret_status(provider: str) -> dict[str, Any]:
 HOST = os.getenv("HOST", "127.0.0.1")
 PORT = int(os.getenv("PORT", "8000"))
 DEV_MODE = os.getenv("DEV_MODE", "false").lower() in ("true", "1", "yes")
+API_VERSION = 1
+API_MINIMUM_CLIENT_VERSION = 1
+API_MAXIMUM_CLIENT_VERSION = 1
+BUILD_ID = os.getenv("COLIDEV_BUILD_ID", "source").strip() or "source"
 
 # Rate limiting
 CHAT_RATE_LIMIT = os.getenv("CHAT_RATE_LIMIT", "30/minute")
@@ -4814,6 +4819,13 @@ async def api_status(request: Request):
     return {
         "service": "coli-dev Orchestrator v4.0",
         "version": "4.0.0",
+        "product_id": "colidev",
+        "api_version": API_VERSION,
+        "api_compatibility": {
+            "minimum_client_version": API_MINIMUM_CLIENT_VERSION,
+            "maximum_client_version": API_MAXIMUM_CLIENT_VERSION,
+        },
+        "build_id": BUILD_ID,
         "online": True,
         "provider": "consilium",
         "kimi_model": KIMI_MODEL,
@@ -5654,14 +5666,64 @@ async def obsidian_search(request: Request, req: ObsidianSearchRequest):
 
 # ─── Entry point ──────────────────────────────────────
 
+def _bind_ephemeral_loopback_socket(host: str = HOST) -> socket.socket:
+    """Reserve an OS-selected loopback port without a find-then-bind race."""
+    try:
+        is_loopback = ipaddress.ip_address(host).is_loopback
+    except ValueError as exc:
+        raise ValueError("An ephemeral ColiDev backend must bind to a loopback IP.") from exc
+    if not is_loopback:
+        raise ValueError("An ephemeral ColiDev backend must bind to a loopback IP.")
+
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        server_socket.bind((host, 0))
+        server_socket.listen(socket.SOMAXCONN)
+        server_socket.setblocking(False)
+        return server_socket
+    except Exception:
+        server_socket.close()
+        raise
+
+
+def _publish_bound_port(port_file: str, port: int) -> None:
+    """Publish the already-bound loopback port in a private, create-once file."""
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = os.open(port_file, flags, 0o600)
+    with os.fdopen(descriptor, "w", encoding="ascii") as stream:
+        stream.write(f"{port}\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(
-        app,
-        host=HOST,
-        port=PORT,
-        reload=DEV_MODE,
-        log_level="warning",
-        access_log=False,
-    )
+    port_file = os.getenv("COLIDEV_PORT_FILE", "").strip()
+    if PORT == 0 and port_file:
+        server_socket = _bind_ephemeral_loopback_socket(HOST)
+        try:
+            _publish_bound_port(port_file, server_socket.getsockname()[1])
+            config = uvicorn.Config(
+                app,
+                host=HOST,
+                port=server_socket.getsockname()[1],
+                reload=False,
+                log_level="warning",
+                access_log=False,
+            )
+            uvicorn.Server(config).run(sockets=[server_socket])
+        finally:
+            server_socket.close()
+    elif PORT == 0:
+        raise SystemExit("PORT=0 requires COLIDEV_PORT_FILE for a safe backend handshake.")
+    else:
+        uvicorn.run(
+            app,
+            host=HOST,
+            port=PORT,
+            reload=DEV_MODE,
+            log_level="warning",
+            access_log=False,
+        )

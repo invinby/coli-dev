@@ -17,7 +17,11 @@ import gc
 import json
 import os
 import sys
+import subprocess
+import time
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
+from urllib.request import urlopen
 
 import httpx
 import psutil
@@ -581,9 +585,93 @@ class TestAPIEndpoints:
         data = resp.json()
         assert data["service"] == "coli-dev Orchestrator v4.0"
         assert data["version"] == "4.0.0"
+        assert data["product_id"] == "colidev"
+        assert data["api_version"] == 1
+        assert data["api_compatibility"] == {
+            "minimum_client_version": 1,
+            "maximum_client_version": 1,
+        }
+        assert isinstance(data["build_id"], str) and data["build_id"].strip()
         assert "online" in data
         assert "session" in data
         assert data["session"]["mode"] == "online"
+
+    def test_ephemeral_backend_port_is_bound_before_being_published(self, tmp_path):
+        server_socket = orchestrator._bind_ephemeral_loopback_socket()
+        try:
+            port_file = tmp_path / "backend.port"
+            port = server_socket.getsockname()[1]
+
+            orchestrator._publish_bound_port(str(port_file), port)
+
+            assert port_file.read_text(encoding="ascii") == f"{port}\n"
+            if os.name == "posix":
+                assert port_file.stat().st_mode & 0o777 == 0o600
+            with pytest.raises(FileExistsError):
+                orchestrator._publish_bound_port(str(port_file), port)
+        finally:
+            server_socket.close()
+
+    def test_ephemeral_backend_port_refuses_non_loopback_bind(self):
+        with pytest.raises(ValueError, match="loopback"):
+            orchestrator._bind_ephemeral_loopback_socket("0.0.0.0")
+
+    def test_bundled_entrypoint_reports_its_os_selected_port(self, tmp_path):
+        project_root = Path(orchestrator.__file__).resolve().parent.parent
+        port_file = tmp_path / "backend.port"
+        environment = os.environ.copy()
+        environment.update({
+            "COLIDEV_PROJECT_ROOT": str(project_root),
+            "COLIDEV_DATA_DIR": str(tmp_path / "data"),
+            "COLIDEV_LOG_DIR": str(tmp_path / "logs"),
+            "COLIDEV_PORT_FILE": str(port_file),
+            "COLIDEV_BUILD_ID": "subprocess-test",
+            "HOST": "127.0.0.1",
+            "PORT": "0",
+            "DEV_MODE": "false",
+            "NET_CHECK_TIMEOUT": "0.1",
+            "GEMINI_API_KEY": "",
+            "KIMI_API_KEY": "",
+            "OPENROUTER_API_KEY": "",
+            "OPENAI_COMPATIBLE_API_KEY": "",
+            "OBSIDIAN_API_KEY": "",
+        })
+        process = subprocess.Popen(
+            [sys.executable, str(Path(orchestrator.__file__).resolve())],
+            cwd=project_root,
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        try:
+            deadline = time.monotonic() + 20
+            while time.monotonic() < deadline:
+                if process.poll() is not None:
+                    output, _ = process.communicate(timeout=1)
+                    pytest.fail(f"backend exited before handshake: {output[-2000:]}")
+                if port_file.is_file():
+                    port_text = port_file.read_text(encoding="ascii").strip()
+                    if port_text.isdigit() and 1 <= int(port_text) <= 65_535:
+                        try:
+                            with urlopen(f"http://127.0.0.1:{int(port_text)}/api/status", timeout=1) as response:
+                                status = json.load(response)
+                            assert status["product_id"] == "colidev"
+                            assert status["api_version"] == 1
+                            assert status["build_id"] == "subprocess-test"
+                            return
+                        except (OSError, ValueError):
+                            pass
+                time.sleep(0.1)
+            pytest.fail("backend did not publish a responding ephemeral loopback port")
+        finally:
+            if process.poll() is None:
+                process.terminate()
+            try:
+                process.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.communicate(timeout=5)
 
     def test_health_returns_expected_structure(self, client, monkeypatch):
         """/health возвращает все обязательные поля."""

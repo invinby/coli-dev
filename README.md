@@ -239,8 +239,8 @@ Copy-Item .env.example .env
 python 01_Projects/orchestrator.py
 ~~~
 
-The service listens on 127.0.0.1:8000 by default. Keep it bound to loopback for local development; the service does not provide user-account authentication.<br>
-По умолчанию сервер слушает 127.0.0.1:8000. При локальной разработке оставляйте его привязанным к loopback-адресу: сервер не использует авторизацию аккаунтов.
+The standalone development server listens on 127.0.0.1:8000 by default. The packaged macOS app instead launches its bundled backend on an OS-selected loopback port; it reuses 8000 only after the product ID and API compatibility handshake succeeds. The service does not provide user-account authentication.<br>
+Отдельный сервер для разработки по умолчанию слушает 127.0.0.1:8000. macOS-приложение запускает встроенный backend на свободном loopback-порту, выбранном операционной системой, и использует порт 8000 только после успешной проверки ID продукта и совместимости API. Сервер не использует авторизацию аккаунтов.
 
 ## Build and check / Собрать и проверить
 
