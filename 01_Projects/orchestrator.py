@@ -4827,7 +4827,16 @@ async def api_status(request: Request):
         },
         "build_id": BUILD_ID,
         "online": True,
+        # Совместимая со старым API метка: это слой оркестрации,
+        # а не провайдер/модель будущего ответа тьютора.
+        # Backwards-compatible label: this identifies the orchestration layer,
+        # not the provider/model that will answer a future tutor request.
         "provider": "consilium",
+        "orchestrator": "consilium",
+        "provider_kind": "orchestrator",
+        "route_resolution": "per_request",
+        "effective_provider": None,
+        "effective_model": None,
         "kimi_model": KIMI_MODEL,
         "gemini_key_set": bool(GEMINI_KEY),
         "openrouter_model": OPENROUTER_MODEL,

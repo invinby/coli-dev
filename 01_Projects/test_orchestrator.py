@@ -595,6 +595,12 @@ class TestAPIEndpoints:
         assert "online" in data
         assert "session" in data
         assert data["session"]["mode"] == "online"
+        assert data["provider"] == "consilium"
+        assert data["orchestrator"] == "consilium"
+        assert data["provider_kind"] == "orchestrator"
+        assert data["route_resolution"] == "per_request"
+        assert data["effective_provider"] is None
+        assert data["effective_model"] is None
 
     def test_ephemeral_backend_port_is_bound_before_being_published(self, tmp_path):
         server_socket = orchestrator._bind_ephemeral_loopback_socket()

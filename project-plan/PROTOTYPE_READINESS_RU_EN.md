@@ -1,6 +1,6 @@
 # Статус готовности прототипа ColiDev / ColiDev prototype readiness
 
-**Дата обновления / Updated:** 2026-10-17
+**Дата обновления / Updated:** 2026-10-18
 
 **Проверенный коммит кода приложения / Verified application code commit:** eeeb8c3718c90f1d9ff2952117b1867cd68e7bfc<br>
 **Последний проверочный коммит / Latest verification commit:** eeeb8c3718c90f1d9ff2952117b1867cd68e7bfc
@@ -9,7 +9,13 @@
 
 **Последний опубликованный релиз / Latest published release:** [ColiDev 0.1.0 Beta 7](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.7). Он остаётся последним нумерованным релизом; новые CI-архивы временные и неподписанные. / It remains the latest numbered release; the new CI archives are temporary and unsigned.
 
-## Свежая проверенная CI-сборка / Fresh verified CI build
+## Новая запись: CI и ручной запуск на Mac / New CI and Mac-launch report — 2026-10-18
+
+**RU:** GitHub Actions [39069620653](https://github.com/invinby/coli-dev/actions/runs/39069620653) для `ca2c5d1` прошёл backend checks и сборки macOS 15 ARM, macOS 26 ARM и macOS 26 Intel. Пользователь сообщает о частичной ручной проверке beta на Mac: открылись Today, математика, интерактивный график и Settings; встроенный backend ответил на 54657, старый процесс на 8000 не трогали. Это сообщение пользователя, не проверка Codex на Mac. Реальный ответ ИИ, Keychain после перезапуска и все интеграции остаются непроверенными; полная приёмка открыта. Более ранние ссылки и команда ниже относятся к run 39048856037, а не к этой более новой beta.
+
+**EN:** GitHub Actions [39069620653](https://github.com/invinby/coli-dev/actions/runs/39069620653) for `ca2c5d1` passed backend checks and macOS 15 ARM, macOS 26 ARM, and macOS 26 Intel builds. The user reports partial hands-on beta acceptance on a Mac: Today, Mathematics, an interactive graph, and Settings opened; the bundled backend replied on 54657 and the old process on 8000 was untouched. This is the user's report, not a Codex test on Mac. A real AI answer, Keychain after relaunch, and all integrations remain unverified; full acceptance is still open. The earlier links and command below refer to run 39048856037, not this newer beta.
+
+## Архивы предыдущей CI-сборки / Previous CI build archives — 39048856037
 
 Скачать архивы можно из GitHub Actions (нужен вход в GitHub): [Apple Silicon, macOS 15](https://github.com/invinby/coli-dev/actions/runs/39048856037/artifacts/12107416042), [Apple Silicon, macOS 26](https://github.com/invinby/coli-dev/actions/runs/39048856037/artifacts/12107425454), [Intel, macOS 26](https://github.com/invinby/coli-dev/actions/runs/39048856037/artifacts/12107350966). Архивы приложения истекают 31 октября 2026 года. Скриншоты UI-тестов: [macOS 15](https://github.com/invinby/coli-dev/actions/runs/39048856037/artifacts/12107416032) и [macOS 26](https://github.com/invinby/coli-dev/actions/runs/39048856037/artifacts/12107206494); они истекают 24 октября 2026 года.
 
