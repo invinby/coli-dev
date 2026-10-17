@@ -12,9 +12,9 @@ final class ManagementUITests: XCTestCase {
             "The Today dashboard did not appear after launch. / После запуска не открылся экран «Сегодня».\n\(app.debugDescription)"
         )
 
-        let progressCard = app.descendants(matching: .any)["home.progress-card"]
+        let progressTitle = app.staticTexts["home.progress-title"]
         XCTAssertTrue(
-            progressCard.waitForExistence(timeout: 10),
+            progressTitle.waitForExistence(timeout: 10),
             "The learning progress and next action card is missing. / Не найдена карточка прогресса и следующего шага.\n\(app.debugDescription)"
         )
 

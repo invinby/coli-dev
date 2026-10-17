@@ -63,10 +63,22 @@ def test_control_center_exposes_a_visible_and_accessible_overview():
     assert "minHeight: 260" in source
 
 
-def test_sidebar_uses_subject_specific_accents():
+def test_sidebar_uses_the_system_accent_color():
+    source = (APP / "ContentView.swift").read_text(encoding="utf-8")
+    sidebar_subjects = source.split("ForEach(Subject.allCases) { subject in", 1)[1].split(
+        "ForEach(store.customCurriculum.subjects)", 1
+    )[0]
+
+    assert ".foregroundStyle(Color.accentColor)" in sidebar_subjects
+    assert "ColiDevVisualSystem.subjectColor(subject.rawValue)" not in sidebar_subjects
+
+
+def test_today_information_cards_use_tinted_content_surfaces():
     source = (APP / "ContentView.swift").read_text(encoding="utf-8")
 
-    assert "ColiDevVisualSystem.subjectColor(subject.rawValue)" in source
+    assert ".coliContentCard(tint: featuredStudyAccent, cornerRadius: 20)" in source
+    assert "studyAccent(for: snapshot.nextRoute), cornerRadius: 16" in source
+    assert "studyAccent(for: activeGoalOption?.route ?? studyRecommendation?.route), cornerRadius: 18" in source
 
 
 def test_subject_tiles_use_glass_color_and_reduce_motion_aware_hover():

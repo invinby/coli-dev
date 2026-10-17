@@ -725,6 +725,7 @@ private struct TodayView: View {
                     .font(.caption.weight(.semibold))
                     .tracking(1.1)
                     .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("home.progress-title")
                 if courseProgress.totalCount > 0 {
                     Text(String(
                         format: L10n.text("home.lessonCompletion", store.language),
@@ -861,7 +862,6 @@ private struct TodayView: View {
         }
         .padding(20)
         .coliContentCard(tint: featuredStudyAccent, cornerRadius: 20)
-        .accessibilityIdentifier("home.progress-card")
     }
 }
 
