@@ -80,6 +80,19 @@ from urllib.request import Request, urlopen
 
 base_url = f"http://127.0.0.1:{sys.argv[1]}"
 
+def request_json(path, *, payload=None, method="GET"):
+    data = None if payload is None else json.dumps(payload).encode()
+    headers = {} if data is None else {"Content-Type": "application/json"}
+    request = Request(
+        f"{base_url}{path}",
+        data=data,
+        headers=headers,
+        method=method,
+    )
+    with urlopen(request, timeout=5) as response:
+        return json.load(response)
+
+
 def run(code, values):
     payload = json.dumps({"code": code, "arguments": {"values": values}}).encode()
     request = Request(
@@ -90,6 +103,22 @@ def run(code, values):
     )
     with urlopen(request, timeout=5) as response:
         return json.load(response)
+
+policy = request_json("/settings/auto-cost-policy")
+if policy.get("allow_paid_routes") is not False:
+    raise SystemExit("Packaged backend did not default to blocking potentially paid routes")
+
+paid_route = request_json(
+    "/settings/agent-models/critic",
+    payload={"provider": "gemini", "model": "gemini-3.8-flash"},
+    method="PUT",
+)
+if (
+    paid_route.get("paid_route_blocked") is not True
+    or paid_route.get("effective_provider") != "ollama"
+    or paid_route.get("status") != "blocked_by_free_only"
+):
+    raise SystemExit("Packaged backend did not block a selected paid AI route by default")
 
 maximum_code = '''def solve(values):
     if not values:
@@ -114,4 +143,4 @@ PY
 curl --silent --show-error --fail --max-time 5 "http://127.0.0.1:$port/" \
     --output "$smoke_root/tutor.html"
 grep -qi 'coli-dev' "$smoke_root/tutor.html"
-echo "Bundled backend API, progress store, knowledge refresh, Python practice, and tutor page responded successfully"
+echo "Bundled backend API, free-only AI policy, progress store, knowledge refresh, Python practice, and tutor page responded successfully"
