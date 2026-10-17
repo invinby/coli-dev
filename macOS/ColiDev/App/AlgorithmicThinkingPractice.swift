@@ -69,6 +69,15 @@ struct AlgorithmicMaximumTestCase: Equatable, Identifiable {
     let explanationKey: String
 }
 
+struct AlgorithmicPythonTestCase: Equatable, Identifiable {
+    let id: String
+    let values: [Int]
+    let expectedMaximum: Int?
+
+    var evidenceID: String { "programming.computational_thinking.python_runner.\(id)" }
+    var titleKey: String { "lab.pythonRunner.case.\(id)" }
+}
+
 struct AlgorithmicDecompositionScenario: Equatable, Identifiable {
     let id: String
     let promptKey: String
@@ -492,6 +501,27 @@ enum AlgorithmicThinkingPractice {
         var generator = SystemRandomNumberGenerator()
         return answerOrders(using: &generator)
     }
+}
+
+enum AlgorithmicPythonPractice {
+    static let testCases = [
+        AlgorithmicPythonTestCase(id: "typical", values: [2, 4, 9], expectedMaximum: 9),
+        AlgorithmicPythonTestCase(id: "single", values: [7], expectedMaximum: 7),
+        AlgorithmicPythonTestCase(id: "negative", values: [-8, -2, -5], expectedMaximum: -2),
+        AlgorithmicPythonTestCase(id: "repeated", values: [3, 9, 9], expectedMaximum: 9),
+        AlgorithmicPythonTestCase(id: "empty", values: [], expectedMaximum: nil),
+    ]
+
+    static let startingCode = """
+    def solve(values):
+        if not values:
+            raise ValueError("values must not be empty")
+        current_maximum = 0
+        for value in values:
+            if value > current_maximum:
+                current_maximum = value
+        return current_maximum
+    """
 }
 
 struct AlgorithmicThinkingSubmission: Equatable {

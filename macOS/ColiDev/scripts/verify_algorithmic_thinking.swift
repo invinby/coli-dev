@@ -291,6 +291,37 @@ enum AlgorithmicThinkingVerification {
                 && correctCategory?.evidence?.firstTryCorrect == false,
             "Retrying a test-case classification must preserve the first incorrect attempt."
         )
+
+        let pythonCases = AlgorithmicPythonPractice.testCases
+        precondition(
+            pythonCases.map(\.id) == ["typical", "single", "negative", "repeated", "empty"]
+                && pythonCases.map(\.values) == [[2, 4, 9], [7], [-8, -2, -5], [3, 9, 9], []]
+                && pythonCases.map(\.expectedMaximum) == [9, 7, -2, 9, nil]
+                && Set(pythonCases.map(\.evidenceID)).count == pythonCases.count,
+            "EN: The code runner must keep bilingual max-list cases and stable unique evidence IDs. / RU: В исполнителе кода должны быть тесты максимума списка и стабильные уникальные ID учебных результатов."
+        )
+        let negativeCase = pythonCases.first { $0.id == "negative" }!
+        var pythonEvidence = InteractiveChoiceAssessmentTracker(itemIDs: [negativeCase.evidenceID])
+        let wrongPythonRun = pythonEvidence.recordSubmission(
+            selectedAnswerIndex: 0,
+            correctAnswerIndex: 1,
+            optionCount: 2,
+            itemID: negativeCase.evidenceID
+        )
+        let correctedPythonRun = pythonEvidence.recordSubmission(
+            selectedAnswerIndex: 1,
+            correctAnswerIndex: 1,
+            optionCount: 2,
+            itemID: negativeCase.evidenceID
+        )
+        precondition(
+            wrongPythonRun?.itemID == negativeCase.evidenceID
+                && wrongPythonRun?.firstTryCorrect == false
+                && correctedPythonRun?.itemID == negativeCase.evidenceID
+                && correctedPythonRun?.attempts == 2
+                && correctedPythonRun?.firstTryCorrect == false,
+            "EN: The code runner must retain the first failed attempt after a corrected run. / RU: После исправления кода история должна сохранять первую неудачную попытку."
+        )
         print("Algorithmic-thinking model checks passed")
     }
 }

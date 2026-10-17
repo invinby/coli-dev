@@ -8465,6 +8465,8 @@ private struct AlgorithmicThinkingLab: View {
                     Label(L10n.text("lab.algorithmRestart", store.language), systemImage: "arrow.counterclockwise")
                 }
                 .buttonStyle(.bordered)
+
+                PythonCodePracticeView()
             }
         }
     }
@@ -8534,6 +8536,188 @@ private struct AlgorithmicThinkingLab: View {
 
     private func formattedValues(_ values: [Int]) -> String {
         values.map(String.init).joined(separator: ", ")
+    }
+}
+
+private struct PythonCodePracticeView: View {
+    @EnvironmentObject private var store: LearningStore
+    @AppStorage("colidev.pythonPractice.computationalThinking.code") private var code = AlgorithmicPythonPractice.startingCode
+    @State private var selectedCaseID = AlgorithmicPythonPractice.testCases[2].id
+    @State private var isRunning = false
+    @State private var lastRunCode: String?
+    @State private var lastRunCaseID: String?
+    @State private var lastResponse: PythonPracticeRunResponse?
+    @State private var lastPassed: Bool?
+    @State private var connectionErrorKey: String?
+    @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(
+        itemIDs: AlgorithmicPythonPractice.testCases.map(\.evidenceID)
+    )
+
+    private var selectedCase: AlgorithmicPythonTestCase {
+        AlgorithmicPythonPractice.testCases.first { $0.id == selectedCaseID }
+            ?? AlgorithmicPythonPractice.testCases[0]
+    }
+
+    private var isResultCurrent: Bool {
+        lastRunCode == code && lastRunCaseID == selectedCase.id
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(L10n.text("lab.pythonRunner.title", store.language))
+                .font(.headline)
+
+            Text(L10n.text("lab.pythonRunner.description", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Picker(L10n.text("lab.pythonRunner.testCase", store.language), selection: $selectedCaseID) {
+                ForEach(AlgorithmicPythonPractice.testCases) { testCase in
+                    Text(L10n.text(testCase.titleKey, store.language)).tag(testCase.id)
+                }
+            }
+            .accessibilityIdentifier("pythonRunner.testCase")
+            .disabled(isRunning)
+
+            Text("\(L10n.text("lab.pythonRunner.input", store.language)): values = [\(selectedCase.values.map(String.init).joined(separator: ", "))]")
+                .font(.system(.callout, design: .monospaced))
+                .foregroundStyle(.secondary)
+
+            Text(L10n.text("lab.pythonRunner.editor", store.language))
+                .font(.subheadline.weight(.semibold))
+
+            TextEditor(text: $code)
+                .font(.system(.body, design: .monospaced))
+                .frame(minHeight: 150, maxHeight: 250)
+                .scrollContentBackground(.hidden)
+                .padding(6)
+                .background(.background, in: RoundedRectangle(cornerRadius: 10))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(.quaternary, lineWidth: 1)
+                }
+                .accessibilityLabel(L10n.text("lab.pythonRunner.editor", store.language))
+                .accessibilityIdentifier("pythonRunner.editor")
+                .disabled(isRunning)
+
+            HStack {
+                Text(String(format: L10n.text("lab.pythonRunner.byteCount", store.language), code.utf8.count, 8_192))
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(code.utf8.count > 8_192 ? Color.red : Color.secondary)
+                Spacer()
+                Button(action: runSelectedCase) {
+                    Label(
+                        L10n.text(isRunning ? "lab.pythonRunner.running" : "lab.pythonRunner.run", store.language),
+                        systemImage: isRunning ? "hourglass" : "play.fill"
+                    )
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(isRunning || code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || code.utf8.count > 8_192)
+                .accessibilityIdentifier("pythonRunner.run")
+            }
+
+            if code.utf8.count > 8_192 {
+                Text(L10n.text("lab.pythonRunner.codeLimit", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+
+            if isResultCurrent, let lastResponse, let lastPassed {
+                VStack(alignment: .leading, spacing: 7) {
+                    Label(
+                        L10n.text(lastPassed ? "lab.pythonRunner.passed" : "lab.pythonRunner.failed", store.language),
+                        systemImage: lastPassed ? "checkmark.circle.fill" : "exclamationmark.circle.fill"
+                    )
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(lastPassed ? Color.green : Color.orange)
+                    .accessibilityIdentifier("pythonRunner.result")
+
+                    Text("\(L10n.text("lab.pythonRunner.expected", store.language)): \(selectedCase.expectedMaximum.map(String.init) ?? "ValueError")")
+                        .font(.system(.callout, design: .monospaced))
+
+                    Text("\(L10n.text("lab.pythonRunner.output", store.language)): \(lastResponse.resultText ?? lastResponse.code ?? "—")")
+                        .font(.system(.callout, design: .monospaced))
+                    if !lastPassed, let errorCode = lastResponse.code {
+                        Text(L10n.text(errorMessageKey(errorCode), store.language))
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.background, in: RoundedRectangle(cornerRadius: 10))
+            }
+
+            if let connectionErrorKey {
+                Label(L10n.text(connectionErrorKey, store.language), systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("pythonRunner.connectionError")
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.background, in: RoundedRectangle(cornerRadius: 12))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(.quaternary, lineWidth: 1)
+        }
+    }
+
+    private func runSelectedCase() {
+        guard !isRunning, code.utf8.count <= 8_192 else { return }
+        isRunning = true
+        connectionErrorKey = nil
+        lastResponse = nil
+        lastPassed = nil
+        let submittedCode = code
+        let submittedCase = selectedCase
+
+        Task { @MainActor in
+            defer { isRunning = false }
+            do {
+                let response = try await OrchestratorClient.runPythonPractice(
+                    code: submittedCode,
+                    values: submittedCase.values
+                )
+                let passed: Bool
+                if let expectedMaximum = submittedCase.expectedMaximum {
+                    passed = response.status == "ok" && response.resultText == String(expectedMaximum)
+                } else {
+                    passed = response.status == "error" && response.code == "ValueError"
+                }
+                if let evidence = assessmentTracker.recordSubmission(
+                    selectedAnswerIndex: passed ? 1 : 0,
+                    correctAnswerIndex: 1,
+                    optionCount: 2,
+                    itemID: submittedCase.evidenceID
+                ) {
+                    store.recordStudyAssessment(lessonID: "programming.computational_thinking", evidence: evidence)
+                }
+                lastRunCode = submittedCode
+                lastRunCaseID = submittedCase.id
+                lastResponse = response
+                lastPassed = passed
+            } catch {
+                connectionErrorKey = "lab.pythonRunner.error.unavailable"
+            }
+        }
+    }
+
+    private func errorMessageKey(_ code: String) -> String {
+        switch code {
+        case "syntax_error": "lab.pythonRunner.error.syntax"
+        case "unsupported_syntax": "lab.pythonRunner.error.unsupported"
+        case "iteration_limit": "lab.pythonRunner.error.limit"
+        case "code_too_large": "lab.pythonRunner.error.codeLimit"
+        case "invalid_arguments": "lab.pythonRunner.error.invalidInput"
+        case "invalid_result": "lab.pythonRunner.error.invalidResult"
+        case "ValueError": "lab.pythonRunner.error.value"
+        default: "lab.pythonRunner.error.runtime"
+        }
     }
 }
 

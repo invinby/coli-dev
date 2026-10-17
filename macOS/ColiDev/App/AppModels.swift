@@ -1064,6 +1064,12 @@ struct OrchestratorHealth: Decodable {
     }
 }
 
+struct PythonPracticeRunResponse {
+    let status: String
+    let resultText: String?
+    let code: String?
+}
+
 struct ProviderUsageCounts: Decodable {
     let successfulResponses: Int
     let responsesWithReportedUsage: Int
@@ -1674,6 +1680,11 @@ struct TutorCompletion {
 
 @MainActor
 enum OrchestratorClient {
+    private struct PythonPracticeRunRequestBody: Encodable {
+        let code: String
+        let arguments: [String: [Int]]
+    }
+
     enum ClientError: Error {
         case invalidResponse
         case unavailable
@@ -1692,6 +1703,39 @@ enum OrchestratorClient {
             throw ClientError.unavailable
         }
         return try JSONDecoder().decode(OrchestratorHealth.self, from: data)
+    }
+
+    static func runPythonPractice(code: String, values: [Int]) async throws -> PythonPracticeRunResponse {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/practice/python/run") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 20
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(
+            PythonPracticeRunRequestBody(code: code, arguments: ["values": values])
+        )
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        guard let payload = try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]) as? [String: Any],
+              let status = payload["status"] as? String else {
+            throw ClientError.invalidResponse
+        }
+        let resultText: String?
+        if let result = payload["result"] {
+            let resultData = try JSONSerialization.data(withJSONObject: result, options: [.fragmentsAllowed, .sortedKeys])
+            resultText = String(data: resultData, encoding: .utf8)
+        } else {
+            resultText = nil
+        }
+        return PythonPracticeRunResponse(
+            status: status,
+            resultText: resultText,
+            code: payload["code"] as? String
+        )
     }
 
     static func providerUsage(days: Int = 30, language: AppLanguage = .ru) async throws -> ProviderUsageSummary {

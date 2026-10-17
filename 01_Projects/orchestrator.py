@@ -52,6 +52,7 @@ from knowledge_index import KnowledgeIndex, OllamaEmbeddingProvider
 from learning_progress import StudyProgressStore, default_database_path
 from network_safety import is_loopback_http_url as _is_loopback_http_url
 from obsidian_worker import ObsidianWorker
+from python_practice import execute_python_practice
 from provider_usage import (
     ProviderUsageStore,
     TokenUsage,
@@ -613,6 +614,11 @@ class StudyProgressBackupRequest(BaseModel):
 
 class TrustedSourcePreviewRequest(BaseModel):
     url: str = Field(min_length=1, max_length=2048)
+
+
+class PythonPracticeRunRequest(BaseModel):
+    code: str = Field(min_length=1, max_length=8192)
+    arguments: dict[str, Any] = Field(max_length=8)
 
 
 class KnowledgeRAGSearchRequest(BaseModel):
@@ -4952,6 +4958,20 @@ async def restore_learning_progress_backup(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
     return {"status": "ok", **result}
+
+
+@app.post("/practice/python/run")
+@limiter.limit("30/minute")
+async def run_python_practice(payload: PythonPracticeRunRequest, request: Request):
+    """Run a bounded lesson function in the safe Python-subset interpreter."""
+    _require_local_settings_request(request)
+    try:
+        return await asyncio.to_thread(
+            execute_python_practice, payload.code, payload.arguments
+        )
+    except Exception:
+        logger.exception("Bounded Python practice failed")
+        raise HTTPException(status_code=500, detail="Python practice could not be completed") from None
 
 
 @app.post("/knowledge/refresh")

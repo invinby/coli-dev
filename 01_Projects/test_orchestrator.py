@@ -4551,5 +4551,123 @@ class TestMemoryFootprint:
 # ─── Запуск напрямую ──────────────────────────────────
 
 
+class TestPythonPracticeEndpoint:
+    def test_runs_a_user_function_on_a_negative_list(self, client):
+        response = client.post("/practice/python/run", json={
+            "code": (
+                "def solve(values):\n"
+                "    if not values:\n"
+                "        raise ValueError('values must not be empty')\n"
+                "    maximum = values[0]\n"
+                "    for value in values:\n"
+                "        if value > maximum:\n"
+                "            maximum = value\n"
+                "    return maximum\n"
+            ),
+            "arguments": {"values": [-8, -2, -5]},
+        })
+
+        assert response.status_code == 200
+        assert response.json() == {"status": "ok", "result": -2}
+
+    def test_returns_the_learners_value_error_for_an_empty_list(self, client):
+        response = client.post("/practice/python/run", json={
+            "code": (
+                "def solve(values):\n"
+                "    if not values:\n"
+                "        raise ValueError('values must not be empty')\n"
+                "    return values[0]\n"
+            ),
+            "arguments": {"values": []},
+        })
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "status": "error",
+            "code": "ValueError",
+            "message": "values must not be empty",
+        }
+
+    def test_rejects_imports_and_arbitrary_attribute_calls(self, client):
+        response = client.post("/practice/python/run", json={
+            "code": "import os\ndef solve(values):\n    return os.listdir()\n",
+            "arguments": {"values": []},
+        })
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "error"
+        assert response.json()["code"] == "unsupported_syntax"
+
+    def test_rejects_while_loops_instead_of_running_unbounded_code(self, client):
+        response = client.post("/practice/python/run", json={
+            "code": "def solve(values):\n    while True:\n        pass\n",
+            "arguments": {"values": []},
+        })
+
+        assert response.status_code == 200
+        assert response.json()["code"] == "unsupported_syntax"
+
+    def test_rejects_ranges_over_the_iteration_limit(self, client):
+        response = client.post("/practice/python/run", json={
+            "code": "def solve(values):\n    total = 0\n    for item in range(1001):\n        total += item\n    return total\n",
+            "arguments": {"values": []},
+        })
+
+        assert response.status_code == 200
+        assert response.json()["code"] == "iteration_limit"
+
+    def test_requires_loopback_client(self, monkeypatch):
+        monkeypatch.setattr(orchestrator.limiter, "enabled", False)
+        with TestClient(app, client=("203.0.113.42", 50000)) as remote_client:
+            response = remote_client.post("/practice/python/run", json={
+                "code": "def solve(values):\n    return len(values)\n",
+                "arguments": {"values": [1, 2]},
+            })
+
+        assert response.status_code == 403
+
+class TestPythonPracticeInterpreterBoundaries:
+    def test_rejects_invalid_unicode_source_without_crashing(self):
+        source = "def solve(values):\n    return " + chr(0xD800) + "\n"
+
+        result = orchestrator.execute_python_practice(source, {"values": []})
+
+        assert result["status"] == "error"
+        assert result["code"] == "syntax_error"
+
+    def test_rejects_invalid_unicode_arguments_before_returning_them(self):
+        result = orchestrator.execute_python_practice(
+            "def solve(value):\n    return value\n",
+            {"value": chr(0xD800)},
+        )
+
+        assert result["status"] == "error"
+        assert result["code"] == "invalid_arguments"
+
+    def test_refuses_nested_function_declarations_even_when_unreachable(self, client):
+        response = client.post("/practice/python/run", json={
+            "code": (
+                "def solve(values):\n"
+                "    if False:\n"
+                "        def hidden(values):\n"
+                "            return 99\n"
+                "    return 1\n"
+            ),
+            "arguments": {"values": []},
+        })
+
+        assert response.status_code == 200
+        assert response.json()["code"] == "unsupported_syntax"
+
+    def test_rejects_non_json_range_as_a_result(self, client):
+        response = client.post("/practice/python/run", json={
+            "code": "def solve(values):\n    return range(3)\n",
+            "arguments": {"values": []},
+        })
+
+        assert response.status_code == 200
+        assert response.json()["code"] == "invalid_result"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])
