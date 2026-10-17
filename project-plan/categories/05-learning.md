@@ -1,5 +1,11 @@
 # 05. Курсы и обучение
 
+## Дополнение: последовательный личный учебный маршрут / Addendum: sequential personal learning path — 2026-10-18
+
+**RU:** Добавлен единый маршрут от диагностики и школьной математики к Python, английскому, физике, биологии/зоологии, интегрирующему проекту и позднейшему углублению в интеллект/ИИ. Первый шаг занимает 25 минут и привязан к конкретному курсу Stepik и GeoGebra 3D. В маршруте записаны проверяемые русскоязычные курсы, дата актуальности каталога, осторожность с давно не обновлявшимся курсом биологии, PhET на русском, практика и спокойное возвращение после перерыва. Полный маршрут: [CURRENT_TASK_AND_LEARNING_PATH_RU_EN.md](../CURRENT_TASK_AND_LEARNING_PATH_RU_EN.md). Аудит официальных источников ColiDev остаётся отдельным: [official-learning-sources-and-freshness.md](../research/official-learning-sources-and-freshness.md).
+
+**EN:** Added one path from diagnostics and school mathematics through Python, English, physics, biology/zoology, an integrating project, and later advanced study of intelligence/AI. Its first 25-minute step points to a specific Stepik course and GeoGebra 3D. The route records checked Russian-language courses, the catalogue check date, caution about an older biology course, Russian-language PhET translations, hands-on practice, and a calm return after a break. Full route: [CURRENT_TASK_AND_LEARNING_PATH_RU_EN.md](../CURRENT_TASK_AND_LEARNING_PATH_RU_EN.md). The ColiDev official-source audit remains separate: [official-learning-sources-and-freshness.md](../research/official-learning-sources-and-freshness.md).
+
 ## Подтверждённые требования
 
 - Включать все важные направления, не ограничиваясь программированием; новые области и темы можно добавлять по мере развития продукта.

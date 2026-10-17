@@ -10,6 +10,8 @@ The short profile is in the [project README](../README.md#project-profile); the 
 
 Текущая готовность тестовой сборки и шаги ручной проверки собраны в [двуязычном отчёте прототипа](PROTOTYPE_READINESS_RU_EN.md). / Current build readiness and hands-on test steps are in the [bilingual prototype report](PROTOTYPE_READINESS_RU_EN.md).
 
+Обновлённый статус последнего CI-run, оценка Hermes/OpenCode/OpenClaw/Freebuff и последовательный личный маршрут обучения собраны в [плане текущей задачи и обучения RU/EN](CURRENT_TASK_AND_LEARNING_PATH_RU_EN.md). Предыдущий аудит источников остаётся отдельной заметкой в `research/official-learning-sources-and-freshness.md`. / The latest CI status, Hermes/OpenCode/OpenClaw/Freebuff assessment, and sequential personal learning route are in the [current task and learning plan RU/EN](CURRENT_TASK_AND_LEARNING_PATH_RU_EN.md). The earlier source audit remains a separate note at `research/official-learning-sources-and-freshness.md`.
+
 ## Подтверждённое направление
 
 Сделать один полноценный продукт для macOS, объединяющий обучение Python/backend из ColiDev с универсальной платформой для изучения всех важных направлений с самого начала. Приложение должно иметь русскую и английскую локализации. Нужны гибридные онлайн- и офлайн-режимы, RAG для актуальных данных, оркестрация ИИ-агентов, визуальные и интерактивные объяснения, включая 3D-сцены, интеграции с Obsidian и NotebookLM, а также тщательно спроектированный интерфейс по принципам Apple.
