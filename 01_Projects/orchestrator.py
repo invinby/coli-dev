@@ -3503,9 +3503,14 @@ def _auto_agent_model_payload() -> dict[str, list[dict[str, Any]]]:
         provider = route["provider"] or "ollama"
         requested_model = route["model"] or _default_model_for_provider(provider)
         configured_ready, configured_status = _subject_model_route_status(provider)
+        local_compatible = (
+            provider == "compatible"
+            and _is_loopback_http_url(openai_compatible_settings.get()["base_url"])
+        )
         paid_route_blocked = (
             not allow_paid_routes
             and provider not in {"auto", "ollama"}
+            and not local_compatible
             and not (provider == "openrouter" and requested_model == OPENROUTER_FREE_MODEL)
         )
 

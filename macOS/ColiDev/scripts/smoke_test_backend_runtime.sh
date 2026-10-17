@@ -108,6 +108,7 @@ policy = request_json("/settings/auto-cost-policy")
 if policy.get("allow_paid_routes") is not False:
     raise SystemExit("Packaged backend did not default to blocking potentially paid routes")
 
+
 def require_paid_route_blocked(route, label):
     if (
         route.get("paid_route_blocked") is not True
@@ -117,30 +118,61 @@ def require_paid_route_blocked(route, label):
         raise SystemExit(f"Packaged backend did not block the paid {label} route by default")
 
 
-for item in request_json("/settings/agent-models").get("roles", []):
-    role = item["role"]
-    route = request_json(
-        f"/settings/agent-models/{role}",
-        payload={"provider": "gemini", "model": "gemini-3.8-flash"},
-        method="PUT",
-    )
-    require_paid_route_blocked(route, f"agent role {role}")
+agent_routes = request_json("/settings/agent-models").get("roles", [])
+subject_routes = request_json("/settings/model-routing").get("subjects", [])
+if {item.get("role") for item in agent_routes} != {
+    "local_draft", "gemini_draft", "critic", "verifier"
+}:
+    raise SystemExit("Packaged backend did not expose all four configured AI roles")
+if {item.get("subject") for item in subject_routes} != {
+    "mathematics", "english", "physics", "biology", "zoology", "programming"
+}:
+    raise SystemExit("Packaged backend did not expose all six configured subject routes")
 
-for item in request_json("/settings/model-routing").get("subjects", []):
-    subject = item["subject"]
-    route = request_json(
-        f"/settings/model-routing/{subject}",
-        payload={"provider": "gemini", "model": "gemini-3.8-flash"},
-        method="PUT",
-    )
-    require_paid_route_blocked(route, f"subject {subject}")
+route_targets = [
+    (f"/settings/agent-models/{item['role']}", f"agent role {item['role']}")
+    for item in agent_routes
+]
+route_targets.extend(
+    (f"/settings/model-routing/{item['subject']}", f"subject {item['subject']}")
+    for item in subject_routes
+)
+route_targets.append(("/settings/final-synthesis-route", "final synthesis"))
 
-final_route = request_json(
-    "/settings/final-synthesis-route",
-    payload={"provider": "gemini", "model": "gemini-3.8-flash"},
+for provider, model, label in (
+    ("gemini", "gemini-3.8-flash", "Gemini"),
+    ("compatible", "remote-model", "remote OpenAI-compatible"),
+):
+    if provider == "compatible":
+        request_json(
+            "/settings/openai-compatible",
+            payload={"base_url": "https://api.example.test/v1", "model": model},
+            method="PUT",
+        )
+    for path, target_label in route_targets:
+        route = request_json(
+            path,
+            payload={"provider": provider, "model": model},
+            method="PUT",
+        )
+        require_paid_route_blocked(route, f"{label} {target_label}")
+
+request_json(
+    "/settings/openai-compatible",
+    payload={"base_url": f"http://127.0.0.1:{sys.argv[1]}/v1", "model": "local-probe"},
     method="PUT",
 )
-require_paid_route_blocked(final_route, "final synthesis")
+for path, target_label in route_targets:
+    route = request_json(
+        path,
+        payload={"provider": "compatible", "model": "local-probe"},
+        method="PUT",
+    )
+    if (
+        route.get("paid_route_blocked") is not False
+        or route.get("effective_provider") != "compatible"
+    ):
+        raise SystemExit(f"Packaged backend blocked the local-compatible {target_label} route")
 
 maximum_code = '''def solve(values):
     if not values:
@@ -160,7 +192,7 @@ if empty_result.get("status") != "error" or empty_result.get("code") != "ValueEr
 unsafe_result = run("import os\ndef solve(values):\n    return 1\n", [])
 if unsafe_result.get("status") != "error" or unsafe_result.get("code") != "unsupported_syntax":
     raise SystemExit("Bundled Python practice did not reject imports")
-print("Bundled backend blocked paid routes for every AI role and subject, and preserved the Python practice safety contract")
+print("Bundled backend blocked remote paid routes for every AI role and subject, preserved loopback routes, and kept the Python practice safety contract")
 PY
 curl --silent --show-error --fail --max-time 5 "http://127.0.0.1:$port/" \
     --output "$smoke_root/tutor.html"

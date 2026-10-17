@@ -1385,6 +1385,24 @@ class TestAutoAgentModelRouting:
         assert route["paid_route_blocked"] is True
         assert route["status"] == "blocked_by_free_only"
 
+    def test_agent_route_keeps_loopback_compatible_model_local_in_free_only_mode(self, client):
+        orchestrator.auto_cost_policy.set(False)
+        config = client.put(
+            "/settings/openai-compatible",
+            json={"base_url": "http://127.0.0.1:9911/v1", "model": "local-agent"},
+        )
+        assert config.status_code == 200
+
+        saved = client.put(
+            "/settings/agent-models/critic",
+            json={"provider": "compatible", "model": "local-agent"},
+        )
+
+        assert saved.status_code == 200
+        assert saved.json()["paid_route_blocked"] is False
+        assert saved.json()["effective_provider"] == "compatible"
+        assert saved.json()["effective_model"] == "local-agent"
+
     def test_agent_route_store_migrates_saved_local_models(self, tmp_path):
         path = tmp_path / "auto-agent-models.json"
         path.write_text(
