@@ -1,6 +1,6 @@
 # Текущий статус, агенты и учебный маршрут / Current status, agents, and learning path
 
-**Дата / Date:** 2026-10-18  
+**Дата / Date:** 2026-10-18
 **Назначение / Purpose:** продолжить общий план Cause & Corse / ColiDev, не подменяя проверки на пользовательском Mac выводами из CI. / Continue the unified Cause & Corse / ColiDev plan without treating CI as a user-Mac test.
 
 ## 1. Что подтверждено сейчас / What is verified now
