@@ -372,6 +372,51 @@ def test_only_licensed_python_tutorial_text_is_cached_for_rag_and_refreshes(
     assert monitor.inventory()["sources"][0]["rag_content_state"] == "cached"
 
 
+def test_licensed_source_search_prioritizes_rare_query_terms_over_generic_overlap(
+    tmp_path: Path,
+) -> None:
+    generic_url = "https://docs.python.org/3/library/bisect.html"
+    specific_url = "https://docs.python.org/3/tutorial/controlflow.html"
+    common_terms_url = "https://docs.python.org/3/library/sys.html"
+    _write_lesson(
+        tmp_path,
+        "\n".join(
+            (
+                f"[Generic reference]({generic_url})",
+                f"[Specific reference]({specific_url})",
+                f"[Common terminology reference]({common_terms_url})",
+            )
+        ),
+    )
+    monitor = _monitor(tmp_path, tmp_path)
+    pages = {
+        generic_url: "Python list algorithm documentation covers common behavior.",
+        specific_url: "The bisect module algorithm supports binary insertion points.",
+        common_terms_url: "Python list algorithm reference describes common behavior.",
+    }
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        page_text = pages[str(request.url)]
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/html; charset=utf-8", "etag": '"v1"'},
+            text=(
+                "<html><head><title>Python reference</title></head><body>"
+                f"<main><article><p>{page_text}</p></article></main></body></html>"
+            ),
+        )
+
+    async def check() -> None:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            await monitor.check_sources(client)
+
+    asyncio.run(check())
+
+    results = monitor.search_rag_sources("Python list bisect module algorithm")
+
+    assert results[0]["path"] == specific_url
+
+
 def test_python_assert_reference_is_an_exact_approved_rag_path() -> None:
     url = "https://docs.python.org/3/reference/simple_stmts.html#the-assert-statement"
     assert TrustedSourceMonitor._canonical_url(url) == "https://docs.python.org/3/reference/simple_stmts.html"

@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import math
+from collections import Counter
 from collections.abc import Iterator
 from contextlib import contextmanager
 from html.parser import HTMLParser
@@ -32,6 +34,7 @@ from lesson_metadata import (
 )
 
 _URL_RE = re.compile(r"https?://[^\s<>)\]\"`]+", re.IGNORECASE)
+_RAG_TOKEN_RE = re.compile(r"[^\W_]+", re.UNICODE)
 _MARKDOWN_LINK_RE = re.compile(r"\[([^\]]{1,200})\]\(\s*(https://[^)\s]+)\s*\)", re.IGNORECASE)
 _TRAILING_PUNCTUATION = ".,;:!?"
 _MAX_LESSON_FILES = 200
@@ -48,6 +51,8 @@ _MAX_RAG_SOURCE_CHARS = 120_000
 _MAX_RAG_RESULTS = 2
 _MAX_RAG_EXCERPT_CHARS = 1_400
 _MAX_RAG_CHECK_AGE = timedelta(hours=48)
+_BM25_K1 = 1.2
+_BM25_B = 0.75
 _AUTO_CHECK_INTERVAL = timedelta(hours=24)
 _AUTO_RETRY_INTERVAL = timedelta(hours=6)
 _ISO_SOURCE_DATE = re.compile(
@@ -943,10 +948,11 @@ class TrustedSourceMonitor:
         self, query: str, limit: int = _MAX_RAG_RESULTS
     ) -> list[dict[str, str]]:
         """Return relevant excerpts from fresh snapshots with an explicit reuse license."""
-        terms = {
-            token.casefold() for token in re.findall(r"[^\W_]+", query, re.UNICODE)
+        terms = tuple(sorted({
+            token.casefold()
+            for token in _RAG_TOKEN_RE.findall(query)
             if len(token) > 2
-        }
+        }))
         if not terms or limit <= 0:
             return []
         references, _, _ = self._references()
@@ -977,31 +983,68 @@ class TrustedSourceMonitor:
                 (*eligible_urls, cutoff),
             ).fetchall()
 
-        ranked: list[tuple[int, dict[str, str]]] = []
+        documents: list[tuple[sqlite3.Row, str, Counter[str]]] = []
         for row in rows:
             sentences = [
                 part.strip() for part in re.split(r"(?<=[.!?])\s+", str(row["page_text"]))
                 if part.strip()
             ]
-            best_score = 0
-            best_excerpt = ""
             for start in range(0, len(sentences), 3):
                 excerpt = " ".join(sentences[start:start + 5])[:_MAX_RAG_EXCERPT_CHARS]
-                excerpt_terms = {
-                    token.casefold()
-                    for token in re.findall(r"[^\W_]+", excerpt, re.UNICODE)
-                }
-                score = len(terms & excerpt_terms)
-                if score > best_score:
-                    best_score, best_excerpt = score, excerpt
-            if best_score <= 0:
+                excerpt_terms = Counter(
+                    token.casefold() for token in _RAG_TOKEN_RE.findall(excerpt)
+                )
+                if any(term in excerpt_terms for term in terms):
+                    documents.append((row, excerpt, excerpt_terms))
+
+        if not documents:
+            return []
+
+        document_frequency = Counter(
+            term
+            for _, _, excerpt_terms in documents
+            for term in terms
+            if excerpt_terms[term] > 0
+        )
+        average_length = (
+            sum(sum(excerpt_terms.values()) for _, _, excerpt_terms in documents)
+            / len(documents)
+        )
+        if average_length <= 0:
+            return []
+
+        ranked_by_url: dict[str, tuple[float, dict[str, str]]] = {}
+        document_count = len(documents)
+        for row, excerpt, excerpt_terms in documents:
+            document_length = sum(excerpt_terms.values())
+            score = 0.0
+            for term in terms:
+                frequency = excerpt_terms[term]
+                if frequency <= 0:
+                    continue
+                frequency_in_corpus = document_frequency[term]
+                inverse_document_frequency = math.log(
+                    1
+                    + (document_count - frequency_in_corpus + 0.5)
+                    / (frequency_in_corpus + 0.5)
+                )
+                length_normalization = _BM25_K1 * (
+                    1 - _BM25_B + _BM25_B * document_length / average_length
+                )
+                score += (
+                    inverse_document_frequency
+                    * frequency
+                    * (_BM25_K1 + 1)
+                    / (frequency + length_normalization)
+                )
+            if score <= 0:
                 continue
             source = {
                 "id": "",
                 "title": str(row["page_title"] or row["url"])[:_MAX_TITLE_LENGTH],
                 "path": str(row["url"]),
                 "location": str(row["url"]),
-                "excerpt": best_excerpt,
+                "excerpt": excerpt,
                 "retrieved_at": now.isoformat(timespec="seconds"),
                 "source_type": "official_web",
                 "source_checked_at": str(row["last_checked_at"]),
@@ -1014,8 +1057,11 @@ class TrustedSourceMonitor:
                 source["page_published_at"] = str(row["page_published_at"])
             if row["page_updated_at"]:
                 source["page_updated_at"] = str(row["page_updated_at"])
-            ranked.append((best_score, source))
-        ranked.sort(key=lambda item: (-item[0], item[1]["path"]))
+            previous = ranked_by_url.get(source["path"])
+            if previous is None or score > previous[0]:
+                ranked_by_url[source["path"]] = (score, source)
+
+        ranked = sorted(ranked_by_url.values(), key=lambda item: (-item[0], item[1]["path"]))
         return [item for _, item in ranked[:min(limit, _MAX_RAG_RESULTS)]]
 
     def _save_check(
