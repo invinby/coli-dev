@@ -73,7 +73,45 @@ curl --silent --show-error --fail --max-time 10 -X POST "http://127.0.0.1:$port/
     --output "$smoke_root/knowledge-refresh.json"
 grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"' "$smoke_root/knowledge-refresh.json"
 grep -Eq '"document_count"[[:space:]]*:[[:space:]]*[1-9][0-9]*' "$smoke_root/knowledge-refresh.json"
+python3 - "$port" <<'PY'
+import json
+import sys
+from urllib.request import Request, urlopen
+
+base_url = f"http://127.0.0.1:{sys.argv[1]}"
+
+def run(code, values):
+    payload = json.dumps({"code": code, "arguments": {"values": values}}).encode()
+    request = Request(
+        f"{base_url}/practice/python/run",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urlopen(request, timeout=5) as response:
+        return json.load(response)
+
+maximum_code = '''def solve(values):
+    if not values:
+        raise ValueError("empty input")
+    maximum = values[0]
+    for value in values:
+        if value > maximum:
+            maximum = value
+    return maximum
+'''
+
+if run(maximum_code, [-8, -2, -5]) != {"status": "ok", "result": -2}:
+    raise SystemExit("Bundled Python practice returned the wrong negative-list result")
+empty_result = run(maximum_code, [])
+if empty_result.get("status") != "error" or empty_result.get("code") != "ValueError":
+    raise SystemExit("Bundled Python practice did not preserve the empty-input contract")
+unsafe_result = run("import os\ndef solve(values):\n    return 1\n", [])
+if unsafe_result.get("status") != "error" or unsafe_result.get("code") != "unsupported_syntax":
+    raise SystemExit("Bundled Python practice did not reject imports")
+print("Bundled Python practice accepted a valid run and rejected invalid/unsafe cases")
+PY
 curl --silent --show-error --fail --max-time 5 "http://127.0.0.1:$port/" \
     --output "$smoke_root/tutor.html"
 grep -qi 'coli-dev' "$smoke_root/tutor.html"
-echo "Bundled backend API, progress store, knowledge refresh, and tutor page responded successfully"
+echo "Bundled backend API, progress store, knowledge refresh, Python practice, and tutor page responded successfully"
