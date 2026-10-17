@@ -8508,8 +8508,8 @@ private struct AlgorithmicThinkingLab: View {
     }
 
     private func stepTitleKey(_ step: String) -> String {
-        if step.hasPrefix("lab.") { return step }
         switch step {
+        case let key where key.hasPrefix("lab."): key
         case "input": "lab.algorithmInput"
         case "compare": "lab.algorithmCompare"
         case "otherwise": "lab.algorithmOtherwise"
@@ -8528,11 +8528,6 @@ private struct AlgorithmicThinkingLab: View {
         case "typical": "lab.algorithmCaseTypical"
         case "boundary": "lab.algorithmCaseBoundary"
         case "invalid": "lab.algorithmCaseInvalid"
-        case "lab.algorithmMaximumResult0", "lab.algorithmMaximumResult2", "lab.algorithmMaximumResult3",
-             "lab.algorithmMaximumResult7", "lab.algorithmMaximumResult9", "lab.algorithmMaximumResultMinus1",
-             "lab.algorithmMaximumResultMinus2", "lab.algorithmMaximumResultMinus8", "lab.algorithmEmptyError",
-             "lab.algorithmDebugInputNegativeSingleton", "lab.algorithmDebugInputPositiveSingleton",
-             "lab.algorithmDebugInputTypical": step
         default: "lab.algorithmDisplay"
         }
     }
