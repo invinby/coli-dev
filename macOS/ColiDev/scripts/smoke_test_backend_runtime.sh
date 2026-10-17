@@ -13,6 +13,7 @@ port=18763
 COLIDEV_PROJECT_ROOT="$resources" \
 COLIDEV_DATA_DIR="$smoke_root/data" \
 COLIDEV_LOG_DIR="$smoke_root/logs" \
+OPENAI_COMPATIBLE_API_KEY="colidev-smoke-local-only" \
 HOST=127.0.0.1 \
 PORT="$port" \
 DEV_MODE=false \
