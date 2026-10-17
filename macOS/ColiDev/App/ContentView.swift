@@ -73,6 +73,7 @@ struct ContentView: View {
                     .accessibilityIdentifier("sidebar.local-models")
                     Label { Text(L10n.text("nav.settings", store.language)) } icon: { Image(systemName: "gearshape") }
                         .tag(AppSection.settings)
+                        .accessibilityIdentifier("sidebar.settings")
                 }
             }
             .listStyle(.sidebar)
@@ -1169,6 +1170,15 @@ private struct SettingsView: View {
                                 .foregroundStyle(.secondary)
                             Text(L10n.text("settings.aiBackendOnlyStatus", store.language))
                                 .font(.caption).foregroundStyle(.secondary)
+                            if health.providerKind == "orchestrator",
+                               health.routeResolution == "per_request" {
+                                Text(String(
+                                    format: L10n.text("settings.aiOrchestratorStatus", store.language),
+                                    health.orchestrator ?? health.provider
+                                ))
+                                .font(.caption).foregroundStyle(.secondary)
+                                .accessibilityIdentifier("settings.ai.orchestrator-status")
+                            }
                             Text(routeDescription(for: health))
                                 .font(.caption).foregroundStyle(.secondary)
                             if health.openRouterKeyConfigured == true {

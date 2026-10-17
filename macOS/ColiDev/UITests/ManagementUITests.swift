@@ -2,6 +2,34 @@ import XCTest
 
 final class ManagementUITests: XCTestCase {
     @MainActor
+    func testSettingsExplainsOrchestratorIsNotTheSelectedModel() async throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let settingsItem = app.staticTexts["sidebar.settings"]
+        XCTAssertTrue(
+            settingsItem.waitForExistence(timeout: 15),
+            "Settings navigation item did not appear. / Не появился пункт настроек.\n\(app.debugDescription)"
+        )
+        settingsItem.click()
+
+        let routeExplanation = app.staticTexts["settings.ai.orchestrator-status"]
+        XCTAssertTrue(
+            routeExplanation.waitForExistence(timeout: 30),
+            "Settings must identify the orchestrator separately from the per-request model route. / Настройки должны отделять оркестратор от маршрута модели для отдельного запроса.\n\(app.debugDescription)"
+        )
+        XCTAssertTrue(
+            routeExplanation.label.localizedCaseInsensitiveContains("consilium"),
+            "The health payload's orchestrator identity was not rendered. / Идентификатор оркестратора из health не показан.\n\(routeExplanation.debugDescription)"
+        )
+
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Settings with per-request AI routing explanation"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
+    @MainActor
     func testHomeDashboardShowsNextActionAndExportsScreenshot() async throws {
         let app = XCUIApplication()
         app.launch()

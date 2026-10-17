@@ -642,6 +642,11 @@ class HealthResponse(BaseModel):
     status: str
     online: bool
     provider: str
+    orchestrator: str = "consilium"
+    provider_kind: str = "orchestrator"
+    route_resolution: str = "per_request"
+    effective_provider: str | None = None
+    effective_model: str | None = None
     gemini_model: str
     ollama_model: str
     ollama_embedding_model: str | None = None

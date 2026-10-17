@@ -694,6 +694,11 @@ class TestAPIEndpoints:
         assert "status" in data
         assert "online" in data
         assert "provider" in data
+        assert data["provider_kind"] == "orchestrator"
+        assert data["orchestrator"] == "consilium"
+        assert data["route_resolution"] == "per_request"
+        assert data["effective_provider"] is None
+        assert data["effective_model"] is None
         assert "gemini_model" in data
         assert "ollama_model" in data
         assert "ollama_embedding_model" in data

@@ -1063,6 +1063,11 @@ struct OrchestratorHealth: Decodable {
     let status: String
     let online: Bool
     let provider: String
+    let orchestrator: String?
+    let providerKind: String?
+    let routeResolution: String?
+    let effectiveProvider: String?
+    let effectiveModel: String?
     let ollamaAvailable: Bool
     let ollamaModel: String
     let ollamaEmbeddingModel: String?
@@ -1108,7 +1113,11 @@ struct OrchestratorHealth: Decodable {
     var hasAutomaticRoute: Bool { automaticRouteReady ?? false }
 
     enum CodingKeys: String, CodingKey {
-        case status, online, provider
+        case status, online, provider, orchestrator
+        case providerKind = "provider_kind"
+        case routeResolution = "route_resolution"
+        case effectiveProvider = "effective_provider"
+        case effectiveModel = "effective_model"
         case ollamaAvailable = "ollama_available"
         case ollamaModel = "ollama_model"
         case ollamaEmbeddingModel = "ollama_embedding_model"
