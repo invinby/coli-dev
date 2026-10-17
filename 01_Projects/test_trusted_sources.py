@@ -417,6 +417,45 @@ def test_licensed_source_search_prioritizes_rare_query_terms_over_generic_overla
     assert results[0]["path"] == specific_url
 
 
+def test_licensed_source_search_checks_the_full_bounded_registry(
+    tmp_path: Path,
+) -> None:
+    urls = [f"https://docs.python.org/3/tutorial/a{index:03}.html" for index in range(21)]
+    relevant_url = "https://docs.python.org/3/tutorial/zz-critical.html"
+    urls.append(relevant_url)
+    _write_lesson(tmp_path, "\n".join(f"[Reference {index}]({url})" for index, url in enumerate(urls)))
+    monitor = _monitor(tmp_path, tmp_path)
+    pages = {
+        url: (
+            "The specialized retrieval example explains rare astronomical parallax measurements."
+            if url == relevant_url
+            else "This general Python documentation page describes common programming behavior."
+        )
+        for url in urls
+    }
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        page_text = pages[str(request.url)]
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/html; charset=utf-8", "etag": '"v1"'},
+            text=(
+                "<html><head><title>Python reference</title></head><body>"
+                f"<main><article><p>{page_text}</p></article></main></body></html>"
+            ),
+        )
+
+    async def check() -> None:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            await monitor.check_sources(client)
+
+    asyncio.run(check())
+
+    results = monitor.search_rag_sources("astronomical parallax measurements")
+
+    assert any(source["path"] == relevant_url for source in results)
+
+
 def test_python_assert_reference_is_an_exact_approved_rag_path() -> None:
     url = "https://docs.python.org/3/reference/simple_stmts.html#the-assert-statement"
     assert TrustedSourceMonitor._canonical_url(url) == "https://docs.python.org/3/reference/simple_stmts.html"

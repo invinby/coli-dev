@@ -979,12 +979,11 @@ class TrustedSourceMonitor:
                       AND check_record.state IN (
                           'available_untracked', 'content_baseline', 'changed', 'unchanged'
                       )
-                    ORDER BY snapshot.url LIMIT 20""",
+                    ORDER BY snapshot.url""",
                 (*eligible_urls, cutoff),
             ).fetchall()
 
-        documents: list[tuple[sqlite3.Row, str, Counter[str]]] = []
-        for row in rows:
+        def excerpt_documents(row: sqlite3.Row):
             sentences = [
                 part.strip() for part in re.split(r"(?<=[.!?])\s+", str(row["page_text"]))
                 if part.strip()
@@ -994,72 +993,71 @@ class TrustedSourceMonitor:
                 excerpt_terms = Counter(
                     token.casefold() for token in _RAG_TOKEN_RE.findall(excerpt)
                 )
-                if any(term in excerpt_terms for term in terms):
-                    documents.append((row, excerpt, excerpt_terms))
+                yield excerpt, excerpt_terms
 
-        if not documents:
+        document_frequency: Counter[str] = Counter()
+        document_count = 0
+        total_document_length = 0
+        for row in rows:
+            for _, excerpt_terms in excerpt_documents(row):
+                document_count += 1
+                total_document_length += sum(excerpt_terms.values())
+                document_frequency.update(
+                    term for term in terms if excerpt_terms[term] > 0
+                )
+        if document_count == 0:
             return []
-
-        document_frequency = Counter(
-            term
-            for _, _, excerpt_terms in documents
-            for term in terms
-            if excerpt_terms[term] > 0
-        )
-        average_length = (
-            sum(sum(excerpt_terms.values()) for _, _, excerpt_terms in documents)
-            / len(documents)
-        )
+        average_length = total_document_length / document_count
         if average_length <= 0:
             return []
 
         ranked_by_url: dict[str, tuple[float, dict[str, str]]] = {}
-        document_count = len(documents)
-        for row, excerpt, excerpt_terms in documents:
-            document_length = sum(excerpt_terms.values())
-            score = 0.0
-            for term in terms:
-                frequency = excerpt_terms[term]
-                if frequency <= 0:
+        for row in rows:
+            for excerpt, excerpt_terms in excerpt_documents(row):
+                document_length = sum(excerpt_terms.values())
+                score = 0.0
+                for term in terms:
+                    frequency = excerpt_terms[term]
+                    if frequency <= 0:
+                        continue
+                    frequency_in_corpus = document_frequency[term]
+                    inverse_document_frequency = math.log(
+                        1
+                        + (document_count - frequency_in_corpus + 0.5)
+                        / (frequency_in_corpus + 0.5)
+                    )
+                    length_normalization = _BM25_K1 * (
+                        1 - _BM25_B + _BM25_B * document_length / average_length
+                    )
+                    score += (
+                        inverse_document_frequency
+                        * frequency
+                        * (_BM25_K1 + 1)
+                        / (frequency + length_normalization)
+                    )
+                if score <= 0:
                     continue
-                frequency_in_corpus = document_frequency[term]
-                inverse_document_frequency = math.log(
-                    1
-                    + (document_count - frequency_in_corpus + 0.5)
-                    / (frequency_in_corpus + 0.5)
-                )
-                length_normalization = _BM25_K1 * (
-                    1 - _BM25_B + _BM25_B * document_length / average_length
-                )
-                score += (
-                    inverse_document_frequency
-                    * frequency
-                    * (_BM25_K1 + 1)
-                    / (frequency + length_normalization)
-                )
-            if score <= 0:
-                continue
-            source = {
-                "id": "",
-                "title": str(row["page_title"] or row["url"])[:_MAX_TITLE_LENGTH],
-                "path": str(row["url"]),
-                "location": str(row["url"]),
-                "excerpt": excerpt,
-                "retrieved_at": now.isoformat(timespec="seconds"),
-                "source_type": "official_web",
-                "source_checked_at": str(row["last_checked_at"]),
-                "source_snapshot_fetched_at": str(row["fetched_at"]),
-                "license": str(row["license_name"]),
-                "license_url": str(row["license_url"]),
-                "attribution": str(row["attribution"]),
-            }
-            if row["page_published_at"]:
-                source["page_published_at"] = str(row["page_published_at"])
-            if row["page_updated_at"]:
-                source["page_updated_at"] = str(row["page_updated_at"])
-            previous = ranked_by_url.get(source["path"])
-            if previous is None or score > previous[0]:
-                ranked_by_url[source["path"]] = (score, source)
+                source = {
+                    "id": "",
+                    "title": str(row["page_title"] or row["url"])[:_MAX_TITLE_LENGTH],
+                    "path": str(row["url"]),
+                    "location": str(row["url"]),
+                    "excerpt": excerpt,
+                    "retrieved_at": now.isoformat(timespec="seconds"),
+                    "source_type": "official_web",
+                    "source_checked_at": str(row["last_checked_at"]),
+                    "source_snapshot_fetched_at": str(row["fetched_at"]),
+                    "license": str(row["license_name"]),
+                    "license_url": str(row["license_url"]),
+                    "attribution": str(row["attribution"]),
+                }
+                if row["page_published_at"]:
+                    source["page_published_at"] = str(row["page_published_at"])
+                if row["page_updated_at"]:
+                    source["page_updated_at"] = str(row["page_updated_at"])
+                previous = ranked_by_url.get(source["path"])
+                if previous is None or score > previous[0]:
+                    ranked_by_url[source["path"]] = (score, source)
 
         ranked = sorted(ranked_by_url.values(), key=lambda item: (-item[0], item[1]["path"]))
         return [item for _, item in ranked[:min(limit, _MAX_RAG_RESULTS)]]
