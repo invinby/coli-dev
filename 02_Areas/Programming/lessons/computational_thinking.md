@@ -3,7 +3,7 @@ subject: programming
 lesson_id: programming.computational_thinking
 level: foundations
 languages: ru, en
-source_checked: 2026-10-16
+source_checked: 2026-10-17
 source_review_interval_days: 90
 ---
 
@@ -87,6 +87,47 @@ def mean(values):
 
 Для `[2, 4, 6]` сумма равна `12`, поэтому функция возвращает `4.0`. Для `[7]` результат `7.0`: один элемент проверяет границу допустимой длины. Пустой список вызывает `ValueError`, потому что в этом примере функция заранее обещает работать только с непустым списком.
 
+### Декомпозиция: разные задачи — разные шаги
+
+У задачи нет универсального порядка шагов. Сначала задай контракт, затем выбери операции, нужные именно для него.
+
+**Посчитать жаркие дни.** Контракт: принять список целых дневных температур, посчитать значения не ниже `30 °C`; пустой список допустим и даёт `0`. Это задача на накопление счётчика:
+
+```text
+установи hot_days = 0
+для каждой температуры:
+    если температура ≥ 30:
+        увеличь hot_days на 1
+верни hot_days
+```
+
+Для `[28, 30, 34, 29]` результат равен `2`: значение ровно `30` подходит, а сортировать список или считать среднее не требуется. В приложении собери шаги проверки контракта, обхода всех значений, сравнения с порогом и возврата счётчика.
+
+**Масштабировать рецепт.** Здесь требуется преобразовать каждое количество, а не посчитать подходящие значения. Контракт: базовое и нужное число порций должны быть положительными. Сохрани пропорции; в примере оставляем дробные количества и не решаем задачу перевода единиц:
+
+```text
+проверь, что оба числа порций больше 0
+factor = нужное число порций / базовое число порций
+для каждого ингредиента умножь его количество на factor
+покажи обновлённый рецепт
+```
+
+Если рецепт рассчитан на `4` порции, а нужно `6`, коэффициент равен `1,5`. Сначала проверь входы, потом вычисли коэффициент и лишь затем примени его к каждому ингредиенту. Это другая схема декомпозиции: преобразование набора без проверки условия `≥ 30`.
+
+### Классы входов и значения у границы
+
+Для каждого задания сначала задай допустимую область и ожидаемое поведение. Возьмём **условное учебное правило**, а не настоящее право на скидку: возраст — целое число от `0` до `120` включительно; скидка положена с `65` лет.
+
+| Вход | Класс теста | Ожидаемое поведение |
+| --- | --- | --- |
+| `40` | Обычный допустимый | Скидка не положена |
+| `64` | Граница, ниже порога | Скидка не положена |
+| `65` | Граница, на пороге | Скидка положена по правилу `≥ 65` |
+| `66` | Обычный допустимый | Скидка положена |
+| `-1` и `121` | Недопустимые: за диапазоном `0…120` | Отклонить до проверки скидки |
+
+Пара `64`/`65` проверяет, не перепутан ли оператор `≥` с `>` или `=`. Значения `-1` и `121` проверяют обе стороны допустимого диапазона. В глоссарии ISTQB анализ граничных значений определяется как чёрноящичный метод, при котором тестируют значения на границах. Выбранные примеры помогают найти некоторые ошибки, но не доказывают отсутствие всех дефектов. Для более строгой проверки можно дополнительно взять соседей `63` и `66`.
+
 ### Подбери тесты
 
 Тесты должны проверять разные свойства контракта, а не только ещё один обычный пример:
@@ -100,7 +141,7 @@ def mean(values):
 
 ### Исследуй и потренируйся
 
-В тренажёре собери алгоритм максимума из двух чисел, затем разложи максимум непустого списка на проверку контракта, начальное значение, обход, обновление и возврат. Проследи список `[-8, -2, -5]`, сверь ожидаемые результаты для пяти тестов, включая один элемент, повтор максимума и пустой ввод. Затем найди контрпример для ошибочной инициализации нулём и исправь алгоритм: для допустимого списка `[-1]` он возвращает `0`, хотя должен вернуть `-1`. После этого разложи вычисление среднего и отнеси четыре набора к обычному, граничному или недопустимому тесту. Случай `[-2, 2]` допустим и отдельно проверяет отрицательные значения и взаимное сокращение. В конце меняй `a` и `b`, включая равные значения, и проследи срабатывающую ветку.
+В тренажёре собери алгоритмы максимума, найди ошибку инициализации нулём, затем разложи вычисление среднего. Классифицируй тесты среднего как обычные, граничные или недопустимые. После этого собери разные последовательности для подсчёта жарких дней и масштабирования рецепта. В последнем задании классифицируй возраста `40`, `64`, `65`, `66`, `-1` и `121`; после ответа сравни пример с допустимым диапазоном и правилом скидки. Неверные ответы сохраняются как отдельные попытки, а правильный ответ объясняет проверяемую границу.
 
 ### Вопрос
 
@@ -123,6 +164,8 @@ def mean(values):
 ### Границы вывода
 
 Псевдокод сам по себе не проверяет типы данных, производительность или корректность программной реализации. Алгоритм для двух чисел нельзя без изменений применять к списку; вариант ниже принимает только непустые списки целых чисел и считает пустой список недопустимым. Другие типы и некорректный ввод здесь не рассматриваются. Тщательно выбранные примеры помогают обнаружить дефекты, но не доказывают математическую корректность во всех случаях.
+
+Правило возраста условное и иллюстрирует классы входов и проверки у порога; оно не описывает реальную скидку или закон. Примеры с рецептом не задают правила округления и перевода единиц: их нужно определить отдельно.
 
 ## English
 
@@ -202,6 +245,47 @@ def mean(values):
 
 For `[2, 4, 6]`, the sum is `12`, so the function returns `4.0`. For `[7]`, the result is `7.0`: one item checks the smallest valid list length. An empty list raises `ValueError` because this example's contract explicitly requires a non-empty list.
 
+### Decomposition: different tasks need different steps
+
+There is no universal order of steps. Start with the contract, then choose the operations required by that task.
+
+**Count hot days.** Contract: accept a list of integer daily temperatures and count values at least `30 °C`; an empty list is valid and returns `0`. This task accumulates a counter:
+
+```text
+set hot_days = 0
+for each temperature:
+    if temperature ≥ 30:
+        increment hot_days
+return hot_days
+```
+
+For `[28, 30, 34, 29]`, the result is `2`: a value exactly equal to `30` counts, and there is no need to sort the list or calculate its mean. In the app, assemble the contract check, scan every value, compare with the threshold, and return the counter.
+
+**Scale a recipe.** This task transforms each quantity instead of counting matching values. Contract: the base and requested serving counts must be positive. Preserve proportions; this example keeps fractional quantities and does not handle unit conversion:
+
+```text
+check that both serving counts are greater than 0
+factor = requested servings / base servings
+for each ingredient, multiply its quantity by factor
+present the adjusted recipe
+```
+
+If the base recipe serves `4` and the target is `6`, the factor is `1.5`. Validate inputs first, calculate the factor, and only then apply it to each ingredient. This is a different decomposition pattern: transform a collection without the `≥ 30` condition.
+
+### Input partitions and values around a boundary
+
+For every task, define the valid domain and expected behavior first. Consider a **hypothetical teaching rule**, not a real legal discount: age is an integer from `0` through `120`, inclusive; a discount applies from age `65`.
+
+| Input | Test class | Expected behavior |
+| --- | --- | --- |
+| `40` | Typical valid | No discount |
+| `64` | Boundary, below threshold | No discount |
+| `65` | Boundary, at threshold | Discount applies under `≥ 65` |
+| `66` | Typical valid | Discount applies |
+| `-1` and `121` | Invalid: outside `0…120` | Reject before checking the discount |
+
+The `64`/`65` pair checks whether `≥` was mistakenly changed to `>` or `=`. Values `-1` and `121` check both sides of the valid domain. The ISTQB glossary defines boundary-value analysis as a black-box technique that tests boundary values. Chosen examples can reveal some errors but cannot prove that every defect is absent. For a stricter check, also try neighbors `63` and `66`.
+
 ### Choose test cases
 
 Tests should check different parts of the contract, not just another ordinary example:
@@ -215,7 +299,7 @@ Each test answers a different question and can expose a specific defect; three o
 
 ### Explore and practise
 
-In the trainer, assemble the two-number maximum, then decompose the non-empty-list maximum into its contract check, starting value, scan, update, and return. Trace `[-8, -2, -5]` and check the expected outcomes for five tests, including a single item, a repeated maximum, and empty input. Then find a counterexample for the faulty zero initialization and repair the algorithm: for the valid list `[-1]`, it returns `0` although it must return `-1`. Next, decompose the mean calculation and classify four cases as typical, boundary, or invalid. `[-2, 2]` is valid and separately checks negative values and cancellation. Finally, change `a` and `b`, including equal values, and follow the branch that runs.
+In the trainer, assemble the maximum algorithms, find the zero-initialization defect, then decompose the mean calculation. Classify mean tests as typical, boundary, or invalid. Next, assemble distinct step sequences for counting hot days and scaling a recipe. In the final task, classify ages `40`, `64`, `65`, `66`, `-1`, and `121`; after each answer, compare it with the valid domain and discount rule. Incorrect answers are saved as separate attempts, and a correct answer explains which boundary the example checks.
 
 ### Question
 
@@ -239,6 +323,8 @@ The first option is correct: when the numbers are equal, `a > b` is false, so th
 
 Pseudocode alone does not validate data types, performance, or a program implementation. The two-number algorithm cannot be applied unchanged to a list; the list version in this lesson accepts only non-empty integer lists and reports an empty list as invalid. Other types and malformed input are not covered. Carefully chosen examples can expose defects, but they do not constitute a mathematical proof for every case.
 
+The age rule is hypothetical and only illustrates input partitions and tests near a threshold; it does not describe a real discount program or law. The recipe examples do not define rounding or unit-conversion rules; those must be specified separately.
+
 ## Sources
 
 - NIST CSRC Glossary, “Algorithm” (official definition; consulted 2026-10-06) / Глоссарий NIST CSRC, “Algorithm” (официальное определение; проверен 2026-10-06): <https://csrc.nist.gov/glossary/term/algorithm>
@@ -247,3 +333,5 @@ Pseudocode alone does not validate data types, performance, or a program impleme
 - Python 3 Tutorial, “More Control Flow Tools” (official Python documentation; consulted 2026-10-16) / Руководство Python 3, «Дополнительные средства управления потоком выполнения» (официальная документация Python; проверена 2026-10-16): <https://docs.python.org/3/tutorial/controlflow.html>
 - Python 3 built-in exceptions, “ValueError” (official Python documentation; consulted 2026-10-16) / Встроенные исключения Python 3, “ValueError” (официальная документация Python; проверена 2026-10-16): <https://docs.python.org/3/library/exceptions.html#ValueError>
 - Python 3 `unittest` documentation (unit-test cases and expected results; consulted 2026-10-16) / Документация Python 3 `unittest` (тест-кейсы и ожидаемые результаты; проверена 2026-10-16): <https://docs.python.org/3/library/unittest.html>
+- ACM/IEEE-CS/AAAI, CS2023 Computer Science Curricula (problem-solving through decomposition and algorithmic thinking; consulted 2026-10-17) / ACM/IEEE-CS/AAAI, учебная программа информатики CS2023 (декомпозиция задач и алгоритмическое мышление; проверена 2026-10-17): <https://csed.acm.org/final-report/>
+- ISTQB Glossary, “Boundary value analysis” (boundary-value testing definition; consulted 2026-10-17) / Глоссарий ISTQB, «Анализ граничных значений» (определение тестирования границ; проверен 2026-10-17): <https://glossary.istqb.org/en_US/term/boundary-value-analysis>

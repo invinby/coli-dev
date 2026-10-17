@@ -45,7 +45,21 @@ enum AlgorithmicThinkingVerification {
             "programming.computational_thinking.tests.average.typical",
             "programming.computational_thinking.tests.average.single_value",
             "programming.computational_thinking.tests.average.empty_list",
-            "programming.computational_thinking.tests.average.negative_cancellation"
+            "programming.computational_thinking.tests.average.negative_cancellation",
+            "programming.computational_thinking.decompose.hot_days.initialize",
+            "programming.computational_thinking.decompose.hot_days.scan",
+            "programming.computational_thinking.decompose.hot_days.threshold",
+            "programming.computational_thinking.decompose.hot_days.return",
+            "programming.computational_thinking.decompose.recipe.validate_servings",
+            "programming.computational_thinking.decompose.recipe.compute_factor",
+            "programming.computational_thinking.decompose.recipe.scale_ingredients",
+            "programming.computational_thinking.decompose.recipe.present_result",
+            "programming.computational_thinking.tests.senior_discount.typical_below",
+            "programming.computational_thinking.tests.senior_discount.below_threshold",
+            "programming.computational_thinking.tests.senior_discount.at_threshold",
+            "programming.computational_thinking.tests.senior_discount.typical_above",
+            "programming.computational_thinking.tests.senior_discount.invalid_below_domain",
+            "programming.computational_thinking.tests.senior_discount.invalid_above_domain"
         ]
         precondition(questions.map(\.id) == expectedIDs, "EN: Practice must cover list-max debugging with stable question identities. / RU: Тренажёр должен включать отладку максимума списка и вопросы с постоянными идентификаторами.")
         precondition(Set(questions.map(\.id)).count == questions.count, "Every pseudocode step needs a unique ID.")
@@ -56,12 +70,15 @@ enum AlgorithmicThinkingVerification {
             "lab.algorithmMaximumResult9", "lab.algorithmEmptyError",
             "lab.algorithmDebugInputNegativeSingleton", "initializeCurrentMaximum",
             "checkNonempty", "initializeTotal", "accumulateValues", "divideByCount", "returnAverage",
-            "typical", "boundary", "invalid", "typical"
+            "typical", "boundary", "invalid", "typical",
+            "initializeHotDayCount", "scanEveryReading", "countAtOrAboveThreshold", "returnHotDayCount",
+            "validateServings", "computeServingFactor", "scaleEachIngredient", "presentAdjustedRecipe",
+            "typical", "boundary", "boundary", "typical", "invalid", "invalid"
         ])
         precondition(
             AlgorithmicThinkingPractice.maximumAlgorithmQuestionCount == 9
                 && AlgorithmicThinkingPractice.maximumSectionQuestionCount == 14
-                && questions.count == 25
+                && questions.count == 39
                 && !AlgorithmicThinkingPractice.showsMaximumExperiment(completedQuestionCount: 8)
                 && AlgorithmicThinkingPractice.showsMaximumExperiment(completedQuestionCount: 9)
                 && !AlgorithmicThinkingPractice.showsMaximumTestResults(completedQuestionCount: 13)
@@ -115,6 +132,28 @@ enum AlgorithmicThinkingVerification {
         precondition(AlgorithmicThinkingPractice.average(of: [7]) == 7)
         precondition(AlgorithmicThinkingPractice.average(of: [-2, 2]) == 0)
         precondition(AlgorithmicThinkingPractice.average(of: []) == nil, "The empty-list contract must be explicit.")
+
+        precondition(
+            AlgorithmicThinkingPractice.decompositionScenarios.map(\.id) == ["hot_days", "recipe"]
+                && questions.filter { $0.decompositionScenarioID != nil }.count == 8
+                && questions.filter { $0.decompositionScenarioID == "hot_days" }.count == 4
+                && questions.filter { $0.decompositionScenarioID == "recipe" }.count == 4
+                && questions.filter { $0.decompositionScenarioID != nil }.allSatisfy({
+                    AlgorithmicThinkingPractice.decompositionScenario(forQuestionID: $0.id) != nil
+                }),
+            "EN: Two distinct problem types must expose four ordered, resolvable decomposition steps each. / RU: Для двух разных типов задач нужны отдельные последовательности из четырёх доступных шагов."
+        )
+        precondition(
+            AlgorithmicThinkingPractice.eligibilityTestCases.map(\.age) == [40, 64, 65, 66, -1, 121]
+                && AlgorithmicThinkingPractice.eligibilityTestCases.map(\.correctCategory) == [
+                    .typical, .boundary, .boundary, .typical, .invalid, .invalid
+                ]
+                && questions.filter { $0.eligibilityTestCaseID != nil }.count == 6
+                && questions.filter { $0.eligibilityTestCaseID != nil }.allSatisfy({
+                    AlgorithmicThinkingPractice.eligibilityTestCase(forQuestionID: $0.id) != nil
+                }),
+            "EN: Threshold-neighbor and invalid-domain examples must map to stable, reviewable questions. / RU: Соседние значения порога и недопустимые значения должны соответствовать устойчивым проверяемым вопросам."
+        )
 
         for seed in 0..<256 {
             var generator = AlgorithmicThinkingSeededGenerator(seed: UInt64(seed))

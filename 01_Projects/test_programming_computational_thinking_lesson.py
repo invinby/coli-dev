@@ -32,6 +32,35 @@ class ComputationalThinkingLessonTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 mean([])
 
+    def test_bilingual_lesson_teaches_distinct_decomposition_patterns(self):
+        lesson = LESSON_PATH.read_text(encoding="utf-8")
+        russian = re.search(r"## Русский\n(.*?)(?=\n## English\n)", lesson, re.DOTALL).group(1)
+        english = re.search(r"## English\n(.*?)(?=\n## Sources\n)", lesson, re.DOTALL).group(1)
+
+        for section, heading, examples in (
+            (russian, "### Декомпозиция: разные задачи — разные шаги", ("жарких дней", "масштабировать рецепт")),
+            (english, "### Decomposition: different tasks need different steps", ("hot days", "scale a recipe")),
+        ):
+            self.assertIn(heading, section)
+            for example in examples:
+                self.assertIn(example, section.lower())
+
+    def test_bilingual_lesson_teaches_partitions_and_threshold_neighbors(self):
+        lesson = LESSON_PATH.read_text(encoding="utf-8")
+        russian = re.search(r"## Русский\n(.*?)(?=\n## English\n)", lesson, re.DOTALL).group(1)
+        english = re.search(r"## English\n(.*?)(?=\n## Sources\n)", lesson, re.DOTALL).group(1)
+
+        for section, heading, values in (
+            (russian, "### Классы входов и значения у границы", ("64", "65", "66", "-1", "121")),
+            (english, "### Input partitions and values around a boundary", ("64", "65", "66", "-1", "121")),
+        ):
+            self.assertIn(heading, section)
+            for value in values:
+                self.assertRegex(section, rf"(?<!\d){re.escape(value)}(?!\d)")
+
+        self.assertIn("ISTQB", lesson)
+        self.assertIn("CS2023", lesson)
+
 
 if __name__ == "__main__":
     unittest.main()

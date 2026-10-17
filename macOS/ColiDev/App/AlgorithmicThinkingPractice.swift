@@ -13,6 +13,8 @@ struct AlgorithmicThinkingQuestion: Equatable, Identifiable {
     let averageTestCaseID: String?
     let maximumTestCaseID: String?
     let maximumDebuggingStage: AlgorithmicMaximumDebuggingStage?
+    let decompositionScenarioID: String?
+    let eligibilityTestCaseID: String?
 
     init(
         id: String,
@@ -21,7 +23,9 @@ struct AlgorithmicThinkingQuestion: Equatable, Identifiable {
         contextKey: String = "lab.algorithm.context.maximum",
         averageTestCaseID: String? = nil,
         maximumTestCaseID: String? = nil,
-        maximumDebuggingStage: AlgorithmicMaximumDebuggingStage? = nil
+        maximumDebuggingStage: AlgorithmicMaximumDebuggingStage? = nil,
+        decompositionScenarioID: String? = nil,
+        eligibilityTestCaseID: String? = nil
     ) {
         self.id = id
         self.choiceKeys = choiceKeys
@@ -30,6 +34,8 @@ struct AlgorithmicThinkingQuestion: Equatable, Identifiable {
         self.averageTestCaseID = averageTestCaseID
         self.maximumTestCaseID = maximumTestCaseID
         self.maximumDebuggingStage = maximumDebuggingStage
+        self.decompositionScenarioID = decompositionScenarioID
+        self.eligibilityTestCaseID = eligibilityTestCaseID
     }
 }
 
@@ -60,6 +66,21 @@ struct AlgorithmicMaximumTestCase: Equatable, Identifiable {
     let answerChoiceKeys: [String]
     let expectedMaximum: Int?
     let correctOptionIndex: Int
+    let explanationKey: String
+}
+
+struct AlgorithmicDecompositionScenario: Equatable, Identifiable {
+    let id: String
+    let promptKey: String
+    let inputKey: String
+    let solutionKey: String
+}
+
+struct AlgorithmicEligibilityTestCase: Equatable, Identifiable {
+    let id: String
+    let age: Int
+    let correctCategory: AlgorithmicTestCaseCategory
+    let expectedResultKey: String
     let explanationKey: String
 }
 
@@ -134,6 +155,66 @@ enum AlgorithmicThinkingPractice {
             values: [-2, 2],
             correctCategory: .typical,
             explanationKey: "lab.algorithmTestCaseNegativeCancellationExplanation"
+        )
+    ]
+
+    static let decompositionScenarios = [
+        AlgorithmicDecompositionScenario(
+            id: "hot_days",
+            promptKey: "lab.algorithm.hotDays.prompt",
+            inputKey: "lab.algorithm.hotDays.input",
+            solutionKey: "lab.algorithm.hotDays.solution"
+        ),
+        AlgorithmicDecompositionScenario(
+            id: "recipe",
+            promptKey: "lab.algorithm.recipe.prompt",
+            inputKey: "lab.algorithm.recipe.input",
+            solutionKey: "lab.algorithm.recipe.solution"
+        )
+    ]
+
+    static let eligibilityTestCases = [
+        AlgorithmicEligibilityTestCase(
+            id: "typical_below",
+            age: 40,
+            correctCategory: .typical,
+            expectedResultKey: "lab.algorithmEligibilityDenied",
+            explanationKey: "lab.algorithmEligibilityTypicalBelowExplanation"
+        ),
+        AlgorithmicEligibilityTestCase(
+            id: "below_threshold",
+            age: 64,
+            correctCategory: .boundary,
+            expectedResultKey: "lab.algorithmEligibilityDenied",
+            explanationKey: "lab.algorithmEligibilityBelowExplanation"
+        ),
+        AlgorithmicEligibilityTestCase(
+            id: "at_threshold",
+            age: 65,
+            correctCategory: .boundary,
+            expectedResultKey: "lab.algorithmEligibilityAllowed",
+            explanationKey: "lab.algorithmEligibilityAtExplanation"
+        ),
+        AlgorithmicEligibilityTestCase(
+            id: "typical_above",
+            age: 66,
+            correctCategory: .typical,
+            expectedResultKey: "lab.algorithmEligibilityAllowed",
+            explanationKey: "lab.algorithmEligibilityTypicalAboveExplanation"
+        ),
+        AlgorithmicEligibilityTestCase(
+            id: "invalid_below_domain",
+            age: -1,
+            correctCategory: .invalid,
+            expectedResultKey: "lab.algorithmEligibilityInvalid",
+            explanationKey: "lab.algorithmEligibilityInvalidBelowExplanation"
+        ),
+        AlgorithmicEligibilityTestCase(
+            id: "invalid_above_domain",
+            age: 121,
+            correctCategory: .invalid,
+            expectedResultKey: "lab.algorithmEligibilityInvalid",
+            explanationKey: "lab.algorithmEligibilityInvalidAboveExplanation"
         )
     ]
 
@@ -267,9 +348,78 @@ enum AlgorithmicThinkingPractice {
         )
     }
 
+    private static let decompositionQuestions = [
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.decompose.hot_days.initialize",
+            choiceKeys: ["initializeHotDayCount", "initializeCountAtOne", "returnHotDayCount"],
+            correctOptionIndex: 0,
+            contextKey: "lab.algorithm.context.hotDays",
+            decompositionScenarioID: "hot_days"
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.decompose.hot_days.scan",
+            choiceKeys: ["scanEveryReading", "scanFirstReadingOnly", "sortReadingsFirst"],
+            correctOptionIndex: 0,
+            contextKey: "lab.algorithm.context.hotDays",
+            decompositionScenarioID: "hot_days"
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.decompose.hot_days.threshold",
+            choiceKeys: ["countAboveThreshold", "countAtOrAboveThreshold", "countEveryReading"],
+            correctOptionIndex: 1,
+            contextKey: "lab.algorithm.context.hotDays",
+            decompositionScenarioID: "hot_days"
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.decompose.hot_days.return",
+            choiceKeys: ["returnHotDayCount", "returnAverage", "returnReadings"],
+            correctOptionIndex: 0,
+            contextKey: "lab.algorithm.context.hotDays",
+            decompositionScenarioID: "hot_days"
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.decompose.recipe.validate_servings",
+            choiceKeys: ["validateServings", "computeServingFactor", "presentAdjustedRecipe"],
+            correctOptionIndex: 0,
+            contextKey: "lab.algorithm.context.recipe",
+            decompositionScenarioID: "recipe"
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.decompose.recipe.compute_factor",
+            choiceKeys: ["computeServingFactor", "scaleEachIngredient", "validateServings"],
+            correctOptionIndex: 0,
+            contextKey: "lab.algorithm.context.recipe",
+            decompositionScenarioID: "recipe"
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.decompose.recipe.scale_ingredients",
+            choiceKeys: ["presentAdjustedRecipe", "scaleEachIngredient", "computeServingFactor"],
+            correctOptionIndex: 1,
+            contextKey: "lab.algorithm.context.recipe",
+            decompositionScenarioID: "recipe"
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.decompose.recipe.present_result",
+            choiceKeys: ["presentAdjustedRecipe", "returnServingFactor", "validateServings"],
+            correctOptionIndex: 0,
+            contextKey: "lab.algorithm.context.recipe",
+            decompositionScenarioID: "recipe"
+        )
+    ]
+
+    private static let eligibilityQuestions = eligibilityTestCases.map { testCase in
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.tests.senior_discount.\(testCase.id)",
+            choiceKeys: AlgorithmicTestCaseCategory.allCases.map(\.key),
+            correctOptionIndex: testCase.correctCategory.rawValue,
+            contextKey: "lab.algorithm.context.eligibilityTestDesign",
+            eligibilityTestCaseID: testCase.id
+        )
+    }
+
     static let maximumAlgorithmQuestionCount = maximumQuestions.count + maximumListQuestions.count
     static let maximumSectionQuestionCount = maximumAlgorithmQuestionCount + maximumTestCaseQuestions.count
-    static let questions = maximumQuestions + maximumListQuestions + maximumTestCaseQuestions + maximumDebuggingQuestions + averageQuestions + testCaseQuestions
+    static let questions = maximumQuestions + maximumListQuestions + maximumTestCaseQuestions + maximumDebuggingQuestions + averageQuestions + testCaseQuestions + decompositionQuestions + eligibilityQuestions
 
     static func showsMaximumExperiment(completedQuestionCount: Int) -> Bool {
         completedQuestionCount >= maximumAlgorithmQuestionCount
@@ -310,6 +460,24 @@ enum AlgorithmicThinkingPractice {
     static func maximumTestCase(forQuestionID questionID: String) -> AlgorithmicMaximumTestCase? {
         guard let testCaseID = questions.first(where: { $0.id == questionID })?.maximumTestCaseID else { return nil }
         return maximumTestCases.first { $0.id == testCaseID }
+    }
+
+    static func decompositionScenario(id: String) -> AlgorithmicDecompositionScenario? {
+        decompositionScenarios.first { $0.id == id }
+    }
+
+    static func decompositionScenario(forQuestionID questionID: String) -> AlgorithmicDecompositionScenario? {
+        guard let scenarioID = questions.first(where: { $0.id == questionID })?.decompositionScenarioID else { return nil }
+        return decompositionScenario(id: scenarioID)
+    }
+
+    static func eligibilityTestCase(id: String) -> AlgorithmicEligibilityTestCase? {
+        eligibilityTestCases.first { $0.id == id }
+    }
+
+    static func eligibilityTestCase(forQuestionID questionID: String) -> AlgorithmicEligibilityTestCase? {
+        guard let testCaseID = questions.first(where: { $0.id == questionID })?.eligibilityTestCaseID else { return nil }
+        return eligibilityTestCase(id: testCaseID)
     }
 
     static func answerOrders<Generator: RandomNumberGenerator>(using generator: inout Generator) -> [QuizAnswerOrder] {

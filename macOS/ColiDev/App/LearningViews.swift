@@ -8291,6 +8291,26 @@ private struct AlgorithmicThinkingLab: View {
                     .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(.background, in: RoundedRectangle(cornerRadius: 12))
+                } else if let scenario = AlgorithmicThinkingPractice.decompositionScenario(forQuestionID: currentQuestion.id) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(L10n.text(scenario.promptKey, store.language))
+                            .font(.callout)
+                        Text(L10n.text(scenario.inputKey, store.language))
+                            .font(.system(.callout, design: .monospaced))
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 12))
+                } else if let testCase = AlgorithmicThinkingPractice.eligibilityTestCase(forQuestionID: currentQuestion.id) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(L10n.text("lab.algorithmEligibilityRule", store.language))
+                            .font(.callout)
+                        Text(String(format: L10n.text("lab.algorithmEligibilityAge", store.language), testCase.age))
+                            .font(.system(.body, design: .monospaced))
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 12))
                 }
             }
 
@@ -8404,6 +8424,39 @@ private struct AlgorithmicThinkingLab: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(.background, in: RoundedRectangle(cornerRadius: 12))
 
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(L10n.text("lab.algorithmDecompositionSolutions", store.language))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    ForEach(AlgorithmicThinkingPractice.decompositionScenarios) { scenario in
+                        Text(L10n.text(scenario.solutionKey, store.language))
+                            .font(.callout)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.background, in: RoundedRectangle(cornerRadius: 12))
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(L10n.text("lab.algorithmEligibilityTestResults", store.language))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    ForEach(AlgorithmicThinkingPractice.eligibilityTestCases) { testCase in
+                        HStack {
+                            Text(String(format: L10n.text("lab.algorithmEligibilityAge", store.language), testCase.age))
+                                .font(.system(.callout, design: .monospaced))
+                            Spacer(minLength: 12)
+                            Text(L10n.text(testCase.expectedResultKey, store.language))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.background, in: RoundedRectangle(cornerRadius: 12))
+
                 Button {
                     session.restart()
                     feedbackKey = nil
@@ -8430,6 +8483,8 @@ private struct AlgorithmicThinkingLab: View {
                 feedbackKey = "lab.algorithmMaximumTestCaseIncorrect"
             } else if AlgorithmicThinkingPractice.averageTestCase(forQuestionID: submission.questionID) != nil {
                 feedbackKey = "lab.algorithmTestCaseIncorrect"
+            } else if AlgorithmicThinkingPractice.eligibilityTestCase(forQuestionID: submission.questionID) != nil {
+                feedbackKey = "lab.algorithmEligibilityIncorrect"
             } else {
                 feedbackKey = "lab.algorithmIncorrect"
             }
@@ -8445,12 +8500,15 @@ private struct AlgorithmicThinkingLab: View {
             feedbackKey = testCase.explanationKey
         } else if let testCase = AlgorithmicThinkingPractice.averageTestCase(forQuestionID: submission.questionID) {
             feedbackKey = testCase.explanationKey
+        } else if let testCase = AlgorithmicThinkingPractice.eligibilityTestCase(forQuestionID: submission.questionID) {
+            feedbackKey = testCase.explanationKey
         } else {
             feedbackKey = "lab.algorithmStepCorrect"
         }
     }
 
     private func stepTitleKey(_ step: String) -> String {
+        if step.hasPrefix("lab.") { return step }
         switch step {
         case "input": "lab.algorithmInput"
         case "compare": "lab.algorithmCompare"

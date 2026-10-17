@@ -177,6 +177,32 @@ def test_reference_scan_deduplicates_allowed_urls_and_ignores_untrusted_domains(
     assert omitted_count == 0
 
 
+def test_cs2023_is_monitored_but_unreadable_istqb_page_stays_unmonitored(tmp_path: Path) -> None:
+    urls = {
+        "https://csed.acm.org/final-report/",
+    }
+    unapproved_urls = {
+        "https://csed.acm.org/wp-content/uploads/2025/11/CS2023-Report.htm",
+        "https://glossary.istqb.org/en_US/term/boundary-value-analysis",
+        "https://glossary.istqb.org/en_US/term/equivalence-partition",
+    }
+    _write_lesson(
+        tmp_path,
+        "\n".join(
+            f"[Official source]({url})" for url in sorted(urls | unapproved_urls)
+        ),
+    )
+    monitor = _monitor(tmp_path, tmp_path)
+
+    references, unsupported_count, omitted_count = monitor._references()
+
+    assert {reference.url for reference in references} == urls
+    assert unsupported_count == len(unapproved_urls)
+    assert omitted_count == 0
+    assert monitor._rag_policy("https://csed.acm.org/final-report/") is None
+    assert not monitor._has_rag_snapshot("https://csed.acm.org/final-report/")
+
+
 def test_gene_expression_sources_use_rag_only_for_licensed_genome_glossary_pages(
     tmp_path: Path,
 ) -> None:
