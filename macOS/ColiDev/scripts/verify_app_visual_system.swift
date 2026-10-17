@@ -19,6 +19,23 @@ struct VerifyAppVisualSystem {
         precondition(tokens.allSatisfy { $0.lightHex != $0.darkHex }, "Each accent needs composed light and dark variants")
         precondition(ColiDevVisualSystem.subjectToken("unknown").lightHex != 0, "Unknown subjects need a visible fallback accent")
 
-        print("Visual system verified: six distinct subject accents with light/dark variants")
+        precondition(
+            ColiDevVisualSystem.studyAccentToken(subjectID: "biology", resource: "intro").lightHex == 0x1F7652,
+            "A built-in Biology lesson must keep the Biology accent."
+        )
+        precondition(
+            ColiDevVisualSystem.studyAccentToken(subjectID: "intro", resource: "biology").lightHex == 0x1F7652,
+            "The built-in subject intro route must use that subject's accent."
+        )
+        precondition(
+            ColiDevVisualSystem.studyAccentToken(subjectID: "custom-builtin:mathematics").lightHex == 0x5747B8,
+            "A learner-created topic inside Mathematics must inherit the Mathematics accent."
+        )
+        precondition(
+            ColiDevVisualSystem.studyAccentToken(subjectID: "custom-user:9f4e").lightHex == 0x405F9B,
+            "A custom subject must receive the readable fallback accent."
+        )
+
+        print("Visual system verified: six subject accents, route inheritance, and custom-subject fallback")
     }
 }
