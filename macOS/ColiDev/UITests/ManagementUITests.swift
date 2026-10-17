@@ -286,10 +286,16 @@ final class ManagementUITests: XCTestCase {
         disableButton.click()
         let statusMessage = app.descendants(matching: .any)["control-center.status-message"]
         let disabledSuccessfully = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "label CONTAINS %@ OR label CONTAINS %@", "отключена", "disabled"),
+            predicate: NSPredicate(format: "value CONTAINS %@ OR value CONTAINS %@", "отключена", "disabled"),
             object: statusMessage
         )
         let disableResult = await XCTWaiter.fulfillment(of: [disabledSuccessfully], timeout: 15)
-        XCTAssertEqual(disableResult, .completed)
+        guard disableResult == .completed else {
+            XCTFail(
+                "Disabling semantic search should show a success message. / При отключении должен появиться статус успеха. "
+                    + "Message value: \(statusMessage.value ?? "<missing>")\n\(app.debugDescription)"
+            )
+            return
+        }
     }
 }
