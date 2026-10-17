@@ -1,5 +1,11 @@
 # 02. Текущее состояние ColiDev
 
+## Ручная beta-приёмка по сообщению пользователя / User-reported beta acceptance — 2026-10-18
+
+**RU:** Пользователь сообщает: Mac beta из CI run 39069620653 / commit `ca2c5d1` открыла Today, математику, интерактивный график в уроке и Settings; backend ответил на порту 54657, старый процесс на 8000 не трогали. Это частичная ручная приёмка, переданная пользователем, а не проверка Codex на Mac. Реальный AI-ответ остаётся непроверенным. Значение `provider=consilium` в `/api/status` — статический ярлык, не фактический выбранный маршрут. См. [разбор маршрутов Auto/Local и порта](../CURRENT_TASK_AND_LEARNING_PATH_RU_EN.md) и [аудит AI-маршрутов](04-ai.md).
+
+**EN:** The user reports that the Mac beta from CI run 39069620653 / commit `ca2c5d1` opened Today, Mathematics, an interactive lesson graph, and Settings; the backend replied on port 54657 and the old process on 8000 was left untouched. This is partial hands-on acceptance reported by the user, not a Codex test on Mac. A real AI answer remains untested. `provider=consilium` in `/api/status` is a static label, not the actual selected route. See the [Auto/Local and port analysis](../CURRENT_TASK_AND_LEARNING_PATH_RU_EN.md) and the [AI route audit](04-ai.md).
+
 ## P0: ограничить повторение коллекций до вычисления / P0: guard collection repetition before evaluation — 2026-10-17
 
 **RU:** Python-тренажёр ограничивает результаты списков, строк и кортежей 500 элементами. Проверка уже стояла для `a * n`, но отсутствовала в ветке `a *= n`; огромное число могло вызвать выделение чрезмерной памяти до проверки итогового значения. Общее ограничение теперь применяется до операции в обоих вариантах. Регрессионный тест подменяет саму операцию и доказывает, что опасное умножение не запускается. Локальный полный backend-набор: 597 passed, одно предупреждение Starlette/httpx. GitHub Actions [39051353136](https://github.com/invinby/coli-dev/actions/runs/39051353136) завершился успешно: backend checks, Swift-verifier’ы, сборки/упаковка и UI-проверки для macOS 15 ARM, macOS 26 ARM и Intel. Физический Mac не проверялся.
