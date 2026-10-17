@@ -88,6 +88,14 @@ _AUGMENTED_OPERATORS = {
 _SAFE_BUILTINS = {"len", "range", "sum", "min", "max", "abs"}
 
 
+def _guard_collection_repetition(left: Any, right: Any) -> None:
+    if type(left) not in (str, list, tuple) and type(right) not in (str, list, tuple):
+        return
+    collection, count = (left, right) if type(left) in (str, list, tuple) else (right, left)
+    if type(count) is not int or count < 0 or len(collection) * count > MAX_COLLECTION_ITEMS:
+        raise _PracticeFailure("iteration_limit", "The resulting collection is too large.")
+
+
 def _validate_external_value(value: Any, depth: int = 0) -> None:
     if depth > 8:
         raise _PracticeFailure("invalid_arguments", "Input data is nested too deeply.")
@@ -289,12 +297,8 @@ class _Interpreter:
                 type(left) is type(right) and type(left) in (int, float, str, list, tuple)
             ):
                 raise _PracticeFailure("TypeError", "These values cannot be added in this trainer.")
-            if type(node.op) is ast.Mult and (
-                type(left) in (str, list, tuple) or type(right) in (str, list, tuple)
-            ):
-                collection, count = (left, right) if type(left) in (str, list, tuple) else (right, left)
-                if type(count) is not int or count < 0 or len(collection) * count > MAX_COLLECTION_ITEMS:
-                    raise _PracticeFailure("iteration_limit", "The resulting collection is too large.")
+            if type(node.op) is ast.Mult:
+                _guard_collection_repetition(left, right)
             try:
                 return _check_runtime_value(operation(left, right))
             except _PracticeFailure:
@@ -397,7 +401,11 @@ class _Interpreter:
                     raise _PracticeFailure("NameError", f"Name '{name}' is not defined.")
                 operation = _AUGMENTED_OPERATORS[type(statement.op)]
                 try:
-                    self.env[name] = _check_runtime_value(operation(self.env[name], self.evaluate(statement.value)))
+                    left = self.env[name]
+                    right = self.evaluate(statement.value)
+                    if type(statement.op) is ast.Mult:
+                        _guard_collection_repetition(left, right)
+                    self.env[name] = _check_runtime_value(operation(left, right))
                 except _PracticeFailure:
                     raise
                 except (ArithmeticError, TypeError, ValueError, OverflowError) as exc:

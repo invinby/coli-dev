@@ -12,6 +12,7 @@ test_orchestrator.py — тесты для coli-dev Orchestrator v4.0 (Ково�
 from __future__ import annotations
 
 import asyncio
+import ast
 import gc
 import json
 import os
@@ -30,6 +31,7 @@ from starlette.requests import Request
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import orchestrator  # noqa: E402
+import python_practice  # noqa: E402
 from learning_progress import StudyProgressStore  # noqa: E402
 from orchestrator import (
     DebateLog,
@@ -4645,6 +4647,28 @@ class TestPythonPracticeEndpoint:
         assert response.status_code == 403
 
 class TestPythonPracticeInterpreterBoundaries:
+    def test_rejects_oversized_augmented_collection_repeat_before_allocating(self, monkeypatch):
+        called = False
+
+        def multiplication_must_not_run(_collection, _count):
+            nonlocal called
+            called = True
+            return "unexpected allocation"
+
+        monkeypatch.setitem(
+            python_practice._AUGMENTED_OPERATORS,
+            ast.Mult,
+            multiplication_must_not_run,
+        )
+        result = orchestrator.execute_python_practice(
+            "def solve(text, count):\n    text *= count\n    return text\n",
+            {"text": "x", "count": 2 ** 255},
+        )
+
+        assert result["status"] == "error"
+        assert result["code"] == "iteration_limit"
+        assert called is False
+
     def test_rejects_invalid_unicode_source_without_crashing(self):
         source = "def solve(values):\n    return " + chr(0xD800) + "\n"
 
