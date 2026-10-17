@@ -108,17 +108,39 @@ policy = request_json("/settings/auto-cost-policy")
 if policy.get("allow_paid_routes") is not False:
     raise SystemExit("Packaged backend did not default to blocking potentially paid routes")
 
-paid_route = request_json(
-    "/settings/agent-models/critic",
+def require_paid_route_blocked(route, label):
+    if (
+        route.get("paid_route_blocked") is not True
+        or route.get("effective_provider") != "ollama"
+        or route.get("status") != "blocked_by_free_only"
+    ):
+        raise SystemExit(f"Packaged backend did not block the paid {label} route by default")
+
+
+for item in request_json("/settings/agent-models").get("roles", []):
+    role = item["role"]
+    route = request_json(
+        f"/settings/agent-models/{role}",
+        payload={"provider": "gemini", "model": "gemini-3.8-flash"},
+        method="PUT",
+    )
+    require_paid_route_blocked(route, f"agent role {role}")
+
+for item in request_json("/settings/model-routing").get("subjects", []):
+    subject = item["subject"]
+    route = request_json(
+        f"/settings/model-routing/{subject}",
+        payload={"provider": "gemini", "model": "gemini-3.8-flash"},
+        method="PUT",
+    )
+    require_paid_route_blocked(route, f"subject {subject}")
+
+final_route = request_json(
+    "/settings/final-synthesis-route",
     payload={"provider": "gemini", "model": "gemini-3.8-flash"},
     method="PUT",
 )
-if (
-    paid_route.get("paid_route_blocked") is not True
-    or paid_route.get("effective_provider") != "ollama"
-    or paid_route.get("status") != "blocked_by_free_only"
-):
-    raise SystemExit("Packaged backend did not block a selected paid AI route by default")
+require_paid_route_blocked(final_route, "final synthesis")
 
 maximum_code = '''def solve(values):
     if not values:
@@ -138,7 +160,7 @@ if empty_result.get("status") != "error" or empty_result.get("code") != "ValueEr
 unsafe_result = run("import os\ndef solve(values):\n    return 1\n", [])
 if unsafe_result.get("status") != "error" or unsafe_result.get("code") != "unsupported_syntax":
     raise SystemExit("Bundled Python practice did not reject imports")
-print("Bundled Python practice accepted a valid run and rejected invalid/unsafe cases")
+print("Bundled backend blocked paid routes for every AI role and subject, and preserved the Python practice safety contract")
 PY
 curl --silent --show-error --fail --max-time 5 "http://127.0.0.1:$port/" \
     --output "$smoke_root/tutor.html"
