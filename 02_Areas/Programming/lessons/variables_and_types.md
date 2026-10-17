@@ -3,7 +3,7 @@ subject: programming
 lesson_id: programming.variables_and_types
 level: foundations
 languages: ru, en
-source_checked: 2026-10-06
+source_checked: 2026-10-15
 source_review_interval_days: 90
 ---
 
@@ -38,6 +38,30 @@ print(type(label).__name__)  # str
 
 Задание: измени начальное число на `-3` и ещё раз прибавь `1`. Какое значение будет у имени после вычисления? Затем объясни, почему `"12" + 1` не равнозначно `12 + 1`.
 
+### Ввод пользователя — это текст
+
+`input()` читает строку и возвращает `str`, даже если пользователь ввёл цифры. Если дальше программе нужно целое число, преобразуй строку через `int()`:
+
+```python
+raw_text = input("Сколько задач ты решил? ")
+count = int(raw_text)
+print(count + 1)
+```
+
+Введи `12`: `raw_text` сначала будет строкой `"12"`, затем `count` станет целым числом `12`. Ввод `twelve` или `3.5` нельзя преобразовать через `int()` как строку целого числа, поэтому возникнет `ValueError`. Чтобы программа не завершалась без объяснения, обработай неверный ввод:
+
+```python
+raw_text = input("Сколько задач ты решил? ")
+try:
+    count = int(raw_text)
+except ValueError:
+    print("Введи целое число")
+else:
+    print(count + 1)
+```
+
+В тренажёре сначала попробуй `12`, затем при желании `-12`, `twelve`, `3.5` и пустой ввод. Результаты попыток преобразования сохраняются для этого урока без отправки введённой строки. Тренажёр проверяет только простое текстовое преобразование и не запускает введённый код.
+
 ### Вопрос
 
 Какой результат и тип у `amount` после выполнения `amount = 8 / 5`?
@@ -58,7 +82,7 @@ print(type(label).__name__)  # str
 
 ### Границы вывода
 
-Имена в Python чувствительны к регистру: `score` и `Score` — разные имена. Присваивание имени не проверяет смысл значения и не гарантирует, что последующие операции подходят его типу. Функция `type()` полезна для обучения и диагностики, но в прикладном коде часто важнее проверять требуемое поведение или явно преобразовывать и проверять ввод. Тренажёр показывает модель двух присваиваний и не исполняет введённый учеником код.
+Имена в Python чувствительны к регистру: `score` и `Score` — разные имена. Присваивание имени не проверяет смысл значения и не гарантирует, что последующие операции подходят его типу. Функция `type()` полезна для обучения и диагностики, но в прикладном коде часто важнее проверять требуемое поведение или явно преобразовывать и проверять ввод. Тренажёр симулирует только простые целые числа ASCII в диапазоне `Swift Int`; он не выполняет код, не покрывает весь синтаксис Python `int()` и не ограничивает диапазон настоящих целых чисел Python.
 
 ## English
 
@@ -107,10 +131,35 @@ What are the result and type of `amount` after `amount = 8 / 5`?
 
 The first option is correct: Python's `/` operator performs ordinary division and returns a `float`, even when the quotient is a whole number. Quotes would make the value text, but there are no quotes here.
 
+### User input is text
+
+`input()` reads a line and returns it as `str`, even when the user types digits. If the program needs an integer, convert that string with `int()`:
+
+```python
+raw_text = input("How many tasks did you finish? ")
+count = int(raw_text)
+print(count + 1)
+```
+
+Enter `12`: `raw_text` is first the string `"12"`, and then `count` becomes the integer `12`. Text such as `twelve` or `3.5` cannot be converted to an integer string by `int()`, so Python raises `ValueError`. Handle invalid input to give the user a useful message:
+
+```python
+raw_text = input("How many tasks did you finish? ")
+try:
+    count = int(raw_text)
+except ValueError:
+    print("Enter a whole number")
+else:
+    print(count + 1)
+```
+
+Try `12` first, then optionally `-12`, `twelve`, `3.5`, and empty input. Conversion attempts are saved for this lesson without sending the entered text. The trainer checks only simple text conversion and does not run learner-entered code.
+
 ### Limits of the inference
 
-Python names are case-sensitive: `score` and `Score` are different names. Assignment does not check whether a value makes sense or whether later operations support its type. `type()` is useful for learning and diagnostics, while application code often needs to validate expected behavior or explicitly convert and validate input. The trainer models two assignments and does not execute learner-entered code.
+Python names are case-sensitive: `score` and `Score` are different names. Assignment does not check whether a value makes sense or whether later operations support its type. `type()` is useful for learning and diagnostics, while application code often needs to validate expected behavior or explicitly convert and validate input. The trainer simulates only simple ASCII whole numbers within the `Swift Int` range; it does not execute code, cover all Python `int()` syntax, or limit the range of real Python integers.
 
 ## Sources
 
-- Python 3.14 Tutorial, “An Informal Introduction to Python” (official Python documentation; consulted 2026-10-06): <https://docs.python.org/3/tutorial/introduction.html>
+- Python 3 built-in functions, `input()` and `int()` (official Python documentation; consulted 2026-10-15): <https://docs.python.org/3/builtins/functions.html#input>, <https://docs.python.org/3/builtins/functions.html#int>
+- Python 3 built-in exceptions, `ValueError` (official Python documentation; consulted 2026-10-15): <https://docs.python.org/3/builtins/exceptions.html#ValueError>

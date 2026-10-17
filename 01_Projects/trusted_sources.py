@@ -12,6 +12,10 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import math
+from collections import Counter
+from collections.abc import Iterator
+from contextlib import contextmanager
 from html.parser import HTMLParser
 import os
 import re
@@ -30,11 +34,12 @@ from lesson_metadata import (
 )
 
 _URL_RE = re.compile(r"https?://[^\s<>)\]\"`]+", re.IGNORECASE)
+_RAG_TOKEN_RE = re.compile(r"[^\W_]+", re.UNICODE)
 _MARKDOWN_LINK_RE = re.compile(r"\[([^\]]{1,200})\]\(\s*(https://[^)\s]+)\s*\)", re.IGNORECASE)
 _TRAILING_PUNCTUATION = ".,;:!?"
 _MAX_LESSON_FILES = 200
 _MAX_LESSON_FILE_BYTES = 256 * 1024
-_MAX_SOURCES = 80
+_MAX_SOURCES = 150
 _MAX_CONCURRENT_REQUESTS = 5
 _MAX_TITLE_LENGTH = 200
 _MAX_PAGE_DESCRIPTION_LENGTH = 500
@@ -45,46 +50,91 @@ _MAX_SOURCE_PREVIEW_CHARS = 4_000
 _MAX_RAG_SOURCE_CHARS = 120_000
 _MAX_RAG_RESULTS = 2
 _MAX_RAG_EXCERPT_CHARS = 1_400
-_MAX_RAG_SNAPSHOT_AGE = timedelta(hours=48)
+_MAX_RAG_CHECK_AGE = timedelta(hours=48)
+_BM25_K1 = 1.2
+_BM25_B = 0.75
 _AUTO_CHECK_INTERVAL = timedelta(hours=24)
 _AUTO_RETRY_INTERVAL = timedelta(hours=6)
+_ISO_SOURCE_DATE = re.compile(
+    r"^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?(?:Z|[+-]\d{2}:\d{2})?)?$"
+)
 _TRANSIENT_SOURCE_STATES = frozenset({"network_error", "unavailable"})
 _TRUSTED_HOSTS = frozenset(
     {
         "animaldiversity.org",
+        "csed.acm.org",
         "csrc.nist.gov",
+        "dictionary.cambridge.org",
+        "docs.github.com",
         "docs.python.org",
+        "git-scm.com",
         "learnenglish.britishcouncil.org",
+        "legacy.bas.ac.uk",
         "medlineplus.gov",
+        "online.stat.psu.edu",
         "raw.githubusercontent.com",
         "www.nist.gov",
         "www.genome.gov",
+        "www.ncbi.nlm.nih.gov",
         "www.sqlite.org",
+        "sqlite.org",
         "openstax.org",
+        "www.sciencedirect.com",
+        "pubmed.ncbi.nlm.nih.gov",
     }
 )
 _ALLOWED_PATHS = {
     "animaldiversity.org": re.compile(r"^/accounts/[A-Za-z0-9_.-]+/?$"),
+    "csed.acm.org": re.compile(r"^/final-report/$"),
     "csrc.nist.gov": re.compile(r"^/glossary/term/algorithm$"),
     "docs.python.org": re.compile(
-        r"^(?:/3/tutorial/[A-Za-z0-9_.-]+\.html|/3/reference/simple_stmts\.html|/3/library/bisect\.html)$"
+        r"^(?:/3/(?:tutorial/[A-Za-z0-9_.-]+\.html|reference/(?:simple_stmts|compound_stmts)\.html|"
+        r"library/(?:bisect|sys)\.html|builtins/(?:functions|exceptions|stdtypes)\.html)|"
+        r"/3\.14/builtins/(?:functions|exceptions)\.html)$"
+    ),
+    "docs.github.com": re.compile(
+        r"^/en/pull-requests/(?:how-tos/create-pull-requests/creating-a-pull-request|"
+        r"concepts/writing-code-for-a-project)$"
+    ),
+    "dictionary.cambridge.org": re.compile(
+        r"^/(?:dictionary/english/stress|pronunciation/english/(?:present|record)|help/phonetics\.html|"
+        r"grammar/british-grammar/reporting-clauses)$"
+    ),
+    "git-scm.com": re.compile(
+        r"^/(?:book/en/v2/(?:Git-Basics-Recording-Changes-to-the-Repository|Git-Branching-Branches-in-a-Nutshell)|"
+        r"docs/(?:git-switch|git-push))$"
     ),
     "learnenglish.britishcouncil.org": re.compile(
-        r"^/(?:free-resources/(?:grammar/(?:english-grammar-reference|b1-b2)/[A-Za-z0-9-]+|"
+        r"^/(?:free-resources/(?:grammar/(?:(?:english-grammar-reference|b1-b2)/[A-Za-z0-9-]+|a1-a2/present-simple-be)|"
         r"vocabulary/a1-a2(?:/daily-routine-vocabulary-a1-beginner-english-vocabulary-lesson)?|reading/a1)|"
-        r"level/improve-your-english-level/how-start-reading-english)/?$"
+        r"level/improve-your-english-level/how-start-reading-english|"
+        r"english-levels/improve-your-english-level/easy-way-work-out-how-pronounce-new-words)/?$"
+    ),
+    "legacy.bas.ac.uk": re.compile(
+        r"^/about_antarctica/wildlife/birds/penguins/(?:emperor\.php|index\.php)$"
     ),
     "medlineplus.gov": re.compile(
-        r"^/genetics/understanding/(?:basics/(?:dna|gene)|howgeneswork/makingprotein)/?$"
+        r"^(?:/genetics/understanding/(?:basics/(?:dna|gene)|howgeneswork/makingprotein)/?|"
+        r"/about/using/usingcontent/)$"
     ),
+    "online.stat.psu.edu": re.compile(r"^/stat502/Lesson07$"),
     "www.genome.gov": re.compile(
-        r"^/genetics-glossary/(?:Gene-Expression|Gene-Regulation|Promoter|Chromatid)$"
+        r"^/genetics-glossary/(?:Gene-Expression|Gene-Regulation|Promoter|Chromatid|Gene|Phenotype|genotype)$"
+    ),
+    "www.ncbi.nlm.nih.gov": re.compile(
+        r"^/books/(?:NBK26825|NBK26854|NBK550206|NBK9842)/?$"
     ),
     "www.nist.gov": re.compile(
-        r"^/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b9$"
+        r"^(?:/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/"
+        r"nist-guide-si-appendix-b9|/pml/owm/metric-si-prefixes|/copyrights-disclaimers)$"
     ),
-    "www.sqlite.org": re.compile(r"^/lang_transaction\.html$"),
-    "openstax.org": re.compile(r"^/books/[a-z0-9-]+/pages/[a-z0-9-]+/?$"),
+    "www.sqlite.org": re.compile(
+        r"^/(?:lang_createtable|lang_select|queryplanner|lang_transaction)\.html$"
+    ),
+    "sqlite.org": re.compile(r"^/copyright\.html$"),
+    "openstax.org": re.compile(r"^(?:/books/[a-z0-9-]+/pages/[a-z0-9-]+/?|/terms-of-use)$"),
+    "www.sciencedirect.com": re.compile(r"^/science/article/pii/S1095643325000789$"),
+    "pubmed.ncbi.nlm.nih.gov": re.compile(r"^/40393560/$"),
     "raw.githubusercontent.com": re.compile(
         r"^/elifesciences/elife-article-xml/master/articles/elife-81613-v1\.xml$"
     ),
@@ -95,11 +145,24 @@ _ALLOWED_PATHS = {
 _RAG_SOURCE_POLICIES = {
     "docs.python.org": {
         "path": re.compile(
-            r"^(?:/3/tutorial/[A-Za-z0-9_.-]+\.html|/3/reference/simple_stmts\.html|/3/library/bisect\.html)$"
+            r"^(?:/3/(?:tutorial/[A-Za-z0-9_.-]+\.html|reference/(?:simple_stmts|compound_stmts)\.html|"
+            r"library/(?:bisect|sys)\.html|builtins/(?:functions|exceptions|stdtypes)\.html)|"
+            r"/3\.14/builtins/(?:functions|exceptions)\.html)$"
         ),
         "license": "Python Software Foundation License Version 2",
         "license_url": "https://docs.python.org/3/license.html",
         "attribution": "Copyright © 2001 Python Software Foundation; All Rights Reserved. Python 3 documentation; PSF License Version 2.",
+    },
+    "www.sqlite.org": {
+        "path": re.compile(
+            r"^/(?:lang_createtable|lang_select|queryplanner|lang_transaction)\.html$"
+        ),
+        "license": "SQLite documentation dedicated to the public domain",
+        "license_url": "https://sqlite.org/copyright.html",
+        "attribution": (
+            "Source: SQLite documentation. The authors dedicated SQLite code and documentation "
+            "to the public domain."
+        ),
     },
     "medlineplus.gov": {
         "path": re.compile(r"^/genetics/understanding/basics/(?:dna|gene)/?$"),
@@ -107,13 +170,25 @@ _RAG_SOURCE_POLICIES = {
         "license_url": "https://medlineplus.gov/about/using/usingcontent/",
         "attribution": "Source: MedlinePlus, National Library of Medicine (NLM), National Institutes of Health (NIH). Public-domain Genetics summary.",
     },
+    "www.genome.gov": {
+        "path": re.compile(
+            r"^/genetics-glossary/(?:Gene-Expression|Gene-Regulation|Promoter|Chromatid|Gene|Phenotype|genotype)$"
+        ),
+        "license": "NHGRI website material is public domain unless otherwise indicated on the page",
+        "license_url": "https://www.genome.gov/about-nhgri/Policies-Guidance/Copyright",
+        "attribution": (
+            "Courtesy: National Human Genome Research Institute (NHGRI), genome.gov. "
+            "Public-domain web content unless otherwise marked; no government endorsement implied."
+        ),
+    },
     "www.nist.gov": {
         "path": re.compile(
-            r"^/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b9$"
+            r"^(?:/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/"
+            r"nist-guide-si-appendix-b9|/pml/owm/metric-si-prefixes)$"
         ),
         "license": "NIST public information; may be distributed or copied unless marked copyrighted",
         "license_url": "https://www.nist.gov/copyrights-disclaimers",
-        "attribution": "Source: National Institute of Standards and Technology (NIST), Guide to the SI, Appendix B.9. NIST requests appropriate source credit; no endorsement implied.",
+        "attribution": "Source: National Institute of Standards and Technology (NIST). Credit the linked page; no endorsement implied.",
     },
     "raw.githubusercontent.com": {
         "path": re.compile(
@@ -149,6 +224,23 @@ class SourceSnapshotChanged(RuntimeError):
     """Raised when a source changed between preview and editorial confirmation."""
 
 
+def _publisher_declared_date(value: str | None) -> str | None:
+    """Accept bounded ISO date signals while preserving their declared timezone."""
+    if value is None:
+        return None
+    candidate = " ".join(value.split())
+    if len(candidate) > 40 or not _ISO_SOURCE_DATE.fullmatch(candidate):
+        return None
+    try:
+        if "T" in candidate:
+            datetime.fromisoformat(candidate[:-1] + "+00:00" if candidate.endswith("Z") else candidate)
+        else:
+            date.fromisoformat(candidate)
+    except ValueError:
+        return None
+    return candidate
+
+
 class _SourcePageParser(HTMLParser):
     """Extract bounded, human-readable metadata and visible text from HTML."""
 
@@ -166,6 +258,8 @@ class _SourcePageParser(HTMLParser):
         self.xml_article = xml_article
         self.title_parts: list[str] = []
         self.description: str | None = None
+        self.page_published_at: str | None = None
+        self.page_updated_at: str | None = None
         self.fallback_parts: list[str] = []
         self.semantic_parts: list[str] = []
         self.in_title = False
@@ -193,6 +287,7 @@ class _SourcePageParser(HTMLParser):
         elif tag == "meta":
             name = (attributes.get("name") or "").casefold()
             prop = (attributes.get("property") or "").casefold()
+            itemprop = (attributes.get("itemprop") or "").casefold()
             content = " ".join((attributes.get("content") or "").split())
             if (
                 content
@@ -201,6 +296,24 @@ class _SourcePageParser(HTMLParser):
                 and self.description is None
             ):
                 self.description = content[:_MAX_PAGE_DESCRIPTION_LENGTH]
+            self._record_publisher_date(prop or itemprop or name, content)
+        elif tag == "time":
+            itemprop = (attributes.get("itemprop") or "").casefold()
+            self._record_publisher_date(itemprop, attributes.get("datetime"))
+
+    def _record_publisher_date(self, key: str, value: str | None) -> None:
+        field = {
+            "article:published_time": "page_published_at",
+            "datepublished": "page_published_at",
+            "article:modified_time": "page_updated_at",
+            "og:updated_time": "page_updated_at",
+            "datemodified": "page_updated_at",
+        }.get(key)
+        if field is None or getattr(self, field) is not None:
+            return
+        parsed = _publisher_declared_date(value)
+        if parsed is not None:
+            setattr(self, field, parsed)
 
     def handle_endtag(self, tag: str) -> None:
         tag = tag.casefold()
@@ -237,6 +350,9 @@ class _SourcePageParser(HTMLParser):
 
     def visible_text(self) -> str:
         return self._normalize(self.semantic_parts or self.fallback_parts)
+
+    def publisher_dates(self) -> tuple[str | None, str | None]:
+        return self.page_published_at, self.page_updated_at
 
     def result(self) -> tuple[str | None, str | None, str | None]:
         title = self._normalize(self.title_parts)[:_MAX_TITLE_LENGTH] or None
@@ -395,7 +511,7 @@ class TrustedSourceMonitor:
             # Keep the HTTP work bounded, but never permanently starve links
             # beyond the alphabetical batch. Unchecked and oldest references
             # get the next slots so the scheduler eventually visits the tail.
-            with self._db_lock, self._connect() as connection:
+            with self._db_lock, self._connection() as connection:
                 previous_checks = {
                     str(row["url"]): str(row["last_checked_at"])
                     for row in connection.execute(
@@ -432,7 +548,8 @@ class TrustedSourceMonitor:
                 last_modified TEXT,
                 last_checked_at TEXT NOT NULL,
                 last_http_status INTEGER,
-                state TEXT NOT NULL
+                state TEXT NOT NULL,
+                pending_review_digest TEXT
             )"""
         )
         connection.execute(
@@ -454,13 +571,20 @@ class TrustedSourceMonitor:
         for column, declaration in (
             ("page_title", "TEXT"),
             ("page_description", "TEXT"),
+            ("page_published_at", "TEXT"),
+            ("page_updated_at", "TEXT"),
             ("content_digest", "TEXT"),
             ("content_checked_at", "TEXT"),
+            ("pending_review_digest", "TEXT"),
         ):
             if column not in columns:
                 connection.execute(
                     f"ALTER TABLE trusted_source_checks ADD COLUMN {column} {declaration}"
                 )
+        connection.execute(
+            "UPDATE trusted_source_checks SET pending_review_digest = content_digest "
+            "WHERE state = 'changed' AND pending_review_digest IS NULL AND content_digest IS NOT NULL"
+        )
         connection.execute(
             """CREATE TABLE IF NOT EXISTS trusted_source_editorial_reviews (
                 review_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -481,15 +605,27 @@ class TrustedSourceMonitor:
         )
         return connection
 
+    @contextmanager
+    def _connection(self) -> Iterator[sqlite3.Connection]:
+        """Commit or roll back a SQLite unit of work, then always close its handle."""
+        connection = self._connect()
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
+
     def inventory(self, *, today: date | None = None) -> dict[str, object]:
         """Return the approved source registry and saved check metadata without network access."""
         references, unsupported_count, omitted_count = self._references()
-        with self._db_lock, self._connect() as connection:
+        with self._db_lock, self._connection() as connection:
             previous_checks = {
                 str(row["url"]): row
                 for row in connection.execute(
                     "SELECT url, etag, last_modified, last_checked_at, last_http_status, state, "
-                    "page_title, page_description, content_digest, content_checked_at "
+                    "page_title, page_description, page_published_at, page_updated_at, "
+                    "content_digest, content_checked_at, "
+                    "pending_review_digest "
                     "FROM trusted_source_checks"
                 ).fetchall()
             }
@@ -587,12 +723,16 @@ class TrustedSourceMonitor:
                     if previous is not None and previous["page_title"] else None,
                 "page_description": str(previous["page_description"])
                     if previous is not None and previous["page_description"] else None,
+                "page_published_at": str(previous["page_published_at"])
+                    if previous is not None and previous["page_published_at"] else None,
+                "page_updated_at": str(previous["page_updated_at"])
+                    if previous is not None and previous["page_updated_at"] else None,
                 "content_checked_at": str(previous["content_checked_at"])
                     if previous is not None and previous["content_checked_at"] else None,
                 "rag_content_state": (
                     "cached" if rag_snapshot is not None
                     else "license_approved_pending_check" if rag_policy is not None
-                    else "metadata_only_noncommercial" if urlsplit(reference.url).hostname == "openstax.org"
+                    else "metadata_only_rights_review" if urlsplit(reference.url).hostname == "openstax.org"
                     else "metadata_only"
                 ),
                 "rag_content_fetched_at": (
@@ -609,6 +749,23 @@ class TrustedSourceMonitor:
                     if urlsplit(reference.url).hostname == "openstax.org" else None
                 ),
             })
+
+            pending_review_digest = (
+                str(previous["pending_review_digest"])
+                if previous is not None and previous["pending_review_digest"] else None
+            )
+            if pending_review_digest is not None:
+                all_lessons_reviewed = all(
+                    manual_reviews.get((reference.url, lesson.lesson_path)) is not None
+                    and str(manual_reviews[(reference.url, lesson.lesson_path)]["reviewed_digest"])
+                    == pending_review_digest
+                    for lesson in reference.lesson_reviews
+                )
+                if all_lessons_reviewed:
+                    if items[-1]["state"] == "changed":
+                        items[-1]["state"] = "unchanged"
+                else:
+                    items[-1]["state"] = "changed"
 
         states = [str(item["state"]) for item in items]
         attention_states = {
@@ -636,7 +793,7 @@ class TrustedSourceMonitor:
     def _save_editorial_review(
         self, url: str, lesson_path: str, digest: str, reviewed_on: str, reviewed_at: str
     ) -> None:
-        with self._db_lock, self._connect() as connection:
+        with self._db_lock, self._connection() as connection:
             connection.execute(
                 """INSERT INTO trusted_source_editorial_reviews(
                     url, lesson_path, reviewed_digest, reviewed_on, reviewed_at
@@ -651,6 +808,76 @@ class TrustedSourceMonitor:
                 )"""
             )
 
+    def _clear_pending_review_if_complete(self, reference: SourceReference) -> None:
+        previous = self._previous_check(reference.url)
+        if previous is None or not previous["pending_review_digest"]:
+            return
+        pending_digest = str(previous["pending_review_digest"])
+        with self._db_lock, self._connection() as connection:
+            latest_reviews = {
+                str(row["lesson_path"]): str(row["reviewed_digest"])
+                for row in connection.execute(
+                    """SELECT review.lesson_path, review.reviewed_digest
+                    FROM trusted_source_editorial_reviews AS review
+                    WHERE review.url = ? AND review.review_id = (
+                        SELECT MAX(latest.review_id) FROM trusted_source_editorial_reviews AS latest
+                        WHERE latest.url = review.url AND latest.lesson_path = review.lesson_path
+                    )""",
+                    (reference.url,),
+                ).fetchall()
+            }
+            if not all(
+                latest_reviews.get(lesson.lesson_path) == pending_digest
+                for lesson in reference.lesson_reviews
+            ):
+                return
+            connection.execute(
+                """UPDATE trusted_source_checks
+                SET pending_review_digest = NULL,
+                    state = CASE WHEN state = 'changed' THEN 'unchanged' ELSE state END
+                WHERE url = ? AND pending_review_digest = ?""",
+                (reference.url, pending_digest),
+            )
+
+    def _automatic_check_schedule(
+        self,
+        references: list[SourceReference],
+        current: datetime,
+    ) -> list[tuple[SourceReference, float]]:
+        """Pair each approved source with its own delay before its next check."""
+        if current.tzinfo is None:
+            current = current.replace(tzinfo=timezone.utc)
+        with self._db_lock, self._connection() as connection:
+            previous_checks = {
+                str(row["url"]): row
+                for row in connection.execute(
+                    "SELECT url, last_checked_at, state FROM trusted_source_checks"
+                ).fetchall()
+            }
+
+        schedule: list[tuple[SourceReference, float]] = []
+        for reference in references:
+            previous = previous_checks.get(reference.url)
+            if previous is None:
+                schedule.append((reference, 0.0))
+                continue
+            try:
+                checked_at = datetime.fromisoformat(
+                    str(previous["last_checked_at"]).replace("Z", "+00:00")
+                )
+            except (TypeError, ValueError):
+                schedule.append((reference, 0.0))
+                continue
+            if checked_at.tzinfo is None:
+                checked_at = checked_at.replace(tzinfo=timezone.utc)
+            interval = (
+                _AUTO_RETRY_INTERVAL
+                if str(previous["state"]) in _TRANSIENT_SOURCE_STATES
+                else _AUTO_CHECK_INTERVAL
+            )
+            schedule.append((reference, (checked_at + interval - current).total_seconds()))
+        return schedule
+
     def seconds_until_automatic_check(self, *, now: datetime | None = None) -> float | None:
         """Return delay until the next bounded check, retrying transient failures sooner."""
         references, _, _ = self._references()
@@ -659,37 +886,11 @@ class TrustedSourceMonitor:
         current = now or datetime.now(timezone.utc)
         if current.tzinfo is None:
             current = current.replace(tzinfo=timezone.utc)
-        with self._db_lock, self._connect() as connection:
-            previous_checks = {
-                str(row["url"]): row
-                for row in connection.execute(
-                    "SELECT url, last_checked_at, state FROM trusted_source_checks"
-                ).fetchall()
-            }
-
-        delays: list[float] = []
-        for reference in references:
-            previous = previous_checks.get(reference.url)
-            if previous is None:
-                return 0.0
-            try:
-                checked_at = datetime.fromisoformat(
-                    str(previous["last_checked_at"]).replace("Z", "+00:00")
-                )
-            except (TypeError, ValueError):
-                return 0.0
-            if checked_at.tzinfo is None:
-                checked_at = checked_at.replace(tzinfo=timezone.utc)
-            interval = (
-                _AUTO_RETRY_INTERVAL
-                if str(previous["state"]) in _TRANSIENT_SOURCE_STATES
-                else _AUTO_CHECK_INTERVAL
-            )
-            delays.append((checked_at + interval - current).total_seconds())
-        return max(0.0, min(delays))
+        delays = [delay for _, delay in self._automatic_check_schedule(references, current)]
+        return max(0.0, min(delays)) if delays else None
 
     def _previous_check(self, url: str) -> sqlite3.Row | None:
-        with self._db_lock, self._connect() as connection:
+        with self._db_lock, self._connection() as connection:
             return connection.execute(
                 "SELECT * FROM trusted_source_checks WHERE url = ?", (url,)
             ).fetchone()
@@ -697,7 +898,7 @@ class TrustedSourceMonitor:
     def _has_rag_snapshot(self, url: str) -> bool:
         if self._rag_policy(url) is None:
             return False
-        with self._db_lock, self._connect() as connection:
+        with self._db_lock, self._connection() as connection:
             return connection.execute(
                 "SELECT 1 FROM trusted_source_rag_snapshots WHERE url = ?", (url,)
             ).fetchone() is not None
@@ -725,7 +926,7 @@ class TrustedSourceMonitor:
         policy = self._rag_policy(url)
         if policy is None or not text:
             return
-        with self._db_lock, self._connect() as connection:
+        with self._db_lock, self._connection() as connection:
             connection.execute(
                 """INSERT INTO trusted_source_rag_snapshots(
                     url, page_title, page_text, content_digest, fetched_at,
@@ -749,10 +950,11 @@ class TrustedSourceMonitor:
         self, query: str, limit: int = _MAX_RAG_RESULTS
     ) -> list[dict[str, str]]:
         """Return relevant excerpts from fresh snapshots with an explicit reuse license."""
-        terms = {
-            token.casefold() for token in re.findall(r"[^\W_]+", query, re.UNICODE)
+        terms = tuple(sorted({
+            token.casefold()
+            for token in _RAG_TOKEN_RE.findall(query)
             if len(token) > 2
-        }
+        }))
         if not terms or limit <= 0:
             return []
         references, _, _ = self._references()
@@ -763,58 +965,103 @@ class TrustedSourceMonitor:
         if not eligible_urls:
             return []
         now = datetime.now(timezone.utc)
-        cutoff = (now - _MAX_RAG_SNAPSHOT_AGE).isoformat(timespec="seconds").replace("+00:00", "Z")
+        cutoff = (now - _MAX_RAG_CHECK_AGE).isoformat(timespec="seconds").replace("+00:00", "Z")
         placeholders = ",".join("?" for _ in eligible_urls)
-        with self._db_lock, self._connect() as connection:
+        with self._db_lock, self._connection() as connection:
             rows = connection.execute(
                 f"""SELECT snapshot.url, snapshot.page_title, snapshot.page_text,
                            snapshot.fetched_at, snapshot.license_name, snapshot.license_url,
-                           snapshot.attribution, check_record.state
+                           snapshot.attribution, check_record.state,
+                           check_record.last_checked_at, check_record.page_published_at,
+                           check_record.page_updated_at
                     FROM trusted_source_rag_snapshots AS snapshot
                     JOIN trusted_source_checks AS check_record ON check_record.url = snapshot.url
                     WHERE snapshot.url IN ({placeholders})
-                      AND snapshot.fetched_at >= ?
                       AND check_record.last_checked_at >= ?
                       AND check_record.state IN (
                           'available_untracked', 'content_baseline', 'changed', 'unchanged'
                       )
-                    ORDER BY snapshot.url LIMIT 20""",
-                (*eligible_urls, cutoff, cutoff),
+                    ORDER BY snapshot.url""",
+                (*eligible_urls, cutoff),
             ).fetchall()
 
-        ranked: list[tuple[int, dict[str, str]]] = []
-        for row in rows:
+        def excerpt_documents(row: sqlite3.Row):
             sentences = [
                 part.strip() for part in re.split(r"(?<=[.!?])\s+", str(row["page_text"]))
                 if part.strip()
             ]
-            best_score = 0
-            best_excerpt = ""
             for start in range(0, len(sentences), 3):
                 excerpt = " ".join(sentences[start:start + 5])[:_MAX_RAG_EXCERPT_CHARS]
-                excerpt_terms = {
-                    token.casefold()
-                    for token in re.findall(r"[^\W_]+", excerpt, re.UNICODE)
+                excerpt_terms = Counter(
+                    token.casefold() for token in _RAG_TOKEN_RE.findall(excerpt)
+                )
+                yield excerpt, excerpt_terms
+
+        document_frequency: Counter[str] = Counter()
+        document_count = 0
+        total_document_length = 0
+        for row in rows:
+            for _, excerpt_terms in excerpt_documents(row):
+                document_count += 1
+                total_document_length += sum(excerpt_terms.values())
+                document_frequency.update(
+                    term for term in terms if excerpt_terms[term] > 0
+                )
+        if document_count == 0:
+            return []
+        average_length = total_document_length / document_count
+        if average_length <= 0:
+            return []
+
+        ranked_by_url: dict[str, tuple[float, dict[str, str]]] = {}
+        for row in rows:
+            for excerpt, excerpt_terms in excerpt_documents(row):
+                document_length = sum(excerpt_terms.values())
+                score = 0.0
+                for term in terms:
+                    frequency = excerpt_terms[term]
+                    if frequency <= 0:
+                        continue
+                    frequency_in_corpus = document_frequency[term]
+                    inverse_document_frequency = math.log(
+                        1
+                        + (document_count - frequency_in_corpus + 0.5)
+                        / (frequency_in_corpus + 0.5)
+                    )
+                    length_normalization = _BM25_K1 * (
+                        1 - _BM25_B + _BM25_B * document_length / average_length
+                    )
+                    score += (
+                        inverse_document_frequency
+                        * frequency
+                        * (_BM25_K1 + 1)
+                        / (frequency + length_normalization)
+                    )
+                if score <= 0:
+                    continue
+                source = {
+                    "id": "",
+                    "title": str(row["page_title"] or row["url"])[:_MAX_TITLE_LENGTH],
+                    "path": str(row["url"]),
+                    "location": str(row["url"]),
+                    "excerpt": excerpt,
+                    "retrieved_at": now.isoformat(timespec="seconds"),
+                    "source_type": "official_web",
+                    "source_checked_at": str(row["last_checked_at"]),
+                    "source_snapshot_fetched_at": str(row["fetched_at"]),
+                    "license": str(row["license_name"]),
+                    "license_url": str(row["license_url"]),
+                    "attribution": str(row["attribution"]),
                 }
-                score = len(terms & excerpt_terms)
-                if score > best_score:
-                    best_score, best_excerpt = score, excerpt
-            if best_score <= 0:
-                continue
-            ranked.append((best_score, {
-                "id": "",
-                "title": str(row["page_title"] or row["url"])[:_MAX_TITLE_LENGTH],
-                "path": str(row["url"]),
-                "location": str(row["url"]),
-                "excerpt": best_excerpt,
-                "retrieved_at": now.isoformat(timespec="seconds"),
-                "source_type": "official_web",
-                "source_checked_at": str(row["fetched_at"]),
-                "license": str(row["license_name"]),
-                "license_url": str(row["license_url"]),
-                "attribution": str(row["attribution"]),
-            }))
-        ranked.sort(key=lambda item: (-item[0], item[1]["path"]))
+                if row["page_published_at"]:
+                    source["page_published_at"] = str(row["page_published_at"])
+                if row["page_updated_at"]:
+                    source["page_updated_at"] = str(row["page_updated_at"])
+                previous = ranked_by_url.get(source["path"])
+                if previous is None or score > previous[0]:
+                    ranked_by_url[source["path"]] = (score, source)
+
+        ranked = sorted(ranked_by_url.values(), key=lambda item: (-item[0], item[1]["path"]))
         return [item for _, item in ranked[:min(limit, _MAX_RAG_RESULTS)]]
 
     def _save_check(
@@ -828,16 +1075,21 @@ class TrustedSourceMonitor:
         state: str,
         page_title: str | None = None,
         page_description: str | None = None,
+        page_published_at: str | None = None,
+        page_updated_at: str | None = None,
         content_digest: str | None = None,
         content_checked_at: str | None = None,
         preserve_content_metadata: bool = False,
     ) -> None:
-        with self._db_lock, self._connect() as connection:
+        with self._db_lock, self._connection() as connection:
             connection.execute(
                 """INSERT INTO trusted_source_checks(
                     url, etag, last_modified, last_checked_at, last_http_status, state,
-                    page_title, page_description, content_digest, content_checked_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    page_title, page_description, page_published_at, page_updated_at,
+                    content_digest, content_checked_at,
+                    pending_review_digest
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    CASE WHEN ? = 'changed' THEN ? ELSE NULL END)
                 ON CONFLICT(url) DO UPDATE SET
                     etag = excluded.etag,
                     last_modified = excluded.last_modified,
@@ -846,11 +1098,19 @@ class TrustedSourceMonitor:
                     state = excluded.state,
                     page_title = CASE WHEN ? THEN trusted_source_checks.page_title ELSE excluded.page_title END,
                     page_description = CASE WHEN ? THEN trusted_source_checks.page_description ELSE excluded.page_description END,
+                    page_published_at = CASE WHEN ? THEN trusted_source_checks.page_published_at ELSE excluded.page_published_at END,
+                    page_updated_at = CASE WHEN ? THEN trusted_source_checks.page_updated_at ELSE excluded.page_updated_at END,
                     content_digest = CASE WHEN ? THEN trusted_source_checks.content_digest ELSE excluded.content_digest END,
-                    content_checked_at = CASE WHEN ? THEN trusted_source_checks.content_checked_at ELSE excluded.content_checked_at END""",
+                    content_checked_at = CASE WHEN ? THEN trusted_source_checks.content_checked_at ELSE excluded.content_checked_at END,
+                    pending_review_digest = CASE
+                        WHEN excluded.state = 'changed' THEN excluded.content_digest
+                        ELSE trusted_source_checks.pending_review_digest END""",
                 (
                     reference.url, etag, last_modified, checked_at, http_status, state,
-                    page_title, page_description, content_digest, content_checked_at,
+                    page_title, page_description, page_published_at, page_updated_at,
+                    content_digest, content_checked_at,
+                    state, content_digest,
+                    preserve_content_metadata, preserve_content_metadata,
                     preserve_content_metadata, preserve_content_metadata,
                     preserve_content_metadata, preserve_content_metadata,
                 ),
@@ -897,7 +1157,7 @@ class TrustedSourceMonitor:
     @staticmethod
     def _parse_source_page_preview(
         body: bytes, encoding: str | None, *, xml_article: bool = False
-    ) -> tuple[str | None, str | None, str | None, str]:
+    ) -> tuple[str | None, str | None, str | None, str | None, str | None, str]:
         try:
             decoded = body.decode(encoding or "utf-8", errors="replace")
         except LookupError:
@@ -906,7 +1166,8 @@ class TrustedSourceMonitor:
         parser.feed(decoded)
         parser.close()
         title, description, digest = parser.result()
-        return title, description, digest, parser.visible_text()
+        published_at, updated_at = parser.publisher_dates()
+        return title, description, digest, published_at, updated_at, parser.visible_text()
 
     @staticmethod
     def _validator_changed(
@@ -953,6 +1214,14 @@ class TrustedSourceMonitor:
         page_description = (
             str(previous["page_description"])
             if previous is not None and previous["page_description"] else None
+        )
+        page_published_at = (
+            str(previous["page_published_at"])
+            if previous is not None and previous["page_published_at"] else None
+        )
+        page_updated_at = (
+            str(previous["page_updated_at"])
+            if previous is not None and previous["page_updated_at"] else None
         )
         content_digest = (
             str(previous["content_digest"])
@@ -1003,6 +1272,8 @@ class TrustedSourceMonitor:
                                     parsed_title,
                                     parsed_description,
                                     parsed_digest,
+                                    parsed_published_at,
+                                    parsed_updated_at,
                                     parsed_text,
                                 ) = self._parse_source_page_preview(
                                     body,
@@ -1019,6 +1290,8 @@ class TrustedSourceMonitor:
                                     )
                                     page_title = effective_title
                                     page_description = parsed_description
+                                    page_published_at = parsed_published_at
+                                    page_updated_at = parsed_updated_at
                                     content_digest = parsed_digest
                                     content_checked_at = checked_at
                                     if self._rag_policy(reference.url) is not None:
@@ -1069,6 +1342,8 @@ class TrustedSourceMonitor:
                 state=state,
                 page_title=page_title,
                 page_description=page_description,
+                page_published_at=page_published_at,
+                page_updated_at=page_updated_at,
                 content_digest=content_digest,
                 content_checked_at=content_checked_at,
                 preserve_content_metadata=preserve_content_metadata,
@@ -1081,13 +1356,6 @@ class TrustedSourceMonitor:
                     digest=content_digest,
                     fetched_at=checked_at,
                 )
-            elif state == "unchanged" and previous is not None and self._rag_policy(reference.url):
-                # A 304 revalidates the stored source without downloading a new body.
-                with self._db_lock, self._connect() as connection:
-                    connection.execute(
-                        "UPDATE trusted_source_rag_snapshots SET fetched_at = ? WHERE url = ?",
-                        (checked_at, reference.url),
-                    )
         return {
             "url": reference.url,
             "title": reference.title[:_MAX_TITLE_LENGTH],
@@ -1099,13 +1367,23 @@ class TrustedSourceMonitor:
             "checked_at": checked_at,
             "page_title": page_title,
             "page_description": page_description,
+            "page_published_at": page_published_at,
+            "page_updated_at": page_updated_at,
             "content_checked_at": content_checked_at,
         }
 
     async def check_sources(
-        self, client: httpx.AsyncClient | None = None
+        self,
+        client: httpx.AsyncClient | None = None,
+        *,
+        due_only: bool = False,
     ) -> dict[str, object]:
         references, unsupported_count, omitted_count = self._references()
+        supported_count = len(references) + omitted_count
+        if due_only and references:
+            current = datetime.now(timezone.utc)
+            schedule = self._automatic_check_schedule(references, current)
+            references = [reference for reference, delay in schedule if delay <= 0]
         semaphore = asyncio.Semaphore(_MAX_CONCURRENT_REQUESTS)
         if client is None:
             async with httpx.AsyncClient(
@@ -1129,7 +1407,7 @@ class TrustedSourceMonitor:
         )}
         return {
             "status": "ok",
-            "supported_count": len(references) + omitted_count,
+            "supported_count": supported_count,
             "checked_count": (
                 counts["available_untracked"] + counts["content_baseline"]
                 + counts["changed"] + counts["unchanged"]
@@ -1186,7 +1464,14 @@ class TrustedSourceMonitor:
                     raise RuntimeError("Approved source preview is unavailable")
                 encoding = response.encoding
 
-            title, description, digest, visible_text = self._parse_source_page_preview(
+            (
+                title,
+                description,
+                digest,
+                page_published_at,
+                page_updated_at,
+                visible_text,
+            ) = self._parse_source_page_preview(
                 body,
                 encoding,
                 xml_article=self._is_approved_xml_source(reference.url),
@@ -1199,6 +1484,8 @@ class TrustedSourceMonitor:
                 "lesson_paths": [review.lesson_path for review in reference.lesson_reviews],
                 "page_title": title or reference.title,
                 "page_description": description,
+                "page_published_at": page_published_at,
+                "page_updated_at": page_updated_at,
                 "etag": self._bounded_header(response.headers.get("etag")),
                 "last_modified": self._bounded_header(response.headers.get("last-modified")),
                 "excerpt": visible_text[:_MAX_SOURCE_PREVIEW_CHARS],
@@ -1260,10 +1547,17 @@ class TrustedSourceMonitor:
             state=state,
             page_title=str(fresh["page_title"]) if fresh["page_title"] else None,
             page_description=str(fresh["page_description"]) if fresh["page_description"] else None,
+            page_published_at=(
+                str(fresh["page_published_at"]) if fresh["page_published_at"] else None
+            ),
+            page_updated_at=(
+                str(fresh["page_updated_at"]) if fresh["page_updated_at"] else None
+            ),
             content_digest=digest,
             content_checked_at=reviewed_at,
         )
         self._save_editorial_review(reference.url, lesson_path, digest, reviewed_on, reviewed_at)
+        self._clear_pending_review_if_complete(reference)
         return {
             "status": "ok",
             "url": reference.url,
@@ -1274,7 +1568,7 @@ class TrustedSourceMonitor:
         }
 
     def _latest_editorial_review_id(self, url: str, lesson_path: str) -> int | None:
-        with self._db_lock, self._connect() as connection:
+        with self._db_lock, self._connection() as connection:
             row = connection.execute(
                 """SELECT review_id FROM trusted_source_editorial_reviews
                 WHERE url = ? AND lesson_path = ? ORDER BY review_id DESC LIMIT 1""",
@@ -1297,7 +1591,7 @@ class TrustedSourceMonitor:
 
         if isinstance(limit, bool) or not 1 <= limit <= 100:
             raise ValueError("History page size is outside the supported range")
-        with self._db_lock, self._connect() as connection:
+        with self._db_lock, self._connection() as connection:
             if before_review_id is None:
                 rows = connection.execute(
                     """SELECT review_id, url, lesson_path, reviewed_digest, reviewed_on, reviewed_at

@@ -21,12 +21,18 @@ enum BiologyInvestigationVerification {
         }
 
         design = correct
-        design.plantsPerGroup = 2
-        precondition(design.issues.contains(.replication), "fewer than three independent plants should be flagged")
+        design.independentUnitsPerCondition = 2
+        precondition(design.issues.contains(.replication), "fewer than three independent experimental units should be flagged")
 
         design = correct
-        design.plantsPerGroup = 12
-        precondition(design.isReadyToCollectData, "twelve plants per group should pass the replication threshold")
+        design.independentUnitsPerCondition = 1
+        design.plantsPerUnit = 12
+        precondition(design.issues.contains(.replication), "many plants in one shared setup should not count as independent units")
+
+        design = correct
+        design.independentUnitsPerCondition = 12
+        design.plantsPerUnit = 12
+        precondition(design.isReadyToCollectData, "independent units should satisfy the exercise replication threshold")
 
         let nodeIDs = Set(PondFoodWebModel.nodes.map(\.id))
         precondition(nodeIDs.count == PondFoodWebModel.nodes.count, "food-web node IDs should be unique")

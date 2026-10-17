@@ -2,6 +2,14 @@
 
 Рабочий план объединения текущего ColiDev и расширенной идеи учебного ИИ-тьютора. Этот документ фиксирует требования, текущее состояние реализации, предложения и открытые решения. Начат отдельный нативный macOS-клиент в `macOS/ColiDev`; статус и ограничения ведутся в соответствующих категориях.
 
+Копируемое задание на проектирование и разработку всего приложения собрано в [двуязычном промпте для разработчика](APP_BUILD_PROMPT.md); это бриф продукта, а не системная инструкция для поведения тьютора.
+
+Краткий профиль опубликован в [README проекта](../README.md#project-profile), а подробное описание требований, отзывов и состояния прототипа — в [двуязычном профиле продукта](PRODUCT_PROFILE_RU_EN.md). Здесь хранится рабочий план.
+
+The short profile is in the [project README](../README.md#project-profile); the [bilingual product profile](PRODUCT_PROFILE_RU_EN.md) records the full requirements, feedback, and prototype status. This folder contains the working plan.
+
+Текущая готовность тестовой сборки и шаги ручной проверки собраны в [двуязычном отчёте прототипа](PROTOTYPE_READINESS_RU_EN.md). / Current build readiness and hands-on test steps are in the [bilingual prototype report](PROTOTYPE_READINESS_RU_EN.md).
+
 ## Подтверждённое направление
 
 Сделать один полноценный продукт для macOS, объединяющий обучение Python/backend из ColiDev с универсальной платформой для изучения всех важных направлений с самого начала. Приложение должно иметь русскую и английскую локализации. Нужны гибридные онлайн- и офлайн-режимы, RAG для актуальных данных, оркестрация ИИ-агентов, визуальные и интерактивные объяснения, включая 3D-сцены, интеграции с Obsidian и NotebookLM, а также тщательно спроектированный интерфейс по принципам Apple.
@@ -45,10 +53,18 @@ flowchart TD
 - [08. Этапы реализации](categories/08-roadmap.md)
 - [09. Решения и открытые вопросы](categories/09-decisions.md)
 - [10. Журнал обсуждений](categories/10-session-notes.md)
+- [11. Обратная связь и критерии готовности](categories/11-feedback-and-acceptance.md)
+- [12. Интерфейс и доступность / Interface and accessibility](categories/12-interface-and-accessibility.md)
 
 ## Правило ведения
 
 Обновлять нужную категорию после обсуждений. Отмечать каждый пункт как **подтверждённое требование**, **факт из текущего кода**, **предложение**, **не проверено** или **открытый вопрос**. Архитектурные решения фиксировать после согласования; не выдавать планы за реализованные функции.
+
+Структура уже покрывает документы непрерывности из мастер-промпта; отдельные дубли не создавать: [профиль продукта](PRODUCT_PROFILE_RU_EN.md) хранит видение, категории [02](categories/02-current-state.md), [08](categories/08-roadmap.md), [09](categories/09-decisions.md) и [10](categories/10-session-notes.md) — текущее состояние, дорожную карту, решения и журнал изменений соответственно, а [11](categories/11-feedback-and-acceptance.md) — задачи и критерии завершения.
+
+**EN:** The existing structure already covers the continuity documents requested by the master prompt; do not create duplicate files. The [product profile](PRODUCT_PROFILE_RU_EN.md) records the vision; categories [02](categories/02-current-state.md), [08](categories/08-roadmap.md), [09](categories/09-decisions.md), and [10](categories/10-session-notes.md) record current status, roadmap, decisions, and change history; [11](categories/11-feedback-and-acceptance.md) records tasks and completion criteria.
+
+Новый авторский текст на английском в README, профилях, плане, журнале и описаниях продукта сразу сопровождать полным переводом на русский. В учебных материалах для английского языка сами примеры оставлять на английском, но рядом давать полный перевод или пояснение по-русски. Названия API, моделей, файлов, команд и кода сохранять в исходном виде; переводить их механически нельзя.
 
 
 

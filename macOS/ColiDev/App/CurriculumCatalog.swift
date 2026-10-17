@@ -1,6 +1,6 @@
 import Foundation
 
-struct CurriculumText {
+struct CurriculumText: Sendable {
     let russian: String
     let english: String
 
@@ -9,7 +9,7 @@ struct CurriculumText {
     }
 }
 
-struct CurriculumTopic: Identifiable {
+struct CurriculumTopic: Identifiable, Sendable {
     let name: CurriculumText
     let learningOutcome: CurriculumText
     let lessonResource: String?
@@ -17,14 +17,14 @@ struct CurriculumTopic: Identifiable {
     var id: String { "\(name.russian)|\(name.english)" }
 }
 
-struct CurriculumLevel: Identifiable {
+struct CurriculumLevel: Identifiable, Sendable {
     let title: CurriculumText
     let topics: [CurriculumTopic]
 
     var id: String { title.english }
 }
 
-struct CurriculumLevelCoverage: Identifiable {
+struct CurriculumLevelCoverage: Identifiable, Sendable {
     let level: CurriculumText
     let topicCount: Int
     let linkedLessonCount: Int
@@ -32,7 +32,7 @@ struct CurriculumLevelCoverage: Identifiable {
     var id: String { level.english }
 }
 
-struct CurriculumLessonStructureIssue: Identifiable {
+struct CurriculumLessonStructureIssue: Identifiable, Sendable {
     let resource: String
     let missingRussianSections: [String]
     let missingEnglishSections: [String]
@@ -41,7 +41,21 @@ struct CurriculumLessonStructureIssue: Identifiable {
     var id: String { resource }
 }
 
-struct SubjectCurriculumCoverage: Identifiable {
+struct IntroLessonRoute: Decodable, Identifiable {
+    let subjectID: String
+    let resource: String
+    let progressLessonID: String
+
+    var id: String { subjectID }
+
+    enum CodingKeys: String, CodingKey {
+        case subjectID = "subject_id"
+        case resource
+        case progressLessonID = "progress_lesson_id"
+    }
+}
+
+struct SubjectCurriculumCoverage: Identifiable, Sendable {
     let subject: Subject
     let levels: [CurriculumLevelCoverage]
     let bundledLessonCount: Int
@@ -56,6 +70,40 @@ struct SubjectCurriculumCoverage: Identifiable {
 }
 
 enum CurriculumCatalog {
+    private struct IntroLessonRouteManifest: Decodable {
+        let schemaVersion: Int
+        let routes: [IntroLessonRoute]
+
+        enum CodingKeys: String, CodingKey {
+            case schemaVersion = "schema_version"
+            case routes
+        }
+    }
+
+    private static let introRoutesBySubject: [String: IntroLessonRoute] = {
+        guard let resourcesURL = Bundle.main.resourceURL,
+              let data = try? Data(contentsOf: resourcesURL
+                .appendingPathComponent("02_Areas", isDirectory: true)
+                .appendingPathComponent("intro_lesson_routes.json")),
+              let manifest = try? JSONDecoder().decode(IntroLessonRouteManifest.self, from: data),
+              manifest.schemaVersion == 1,
+              Set(manifest.routes.map(\.subjectID)).count == manifest.routes.count,
+              Set(manifest.routes.map(\.progressLessonID)).count == manifest.routes.count else {
+            return [:]
+        }
+        return Dictionary(uniqueKeysWithValues: manifest.routes.map { ($0.subjectID, $0) })
+    }()
+
+    static func introLessonRoute(for subject: Subject) -> IntroLessonRoute? {
+        guard let route = introRoutesBySubject[subject.rawValue],
+              route.progressLessonID == subject.lessonID,
+              route.resource.range(of: "^[a-z0-9_-]{1,80}$", options: .regularExpression) != nil,
+              lessonMarkdown(for: subject, resource: route.resource) != nil else {
+            return nil
+        }
+        return route
+    }
+
     static func coverage(for subject: Subject) -> SubjectCurriculumCoverage {
         let levels = roadmap(for: subject)
         let lessonFiles = lessonFiles(for: subject)
@@ -102,6 +150,28 @@ enum CurriculumCatalog {
             return []
         }
         return parse(markdown)
+    }
+
+    static func studyRoadmaps() -> [StudyRoadmap] {
+        Subject.allCases.map { subject in
+            let progressionLevels = roadmap(for: subject).map { level in
+                level.topics.compactMap(\.lessonResource)
+            }
+            var prerequisitesByResource: [String: [String]] = [:]
+            var earlierResources: [String] = []
+            for level in progressionLevels {
+                for resource in level {
+                    prerequisitesByResource[resource] = Array(earlierResources.reversed())
+                }
+                earlierResources.append(contentsOf: level)
+            }
+            return StudyRoadmap(
+                subjectID: subject.rawValue,
+                lessonResources: progressionLevels.flatMap { $0 },
+                progressionLevels: progressionLevels,
+                prerequisitesByResource: prerequisitesByResource
+            )
+        }
     }
 
     static func lessonMarkdown(for subject: Subject, resource: String) -> String? {

@@ -3,7 +3,7 @@ subject: physics
 lesson_id: physics.work_and_kinetic_energy
 level: foundations
 languages: ru, en
-source_checked: 2026-10-05
+source_checked: 2026-10-12
 source_review_interval_days: 365
 ---
 
@@ -25,7 +25,7 @@ source_review_interval_days: 365
 
 ### Исследуй и потренируйся
 
-В лаборатории меняй массу, начальную скорость и суммарную работу. Сначала предскажи, что случится с энергией, если скорость удвоить: `K` вырастет в четыре раза, потому что скорость возводится в квадрат. При неизменной скорости удвоение массы удваивает `K`. Отрицательная работа уменьшает кинетическую энергию. Если введённая отрицательная работа по модулю больше `K_i`, тело остановится до завершения предполагаемого перемещения; лаборатория покажет это ограничение вместо невозможной отрицательной кинетической энергии.
+В лаборатории меняй массу, начальную скорость и суммарную работу. Сначала предскажи, что случится с энергией, если скорость удвоить: `K` вырастет в четыре раза, потому что скорость возводится в квадрат. При неизменной скорости удвоение массы удваивает `K`. Отрицательная работа уменьшает кинетическую энергию. Если эта работа вызвана силой торможения, направленной против движения вдоль пути, тележка достигнет покоя до конца предполагаемого перемещения. Тренажёр принимает только суммарную работу: он ограничивает конечную кинетическую энергию нулём и не моделирует, где именно тележка остановится.
 
 Задача: тележка массой `2 кг` движется со скоростью `3 м/с`, а результирующая сила совершает над ней работу `7 Дж`. `K_i = 9 Дж`, значит `K_f = 16 Дж` и `v_f = √(2·16/2) = 4 м/с`.
 
@@ -67,7 +67,7 @@ A `2 kg` cart moves at `3 m/s`, so its initial kinetic energy is `K_i = ½·2·3
 
 ### Explore and practise
 
-Change the mass, initial speed, and net work in the lab. Predict what happens when speed doubles: `K` becomes four times larger because speed is squared. At the same speed, doubling mass doubles `K`. Negative work reduces kinetic energy. If the entered negative work has a magnitude greater than `K_i`, the object stops before the assumed displacement is complete; the lab shows this limit instead of an impossible negative kinetic energy.
+Change the mass, initial speed, and net work in the lab. Predict what happens when speed doubles: `K` becomes four times larger because speed is squared. At the same speed, doubling mass doubles `K`. Negative work reduces kinetic energy. If this work comes from a braking force opposing motion along the path, the cart reaches rest before completing the assumed displacement. The lab accepts only total work: it clamps final kinetic energy at zero and does not model where along the path the cart stops.
 
 Try this: a `2 kg` cart moves at `3 m/s`, and the net force does `7 J` of work. `K_i = 9 J`, so `K_f = 16 J` and `v_f = √(2·16/2) = 4 m/s`.
 

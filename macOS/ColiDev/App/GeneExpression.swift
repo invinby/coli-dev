@@ -9,6 +9,17 @@ struct GeneExpressionSnapshot: Equatable {
 enum GeneExpressionPractice {
     static let templateStrand = "TAC GGA ACT"
 
+    static func makeStopCodonAttempt() -> InteractivePredictionAttempt {
+        guard let attempt = InteractivePredictionAttempt(
+            optionCount: 3,
+            answerOriginalIndex: 1,
+            itemID: "biology.gene_expression.uga_stop_codon"
+        ) else {
+            preconditionFailure("The stop-codon question must have one valid answer.")
+        }
+        return attempt
+    }
+
     static func transcribe(templateDNA: String) -> String? {
         let bases = templateDNA.uppercased().filter { !$0.isWhitespace }
         guard !bases.isEmpty, bases.count.isMultiple(of: 3) else { return nil }

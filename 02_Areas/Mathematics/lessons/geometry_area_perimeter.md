@@ -3,7 +3,7 @@ subject: mathematics
 lesson_id: mathematics.geometry_area_perimeter
 level: foundations
 languages: ru, en
-source_checked: 2026-10-06
+source_checked: 2026-10-14
 source_review_interval_days: 365
 ---
 
@@ -47,7 +47,7 @@ source_review_interval_days: 365
 
 ### Границы модели
 
-Тренажёр работает только с прямоугольником и прямоугольным треугольником; у треугольника основание и высота являются перпендикулярными катетами. Для произвольного треугольника высота может выходить за его границу, а третью сторону нельзя найти по двум размерам без дополнительной информации. Модель не охватывает окружности, составные фигуры, объём и погрешность измерения.
+Тренажёр работает только с прямоугольником и прямоугольным треугольником; у треугольника основание и высота являются перпендикулярными катетами. Для произвольного треугольника высота может выходить за его границу, а третью сторону нельзя найти по двум размерам без дополнительной информации. Значения в тренажёре показываются до сотых; знак `≈` отмечает, что отображаемое число округлено. Модель не охватывает окружности, составные фигуры, объём и погрешность измерения.
 
 ## English
 
@@ -87,8 +87,9 @@ A triangle's area is half its base times its perpendicular height: `A = 8 × 5 /
 
 ### Limits
 
-The lab covers only rectangles and right triangles; for the triangle, the base and height are perpendicular legs. For a general triangle, the altitude can fall outside the shape, and two measurements are not enough to find the third side without additional information. Circles, compound shapes, volume, and measurement uncertainty are outside this model.
+The lab covers only rectangles and right triangles; for the triangle, the base and height are perpendicular legs. For a general triangle, the altitude can fall outside the shape, and two measurements are not enough to find the third side without additional information. The lab displays values to two decimal places; `≈` marks a rounded display. Circles, compound shapes, volume, and measurement uncertainty are outside this model.
 
 ## Sources
 
+- OpenStax, *Prealgebra 2e*, [9.3 Use Properties of Angles, Triangles, and the Pythagorean Theorem](https://openstax.org/books/prealgebra-2e/pages/9-3-use-properties-of-angles-triangles-and-the-pythagorean-theorem) — right-triangle legs, hypotenuse, and the Pythagorean theorem used to find its length.
 - OpenStax, *Prealgebra 2e*, [9.4 Use Properties of Rectangles, Triangles, and Trapezoids](https://openstax.org/books/prealgebra-2e/pages/9-4-use-properties-of-rectangles-triangles-and-trapezoids) (concepts; lesson text written in original words).

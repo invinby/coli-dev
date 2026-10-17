@@ -3,7 +3,7 @@ subject: biology
 lesson_id: biology.ecosystem_energy_flow
 level: foundations
 languages: ru, en
-source_checked: 2026-10-06
+source_checked: 2026-10-08
 source_review_interval_days: 365
 ---
 
@@ -17,7 +17,7 @@ source_review_interval_days: 365
 
 ### Идея и механизм
 
-Первичные продуценты, например растения и водоросли, включают часть поступающей солнечной энергии в органическое вещество. Потребители получают часть химической энергии с пищей. Организм использует энергию для обмена веществ; часть рассеивается как тепло, часть остаётся в неусвоенной пище или продуктах обмена. Поэтому лишь часть продукции одного трофического уровня может перейти в биомассу следующего.
+Фотосинтезирующие продуценты, например растения и водоросли, включают часть поступающей солнечной энергии в органическое вещество. Потребители получают часть химической энергии с пищей. Организм использует энергию для обмена веществ; часть рассеивается как тепло, часть остаётся в неусвоенной пище или продуктах обмена. Поэтому лишь часть продукции одного трофического уровня может перейти в биомассу следующего. Некоторые экосистемы поддерживают хемоавтотрофы: они используют энергию неорганических соединений и не зависят от солнечного света.
 
 Пищевая цепь показывает один возможный путь передачи вещества и энергии; пищевая сеть соединяет много таких связей. Энергия проходит через систему и рассеивается, а химические элементы могут возвращаться в круговорот благодаря разным организмам и процессам. Доля передачи между уровнями зависит от экосистемы и конкретных уровней. Часто используемые 10% — ориентир для некоторых учебных схем, не универсальная постоянная.
 
@@ -57,7 +57,7 @@ Read a simple energy pyramid and explain why available energy usually decreases 
 
 ### Idea and mechanism
 
-Primary producers, such as plants and algae, incorporate some incoming solar energy into organic matter. Consumers obtain some chemical energy from food. Organisms use energy for metabolism; some is dissipated as heat, and some remains in uneaten food or metabolic products. As a result, only part of the production at one trophic level can become biomass at the next.
+Photosynthetic primary producers, such as plants and algae, incorporate some incoming solar energy into organic matter. Consumers obtain some chemical energy from food. Organisms use energy for metabolism; some is dissipated as heat, and some remains in uneaten food or metabolic products. As a result, only part of the production at one trophic level can become biomass at the next. Some ecosystems are supported by chemoautotrophs, which use energy from inorganic compounds and do not depend on sunlight.
 
 A food chain shows one possible route for transferring matter and energy; a food web connects many such relationships. Energy flows through the system and dissipates, while chemical elements can cycle through different organisms and processes. The fraction transferred between levels depends on the ecosystem and on the levels being compared. The often-used 10% is a guide for some learning diagrams, not a universal constant.
 
@@ -91,6 +91,6 @@ The trainer’s pyramid is a simplified four-level model with the same transfer 
 
 ## Sources
 
-- OpenStax, *Biology 2e*, “Energy Flow through Ecosystems,” §46.2: <https://openstax.org/books/biology-2e/pages/46-2-energy-flow-through-ecosystems>
-- OpenStax, *Biology 2e*, “Ecology of Ecosystems,” §46.1: <https://openstax.org/books/biology-2e/pages/46-1-ecology-of-ecosystems>
+- OpenStax, *Biology 2e*, [46.2 Energy Flow through Ecosystems / 46.2 «Поток энергии в экосистемах»](https://openstax.org/books/biology-2e/pages/46-2-energy-flow-through-ecosystems) — фото- и хемоавтотрофы, передача энергии / photo- and chemoautotrophs, energy transfer; checked / проверено 2026-10-08.
+- OpenStax, *Biology 2e*, [46.3 Biogeochemical Cycles / 46.3 «Биогеохимические циклы»](https://openstax.org/books/biology-2e/pages/46-3-biogeochemical-cycles) — поступление энергии от солнца и неорганических молекул / energy entering from sunlight and inorganic molecules; checked / проверено 2026-10-08.
 - OpenStax reuse terms: <https://openstax.org/terms-of-use>

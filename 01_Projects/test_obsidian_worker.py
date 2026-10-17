@@ -86,3 +86,47 @@ def test_obsidian_file_operations_use_encoded_vault_relative_paths() -> None:
         call("DELETE", f"vault/{encoded_path}"),
         call("GET", "vault/"),
     ]
+
+
+def test_note_metadata_reads_modified_time_without_returning_note_content() -> None:
+    worker = ObsidianWorker(base_url="http://127.0.0.1:27123", api_key="test-only")
+    request = AsyncMock(return_value={
+        "path": "Courses/Physics.md",
+        "content": "private note body must not be returned",
+        "stat": {"ctime": 1791417600000, "mtime": 1791417600000, "size": 42},
+    })
+    worker._request = request  # type: ignore[method-assign]
+
+    async def exercise() -> None:
+        metadata = await worker.note_metadata("Courses/Physics.md")
+        await worker.close()
+        assert metadata == {
+            "modified_at": "2026-10-08T00:00:00Z",
+        }
+
+    asyncio.run(exercise())
+
+    request.assert_awaited_once_with(
+        "GET",
+        "vault/Courses/Physics.md",
+        headers={"Accept": "application/vnd.olrapi.note+json"},
+        timeout=2.0,
+    )
+
+
+@pytest.mark.parametrize(
+    "mtime",
+    ["yesterday", 10**400],
+)
+def test_note_metadata_does_not_trust_malformed_filesystem_metadata(mtime) -> None:
+    worker = ObsidianWorker(base_url="http://127.0.0.1:27123", api_key="test-only")
+    worker._request = AsyncMock(return_value={
+        "stat": {"mtime": mtime},
+    })  # type: ignore[method-assign]
+
+    async def exercise() -> None:
+        metadata = await worker.note_metadata("Courses/Physics.md")
+        await worker.close()
+        assert metadata == {"modified_at": None}
+
+    asyncio.run(exercise())

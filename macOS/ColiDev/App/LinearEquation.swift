@@ -36,6 +36,47 @@ struct LinearEquation: Equatable {
     var isolatedVariableRightSide: Int { rightSide - offset }
     var valueAfterDivision: Int { isolatedVariableRightSide / coefficient }
 
+    func operationChoices(at step: Int) -> [LinearEquationOperation] {
+        switch step {
+        case 0:
+            return [
+                .subtract(abs(offset)),
+                .add(abs(offset)),
+                .divide(coefficient),
+            ]
+        case 1:
+            return [
+                .divide(coefficient),
+                .multiply(coefficient),
+                .add(coefficient),
+            ]
+        default:
+            return []
+        }
+    }
+
+    func operationChoiceOrders() -> [QuizAnswerOrder] {
+        var generator = SystemRandomNumberGenerator()
+        return operationChoiceOrders(using: &generator)
+    }
+
+    func operationChoiceOrders<Generator: RandomNumberGenerator>(
+        using generator: inout Generator
+    ) -> [QuizAnswerOrder] {
+        let answerOriginalIndices = (0..<2).compactMap { step in
+            operationChoices(at: step).firstIndex { $0.isCorrect(for: self, at: step) }
+        }
+        precondition(
+            answerOriginalIndices.count == 2,
+            "Each equation step must have one correct operation before choices are shuffled."
+        )
+        return QuizAnswerOrder.balancedSequence(
+            optionCount: 3,
+            answerOriginalIndices: answerOriginalIndices,
+            using: &generator
+        )
+    }
+
     func leftSide(at value: Int) -> Int {
         coefficient * value + offset
     }

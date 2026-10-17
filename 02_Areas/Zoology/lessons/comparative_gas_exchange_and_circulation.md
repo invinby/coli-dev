@@ -3,7 +3,7 @@ subject: zoology
 lesson_id: zoology.comparative_gas_exchange_and_circulation
 level: intermediate
 languages: ru, en
-source_checked: 2026-10-06
+source_checked: 2026-10-12
 source_review_interval_days: 180
 ---
 

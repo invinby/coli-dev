@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 import json
 from pathlib import Path
 import sys
@@ -13,6 +14,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent))
 
 import orchestrator
+import provider_usage
 from provider_usage import (
     ProviderUsageStore,
     TokenUsage,
@@ -46,6 +48,66 @@ def test_provider_parsers_keep_only_valid_reported_counters(parser, payload, exp
     assert parser(payload) == expected
 
 
+def test_openrouter_usage_parser_keeps_reported_dollar_cost_exact():
+    parser = getattr(provider_usage, "openrouter_usage", None)
+    assert callable(parser)
+
+    usage = parser({
+        "prompt_tokens": 120,
+        "completion_tokens": 80,
+        "total_tokens": 200,
+        "cost": 0.00000123,
+    })
+
+    assert usage.input_tokens == 120
+    assert usage.output_tokens == 80
+    assert usage.total_tokens == 200
+    assert usage.cost_usd == Decimal("0.00000123")
+
+
+@pytest.mark.parametrize("invalid_cost", [True, -0.1, float("nan"), float("inf"), "0.2"])
+def test_openrouter_usage_parser_does_not_treat_invalid_cost_as_reported(invalid_cost):
+    parser = getattr(provider_usage, "openrouter_usage", None)
+    assert callable(parser)
+
+    usage = parser({"prompt_tokens": 3, "completion_tokens": 2, "cost": invalid_cost})
+
+    assert usage.cost_usd is None
+
+
+def test_openrouter_usage_parser_normalizes_negative_zero_cost():
+    parser = getattr(provider_usage, "openrouter_usage", None)
+    assert callable(parser)
+
+    usage = parser({"cost": -0.0})
+
+    assert usage.cost_usd == Decimal("0")
+    assert str(usage.cost_usd) == "0"
+
+
+def test_summary_sums_only_provider_reported_cost_and_keeps_unknown_separate(tmp_path):
+    parser = getattr(provider_usage, "openrouter_usage", None)
+    assert callable(parser)
+    store = ProviderUsageStore(tmp_path / "provider-usage.sqlite3")
+    store.record(
+        "openrouter",
+        "openai/gpt-test",
+        "openai-compatible",
+        parser({"prompt_tokens": 120, "completion_tokens": 80, "cost": 0.00000123}),
+    )
+    store.record("gemini", "gemini-flash", "gemini", TokenUsage(10, 5, 15))
+
+    summary = store.summary(days=1)
+
+    assert summary["totals"]["reported_cost_usd"] == "0.00000123"
+    assert summary["totals"]["responses_with_reported_cost"] == 1
+    assert summary["totals"]["responses_without_reported_cost"] == 1
+    openrouter = next(row for row in summary["providers"] if row["provider"] == "openrouter")
+    gemini = next(row for row in summary["providers"] if row["provider"] == "gemini")
+    assert openrouter["reported_cost_usd"] == "0.00000123"
+    assert gemini["reported_cost_usd"] is None
+
+
 def test_summary_groups_responses_and_marks_missing_provider_usage(tmp_path):
     store = ProviderUsageStore(tmp_path / "provider-usage.sqlite3")
     store.initialize()
@@ -66,10 +128,13 @@ def test_summary_groups_responses_and_marks_missing_provider_usage(tmp_path):
         "responses_with_input_count": 2,
         "responses_with_output_count": 2,
         "responses_with_total_count": 2,
+        "responses_with_reported_cost": 0,
+        "responses_without_reported_cost": 3,
+        "reported_cost_usd": None,
     }
     assert result["providers"][0]["provider"] == "gemini"
     assert result["providers"][0]["responses_without_reported_usage"] == 1
-    assert "charges are not calculated" in result["note"]
+    assert "Missing counters or costs are not estimated" in result["note"]
 
 
 def test_summary_uses_utc_window_and_excludes_older_events(tmp_path):
@@ -153,7 +218,50 @@ def test_store_persists_only_usage_metadata_without_content_columns(tmp_path):
     assert columns == {
         "event_id", "occurred_at", "provider", "model", "usage_format",
         "input_tokens", "output_tokens", "total_tokens", "usage_reported",
+        "reported_cost_usd",
     }
+
+
+def test_existing_usage_store_migrates_for_provider_reported_cost(tmp_path):
+    import sqlite3
+
+    path = tmp_path / "provider-usage.sqlite3"
+    old_event_time = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    with sqlite3.connect(path) as connection:
+        connection.execute(
+            """CREATE TABLE provider_usage_events (
+                event_id TEXT PRIMARY KEY,
+                occurred_at TEXT NOT NULL,
+                provider TEXT NOT NULL,
+                model TEXT NOT NULL,
+                usage_format TEXT NOT NULL,
+                input_tokens INTEGER,
+                output_tokens INTEGER,
+                total_tokens INTEGER,
+                usage_reported INTEGER NOT NULL
+            )"""
+        )
+        connection.execute(
+            """INSERT INTO provider_usage_events (
+                event_id, occurred_at, provider, model, usage_format,
+                input_tokens, output_tokens, total_tokens, usage_reported
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            ("legacy", old_event_time, "gemini", "legacy-model", "gemini", 2, 3, 5, 1),
+        )
+
+    store = ProviderUsageStore(path)
+    store.initialize()
+
+    with sqlite3.connect(path) as connection:
+        columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(provider_usage_events)")
+        }
+    assert "reported_cost_usd" in columns
+
+    result = store.summary(days=1)
+    assert result["totals"]["successful_responses"] == 1
+    assert result["totals"]["total_tokens"] == 5
+    assert result["totals"]["reported_cost_usd"] is None
 
 
 def test_store_records_custom_openai_compatible_provider_usage(tmp_path):
@@ -177,6 +285,15 @@ def test_cloud_call_budget_counts_attempts_and_blocks_after_limit(tmp_path):
     assert second == {"allowed": True, "used": 2, "limit": 2, "remaining": 0}
     assert blocked == {"allowed": False, "used": 2, "limit": 2, "remaining": 0}
     assert store.cloud_call_status(2) == {"used": 2, "limit": 2, "remaining": 0}
+
+
+def test_zero_cloud_call_limit_blocks_without_recording_an_attempt(tmp_path):
+    store = ProviderUsageStore(tmp_path / "usage.sqlite3")
+
+    blocked = store.reserve_cloud_call("openrouter", "openrouter/free", 0)
+
+    assert blocked == {"allowed": False, "used": 0, "limit": 0, "remaining": 0}
+    assert store.cloud_call_status(0) == {"used": 0, "limit": 0, "remaining": 0}
 
 
 def test_cloud_call_budget_is_atomic_under_concurrent_requests(tmp_path):
@@ -204,8 +321,10 @@ def test_cloud_call_budget_resets_at_next_utc_day(tmp_path):
 
 def test_model_adapter_blocks_outbound_request_after_call_budget_is_used(tmp_path, monkeypatch):
     store = ProviderUsageStore(tmp_path / "usage.sqlite3")
+    policy_store = orchestrator.AutoCostPolicyStore(tmp_path / "cost-policy.json")
+    policy_store.set(False, daily_cloud_call_limit=1)
     monkeypatch.setattr(orchestrator, "provider_usage_store", store)
-    monkeypatch.setattr(orchestrator, "CLOUD_MODEL_MAX_CALLS_PER_DAY", 1)
+    monkeypatch.setattr(orchestrator, "auto_cost_policy", policy_store)
     monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "test-key")
     outbound_requests = []
 
@@ -233,9 +352,36 @@ def test_model_adapter_blocks_outbound_request_after_call_budget_is_used(tmp_pat
     assert store.cloud_call_status(1) == {"used": 1, "limit": 1, "remaining": 0}
 
 
+def test_zero_daily_cloud_limit_stops_openrouter_before_network(tmp_path, monkeypatch):
+    usage_store = ProviderUsageStore(tmp_path / "usage.sqlite3")
+    policy_store = orchestrator.AutoCostPolicyStore(tmp_path / "cost-policy.json")
+    policy_store.set(False, daily_cloud_call_limit=0)
+    monkeypatch.setattr(orchestrator, "provider_usage_store", usage_store)
+    monkeypatch.setattr(orchestrator, "auto_cost_policy", policy_store)
+    monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "test-key")
+    outbound_requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        outbound_requests.append(request)
+        return httpx.Response(500, request=request)
+
+    async def exercise() -> str:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            engine = orchestrator.ConsiliumEngine(client, "en", client)
+            return await engine._ask_openrouter(
+                "question", "system", "test", model="openrouter/free"
+            )
+
+    reply = asyncio.run(exercise())
+
+    assert reply == "[Daily cloud model call limit reached (0/0)]"
+    assert outbound_requests == []
+    assert usage_store.cloud_call_status(0) == {"used": 0, "limit": 0, "remaining": 0}
+
+
 @pytest.mark.parametrize(
     ("provider", "limit"),
-    [("ollama", 1), ("unknown", 1), ("gemini", 0), ("gemini", True)],
+    [("ollama", 1), ("unknown", 1), ("gemini", -1), ("gemini", True)],
 )
 def test_cloud_call_budget_rejects_invalid_arguments(tmp_path, provider, limit):
     store = ProviderUsageStore(tmp_path / "usage.sqlite3")

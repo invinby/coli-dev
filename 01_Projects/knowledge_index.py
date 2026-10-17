@@ -225,6 +225,12 @@ class KnowledgeIndex:
         self._lock = threading.RLock()
         self._embedding_retry_after = 0.0
 
+    def set_embedding_provider(self, provider: EmbeddingProvider | None) -> None:
+        """Switch the local embedding route and clear any previous failure backoff."""
+        with self._lock:
+            self.embedding_provider = provider
+            self._embedding_retry_after = 0.0
+
     def _connect(self) -> sqlite3.Connection:
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         connection = sqlite3.connect(self.database_path, timeout=10)

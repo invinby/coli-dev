@@ -1,0 +1,46 @@
+# Physics: work, kinetic energy, and friction audit / Физика: аудит работы, кинетической энергии и трения
+
+**Review date / Дата проверки:** 2026-10-12
+**Lessons / Уроки:** [`work_and_kinetic_energy.md`](../../02_Areas/Physics/lessons/work_and_kinetic_energy.md), [`static_and_kinetic_friction.md`](../../02_Areas/Physics/lessons/static_and_kinetic_friction.md)
+**App scope / Область приложения:** [`ForceMotion.swift`](../../macOS/ColiDev/App/ForceMotion.swift), `KineticEnergyLab` and `FrictionLab` in [`LearningViews.swift`](../../macOS/ColiDev/App/LearningViews.swift), related strings in [`L10n.swift`](../../macOS/ColiDev/App/L10n.swift).
+**Scope / Объём:** Reviewed claims, assumptions, arithmetic, source coverage, and visible model calculations; then clarified the braking-work interpretation, friction-coefficient assumption, and rounded gravity value in RU/EN lessons and UI labels. No physics calculations or model behavior changed. No runtime/UI test was performed. / Проверены утверждения, допущения, арифметика, соответствие ссылок и расчёты моделей; затем на RU/EN уточнены сценарий тормозящей работы, допущение о коэффициентах трения и округлённое значение ускорения свободного падения в уроках и подписях интерфейса. Расчёты и поведение моделей не менялись. Приложение и интерфейс не запускались и не тестировались.
+
+## Summary / Итог
+
+**EN:** The physics and worked arithmetic are correct for the stated introductory models. Both lessons cite official OpenStax sections that directly support their core claims. RU/EN lesson and UI wording now frames excessive negative work as braking by a force opposing motion and discloses the lab's common-case restriction `μₖ ≤ μₛ`. The friction lesson identifies `g = 9.8 m/s²` as rounded while the lab uses `9.81 m/s²`.
+
+**RU:** Физика и арифметика примеров верны для указанных вводных моделей. Оба урока ссылаются на официальные разделы OpenStax, напрямую подтверждающие основные положения. Формулировки уроков и интерфейса RU/EN теперь описывают чрезмерную отрицательную работу как торможение силой, направленной против движения, и раскрывают принятое в тренажёре распространённое допущение `μₖ ≤ μₛ`. В уроке указано, что `g = 9,8 м/с²` — округление, тогда как тренажёр использует `9,81 м/с²`.
+
+## Confirmed correct / Подтверждено
+
+### Work and kinetic energy / Работа и кинетическая энергия
+
+- **EN:** `W = Fd cos θ`, its positive/negative/zero direction cases, joule units, `K = ½mv²`, and `W_net = ΔK` are correct. OpenStax *College Physics 2e* §§7.1–7.2 directly defines these relations; §7.2 explicitly says the work-energy theorem also applies when force varies, with work accumulated along the path.
+- **RU:** `W = Fd cos θ`, знаки работы при разных направлениях силы, единица джоуль, формула `K = ½mv²` и теорема `W_net = ΔK` указаны верно. §§7.1–7.2 *College Physics 2e* напрямую подтверждают эти соотношения; §7.2 уточняет, что теорема применима и при переменной силе, если учитывать работу вдоль пути.
+
+- **EN:** Both lesson examples check out: for `m=2 kg`, `vᵢ=3 m/s`, `W_net=20 J`, `Kᵢ=9 J`, `K_f=29 J`, `v_f=√29≈5.39 m/s`; with `7 J` of work, `K_f=16 J` and `v_f=4 m/s`. The app defaults to the first case and computes the same values. Its clamp `max(0, Kᵢ+W_net)` prevents an impossible negative kinetic energy.
+- **RU:** Оба примера рассчитаны правильно: при `m=2 кг`, `vᵢ=3 м/с`, `W_net=20 Дж` получаем `Kᵢ=9 Дж`, `K_f=29 Дж`, `v_f=√29≈5,39 м/с`; при работе `7 Дж` получаем `K_f=16 Дж`, `v_f=4 м/с`. Тренажёр по умолчанию показывает первый случай и вычисляет те же значения. Ограничение `max(0, Kᵢ+W_net)` не допускает отрицательную кинетическую энергию.
+
+### Static and kinetic friction / Трение покоя и скольжения
+
+- **EN:** The distinction between responsive static friction (`f_s ≤ μ_sN`) and the introductory kinetic-friction model (`f_k = μ_kN`) is accurate. The lesson correctly warns that kinetic friction is an approximate empirical model and depends on contact conditions. OpenStax *University Physics Vol. 1* §6.2 directly supports these statements and the level-surface force balance.
+- **RU:** Различие между подстраивающимся трением покоя (`f_s ≤ μ_sN`) и вводной моделью трения скольжения (`f_k = μ_kN`) объяснено верно. Урок также правильно отмечает, что трение скольжения описывается приближённым эмпирическим законом и зависит от условий контакта. §6.2 *University Physics, т. 1* напрямую подтверждает эти положения и баланс сил на горизонтальной поверхности.
+
+- **EN:** Lesson arithmetic checks: `N=5·9.8=49 N`; maximum static friction `19.6 N`; a `15 N` push is balanced by `15 N` static friction; at `25 N`, `f_k=14.7 N`, net force `10.3 N`, and `a=2.06 m/s²`. The app's `g=9.81` gives `N=49.05 N`, threshold `19.62 N`; its two-decimal output agrees with the lesson's rounding. The app equations for threshold, friction, acceleration, velocity, and displacement are consistent with constant-force motion from rest after the transition to sliding.
+- **RU:** Арифметика урока верна: `N=5·9,8=49 Н`; максимальное трение покоя `19,6 Н`; толчок `15 Н` уравновешивается трением `15 Н`; при `25 Н` получаем `f_k=14,7 Н`, равнодействующую `10,3 Н` и ускорение `2,06 м/с²`. При `g=9,81` приложение получает `N=49,05 Н` и порог `19,62 Н`; округление до двух знаков согласуется с уроком. Формулы порога, трения, ускорения, скорости и перемещения в приложении соответствуют движению из покоя с постоянной силой после начала скольжения.
+
+## Applied wording / Внесённые уточнения
+
+1. **Negative-work scenario / Сценарий отрицательной работы.** The RU/EN lesson and `lab.energyStops` now state that the cart stops early only under the braking-force interpretation. The lesson also explains that the lab takes total work only, clamps kinetic energy at zero, and does not model the stopping position. / В уроке и `lab.energyStops` RU/EN теперь сказано, что ранняя остановка относится к сценарию тормозящей силы. Также объяснено, что тренажёр принимает только суммарную работу, ограничивает кинетическую энергию нулём и не вычисляет точку остановки.
+
+2. **Friction coefficient constraint / Ограничение коэффициентов трения.** The RU/EN lesson and UI now disclose the existing model assumption `μₖ ≤ μₛ` and clarify that it is not universal for every pair of surfaces. The model was not broadened. / Урок и интерфейс RU/EN теперь раскрывают принятое в существующей модели условие `μₖ ≤ μₛ` и поясняют, что оно не универсально для всех поверхностей. Модель не расширялась.
+
+3. **Gravity convention / Значение ускорения свободного падения.** The RU/EN example and question now identify `9.8 m/s²` as rounded; the lab's `9.81 m/s²` value remains unchanged. The worked answers remain correct at their stated precision. / В RU/EN примере и вопросе теперь сказано, что `9,8 м/с²` — округление; значение `9,81 м/с²` в тренажёре сохранено. Приведённые ответы верны с указанной точностью.
+
+## Official sources checked / Проверенные официальные источники
+
+1. OpenStax, *College Physics 2e*, [§7.1 Work: The Scientific Definition](https://openstax.org/books/college-physics-2e/pages/7-1-work-the-scientific-definition) — constant-force work, angle, signs, joules.
+2. OpenStax, *College Physics 2e*, [§7.2 Kinetic Energy and the Work-Energy Theorem](https://openstax.org/books/college-physics-2e/pages/7-2-kinetic-energy-and-the-work-energy-theorem) — net work, varying-force work accumulation, translational kinetic energy, theorem.
+3. OpenStax, *University Physics Volume 1*, [§6.2 Friction](https://openstax.org/books/university-physics-volume-1/pages/6-2-friction) — static-friction bound and response, empirical kinetic-friction law, level surface normal force and introductory assumptions.
+
+**Source review / Проверка источников:** All three official pages were opened on 2026-10-12; they identify the cited sections and support the lesson claims above. The lesson front matter records earlier source checks (2026-10-05 and 2026-10-06); this note records the new review date. / Все три официальные страницы открыты 12 октября 2026 года; названия разделов и их содержание подтверждают перечисленные учебные тезисы. В front matter уроков записаны прежние даты проверок (2026-10-05 и 2026-10-06); эта заметка фиксирует новую дату аудита.

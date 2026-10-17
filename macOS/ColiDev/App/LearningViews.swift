@@ -2,6 +2,7 @@ import Foundation
 import Combine
 import SwiftUI
 import AppKit
+import AVFoundation
 import SceneKit
 import WebKit
 import UniformTypeIdentifiers
@@ -9,10 +10,32 @@ import UniformTypeIdentifiers
 struct SubjectOverviewView: View {
     @EnvironmentObject private var store: LearningStore
     @State private var levels: [CurriculumLevel] = []
+    @State private var showingCustomTopicEditor = false
+    @State private var customTopicParentID: UUID?
+    @State private var pendingCustomTopicID: UUID?
+    @State private var showingCustomTopicDelete = false
 
     let subject: Subject
     let openCourseLesson: (String) -> Void
+    let openCustomTopic: (UUID) -> Void
     let startLesson: () -> Void
+
+    private var studyRoadmap: StudyRoadmap {
+        let progressionLevels = levels.map { $0.topics.compactMap(\.lessonResource) }
+        return StudyRoadmap(
+            subjectID: subject.rawValue,
+            lessonResources: progressionLevels.flatMap { $0 },
+            progressionLevels: progressionLevels
+        )
+    }
+
+    private func isCourseLessonAvailable(_ resource: String) -> Bool {
+        StudyProgressionPolicy.isAvailable(
+            StudyLessonRoute(subjectID: subject.rawValue, resource: resource),
+            in: studyRoadmap,
+            evidence: store.studyProgressionEvidence
+        )
+    }
 
     var body: some View {
         ScrollView {
@@ -67,6 +90,17 @@ struct SubjectOverviewView: View {
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
+                            if level.topics.contains(where: { topic in
+                                guard let resource = topic.lessonResource else { return false }
+                                return !isCourseLessonAvailable(resource)
+                            }) {
+                                Label(
+                                    L10n.text("roadmap.prerequisiteCheck", store.language),
+                                    systemImage: "lock.fill"
+                                )
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            }
                             ForEach(level.topics) { topic in
                                 VStack(alignment: .leading, spacing: 5) {
                                     Text(topic.name.value(in: store.language))
@@ -76,15 +110,19 @@ struct SubjectOverviewView: View {
                                         .foregroundStyle(.secondary)
                                         .fixedSize(horizontal: false, vertical: true)
                                     if let lessonResource = topic.lessonResource {
+                                        let isAvailable = isCourseLessonAvailable(lessonResource)
                                         Button { openCourseLesson(lessonResource) } label: {
                                             Label(
                                                 L10n.text("roadmap.openFullLesson", store.language),
-                                                systemImage: store.isComplete(lessonID: "\(subject.rawValue).\(lessonResource)")
-                                                    ? "checkmark.circle.fill"
-                                                    : "book.closed"
+                                                systemImage: isAvailable
+                                                    ? (store.isComplete(lessonID: "\(subject.rawValue).\(lessonResource)")
+                                                        ? "checkmark.circle.fill"
+                                                        : "book.closed")
+                                                    : "lock.fill"
                                             )
                                         }
                                         .buttonStyle(.borderless)
+                                        .disabled(!isAvailable)
                                         .padding(.top, 3)
                                     }
                                 }
@@ -98,6 +136,37 @@ struct SubjectOverviewView: View {
                         .background(subject.tint.opacity(0.07), in: RoundedRectangle(cornerRadius: 18))
                     }
                 }
+
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text(L10n.text("custom.myTopics", store.language)).font(.title2.weight(.semibold))
+                        Spacer()
+                        Button {
+                            customTopicParentID = nil
+                            showingCustomTopicEditor = true
+                        } label: {
+                            Label(L10n.text("custom.addTopic", store.language), systemImage: "plus")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    if store.customCurriculum.topics(builtInSubjectID: subject.rawValue).isEmpty {
+                        Text(L10n.text("custom.addToBuiltInHint", store.language))
+                            .font(.subheadline).foregroundStyle(.secondary)
+                    } else {
+                        ForEach(store.customCurriculum.topics(builtInSubjectID: subject.rawValue)) { topic in
+                            CustomTopicBranch(
+                                topic: topic,
+                                language: store.language,
+                                lessonID: { CustomTopicStudyRoute.builtInTopic(subjectID: subject.rawValue, topicID: $0).lessonID },
+                                open: { openCustomTopic($0) },
+                                addChild: { customTopicParentID = $0; showingCustomTopicEditor = true },
+                                delete: { pendingCustomTopicID = $0; showingCustomTopicDelete = true }
+                            )
+                        }
+                    }
+                }
+                .padding(18)
+                .background(subject.tint.opacity(0.07), in: RoundedRectangle(cornerRadius: 18))
             }
             .padding(.horizontal, 30)
             .padding(.bottom, 32)
@@ -106,6 +175,25 @@ struct SubjectOverviewView: View {
         }
         .navigationTitle(Text(subject.title(in: store.language)))
         .onAppear { levels = CurriculumCatalog.roadmap(for: subject) }
+        .sheet(isPresented: $showingCustomTopicEditor) {
+            CustomTopicEditor(builtInSubject: subject, parentTopicID: customTopicParentID) {}
+                .environmentObject(store)
+        }
+        .confirmationDialog(
+            L10n.text("custom.deleteTopic", store.language),
+            isPresented: $showingCustomTopicDelete,
+            titleVisibility: .visible
+        ) {
+            Button(L10n.text("custom.deleteTopic", store.language), role: .destructive) {
+                if let pendingCustomTopicID {
+                    store.removeCustomTopic(builtInSubject: subject, topicID: pendingCustomTopicID)
+                }
+                pendingCustomTopicID = nil
+            }
+            Button(L10n.text("common.cancel", store.language), role: .cancel) { pendingCustomTopicID = nil }
+        } message: {
+            Text(L10n.text("custom.confirmDeleteTopic", store.language))
+        }
     }
 }
 
@@ -192,46 +280,21 @@ private struct CurriculumLessonDocument {
     }
 
     func notebookSource(subject: Subject, language: AppLanguage) -> String {
-        let subjectLabel = subject.title(in: language)
-        let goalHeading = language == .ru ? "Цель" : "Learning goal"
-        let theoryHeading = language == .ru ? "Теория и механизм" : "Theory and mechanism"
-        let practiceHeading = language == .ru ? "Практика" : "Practice"
-        let checkHeading = language == .ru ? "Проверка понимания" : "Knowledge check"
-        let answerHeading = language == .ru ? "Правильный ответ и разбор" : "Correct answer and explanation"
-        let limitsHeading = language == .ru ? "Ограничения" : "Limitations"
-        let sourcesHeading = language == .ru ? "Источники" : "Sources"
-        let origin = language == .ru ? "Экспортировано из ColiDev" : "Exported from ColiDev"
-
-        var sections = [
-            "# \(title)",
-            "**\(language == .ru ? "Предмет" : "Subject"): \(subjectLabel)**",
-            "*\(origin)*",
-            "## \(goalHeading)\n\(objective)",
-            "## \(theoryHeading)\n\(theory)",
-        ]
-        if !practice.isEmpty {
-            sections.append("## \(practiceHeading)\n\(practice)")
-        }
-        if !checkQuestion.isEmpty {
-            var check = "## \(checkHeading)\n\(checkQuestion)"
-            for (index, option) in checkOptions.enumerated() {
-                check += "\n\n\(index + 1). \(option)"
-            }
-            sections.append(check)
-        }
-        if let checkAnswerIndex {
-            let answerLabel = language == .ru ? "Правильный вариант" : "Correct option"
-            sections.append("## \(answerHeading)\n\(answerLabel): \(checkAnswerIndex + 1).\n\n\(answer)")
-        } else if !answer.isEmpty {
-            sections.append("## \(answerHeading)\n\(answer)")
-        }
-        if !limitations.isEmpty {
-            sections.append("## \(limitsHeading)\n\(limitations)")
-        }
-        if !sources.isEmpty {
-            sections.append("## \(sourcesHeading)\n\(sources)")
-        }
-        return sections.joined(separator: "\n\n") + "\n"
+        NotebookLessonExport(
+            title: title,
+            subjectLabel: subject.title(in: language),
+            isRussian: language == .ru,
+            sourceCheckedOn: sourceCheckedOn,
+            objective: objective,
+            theory: theory,
+            practice: practice,
+            answer: answer,
+            checkQuestion: checkQuestion,
+            checkOptions: checkOptions,
+            checkAnswerIndex: checkAnswerIndex,
+            limitations: limitations,
+            sources: sources
+        ).markdown
     }
 
     private static func extract(_ markdown: String, headings: [String]) -> String {
@@ -260,12 +323,15 @@ private struct CurriculumLessonDocument {
 
 struct CurriculumModuleView: View {
     @EnvironmentObject private var store: LearningStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var document: CurriculumLessonDocument?
     @State private var showingTutor = false
     @State private var learnerConfirmed = false
     @State private var reflection = ""
     @State private var recallQuality = 4
-    @State private var selectedCheckAnswer: Int?
+    @State private var checkAttempt: CurriculumCheckAttempt?
+    @State private var selectedErrorCategory = ""
+    @State private var isCheckExplanationRevealed = false
     @State private var sourceInventory: TrustedSourceInventory?
     @State private var sourceInventoryUnavailable = false
     @State private var isLoadingSourceInventory = false
@@ -278,13 +344,31 @@ struct CurriculumModuleView: View {
 
     let subject: Subject
     let resource: String
+    let progressLessonID: String?
+    let focusPracticeOnOpen: Bool
+    let onPracticeFocusCompleted: () -> Void
 
-    private var lessonID: String { "\(subject.rawValue).\(resource)" }
+    private var lessonID: String { progressLessonID ?? "\(subject.rawValue).\(resource)" }
     private var isComplete: Bool { store.isComplete(lessonID: lessonID) }
     private var isReviewDue: Bool { store.isReviewDue(lessonID: lessonID) }
     private var hasPendingReview: Bool { store.hasPendingReview(lessonID: lessonID) }
 
+    init(
+        subject: Subject,
+        resource: String,
+        progressLessonID: String? = nil,
+        focusPracticeOnOpen: Bool = false,
+        onPracticeFocusCompleted: @escaping () -> Void = {}
+    ) {
+        self.subject = subject
+        self.resource = resource
+        self.progressLessonID = progressLessonID
+        self.focusPracticeOnOpen = focusPracticeOnOpen
+        self.onPracticeFocusCompleted = onPracticeFocusCompleted
+    }
+
     var body: some View {
+        ScrollViewReader { scrollProxy in
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 if let document {
@@ -323,6 +407,7 @@ struct CurriculumModuleView: View {
                         ModuleTextCard(title: L10n.text("session.lab", store.language), text: document.practice, tint: subject.tint)
                     }
                     PracticeLab(subject: subject, moduleResource: resource)
+                        .id("module-interactive-practice")
 
                     if !document.checkQuestion.isEmpty, !document.checkOptions.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
@@ -330,39 +415,108 @@ struct CurriculumModuleView: View {
                                 .font(.title2.weight(.semibold))
                             Text(document.checkQuestion)
                                 .font(.headline)
-                            ForEach(document.checkOptions.indices, id: \.self) { index in
-                                Button {
-                                    selectedCheckAnswer = index
-                                } label: {
-                                    HStack(spacing: 10) {
-                                        Image(systemName: selectedCheckAnswer == index ? "largecircle.fill.circle" : "circle")
-                                        Text(document.checkOptions[index])
-                                            .multilineTextAlignment(.leading)
-                                        Spacer(minLength: 0)
+                            if let checkAttempt {
+                                ForEach(Array(checkAttempt.choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayedIndex, originalIndex in
+                                    Button {
+                                        selectCheckAnswer(displayedIndex: displayedIndex)
+                                    } label: {
+                                        HStack(spacing: 10) {
+                                            Image(systemName: checkAttempt.selectedOriginalIndex == originalIndex
+                                                ? "largecircle.fill.circle"
+                                                : "circle")
+                                            Text(document.checkOptions[originalIndex])
+                                                .multilineTextAlignment(.leading)
+                                            Spacer(minLength: 0)
+                                        }
+                                        .padding(11)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .background(.background, in: RoundedRectangle(cornerRadius: 11))
+                                        .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(.quaternary, lineWidth: 1))
                                     }
-                                    .padding(11)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(.background, in: RoundedRectangle(cornerRadius: 11))
-                                    .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(.quaternary, lineWidth: 1))
+                                    .buttonStyle(.plain)
+                                    .disabled(checkAttempt.hasAnswered)
                                 }
-                                .buttonStyle(.plain)
-                            }
-                            if let selectedCheckAnswer {
-                                let isCorrect = selectedCheckAnswer == document.checkAnswerIndex
-                                Label(
-                                    L10n.text(isCorrect ? "module.correct" : "module.incorrect", store.language),
-                                    systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
-                                )
-                                .foregroundStyle(isCorrect ? Color.green : Color.orange)
-                                if isCorrect, !document.answer.isEmpty {
-                                    Text((try? AttributedString(markdown: document.answer)) ?? AttributedString(document.answer))
-                                        .textSelection(.enabled)
-                                        .padding(.top, 2)
+
+                                if checkAttempt.hasAnswered {
+                                    let isCorrect = checkAttempt.isCorrect
+                                    let feedback = LessonAnswerFeedback.presentation(
+                                        isCorrect: isCorrect,
+                                        explanationRevealed: isCheckExplanationRevealed,
+                                        explanation: document.answer,
+                                        correctPrompt: L10n.text("module.correct", store.language),
+                                        retryPrompt: L10n.text("module.incorrect", store.language)
+                                    )
+                                    Label(
+                                        feedback.statusMessage,
+                                        systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
+                                    )
+                                    .foregroundStyle(isCorrect ? Color.green : Color.orange)
+
+                                    if !isCorrect {
+                                        Text(L10n.text("module.errorCategoryPrompt", store.language))
+                                            .font(.callout.weight(.medium))
+                                        Picker(L10n.text("module.errorCategoryLabel", store.language), selection: $selectedErrorCategory) {
+                                            Text(L10n.text("module.errorCategorySkip", store.language)).tag("")
+                                            ForEach(StudyErrorCategory.allCases) { category in
+                                                Text(L10n.text(category.titleKey, store.language)).tag(category.rawValue)
+                                            }
+                                        }
+                                        .pickerStyle(.menu)
+
+                                        if let category = StudyErrorCategory(rawValue: selectedErrorCategory) {
+                                            Text(L10n.text(category.guidanceKey, store.language))
+                                                .font(.callout)
+                                                .foregroundStyle(.secondary)
+                                        }
+
+                                        Button {
+                                            isCheckExplanationRevealed = true
+                                        } label: {
+                                            Label(L10n.text("module.showAnswer", store.language), systemImage: "eye")
+                                        }
+                                        .buttonStyle(.borderless)
+                                    }
+
+                                    if isCorrect || isCheckExplanationRevealed {
+                                        if !isCorrect {
+                                            Text(String(
+                                                format: L10n.text("module.correctOption", store.language),
+                                                document.checkOptions[checkAttempt.answerOriginalIndex]
+                                            ))
+                                                .font(.callout.weight(.medium))
+                                        }
+
+                                        if let explanation = feedback.explanation {
+                                            Text((try? AttributedString(markdown: explanation)) ?? AttributedString(explanation))
+                                                .textSelection(.enabled)
+                                                .padding(.top, 2)
+                                        } else {
+                                            Text(L10n.text("module.explanationUnavailable", store.language))
+                                                .font(.callout)
+                                                .foregroundStyle(.orange)
+                                        }
+                                    }
+
+                                    if checkAttempt.canRetry {
+                                        Button(action: retryKnowledgeCheck) {
+                                            Label(L10n.text("module.tryAgain", store.language), systemImage: "arrow.counterclockwise")
+                                        }
+                                        .buttonStyle(.bordered)
+                                    }
                                 }
+                            } else {
+                                Label(L10n.text("module.quizUnavailable", store.language), systemImage: "exclamationmark.triangle")
+                                    .foregroundStyle(.orange)
                             }
                         }
                         .padding(18)
                         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+                    } else {
+                        Label(L10n.text("module.quizUnavailable", store.language), systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(.orange)
+                            .padding(18)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
                     }
 
                     if !document.limitations.isEmpty {
@@ -448,6 +602,22 @@ struct CurriculumModuleView: View {
                             reflection: $reflection,
                             learnerConfirmed: $learnerConfirmed
                         )
+                        if learnerConfirmed, checkAttempt?.canComplete == true {
+                            StudyFormatFeedbackCard(
+                                language: store.language,
+                                selectedChoice: store.studyFormatPreferenceProfile.selectedChoice(
+                                    for: lessonID,
+                                    subjectID: subject.rawValue
+                                ),
+                                onSelect: {
+                                    store.recordStudyFormatPreference(
+                                        $0,
+                                        lessonID: lessonID,
+                                        subjectID: subject.rawValue
+                                    )
+                                }
+                            )
+                        }
                         Picker(L10n.text("session.recallQuality", store.language), selection: $recallQuality) {
                             Text(L10n.text("session.recallHard", store.language)).tag(2)
                             Text(L10n.text("session.recallGood", store.language)).tag(4)
@@ -463,29 +633,39 @@ struct CurriculumModuleView: View {
                             store.recordReview(
                                 lessonID: lessonID,
                                 quality: recallQuality,
-                                reflection: reflection
+                                reflection: reflection,
+                                assessment: checkAttempt?.assessmentEvidence
                             )
                         } else {
                             store.markComplete(
                                 lessonID: lessonID,
                                 quality: recallQuality,
-                                reflection: reflection
+                                reflection: reflection,
+                                assessment: checkAttempt?.assessmentEvidence
                             )
                         }
                     } label: {
                         let title = hasPendingReview
                             ? "session.reviewSaved"
                             : (isComplete
-                                ? (isReviewDue ? "session.recordReview" : "session.completed")
+                                ? (isReviewDue
+                                    ? "session.recordReview"
+                                    : (checkAttempt?.assessmentEvidence != nil
+                                        ? "session.recordPractice"
+                                        : "session.completed"))
                                 : "session.complete")
                         Label(L10n.text(title, store.language), systemImage: isComplete ? "checkmark.circle.fill" : "checkmark")
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(
                         !learnerConfirmed
-                            || selectedCheckAnswer != document.checkAnswerIndex
+                            || checkAttempt?.canComplete != true
                             || hasPendingReview
-                            || (isComplete && !isReviewDue)
+                            || !StudyReviewActionPolicy.canRecord(
+                                isComplete: isComplete,
+                                isReviewDue: isReviewDue,
+                                hasAssessment: checkAttempt?.assessmentEvidence != nil
+                            )
                     )
                     .padding(.bottom, 32)
                 } else {
@@ -498,9 +678,19 @@ struct CurriculumModuleView: View {
             .frame(maxWidth: 900, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .center)
         }
+        .onChange(of: document?.title) { title in
+            guard title != nil, focusPracticeOnOpen else { return }
+            DispatchQueue.main.async {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) {
+                    scrollProxy.scrollTo("module-interactive-practice", anchor: .top)
+                }
+                onPracticeFocusCompleted()
+            }
+        }
         .background(Color(nsColor: .windowBackgroundColor))
         .navigationTitle(Text(document?.title ?? L10n.text("module.title", store.language)))
         .onAppear { loadDocument() }
+        .onChange(of: lessonID) { _ in loadDocument() }
         .task(id: lessonID) { await loadSourceInventory() }
         .onChange(of: store.language) { _ in loadDocument() }
         .onChange(of: store.studyProgress[lessonID]?.reflection) { savedReflection in
@@ -535,14 +725,48 @@ struct CurriculumModuleView: View {
                     .frame(minWidth: 680, minHeight: 520)
             }
         }
+        }
     }
 
     private func loadDocument() {
-        document = CurriculumLessonDocument.load(subject: subject, resource: resource, language: store.language)
+        let loadedDocument = CurriculumLessonDocument.load(subject: subject, resource: resource, language: store.language)
+        document = loadedDocument
+        selectedErrorCategory = ""
+        isCheckExplanationRevealed = false
+        checkAttempt = loadedDocument.flatMap { lesson in
+            guard let answerIndex = lesson.checkAnswerIndex else { return nil }
+            return CurriculumCheckAttempt(
+                optionCount: lesson.checkOptions.count,
+                answerOriginalIndex: answerIndex,
+                itemID: "\(lessonID).knowledge_check"
+            )
+        }
         learnerConfirmed = isComplete
         if reflection.isEmpty {
             reflection = store.studyProgress[lessonID]?.reflection ?? ""
         }
+    }
+
+    private func selectCheckAnswer(displayedIndex: Int) {
+        guard var attempt = checkAttempt else { return }
+        attempt.select(displayedIndex: displayedIndex)
+        if attempt.isCorrect,
+           let evidence = attempt.currentAnswerEventEvidence() {
+            store.recordStudyAssessment(lessonID: lessonID, evidence: evidence)
+        }
+        checkAttempt = attempt
+    }
+
+    private func retryKnowledgeCheck() {
+        guard var attempt = checkAttempt else { return }
+        let errorCategory = StudyErrorCategory(rawValue: selectedErrorCategory)
+        if let evidence = attempt.currentAnswerEventEvidence(errorCategory: errorCategory) {
+            store.recordStudyAssessment(lessonID: lessonID, evidence: evidence)
+        }
+        attempt.retry(errorCategory: errorCategory)
+        checkAttempt = attempt
+        selectedErrorCategory = ""
+        isCheckExplanationRevealed = false
     }
 
     @MainActor
@@ -802,6 +1026,8 @@ struct LessonSessionView: View {
     let showRoadmap: () -> Void
 
     @State private var selectedAnswer: Int?
+    @State private var optionOrder = AnswerChoiceOrder(optionCount: 3)
+    @State private var isLessonFeedbackRevealed = false
     @State private var learnerConfirmed = false
     @State private var reflection = ""
     @State private var showingTutor = false
@@ -811,7 +1037,11 @@ struct LessonSessionView: View {
     }
 
     private var answerIsCorrect: Bool {
-        selectedAnswer == content.answerIndex
+        guard let selectedAnswer else { return false }
+        return optionOrder.isCorrect(
+            displayedIndex: selectedAnswer,
+            answerOriginalIndex: content.answerIndex
+        )
     }
 
     var body: some View {
@@ -887,7 +1117,7 @@ struct LessonSessionView: View {
 
                 quizCard
 
-                if selectedAnswer == content.answerIndex || store.isComplete(subject) {
+                if answerIsCorrect || store.isComplete(subject) {
                     StudyReflectionFields(
                         language: store.language,
                         reflection: $reflection,
@@ -952,14 +1182,14 @@ struct LessonSessionView: View {
                 .font(.title2.weight(.semibold))
             Text(content.question)
                 .font(.headline)
-            ForEach(content.options.indices, id: \.self) { index in
+            ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
                 Button {
-                    selectedAnswer = index
+                    selectedAnswer = displayIndex
                 } label: {
                     HStack(spacing: 12) {
-                        Image(systemName: selectedAnswer == index ? "largecircle.fill.circle" : "circle")
-                            .foregroundStyle(selectedAnswer == index ? subject.tint : Color.secondary)
-                        Text(content.options[index])
+                        Image(systemName: selectedAnswer == displayIndex ? "largecircle.fill.circle" : "circle")
+                            .foregroundStyle(selectedAnswer == displayIndex ? subject.tint : Color.secondary)
+                        Text(content.options[originalIndex])
                             .multilineTextAlignment(.leading)
                         Spacer(minLength: 0)
                     }
@@ -969,14 +1199,46 @@ struct LessonSessionView: View {
                     .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.quaternary, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
+                .disabled(selectedAnswer != nil)
             }
             if selectedAnswer != nil {
-                Label { Text(answerIsCorrect ? content.feedback : L10n.text("session.wrong", store.language)) } icon: { Image(systemName: answerIsCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle") }
+                let feedback = LessonAnswerFeedback.presentation(
+                    isCorrect: answerIsCorrect,
+                    explanationRevealed: isLessonFeedbackRevealed,
+                    explanation: content.feedback,
+                    correctPrompt: L10n.text("session.right", store.language),
+                    retryPrompt: L10n.text("session.wrong", store.language)
+                )
+                Label {
+                    Text(feedback.statusMessage)
+                } icon: {
+                    Image(systemName: answerIsCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle")
+                }
                 .font(.callout)
                 .foregroundStyle(answerIsCorrect ? Color.green : Color.orange)
                 .padding(.top, 4)
+                if feedback.canRevealExplanation {
+                    Button {
+                        isLessonFeedbackRevealed = true
+                    } label: {
+                        Label(L10n.text("module.showAnswer", store.language), systemImage: "eye")
+                    }
+                    .buttonStyle(.borderless)
+                }
+                if let explanation = feedback.explanation {
+                    Text((try? AttributedString(markdown: explanation)) ?? AttributedString(explanation))
+                        .font(.callout)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 if !answerIsCorrect {
-                    Button { self.selectedAnswer = nil } label: { Text(L10n.text("session.retry", store.language)) }
+                    Button {
+                        self.selectedAnswer = nil
+                        self.isLessonFeedbackRevealed = false
+                        self.optionOrder.reshuffle()
+                    } label: {
+                        Text(L10n.text("session.retry", store.language))
+                    }
                         .buttonStyle(.link)
                 }
             }
@@ -1012,6 +1274,56 @@ private struct StudyReflectionFields: View {
         }
     }
 
+}
+
+private struct StudyFormatFeedbackCard: View {
+    let language: AppLanguage
+    let selectedChoice: StudyFormatFeedbackChoice?
+    let onSelect: (StudyFormatFeedbackChoice) -> Void
+
+    private let columns = [GridItem(.adaptive(minimum: 190), spacing: 8)]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(L10n.text("studyFormat.feedbackTitle", language))
+                .font(.headline)
+            Text(L10n.text("studyFormat.feedbackHint", language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+                ForEach(StudyFormatFeedbackChoice.allCases) { choice in
+                    let isSelected = selectedChoice == choice
+                    Button { onSelect(choice) } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: choice.symbol)
+                            Text(L10n.text(choice.titleKey, language))
+                                .multilineTextAlignment(.leading)
+                            Spacer(minLength: 0)
+                            if isSelected {
+                                Image(systemName: "checkmark.circle.fill")
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 3)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("study-format-feedback.\(choice.rawValue)")
+                }
+            }
+            if selectedChoice != nil {
+                Label(L10n.text("studyFormat.feedbackSaved", language), systemImage: "checkmark.circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 12))
+        .accessibilityIdentifier("study-format-feedback.card")
+    }
 }
 
 private struct LessonConceptCard: View {
@@ -1051,6 +1363,11 @@ private struct PracticeLab: View {
     var body: some View {
         if subject == .mathematics, moduleResource == "solving_linear_equations" {
             LinearEquationLab()
+        } else if let lessonID = LinearFunctionPracticeRoute.lessonID(
+            subjectID: subject.rawValue,
+            resource: moduleResource
+        ) {
+            LinearFunctionLab(lessonID: lessonID)
         } else if subject == .mathematics, moduleResource == "systems_of_linear_equations" {
             LinearSystemLab()
         } else if subject == .mathematics, moduleResource == "rational_expressions_and_restrictions" {
@@ -1061,22 +1378,38 @@ private struct PracticeLab: View {
             PercentRepresentationLab()
         } else if subject == .mathematics, moduleResource == "domain_and_range" {
             DomainRangeLab()
+        } else if subject == .mathematics, moduleResource == "quadratic_functions_and_transformations" {
+            QuadraticFunctionLab()
+        } else if subject == .mathematics, moduleResource == "trigonometry_and_periodic_functions" {
+            TrigonometryUnitCircleLab()
+        } else if subject == .mathematics, moduleResource == "constrained_optimization_and_lagrange_multipliers" {
+            ConstrainedOptimizationLab()
+        } else if subject == .mathematics, moduleResource == "descriptive_statistics_and_potential_outliers" {
+            StatisticsPracticeLab()
         } else if subject == .mathematics, moduleResource == "rates_of_change_and_derivative" {
             DerivativeRateLab()
         } else if subject == .english, moduleResource == "present_simple_and_continuous" {
             TenseContrastLab()
         } else if subject == .english, moduleResource == "present_perfect_simple_continuous" {
             PresentPerfectAspectLab()
+        } else if subject == .english, moduleResource == "subject_pronouns_and_be" {
+            EnglishBeLab()
+        } else if subject == .english, moduleResource == "sounds_stress_rhythm" {
+            EnglishWordStressLab()
         } else if subject == .english, moduleResource == "zero_first_second_conditionals" {
             ConditionalsLab()
         } else if subject == .english, moduleResource == "daily_routines_and_collocations" {
             DailyRoutineVocabularyLab()
         } else if subject == .english, moduleResource == "reading_for_gist_and_detail" {
             ReadingStrategyLab()
+        } else if subject == .english, moduleResource == "reported_speech_questions_and_backshift" {
+            ReportedSpeechLab()
         } else if subject == .zoology, moduleResource == "animals_as_a_group" {
             AnimalGroupLab()
         } else if subject == .zoology, moduleResource == "major_animal_lineages" {
             AnimalLineageLab()
+        } else if subject == .biology, moduleResource == "intro" {
+            EukaryoticCellLab()
         } else if subject == .biology, moduleResource == "passive_transport_osmosis" {
             OsmosisLab()
         } else if subject == .biology, moduleResource == "mendelian_inheritance" {
@@ -1094,9 +1427,13 @@ private struct PracticeLab: View {
         } else if subject == .biology, moduleResource == "biomolecules_and_building_blocks" {
             BiomoleculeLab()
         } else if subject == .biology, moduleResource == "natural_selection_and_population_change" {
-            NaturalSelectionLab()
+            NaturalSelectionLab(lessonID: "biology.natural_selection_and_population_change")
+        } else if subject == .zoology, moduleResource == "adaptation_and_behavior" {
+            NaturalSelectionLab(lessonID: "zoology.adaptation_and_behavior")
         } else if subject == .zoology, moduleResource == "animal_function_and_environment" {
             AnimalFunctionLab()
+        } else if subject == .zoology, moduleResource == "comparative_thermoregulation_and_heat_stress" {
+            ThermoregulationLab()
         } else if subject == .biology, moduleResource == "cell_cycle_and_differentiation" {
             CellCycleLab()
         } else if subject == .biology, moduleResource == "ecosystem_energy_flow" {
@@ -1105,6 +1442,8 @@ private struct PracticeLab: View {
             FoodWebLab()
         } else if subject == .physics, moduleResource == "work_and_kinetic_energy" {
             KineticEnergyLab()
+        } else if subject == .physics, moduleResource == "measurement_units_and_uncertainty" {
+            LengthMeasurementLab()
         } else if subject == .physics, moduleResource == "static_and_kinetic_friction" {
             FrictionLab()
         } else if subject == .physics, moduleResource == "impulse_and_momentum" {
@@ -1113,6 +1452,10 @@ private struct PracticeLab: View {
             MomentumCollisionLab(initialMode: .elastic)
         } else if subject == .physics, moduleResource == "projectile_motion" {
             ProjectileMotionLab()
+        } else if subject == .physics, moduleResource == "intro" {
+            ForceLab(lessonID: "intro.physics")
+        } else if subject == .physics, moduleResource == "net_force_and_acceleration" {
+            ForceLab(lessonID: "physics.net_force_and_acceleration")
         } else if subject == .programming, moduleResource == "collections_and_loops" {
             CollectionsLoopsLab()
         } else if subject == .programming, moduleResource == "conditions_loops_functions" {
@@ -1122,9 +1465,13 @@ private struct PracticeLab: View {
         } else if subject == .programming, moduleResource == "debugging_tests_and_git" {
             DebuggingLab()
         } else if subject == .programming, moduleResource == "sql_transactions" {
-            TransactionLab()
+            VStack(alignment: .leading, spacing: 14) {
+                SQLSchemaQueryLab()
+                TransactionLab()
+            }
         } else if subject == .programming, moduleResource == "search_and_complexity" {
             AlgorithmComplexityLab()
+            DataStructureChoiceLab()
         } else if subject == .programming, moduleResource == "variables_and_types" {
             VariablesTypesLab()
         } else if subject == .programming, moduleResource == "computational_thinking" {
@@ -1155,9 +1502,11 @@ private struct PracticeLab: View {
 }
 
 private struct RoutineVocabularyQuestion {
+    let id: String
     let promptKey: String
     let optionKeys: [String]
     let answerIndex: Int
+    let explanationKey: String
 }
 
 private struct ReadingStrategyLab: View {
@@ -1166,6 +1515,11 @@ private struct ReadingStrategyLab: View {
     @State private var selection: Int?
     @State private var wasCorrect: Bool?
     @State private var complete = false
+    @State private var assessmentTracker = EnglishReadingAssessmentTracker()
+    @State private var optionOrders = QuizAnswerOrder.balancedSequence(
+        optionCount: 3,
+        answerOriginalIndices: EnglishReadingPractice.questions.map(\.correctOption)
+    )
 
     private let questions = [
         ConditionalPracticeQuestion(id: EnglishReadingPractice.questions[0].id, promptKey: "lab.readingQuestion0", feedbackKey: "lab.readingFeedback0"),
@@ -1197,20 +1551,20 @@ private struct ReadingStrategyLab: View {
                     .font(.title3.weight(.medium))
                     .fixedSize(horizontal: false, vertical: true)
 
-                ForEach(0..<3, id: \.self) { option in
+                ForEach(Array(optionOrders[index].displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Button {
-                        selection = option
+                        selection = displayIndex
                         wasCorrect = nil
                     } label: {
                         Label(
-                            L10n.text("lab.readingOption\(index * 3 + option)", store.language),
-                            systemImage: selection == option ? "checkmark.circle.fill" : "circle"
+                            L10n.text("lab.readingOption\(index * 3 + originalIndex)", store.language),
+                            systemImage: selection == displayIndex ? "checkmark.circle.fill" : "circle"
                         )
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.bordered)
-                    .tint(selection == option ? .accentColor : .secondary)
-                    .accessibilityAddTraits(selection == option ? .isSelected : [])
+                    .tint(selection == displayIndex ? .accentColor : .secondary)
+                    .accessibilityAddTraits(selection == displayIndex ? .isSelected : [])
                 }
 
                 if let wasCorrect {
@@ -1234,7 +1588,18 @@ private struct ReadingStrategyLab: View {
                             wasCorrect = nil
                         }
                     } else if let selection {
-                        wasCorrect = EnglishReadingPractice.isCorrect(selection, for: questions[index].id)
+                        let isCorrect = optionOrders[index].isCorrect(displayedIndex: selection)
+                        wasCorrect = isCorrect
+                        let originalOption = optionOrders[index].displayedOriginalIndices[selection]
+                        if let evidence = assessmentTracker.recordSubmission(
+                            option: originalOption,
+                            for: questions[index].id
+                        ) {
+                            store.recordStudyAssessment(
+                                lessonID: "english.reading_for_gist_and_detail",
+                                evidence: evidence
+                            )
+                        }
                     }
                 } label: {
                     Text(L10n.text(
@@ -1255,6 +1620,11 @@ private struct ReadingStrategyLab: View {
         selection = nil
         wasCorrect = nil
         complete = false
+        assessmentTracker.reset()
+        optionOrders = QuizAnswerOrder.balancedSequence(
+            optionCount: 3,
+            answerOriginalIndices: EnglishReadingPractice.questions.map(\.correctOption)
+        )
     }
 }
 
@@ -1264,35 +1634,48 @@ private struct DailyRoutineVocabularyLab: View {
     @State private var selectedOption: Int?
     @State private var lastWasCorrect: Bool?
     @State private var isComplete = false
+    @State private var optionOrders: [[Int]] = Self.makeOptionOrders()
+    @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(itemIDs: Self.questionSet.map(\.id))
 
-    private let questions = [
+    private static let questionSet = [
         RoutineVocabularyQuestion(
+            id: "daily-routines.question-1",
             promptKey: "lab.routinePrompt1",
             optionKeys: ["lab.routineGoToBed", "lab.routineHaveBreakfast", "lab.routineHaveDinner"],
-            answerIndex: 1
+            answerIndex: 1,
+            explanationKey: "lab.routineExplanation1"
         ),
         RoutineVocabularyQuestion(
+            id: "daily-routines.question-2",
             promptKey: "lab.routinePrompt2",
             optionKeys: ["lab.routineHaveDinner", "lab.routineWakeUp", "lab.routineGoToBed"],
-            answerIndex: 1
+            answerIndex: 1,
+            explanationKey: "lab.routineExplanation2"
         ),
         RoutineVocabularyQuestion(
+            id: "daily-routines.question-3",
             promptKey: "lab.routinePrompt3",
             optionKeys: ["lab.routineHaveLunch", "lab.routineGoToBed", "lab.routineGetDressed"],
-            answerIndex: 2
+            answerIndex: 2,
+            explanationKey: "lab.routineExplanation3"
         ),
         RoutineVocabularyQuestion(
+            id: "daily-routines.question-4",
             promptKey: "lab.routinePrompt4",
             optionKeys: ["lab.routineHaveBreakfast", "lab.routineWakeUp", "lab.routineHaveLunch"],
-            answerIndex: 2
+            answerIndex: 2,
+            explanationKey: "lab.routineExplanation4"
         ),
         RoutineVocabularyQuestion(
+            id: "daily-routines.question-5",
             promptKey: "lab.routinePrompt5",
             optionKeys: ["lab.routineWakeUp", "lab.routineGoToBed", "lab.routineGetDressed"],
-            answerIndex: 1
+            answerIndex: 1,
+            explanationKey: "lab.routineExplanation5"
         )
     ]
 
+    private var questions: [RoutineVocabularyQuestion] { Self.questionSet }
     private var currentQuestion: RoutineVocabularyQuestion { questions[questionIndex] }
 
     var body: some View {
@@ -1322,20 +1705,20 @@ private struct DailyRoutineVocabularyLab: View {
                     .font(.title3.weight(.medium))
                     .fixedSize(horizontal: false, vertical: true)
 
-                ForEach(Array(currentQuestion.optionKeys.enumerated()), id: \.offset) { index, optionKey in
+                ForEach(Array(optionOrders[questionIndex].enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Button {
-                        selectedOption = index
+                        selectedOption = displayIndex
                         lastWasCorrect = nil
                     } label: {
                         Label(
-                            L10n.text(optionKey, store.language),
-                            systemImage: selectedOption == index ? "checkmark.circle.fill" : "circle"
+                            L10n.text(currentQuestion.optionKeys[originalIndex], store.language),
+                            systemImage: selectedOption == displayIndex ? "checkmark.circle.fill" : "circle"
                         )
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.bordered)
-                    .tint(selectedOption == index ? .accentColor : .secondary)
-                    .accessibilityAddTraits(selectedOption == index ? .isSelected : [])
+                    .tint(selectedOption == displayIndex ? .accentColor : .secondary)
+                    .accessibilityAddTraits(selectedOption == displayIndex ? .isSelected : [])
                 }
 
                 if let lastWasCorrect {
@@ -1346,6 +1729,10 @@ private struct DailyRoutineVocabularyLab: View {
                     .font(.callout)
                     .foregroundStyle(lastWasCorrect ? Color.green : Color.orange)
                     .fixedSize(horizontal: false, vertical: true)
+                    Text(L10n.text(currentQuestion.explanationKey, store.language))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Button {
@@ -1379,7 +1766,16 @@ private struct DailyRoutineVocabularyLab: View {
         }
 
         guard let selectedOption else { return }
-        lastWasCorrect = selectedOption == currentQuestion.answerIndex
+        let selectedOriginalIndex = optionOrders[questionIndex][selectedOption]
+        lastWasCorrect = selectedOriginalIndex == currentQuestion.answerIndex
+        if let evidence = assessmentTracker.recordSubmission(
+            selectedAnswerIndex: selectedOriginalIndex,
+            correctAnswerIndex: currentQuestion.answerIndex,
+            optionCount: currentQuestion.optionKeys.count,
+            itemID: currentQuestion.id
+        ) {
+            store.recordStudyAssessment(lessonID: "english.daily_routines_and_collocations", evidence: evidence)
+        }
     }
 
     private func reset() {
@@ -1387,13 +1783,24 @@ private struct DailyRoutineVocabularyLab: View {
         selectedOption = nil
         lastWasCorrect = nil
         isComplete = false
+        optionOrders = Self.makeOptionOrders()
+        assessmentTracker.reset()
+    }
+
+    private static func makeOptionOrders() -> [[Int]] {
+        QuizAnswerOrder.balancedSequence(
+            optionCount: 3,
+            answerOriginalIndices: questionSet.map(\.answerIndex)
+        ).map(\.displayedOriginalIndices)
     }
 }
 
 private struct AnimalGroupQuestion {
+    let id: String
     let promptKey: String
     let options: [String]
     let answerIndex: Int
+    let explanationKey: String
 }
 
 private struct AnimalGroupLab: View {
@@ -1402,13 +1809,17 @@ private struct AnimalGroupLab: View {
     @State private var selection: Int?
     @State private var wasCorrect: Bool?
     @State private var complete = false
+    @State private var optionOrders: [[Int]] = Self.makeOptionOrders()
+    @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(itemIDs: Self.questionSet.map(\.id))
 
-    private let questions = [
-        AnimalGroupQuestion(promptKey: "lab.animalGroupQ1", options: ["lab.animalGroupQ1A", "lab.animalGroupQ1B", "lab.animalGroupQ1C"], answerIndex: 0),
-        AnimalGroupQuestion(promptKey: "lab.animalGroupQ2", options: ["lab.animalGroupQ2A", "lab.animalGroupQ2B", "lab.animalGroupQ2C"], answerIndex: 1),
-        AnimalGroupQuestion(promptKey: "lab.animalGroupQ3", options: ["lab.animalGroupQ3A", "lab.animalGroupQ3B", "lab.animalGroupQ3C"], answerIndex: 2),
-        AnimalGroupQuestion(promptKey: "lab.animalGroupQ4", options: ["lab.animalGroupQ4A", "lab.animalGroupQ4B", "lab.animalGroupQ4C"], answerIndex: 1)
+    private static let questionSet = [
+        AnimalGroupQuestion(id: "animals-as-a-group.question-1", promptKey: "lab.animalGroupQ1", options: ["lab.animalGroupQ1A", "lab.animalGroupQ1B", "lab.animalGroupQ1C"], answerIndex: 0, explanationKey: "lab.animalGroupExplanation1"),
+        AnimalGroupQuestion(id: "animals-as-a-group.question-2", promptKey: "lab.animalGroupQ2", options: ["lab.animalGroupQ2A", "lab.animalGroupQ2B", "lab.animalGroupQ2C"], answerIndex: 1, explanationKey: "lab.animalGroupExplanation2"),
+        AnimalGroupQuestion(id: "animals-as-a-group.question-3", promptKey: "lab.animalGroupQ3", options: ["lab.animalGroupQ3A", "lab.animalGroupQ3B", "lab.animalGroupQ3C"], answerIndex: 2, explanationKey: "lab.animalGroupExplanation3"),
+        AnimalGroupQuestion(id: "animals-as-a-group.question-4", promptKey: "lab.animalGroupQ4", options: ["lab.animalGroupQ4A", "lab.animalGroupQ4B", "lab.animalGroupQ4C"], answerIndex: 1, explanationKey: "lab.animalGroupExplanation4")
     ]
+
+    private var questions: [AnimalGroupQuestion] { Self.questionSet }
 
     var body: some View {
         LabCard {
@@ -1425,6 +1836,8 @@ private struct AnimalGroupLab: View {
                     selection = nil
                     wasCorrect = nil
                     complete = false
+                    optionOrders = Self.makeOptionOrders()
+                    assessmentTracker.reset()
                 }
                 .buttonStyle(.bordered)
             } else {
@@ -1436,17 +1849,20 @@ private struct AnimalGroupLab: View {
                     .font(.title3.weight(.medium))
                     .fixedSize(horizontal: false, vertical: true)
 
-                ForEach(Array(questions[index].options.enumerated()), id: \.offset) { optionIndex, key in
+                ForEach(Array(optionOrders[index].enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Button {
-                        selection = optionIndex
+                        selection = displayIndex
                         wasCorrect = nil
                     } label: {
-                        Label(L10n.text(key, store.language), systemImage: selection == optionIndex ? "checkmark.circle.fill" : "circle")
+                        Label(
+                            L10n.text(questions[index].options[originalIndex], store.language),
+                            systemImage: selection == displayIndex ? "checkmark.circle.fill" : "circle"
+                        )
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.bordered)
-                    .tint(selection == optionIndex ? .accentColor : .secondary)
-                    .accessibilityAddTraits(selection == optionIndex ? .isSelected : [])
+                    .tint(selection == displayIndex ? .accentColor : .secondary)
+                    .accessibilityAddTraits(selection == displayIndex ? .isSelected : [])
                 }
 
                 if let wasCorrect {
@@ -1456,6 +1872,10 @@ private struct AnimalGroupLab: View {
                     )
                     .foregroundStyle(wasCorrect ? Color.green : Color.orange)
                     .fixedSize(horizontal: false, vertical: true)
+                    Text(L10n.text(questions[index].explanationKey, store.language))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Button {
@@ -1468,7 +1888,17 @@ private struct AnimalGroupLab: View {
                             wasCorrect = nil
                         }
                     } else if let selection {
-                        wasCorrect = selection == questions[index].answerIndex
+                        let question = questions[index]
+                        let selectedOriginalIndex = optionOrders[index][selection]
+                        wasCorrect = selectedOriginalIndex == question.answerIndex
+                        if let evidence = assessmentTracker.recordSubmission(
+                            selectedAnswerIndex: selectedOriginalIndex,
+                            correctAnswerIndex: question.answerIndex,
+                            optionCount: question.options.count,
+                            itemID: question.id
+                        ) {
+                            store.recordStudyAssessment(lessonID: "zoology.animals_as_a_group", evidence: evidence)
+                        }
                     }
                 } label: {
                     Text(L10n.text(wasCorrect == true ? (index == questions.count - 1 ? "lab.animalGroupFinish" : "lab.animalGroupNext") : "lab.animalGroupCheck", store.language))
@@ -1478,6 +1908,12 @@ private struct AnimalGroupLab: View {
             }
         }
     }
+    private static func makeOptionOrders() -> [[Int]] {
+        QuizAnswerOrder.balancedSequence(
+            optionCount: 3,
+            answerOriginalIndices: questionSet.map(\.answerIndex)
+        ).map(\.displayedOriginalIndices)
+    }
 }
 
 private struct AnimalLineageLab: View {
@@ -1486,13 +1922,17 @@ private struct AnimalLineageLab: View {
     @State private var selection: Int?
     @State private var wasCorrect: Bool?
     @State private var complete = false
+    @State private var optionOrders: [[Int]] = Self.makeOptionOrders()
+    @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(itemIDs: Self.questionSet.map(\.id))
 
-    private let questions = [
-        AnimalGroupQuestion(promptKey: "lab.lineageQ1", options: ["lab.lineageQ1A", "lab.lineageQ1B", "lab.lineageQ1C"], answerIndex: 1),
-        AnimalGroupQuestion(promptKey: "lab.lineageQ2", options: ["lab.lineageQ2A", "lab.lineageQ2B", "lab.lineageQ2C"], answerIndex: 0),
-        AnimalGroupQuestion(promptKey: "lab.lineageQ3", options: ["lab.lineageQ3A", "lab.lineageQ3B", "lab.lineageQ3C"], answerIndex: 2),
-        AnimalGroupQuestion(promptKey: "lab.lineageQ4", options: ["lab.lineageQ4A", "lab.lineageQ4B", "lab.lineageQ4C"], answerIndex: 1)
+    private static let questionSet = [
+        AnimalGroupQuestion(id: "major-animal-lineages.question-1", promptKey: "lab.lineageQ1", options: ["lab.lineageQ1A", "lab.lineageQ1B", "lab.lineageQ1C"], answerIndex: 1, explanationKey: "lab.lineageExplanation1"),
+        AnimalGroupQuestion(id: "major-animal-lineages.question-2", promptKey: "lab.lineageQ2", options: ["lab.lineageQ2A", "lab.lineageQ2B", "lab.lineageQ2C"], answerIndex: 0, explanationKey: "lab.lineageExplanation2"),
+        AnimalGroupQuestion(id: "major-animal-lineages.question-3", promptKey: "lab.lineageQ3", options: ["lab.lineageQ3A", "lab.lineageQ3B", "lab.lineageQ3C"], answerIndex: 2, explanationKey: "lab.lineageExplanation3"),
+        AnimalGroupQuestion(id: "major-animal-lineages.question-4", promptKey: "lab.lineageQ4", options: ["lab.lineageQ4A", "lab.lineageQ4B", "lab.lineageQ4C"], answerIndex: 1, explanationKey: "lab.lineageExplanation4")
     ]
+
+    private var questions: [AnimalGroupQuestion] { Self.questionSet }
 
     var body: some View {
         LabCard {
@@ -1526,6 +1966,8 @@ private struct AnimalLineageLab: View {
                     selection = nil
                     wasCorrect = nil
                     complete = false
+                    optionOrders = Self.makeOptionOrders()
+                    assessmentTracker.reset()
                 }
                 .buttonStyle(.bordered)
             } else {
@@ -1537,17 +1979,20 @@ private struct AnimalLineageLab: View {
                     .font(.title3.weight(.medium))
                     .fixedSize(horizontal: false, vertical: true)
 
-                ForEach(Array(questions[index].options.enumerated()), id: \.offset) { optionIndex, key in
+                ForEach(Array(optionOrders[index].enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Button {
-                        selection = optionIndex
+                        selection = displayIndex
                         wasCorrect = nil
                     } label: {
-                        Label(L10n.text(key, store.language), systemImage: selection == optionIndex ? "checkmark.circle.fill" : "circle")
+                        Label(
+                            L10n.text(questions[index].options[originalIndex], store.language),
+                            systemImage: selection == displayIndex ? "checkmark.circle.fill" : "circle"
+                        )
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.bordered)
-                    .tint(selection == optionIndex ? .accentColor : .secondary)
-                    .accessibilityAddTraits(selection == optionIndex ? .isSelected : [])
+                    .tint(selection == displayIndex ? .accentColor : .secondary)
+                    .accessibilityAddTraits(selection == displayIndex ? .isSelected : [])
                 }
 
                 if let wasCorrect {
@@ -1557,6 +2002,10 @@ private struct AnimalLineageLab: View {
                     )
                     .foregroundStyle(wasCorrect ? Color.green : Color.orange)
                     .fixedSize(horizontal: false, vertical: true)
+                    Text(L10n.text(questions[index].explanationKey, store.language))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Button {
@@ -1569,7 +2018,17 @@ private struct AnimalLineageLab: View {
                             wasCorrect = nil
                         }
                     } else if let selection {
-                        wasCorrect = selection == questions[index].answerIndex
+                        let question = questions[index]
+                        let selectedOriginalIndex = optionOrders[index][selection]
+                        wasCorrect = selectedOriginalIndex == question.answerIndex
+                        if let evidence = assessmentTracker.recordSubmission(
+                            selectedAnswerIndex: selectedOriginalIndex,
+                            correctAnswerIndex: question.answerIndex,
+                            optionCount: question.options.count,
+                            itemID: question.id
+                        ) {
+                            store.recordStudyAssessment(lessonID: "zoology.major_animal_lineages", evidence: evidence)
+                        }
                     }
                 } label: {
                     Text(L10n.text(wasCorrect == true ? (index == questions.count - 1 ? "lab.lineageFinish" : "lab.lineageNext") : "lab.lineageCheck", store.language))
@@ -1578,6 +2037,13 @@ private struct AnimalLineageLab: View {
                 .disabled(selection == nil && wasCorrect != true)
             }
         }
+    }
+
+    private static func makeOptionOrders() -> [[Int]] {
+        QuizAnswerOrder.balancedSequence(
+            optionCount: 3,
+            answerOriginalIndices: questionSet.map(\.answerIndex)
+        ).map(\.displayedOriginalIndices)
     }
 
     private func lineageBranch(title: String, members: String) -> some View {
@@ -1663,10 +2129,24 @@ private struct GeometryMeasureLab: View {
             slider("lab.geometryHeight", value: $height)
 
             HStack(spacing: 20) {
-                metric("lab.geometryArea", value: measure.area, unit: "m²")
-                metric("lab.geometryPerimeter", value: measure.perimeter, unit: "m")
+                metric(
+                    "lab.geometryArea",
+                    value: measure.area,
+                    unit: "m²",
+                    isApproximate: measure.areaNeedsRoundingForDisplay
+                )
+                metric(
+                    "lab.geometryPerimeter",
+                    value: measure.perimeter,
+                    unit: "m",
+                    isApproximate: measure.perimeterNeedsRoundingForDisplay
+                )
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text(L10n.text("lab.geometryRounding", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
             Text(L10n.text("lab.geometryScaling", store.language))
                 .font(.callout)
@@ -1691,12 +2171,12 @@ private struct GeometryMeasureLab: View {
         }
     }
 
-    private func metric(_ key: String, value: Double, unit: String) -> some View {
+    private func metric(_ key: String, value: Double, unit: String, isApproximate: Bool) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(L10n.text(key, store.language))
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Text("\(value, specifier: "%.2f") \(unit)")
+            Text("\(isApproximate ? "≈ " : "")\(value, specifier: "%.2f") \(unit)")
                 .font(.title3.monospacedDigit())
         }
         .accessibilityElement(children: .combine)
@@ -1820,11 +2300,18 @@ private struct PercentRepresentationLab: View {
 
 private struct LinearEquationLab: View {
     @EnvironmentObject private var store: LearningStore
-    @State private var equation = LinearEquation.random()
+    @State private var equation: LinearEquation
+    @State private var operationOrders: [QuizAnswerOrder]
     @State private var completedSteps = 0
     @State private var didCheckSolution = false
     @State private var feedbackKey: String?
     @State private var feedbackIsCorrect = false
+
+    init() {
+        let equation = LinearEquation.random()
+        _equation = State(initialValue: equation)
+        _operationOrders = State(initialValue: equation.operationChoiceOrders())
+    }
 
     private var variableTerm: String {
         equation.coefficient == 1 ? "x" : "\(equation.coefficient)x"
@@ -1854,18 +2341,7 @@ private struct LinearEquationLab: View {
     }
 
     private var operationChoices: [LinearEquationOperation] {
-        if completedSteps == 0 {
-            return [
-                .subtract(abs(equation.offset)),
-                .add(abs(equation.offset)),
-                .divide(equation.coefficient),
-            ]
-        }
-        return [
-            .divide(equation.coefficient),
-            .multiply(equation.coefficient),
-            .add(equation.coefficient),
-        ]
+        equation.operationChoices(at: completedSteps)
     }
 
     private var progressActionTitle: String {
@@ -1937,7 +2413,8 @@ private struct LinearEquationLab: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(L10n.text("lab.equation.chooseOperation", store.language))
                         .font(.callout.weight(.semibold))
-                    ForEach(Array(operationChoices.enumerated()), id: \.offset) { _, operation in
+                    ForEach(Array(operationOrders[completedSteps].displayedOriginalIndices.enumerated()), id: \.offset) { _, originalIndex in
+                        let operation = operationChoices[originalIndex]
                         Button {
                             choose(operation)
                         } label: {
@@ -1977,7 +2454,9 @@ private struct LinearEquationLab: View {
                         if !didCheckSolution {
                             didCheckSolution = true
                         } else {
-                            equation = .random()
+                            let nextEquation = LinearEquation.random()
+                            equation = nextEquation
+                            operationOrders = nextEquation.operationChoiceOrders()
                             completedSteps = 0
                             didCheckSolution = false
                             feedbackKey = nil
@@ -2191,7 +2670,7 @@ private struct DerivativeRateLab: View {
                     Spacer()
                     Text(String(format: "x = %.1f", point)).monospacedDigit()
                 }
-                Slider(value: $point, in: -2.5...0.8, step: 0.1)
+                Slider(value: $point, in: -2.0...2.0, step: 0.1)
                     .accessibilityLabel(Text(L10n.text("lab.derivativePoint", store.language)))
 
                 HStack {
@@ -2199,7 +2678,7 @@ private struct DerivativeRateLab: View {
                     Spacer()
                     Text(String(format: "h = %.1f", step)).monospacedDigit()
                 }
-                Slider(value: $step, in: 0.2...2.0, step: 0.1)
+                Slider(value: $step, in: 0.05...1.0, step: 0.05)
                     .accessibilityLabel(Text(L10n.text("lab.derivativeStep", store.language)))
             }
 
@@ -2220,6 +2699,145 @@ private struct DerivativeRateLab: View {
                     .fontWeight(.semibold)
             }
             .font(.callout.monospacedDigit())
+        }
+    }
+}
+
+private struct ConstrainedOptimizationLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var angleRadians = Double.pi / 8
+
+    private var point: ConstrainedOptimizationPoint {
+        ConstrainedOptimizationPoint(angleRadians: angleRadians) ??
+            ConstrainedOptimizationPoint(angleRadians: 0)!
+    }
+
+    private var statusKey: String {
+        switch point.extremum {
+        case .maximum: "lab.optimization.maximum"
+        case .minimum: "lab.optimization.minimum"
+        case .nonStationary: "lab.optimization.nonStationary"
+        }
+    }
+
+    var body: some View {
+        LabCard {
+            Text("f(x, y) = xy     subject to     x² + y² = 1")
+                .font(.system(.headline, design: .monospaced))
+
+            Text(L10n.text("lab.optimization.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            GeometryReader { geometry in
+                Canvas { context, size in
+                    guard size.width > 0, size.height > 0 else { return }
+                    let center = CGPoint(x: size.width / 2, y: size.height / 2)
+                    let radius = min(size.width, size.height) * 0.37
+                    func location(_ x: Double, _ y: Double) -> CGPoint {
+                        CGPoint(
+                            x: center.x + CGFloat(x) * radius,
+                            y: center.y - CGFloat(y) * radius
+                        )
+                    }
+
+                    var axes = Path()
+                    axes.move(to: location(-1.18, 0))
+                    axes.addLine(to: location(1.18, 0))
+                    axes.move(to: location(0, -1.18))
+                    axes.addLine(to: location(0, 1.18))
+                    context.stroke(axes, with: .color(.secondary.opacity(0.55)), lineWidth: 1.25)
+
+                    var diagonals = Path()
+                    diagonals.move(to: location(-1.1, -1.1))
+                    diagonals.addLine(to: location(1.1, 1.1))
+                    diagonals.move(to: location(-1.1, 1.1))
+                    diagonals.addLine(to: location(1.1, -1.1))
+                    context.stroke(
+                        diagonals,
+                        with: .color(.orange.opacity(0.58)),
+                        style: StrokeStyle(lineWidth: 1.5, dash: [6, 5])
+                    )
+
+                    var circle = Path()
+                    for index in 0...180 {
+                        let theta = Double(index) / 180 * 2 * Double.pi
+                        let p = location(cos(theta), sin(theta))
+                        if index == 0 { circle.move(to: p) } else { circle.addLine(to: p) }
+                    }
+                    context.stroke(circle, with: .color(.indigo), lineWidth: 3)
+
+                    let stationaryAngles: [Double] = [45, 135, 225, 315]
+                    for degrees in stationaryAngles {
+                        let theta = degrees * Double.pi / 180
+                        let p = location(cos(theta), sin(theta))
+                        let marker = CGRect(x: p.x - 4, y: p.y - 4, width: 8, height: 8)
+                        context.fill(Path(ellipseIn: marker), with: .color(.green))
+                    }
+
+                    let selected = location(point.x, point.y)
+                    let selection = CGRect(x: selected.x - 7, y: selected.y - 7, width: 14, height: 14)
+                    context.fill(Path(ellipseIn: selection), with: .color(Color.accentColor))
+                    context.stroke(Path(ellipseIn: selection), with: .color(.white), lineWidth: 1.5)
+                }
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            let center = CGPoint(x: geometry.size.width / 2, y: geometry.size.height / 2)
+                            var angle = atan2(center.y - value.location.y, value.location.x - center.x)
+                            if angle < 0 { angle += 2 * Double.pi }
+                            if angle.isFinite { angleRadians = angle }
+                        }
+                )
+            }
+            .frame(height: 250)
+            .accessibilityLabel(L10n.text("lab.optimization.graph", store.language))
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(L10n.text("lab.optimization.angle", store.language))
+                    Spacer()
+                    Text(String(format: "%.0f°", angleRadians * 180 / Double.pi))
+                        .monospacedDigit()
+                }
+                Slider(
+                    value: $angleRadians,
+                    in: 0...(2 * Double.pi - Double.pi / 180),
+                    step: Double.pi / 180
+                )
+                    .accessibilityLabel(Text(L10n.text("lab.optimization.angle", store.language)))
+            }
+
+            HStack(spacing: 14) {
+                Label(L10n.text("lab.optimization.constraint", store.language), systemImage: "circle")
+                    .foregroundStyle(.indigo)
+                Label(L10n.text("lab.optimization.candidates", store.language), systemImage: "line.diagonal")
+                    .foregroundStyle(.orange)
+                Label(L10n.text("lab.optimization.selected", store.language), systemImage: "smallcircle.filled.circle")
+                    .foregroundStyle(Color.accentColor)
+            }
+            .font(.caption)
+            .labelStyle(.titleAndIcon)
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(String(format: L10n.text("lab.optimization.point", store.language), point.x, point.y))
+                Text(String(format: L10n.text("lab.optimization.objective", store.language), point.objective))
+                Text(String(format: L10n.text("lab.optimization.derivative", store.language), point.tangentDerivative))
+                Text(L10n.text(statusKey, store.language))
+                    .fontWeight(.semibold)
+                    .foregroundStyle(point.isStationary ? Color.green : Color.secondary)
+                if let multiplier = point.lagrangeMultiplier {
+                    Text(String(format: L10n.text("lab.optimization.multiplier", store.language), multiplier))
+                }
+            }
+            .font(.callout.monospacedDigit())
+
+            Text(L10n.text("lab.optimization.limits", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -2364,8 +2982,10 @@ private struct TenseContrastLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var scenario = 0
     @State private var selectedAnswer: Int?
-
-    private var correctAnswer: Int { scenario }
+    @State private var optionOrder = QuizAnswerOrder(optionCount: 2, answerOriginalIndex: 0)
+    @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(
+        itemIDs: ["present-simple-continuous.scenario-0", "present-simple-continuous.scenario-1"]
+    )
 
     var body: some View {
         LabCard {
@@ -2376,19 +2996,34 @@ private struct TenseContrastLab: View {
                 Text(L10n.text("lab.tenseScenario1", store.language)).tag(1)
             }
             .pickerStyle(.segmented)
-            .onChange(of: scenario) { _ in selectedAnswer = nil }
+            .onChange(of: scenario) { newScenario in
+                selectedAnswer = nil
+                optionOrder = QuizAnswerOrder(optionCount: 2, answerOriginalIndex: newScenario)
+            }
 
             HStack(spacing: 10) {
-                ForEach(0..<2, id: \.self) { option in
+                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Button {
-                        selectedAnswer = option
+                        selectedAnswer = displayIndex
+                        if let selectedOriginalIndex = optionOrder.originalIndex(forDisplayedIndex: displayIndex),
+                           let evidence = assessmentTracker.recordSubmission(
+                            selectedAnswerIndex: selectedOriginalIndex,
+                            correctAnswerIndex: scenario,
+                            optionCount: 2,
+                            itemID: "present-simple-continuous.scenario-\(scenario)"
+                           ) {
+                            store.recordStudyAssessment(
+                                lessonID: "english.present_simple_and_continuous",
+                                evidence: evidence
+                            )
+                        }
                     } label: {
-                        Text(L10n.text("lab.tenseOption\(scenario)\(option)", store.language))
+                        Text(L10n.text("lab.tenseOption\(scenario)\(originalIndex)", store.language))
                             .frame(maxWidth: .infinity)
                             .padding(10)
                             .background(
-                                selectedAnswer == option
-                                    ? (option == correctAnswer ? Color.green.opacity(0.16) : Color.orange.opacity(0.16))
+                                selectedAnswer == displayIndex
+                                    ? (optionOrder.isCorrect(displayedIndex: displayIndex) ? Color.green.opacity(0.16) : Color.orange.opacity(0.16))
                                     : Color.secondary.opacity(0.08),
                                 in: RoundedRectangle(cornerRadius: 10)
                             )
@@ -2398,11 +3033,22 @@ private struct TenseContrastLab: View {
             }
 
             if let selectedAnswer {
+                let isCorrect = optionOrder.isCorrect(displayedIndex: selectedAnswer)
                 Label(
-                    L10n.text(selectedAnswer == correctAnswer ? "lab.tenseCorrect" : "lab.tenseIncorrect", store.language),
-                    systemImage: selectedAnswer == correctAnswer ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
+                    L10n.text(isCorrect ? "lab.tenseCorrect" : "lab.tenseIncorrect", store.language),
+                    systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
                 )
-                .foregroundStyle(selectedAnswer == correctAnswer ? Color.green : Color.orange)
+                .foregroundStyle(isCorrect ? Color.green : Color.orange)
+
+                if let explanationKey = TenseContrastFeedback.explanationKey(
+                    scenario: scenario,
+                    isCorrect: isCorrect
+                ) {
+                    Text(L10n.text(explanationKey, store.language))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
     }
@@ -2414,6 +3060,13 @@ private struct PresentPerfectAspectLab: View {
     @State private var selectedAnswer: Int?
 
     private let correctAnswers = [1, 1, 0]
+    private static let questionIDs = [
+        "present-perfect.question-0",
+        "present-perfect.question-1",
+        "present-perfect.question-2"
+    ]
+    @State private var optionOrder = QuizAnswerOrder(optionCount: 2, answerOriginalIndex: 1)
+    @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(itemIDs: Self.questionIDs)
 
     var body: some View {
         LabCard {
@@ -2426,7 +3079,10 @@ private struct PresentPerfectAspectLab: View {
                 }
             }
             .pickerStyle(.segmented)
-            .onChange(of: scenario) { _ in selectedAnswer = nil }
+            .onChange(of: scenario) { newScenario in
+                selectedAnswer = nil
+                optionOrder = QuizAnswerOrder(optionCount: 2, answerOriginalIndex: correctAnswers[newScenario])
+            }
 
             Text(L10n.text("lab.perfectSentence\(scenario)", store.language))
                 .font(.title3.weight(.medium))
@@ -2436,21 +3092,33 @@ private struct PresentPerfectAspectLab: View {
                 .background(Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
 
             HStack(spacing: 10) {
-                ForEach(0..<2, id: \.self) { option in
+                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Button {
-                        selectedAnswer = option
+                        selectedAnswer = displayIndex
+                        if let selectedOriginalIndex = optionOrder.originalIndex(forDisplayedIndex: displayIndex),
+                           let evidence = assessmentTracker.recordSubmission(
+                            selectedAnswerIndex: selectedOriginalIndex,
+                            correctAnswerIndex: correctAnswers[scenario],
+                            optionCount: 2,
+                            itemID: Self.questionIDs[scenario]
+                           ) {
+                            store.recordStudyAssessment(
+                                lessonID: "english.present_perfect_simple_continuous",
+                                evidence: evidence
+                            )
+                        }
                     } label: {
-                        Text(L10n.text("lab.perfectOption\(scenario)\(option)", store.language))
+                        Text(L10n.text("lab.perfectOption\(scenario)\(originalIndex)", store.language))
                             .frame(maxWidth: .infinity)
                             .padding(10)
-                            .background(answerColor(for: option), in: RoundedRectangle(cornerRadius: 10))
+                            .background(answerColor(forDisplayedIndex: displayIndex), in: RoundedRectangle(cornerRadius: 10))
                     }
                     .buttonStyle(.plain)
                 }
             }
 
             if let selectedAnswer {
-                let isCorrect = selectedAnswer == correctAnswers[scenario]
+                let isCorrect = optionOrder.isCorrect(displayedIndex: selectedAnswer)
                 Label(
                     L10n.text("lab.perfectFeedback\(scenario)\(isCorrect ? 1 : 0)", store.language),
                     systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
@@ -2461,11 +3129,11 @@ private struct PresentPerfectAspectLab: View {
         }
     }
 
-    private func answerColor(for option: Int) -> Color {
-        guard let selectedAnswer, selectedAnswer == option else {
+    private func answerColor(forDisplayedIndex displayIndex: Int) -> Color {
+        guard let selectedAnswer, selectedAnswer == displayIndex else {
             return Color.secondary.opacity(0.08)
         }
-        return option == correctAnswers[scenario] ? Color.green.opacity(0.16) : Color.orange.opacity(0.16)
+        return optionOrder.isCorrect(displayedIndex: displayIndex) ? Color.green.opacity(0.16) : Color.orange.opacity(0.16)
     }
 }
 
@@ -2475,12 +3143,388 @@ private struct ConditionalPracticeQuestion {
     let feedbackKey: String
 }
 
+private final class EnglishWordStressSpeechPlayer: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
+    private let synthesizer = AVSpeechSynthesizer()
+    private var currentUtterance: AVSpeechUtterance?
+
+    @Published private(set) var isSpeaking = false
+
+    override init() {
+        super.init()
+        synthesizer.delegate = self
+    }
+
+    func speak(_ sentence: String, voice: AVSpeechSynthesisVoice) {
+        stop()
+        let utterance = AVSpeechUtterance(string: sentence)
+        utterance.voice = voice
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.9
+        currentUtterance = utterance
+        isSpeaking = true
+        synthesizer.speak(utterance)
+    }
+
+    func stop() {
+        currentUtterance = nil
+        if synthesizer.isSpeaking {
+            synthesizer.stopSpeaking(at: .immediate)
+        }
+        isSpeaking = false
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.currentUtterance === utterance else { return }
+            self.currentUtterance = nil
+            self.isSpeaking = false
+        }
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.currentUtterance === utterance else { return }
+            self.currentUtterance = nil
+            self.isSpeaking = false
+        }
+    }
+}
+
+private struct EnglishWordStressLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @StateObject private var speechPlayer = EnglishWordStressSpeechPlayer()
+    @State private var index = 0
+    @State private var selection: Int?
+    @State private var wasCorrect: Bool?
+    @State private var complete = false
+    @State private var selectedAccent = EnglishSpeechAccent.british
+    @State private var assessmentTracker = EnglishWordStressAssessmentTracker()
+    @State private var optionOrders = QuizAnswerOrder.balancedSequence(
+        optionCount: 2,
+        answerOriginalIndices: EnglishWordStressPractice.questions.map(\.correctOption)
+    )
+
+    private let questions = EnglishWordStressPractice.questions
+    private let lessonID = "english.sounds_stress_rhythm"
+
+    private var installedVoices: [AVSpeechSynthesisVoice] {
+        AVSpeechSynthesisVoice.speechVoices()
+    }
+
+    private var installedAccents: [EnglishSpeechAccent] {
+        EnglishSpeechAccent.available(in: installedVoices.map(\.language))
+    }
+
+    private var activeAccent: EnglishSpeechAccent? {
+        installedAccents.contains(selectedAccent) ? selectedAccent : installedAccents.first
+    }
+
+    private var activeVoice: AVSpeechSynthesisVoice? {
+        guard let activeAccent else { return nil }
+        return installedVoices.first(where: { $0.language == activeAccent.rawValue })
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.stressHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if complete {
+                Label(L10n.text("lab.stressComplete", store.language), systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(L10n.text("lab.stressRestart", store.language), systemImage: "arrow.counterclockwise") {
+                    reset()
+                }
+                .buttonStyle(.bordered)
+            } else {
+                Text(String(format: L10n.text("lab.stressProgress", store.language), index + 1, questions.count))
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                ProgressView(value: Double(index + 1), total: Double(questions.count))
+                Text(L10n.text("lab.stressQuestion\(index)", store.language))
+                    .font(.title3.weight(.medium))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 8) {
+                    Button {
+                        if speechPlayer.isSpeaking {
+                            speechPlayer.stop()
+                        } else if let activeVoice {
+                            speechPlayer.speak(questions[index].spokenSentence, voice: activeVoice)
+                        }
+                    } label: {
+                        Label(
+                            L10n.text(speechPlayer.isSpeaking ? "lab.stressStopAudio" : "lab.stressListen", store.language),
+                            systemImage: speechPlayer.isSpeaking ? "stop.fill" : "speaker.wave.2.fill"
+                        )
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(activeVoice == nil)
+                    .accessibilityIdentifier("english.stress.listen")
+
+                    Menu {
+                        ForEach(installedAccents) { accent in
+                            Button {
+                                selectedAccent = accent
+                                speechPlayer.stop()
+                            } label: {
+                                if activeAccent == accent {
+                                    Label(
+                                        L10n.text(accent == .british ? "lab.stressBritishVoice" : "lab.stressAmericanVoice", store.language),
+                                        systemImage: "checkmark"
+                                    )
+                                } else {
+                                    Text(L10n.text(accent == .british ? "lab.stressBritishVoice" : "lab.stressAmericanVoice", store.language))
+                                }
+                            }
+                        }
+                    } label: {
+                        Label(
+                            L10n.text(
+                                activeAccent == .american ? "lab.stressAmericanVoice" : "lab.stressBritishVoice",
+                                store.language
+                            ),
+                            systemImage: "globe"
+                        )
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(installedAccents.count < 2)
+                    .accessibilityIdentifier("english.stress.voice")
+                }
+
+                Text(L10n.text(activeVoice == nil ? "lab.stressVoiceUnavailable" : "lab.stressSyntheticAudioNote", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ForEach(Array(optionOrders[index].displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Button {
+                        selection = displayIndex
+                        wasCorrect = nil
+                    } label: {
+                        Label(
+                            L10n.text("lab.stressOption.\(questions[index].word).\(originalIndex)", store.language),
+                            systemImage: selection == displayIndex ? "checkmark.circle.fill" : "circle"
+                        )
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(selection == displayIndex ? .accentColor : .secondary)
+                    .accessibilityAddTraits(selection == displayIndex ? .isSelected : [])
+                    .accessibilityIdentifier("english.stress.option.\(questions[index].id).\(originalIndex)")
+                }
+
+                if let wasCorrect {
+                    Label(
+                        wasCorrect
+                            ? L10n.text("lab.stressFeedback\(index)", store.language)
+                            : L10n.text("lab.stressTryAgain", store.language),
+                        systemImage: wasCorrect ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath"
+                    )
+                    .foregroundStyle(wasCorrect ? Color.green : Color.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Button(action: advanceOrCheck) {
+                    Text(L10n.text(
+                        wasCorrect == true
+                            ? (index == questions.count - 1 ? "lab.stressFinish" : "lab.stressNext")
+                            : "lab.stressCheck",
+                        store.language
+                    ))
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(selection == nil && wasCorrect != true)
+                .accessibilityIdentifier("english.stress.check")
+            }
+        }
+        .onDisappear { speechPlayer.stop() }
+        .accessibilityIdentifier("english.word-stress-lab")
+    }
+
+    private func advanceOrCheck() {
+        speechPlayer.stop()
+        if wasCorrect == true {
+            guard index < questions.count - 1 else {
+                complete = true
+                return
+            }
+            index += 1
+            selection = nil
+            wasCorrect = nil
+            return
+        }
+
+        guard let selection,
+              let originalOption = optionOrders[index].originalIndex(forDisplayedIndex: selection) else { return }
+        wasCorrect = EnglishWordStressPractice.isCorrect(originalOption, for: questions[index].id)
+        if let evidence = assessmentTracker.recordSubmission(option: originalOption, for: questions[index].id) {
+            store.recordStudyAssessment(lessonID: lessonID, evidence: evidence)
+        }
+    }
+
+    private func reset() {
+        speechPlayer.stop()
+        index = 0
+        selection = nil
+        wasCorrect = nil
+        complete = false
+        assessmentTracker.reset()
+        optionOrders = QuizAnswerOrder.balancedSequence(
+            optionCount: 2,
+            answerOriginalIndices: questions.map(\.correctOption)
+        )
+    }
+}
+
+private struct EnglishBeLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var index = 0
+    @State private var selection: Int?
+    @State private var wasCorrect: Bool?
+    @State private var complete = false
+    @State private var assessmentTracker = EnglishBeAssessmentTracker()
+    @State private var optionOrders = QuizAnswerOrder.balancedSequence(
+        optionCount: 3,
+        answerOriginalIndices: EnglishBePractice.questions.map(\.correctOption)
+    )
+
+    private let questions = EnglishBePractice.questions
+    private let lessonID = "english.subject_pronouns_and_be"
+
+    private var question: EnglishBeQuestion { questions[index] }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.beHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if complete {
+                Label(L10n.text("lab.beComplete", store.language), systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(L10n.text("lab.beRestart", store.language), systemImage: "arrow.counterclockwise") {
+                    reset()
+                }
+                .buttonStyle(.bordered)
+            } else {
+                Text(String(format: L10n.text("lab.beProgress", store.language), index + 1, questions.count))
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                ProgressView(value: Double(index + 1), total: Double(questions.count))
+                Text(question.prompt)
+                    .font(.title3.weight(.medium))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("english.be.prompt.\(question.id)")
+                if store.language == .ru {
+                    Text(question.translation)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                ForEach(Array(optionOrders[index].displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Button {
+                        selection = displayIndex
+                        wasCorrect = nil
+                    } label: {
+                        Label(
+                            question.options[originalIndex],
+                            systemImage: selection == displayIndex ? "checkmark.circle.fill" : "circle"
+                        )
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(selection == displayIndex ? .accentColor : .secondary)
+                    .disabled(wasCorrect == true)
+                    .accessibilityAddTraits(selection == displayIndex ? .isSelected : [])
+                    .accessibilityIdentifier("english.be.option.\(question.id).\(originalIndex)")
+                }
+
+                if let wasCorrect {
+                    if wasCorrect {
+                        Text(store.language == .ru ? question.explanationRussian : question.explanationEnglish)
+                            .font(.callout)
+                            .foregroundStyle(.green)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Label(L10n.text("lab.beTryAgain", store.language), systemImage: "arrow.triangle.2.circlepath")
+                                .foregroundStyle(.orange)
+                            Text(store.language == .ru ? question.hintRussian : question.hintEnglish)
+                                .foregroundStyle(.secondary)
+                        }
+                        .font(.callout)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                Button(action: advanceOrCheck) {
+                    Text(L10n.text(
+                        wasCorrect == true
+                            ? (index == questions.count - 1 ? "lab.beFinish" : "lab.beNext")
+                            : "lab.beCheck",
+                        store.language
+                    ))
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(selection == nil && wasCorrect != true)
+                .accessibilityIdentifier("english.be.check")
+            }
+        }
+        .accessibilityIdentifier("english.subject-pronouns-be-lab")
+    }
+
+    private func advanceOrCheck() {
+        if wasCorrect == true {
+            guard index < questions.count - 1 else {
+                complete = true
+                return
+            }
+            index += 1
+            selection = nil
+            wasCorrect = nil
+            return
+        }
+
+        guard let selection,
+              let originalOption = optionOrders[index].originalIndex(forDisplayedIndex: selection) else { return }
+        wasCorrect = EnglishBePractice.isCorrect(originalOption, for: question.id)
+        if let evidence = assessmentTracker.recordSubmission(option: originalOption, for: question.id) {
+            store.recordStudyAssessment(lessonID: lessonID, evidence: evidence)
+        }
+    }
+
+    private func reset() {
+        index = 0
+        selection = nil
+        wasCorrect = nil
+        complete = false
+        assessmentTracker.reset()
+        optionOrders = QuizAnswerOrder.balancedSequence(
+            optionCount: 3,
+            answerOriginalIndices: questions.map(\.correctOption)
+        )
+    }
+}
+
 private struct ConditionalsLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var index = 0
     @State private var selection: Int?
     @State private var wasCorrect: Bool?
     @State private var complete = false
+    @State private var assessmentTracker = EnglishConditionalAssessmentTracker()
+    @State private var optionOrder = QuizAnswerOrder(
+        optionCount: EnglishConditionalForm.allCases.count,
+        answerOriginalIndex: EnglishConditionalPractice.scenarios[0].correctForm.rawValue
+    )
 
     private let questions = [
         ConditionalPracticeQuestion(id: EnglishConditionalPractice.scenarios[0].id, promptKey: "lab.conditionalScenario0", feedbackKey: "lab.conditionalFeedback0"),
@@ -2512,20 +3556,20 @@ private struct ConditionalsLab: View {
                     .font(.title3.weight(.medium))
                     .fixedSize(horizontal: false, vertical: true)
 
-                ForEach(0..<3, id: \.self) { option in
+                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
                     Button {
-                        selection = option
+                        selection = displayIndex
                         wasCorrect = nil
                     } label: {
                         Label(
-                            L10n.text("lab.conditionalOption\(option)", store.language),
-                            systemImage: selection == option ? "checkmark.circle.fill" : "circle"
+                            L10n.text("lab.conditionalOption\(originalIndex)", store.language),
+                            systemImage: selection == displayIndex ? "checkmark.circle.fill" : "circle"
                         )
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.bordered)
-                    .tint(selection == option ? .accentColor : .secondary)
-                    .accessibilityAddTraits(selection == option ? .isSelected : [])
+                    .tint(selection == displayIndex ? .accentColor : .secondary)
+                    .accessibilityAddTraits(selection == displayIndex ? .isSelected : [])
                 }
 
                 if let wasCorrect {
@@ -2547,9 +3591,21 @@ private struct ConditionalsLab: View {
                             index += 1
                             selection = nil
                             wasCorrect = nil
+                            optionOrder = QuizAnswerOrder(
+                                optionCount: EnglishConditionalForm.allCases.count,
+                                answerOriginalIndex: EnglishConditionalPractice.scenarios[index].correctForm.rawValue
+                            )
                         }
-                    } else if let selection, let selectedForm = EnglishConditionalForm(rawValue: selection) {
-                        wasCorrect = EnglishConditionalPractice.isCorrect(selectedForm, for: questions[index].id)
+                    } else if let selection {
+                        let isCorrect = optionOrder.isCorrect(displayedIndex: selection)
+                        wasCorrect = isCorrect
+                        if let form = EnglishConditionalForm(rawValue: optionOrder.displayedOriginalIndices[selection]),
+                           let evidence = assessmentTracker.recordSubmission(form: form, for: questions[index].id) {
+                            store.recordStudyAssessment(
+                                lessonID: "english.zero_first_second_conditionals",
+                                evidence: evidence
+                            )
+                        }
                     }
                 } label: {
                     Text(L10n.text(
@@ -2570,6 +3626,144 @@ private struct ConditionalsLab: View {
         selection = nil
         wasCorrect = nil
         complete = false
+        assessmentTracker.reset()
+        optionOrder = QuizAnswerOrder(
+            optionCount: EnglishConditionalForm.allCases.count,
+            answerOriginalIndex: EnglishConditionalPractice.scenarios[0].correctForm.rawValue
+        )
+    }
+}
+
+private struct ReportedSpeechLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var index = 0
+    @State private var selection: Int?
+    @State private var wasCorrect: Bool?
+    @State private var incorrectAnswerOption: Int?
+    @State private var complete = false
+    @State private var attemptsForQuestion = 0
+    @State private var optionOrder = QuizAnswerOrder(
+        optionCount: 3,
+        answerOriginalIndex: EnglishReportedSpeechPractice.questions[0].correctOption
+    )
+
+    private let questions = EnglishReportedSpeechPractice.questions
+    private let lessonID = "english.reported_speech_questions_and_backshift"
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.reportedHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if complete {
+                Label(L10n.text("lab.reportedComplete", store.language), systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(L10n.text("lab.reportedRestart", store.language), systemImage: "arrow.counterclockwise") {
+                    reset()
+                }
+                .buttonStyle(.bordered)
+            } else {
+                Text(String(format: L10n.text("lab.reportedProgress", store.language), index + 1, questions.count))
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                ProgressView(value: Double(index + 1), total: Double(questions.count))
+                Text(L10n.text("lab.reportedQuestion\(index)", store.language))
+                    .font(.title3.weight(.medium))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Button {
+                        selection = displayIndex
+                        wasCorrect = nil
+                        incorrectAnswerOption = nil
+                    } label: {
+                        Label(
+                            L10n.text("lab.reportedOption\(index).\(originalIndex)", store.language),
+                            systemImage: selection == displayIndex ? "checkmark.circle.fill" : "circle"
+                        )
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(selection == displayIndex ? .accentColor : .secondary)
+                    .accessibilityAddTraits(selection == displayIndex ? .isSelected : [])
+                }
+
+                if let wasCorrect {
+                    let feedbackKey = wasCorrect
+                        ? "lab.reportedFeedback\(index)"
+                        : (incorrectAnswerOption.map { "lab.reportedWrong\(index).\($0)" } ?? "lab.reportedTryAgain")
+                    Label(
+                        L10n.text(feedbackKey, store.language),
+                        systemImage: wasCorrect ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath"
+                    )
+                    .foregroundStyle(wasCorrect ? Color.green : Color.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Button(action: advanceOrCheck) {
+                    Text(L10n.text(
+                        wasCorrect == true
+                            ? (index == questions.count - 1 ? "lab.reportedFinish" : "lab.reportedNext")
+                            : (attemptsForQuestion > 0 ? "lab.reportedCheckAgain" : "lab.reportedCheck"),
+                        store.language
+                    ))
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(selection == nil && wasCorrect != true)
+            }
+        }
+    }
+
+    private func advanceOrCheck() {
+        if wasCorrect == true {
+            guard index < questions.count - 1 else {
+                complete = true
+                return
+            }
+            index += 1
+            selection = nil
+            wasCorrect = nil
+            attemptsForQuestion = 0
+            optionOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: questions[index].correctOption)
+            return
+        }
+
+        guard let selectedDisplayIndex = selection else { return }
+        attemptsForQuestion += 1
+        let isCorrect = optionOrder.isCorrect(displayedIndex: selectedDisplayIndex)
+        wasCorrect = isCorrect
+        if !isCorrect {
+            incorrectAnswerOption = optionOrder.displayedOriginalIndices[selectedDisplayIndex]
+            selection = nil
+            optionOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: questions[index].correctOption)
+        } else {
+            incorrectAnswerOption = nil
+        }
+        store.recordStudyAssessment(
+            lessonID: lessonID,
+            evidence: StudyAssessmentEvidence(
+                taskType: "knowledge_check",
+                attempts: attemptsForQuestion,
+                firstTryCorrect: isCorrect && attemptsForQuestion == 1,
+                hintsUsed: 0,
+                passed: isCorrect,
+                itemID: questions[index].id
+            )
+        )
+    }
+
+    private func reset() {
+        index = 0
+        selection = nil
+        wasCorrect = nil
+        incorrectAnswerOption = nil
+        complete = false
+        attemptsForQuestion = 0
+        optionOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: questions[0].correctOption)
     }
 }
 
@@ -2577,11 +3771,25 @@ private struct OsmosisLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var insideConcentration = 4.0
     @State private var outsideConcentration = 6.0
+    @State private var prediction: InteractivePredictionAttempt
+    @State private var selectedDisplayIndex = -1
 
-    private var netFlowKey: String {
-        if outsideConcentration > insideConcentration { return "lab.osmosisWaterEnters" }
-        if insideConcentration > outsideConcentration { return "lab.osmosisWaterLeaves" }
-        return "lab.osmosisBalanced"
+    private let predictionOptionKeys = [
+        "lab.osmosisOptionEnters",
+        "lab.osmosisOptionLeaves",
+        "lab.osmosisOptionBalanced"
+    ]
+    private static let predictionItemID = "biology.passive_transport_osmosis.water_flow"
+
+    init() {
+        _prediction = State(initialValue: Self.makePrediction(insideSolute: 4, outsideSolute: 6))
+    }
+
+    private var flow: OsmosisWaterFlow {
+        OsmosisWaterFlow.predict(
+            insideSolute: Int(insideConcentration.rounded()),
+            outsideSolute: Int(outsideConcentration.rounded())
+        )
     }
 
     var body: some View {
@@ -2595,12 +3803,13 @@ private struct OsmosisLab: View {
                     title: L10n.text("lab.osmosisOutside", store.language),
                     value: outsideConcentration
                 )
-                Image(systemName: outsideConcentration == insideConcentration
-                    ? "arrow.left.and.right"
-                    : (outsideConcentration > insideConcentration ? "arrow.right" : "arrow.left"))
+                Image(systemName: prediction.hasAnswered && prediction.isCorrect ? flow.arrowSymbol : "questionmark.circle")
                     .font(.title2.weight(.semibold))
                     .foregroundStyle(.blue)
-                    .accessibilityHidden(true)
+                    .accessibilityLabel(Text(L10n.text(
+                        prediction.hasAnswered && prediction.isCorrect ? flow.explanationKey : "lab.osmosisArrowHidden",
+                        store.language
+                    )))
                 ZStack {
                     Circle()
                         .fill(Color.cyan.opacity(0.12))
@@ -2622,15 +3831,78 @@ private struct OsmosisLab: View {
             .frame(maxWidth: .infinity)
 
             concentrationSlider(title: L10n.text("lab.osmosisOutside", store.language), value: $outsideConcentration)
+                .onChange(of: outsideConcentration) { _ in startNewPrediction() }
             concentrationSlider(title: L10n.text("lab.osmosisInside", store.language), value: $insideConcentration)
+                .onChange(of: insideConcentration) { _ in startNewPrediction() }
 
-            Label(L10n.text(netFlowKey, store.language), systemImage: "drop.fill")
-                .font(.callout.weight(.semibold))
-                .foregroundStyle(.blue)
-                .padding(10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+            Text(L10n.text("lab.osmosisPredictionPrompt", store.language))
+                .font(.callout.weight(.medium))
+                .fixedSize(horizontal: false, vertical: true)
+
+            Picker(L10n.text("lab.osmosisPredictionPrompt", store.language), selection: $selectedDisplayIndex) {
+                ForEach(Array(prediction.choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Text(L10n.text(predictionOptionKeys[originalIndex], store.language)).tag(displayIndex)
+                }
+            }
+            .pickerStyle(.segmented)
+            .disabled(prediction.hasAnswered)
+
+            Button(L10n.text("lab.osmosisCheckPrediction", store.language)) {
+                prediction.select(displayedIndex: selectedDisplayIndex)
+                guard let evidence = prediction.currentAnswerEventEvidence() else { return }
+                store.recordStudyAssessment(lessonID: "biology.passive_transport_osmosis", evidence: evidence)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(prediction.hasAnswered || selectedDisplayIndex < 0)
+
+            if prediction.hasAnswered {
+                if prediction.isCorrect {
+                    Label(L10n.text("lab.osmosisCorrect", store.language), systemImage: "checkmark.circle.fill")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.green)
+                    Label(L10n.text(flow.explanationKey, store.language), systemImage: flow.arrowSymbol)
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.blue)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(L10n.text("lab.osmosisNewPrediction", store.language)) {
+                        startNewPrediction()
+                    }
+                    .buttonStyle(.link)
+                } else {
+                    Label(L10n.text("lab.osmosisIncorrect", store.language), systemImage: "arrow.uturn.backward.circle")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.orange)
+                    Text(L10n.text("lab.osmosisHintAfterWrong", store.language))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(L10n.text("lab.osmosisRetry", store.language)) {
+                        prediction.retry()
+                        selectedDisplayIndex = -1
+                    }
+                    .buttonStyle(.link)
+                }
+            }
         }
+    }
+
+    private static func makePrediction(insideSolute: Int, outsideSolute: Int) -> InteractivePredictionAttempt {
+        guard let attempt = InteractivePredictionAttempt(
+            optionCount: 3,
+            answerOriginalIndex: OsmosisWaterFlow.predict(insideSolute: insideSolute, outsideSolute: outsideSolute).answerOriginalIndex,
+            itemID: Self.predictionItemID
+        ) else {
+            preconditionFailure("An osmosis prediction must have one valid answer.")
+        }
+        return attempt
+    }
+
+    private func startNewPrediction() {
+        prediction = Self.makePrediction(
+            insideSolute: Int(insideConcentration.rounded()),
+            outsideSolute: Int(outsideConcentration.rounded())
+        )
+        selectedDisplayIndex = -1
     }
 
     private func concentrationDisplay(title: String, value: Double) -> some View {
@@ -2675,7 +3947,8 @@ private struct BiologyInvestigationLab: View {
         factorToChange: .waterAmount,
         outcomeToMeasure: .leafCount,
         controls: [],
-        plantsPerGroup: 1
+        independentUnitsPerCondition: 1,
+        plantsPerUnit: 3
     )
     @State private var didReviewDesign = false
 
@@ -2757,19 +4030,40 @@ private struct BiologyInvestigationLab: View {
 
             Stepper(
                 value: Binding(
-                    get: { design.plantsPerGroup },
-                    set: { design.plantsPerGroup = $0; didReviewDesign = false }
+                    get: { design.independentUnitsPerCondition },
+                    set: { design.independentUnitsPerCondition = $0; didReviewDesign = false }
                 ),
                 in: 1...12
             ) {
                 Text(
                     String(
                         format: L10n.text("lab.investigation.replicates", store.language),
-                        design.plantsPerGroup
+                        design.independentUnitsPerCondition
                     )
                 )
                 .monospacedDigit()
             }
+
+            Stepper(
+                value: Binding(
+                    get: { design.plantsPerUnit },
+                    set: { design.plantsPerUnit = $0; didReviewDesign = false }
+                ),
+                in: 1...12
+            ) {
+                Text(
+                    String(
+                        format: L10n.text("lab.investigation.plantsPerUnit", store.language),
+                        design.plantsPerUnit
+                    )
+                )
+                .monospacedDigit()
+            }
+
+            Text(L10n.text("lab.investigation.replicationHint", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
 
             Button {
                 didReviewDesign = true
@@ -3069,6 +4363,227 @@ private struct LabCard<Content: View>: View {
     }
 }
 
+private struct LinearFunctionLab: View {
+    @EnvironmentObject private var store: LearningStore
+    let lessonID: String
+    @State private var slope = 2.0
+    @State private var intercept = -1.0
+    @State private var input = 3.0
+    @State private var predictionText = ""
+    @State private var round = LinearFunctionPredictionRound(
+        function: LinearFunctionModel(slope: 2, intercept: -1)!,
+        input: 3
+    )
+
+    init(lessonID: String = LinearFunctionPredictionRound.lessonID) {
+        self.lessonID = lessonID
+    }
+
+    private var function: LinearFunctionModel {
+        LinearFunctionModel(slope: slope, intercept: intercept)!
+    }
+
+    private var formula: String {
+        let slopeTerm = slope < 0 ? "− \(format(abs(slope)))x" : "\(format(slope))x"
+        let interceptTerm = intercept < 0 ? "− \(format(abs(intercept)))" : "+ \(format(intercept))"
+        return "y = \(slopeTerm) \(interceptTerm)"
+    }
+
+    private var parsedAnswer: Double? {
+        let normalized = predictionText
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: ",", with: ".")
+        return Double(normalized)
+    }
+
+    private var solutionText: String {
+        String(
+            format: L10n.text("lab.linear.solution", store.language),
+            format(slope),
+            format(input),
+            format(intercept),
+            format(function.value(at: input)!)
+        )
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.linear.prompt", store.language))
+                .font(.headline)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(formula)
+                .font(.system(.title2, design: .monospaced, weight: .semibold))
+                .accessibilityLabel(Text(String(format: L10n.text("lab.linear.formula", store.language), formula)))
+
+            LinearFunctionPlot(function: function, input: input, language: store.language)
+                .frame(height: 230)
+
+            Text(String(format: L10n.text("lab.linear.currentInput", store.language), format(input)))
+                .font(.callout.monospacedDigit())
+                .foregroundStyle(.secondary)
+
+            VStack(spacing: 10) {
+                parameterRow("lab.linear.slope", value: $slope, range: -2...2, step: 0.5)
+                parameterRow("lab.linear.intercept", value: $intercept, range: -4...4, step: 0.5)
+                parameterRow("lab.linear.input", value: $input, range: -3...3, step: 0.5)
+            }
+
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                TextField(L10n.text("lab.linear.placeholder", store.language), text: $predictionText)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(maxWidth: 240)
+                    .accessibilityLabel(Text(L10n.text("lab.linear.prediction", store.language)))
+                    .onSubmit { checkPrediction() }
+                    .disabled(round.lastAnswerCorrect == true || round.attempts >= 2)
+
+                if round.submittedAnswer == nil {
+                    Button(L10n.text("lab.linear.check", store.language)) {
+                        checkPrediction()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(parsedAnswer == nil)
+                } else if round.lastAnswerCorrect == false && round.attempts < 2 {
+                    Button(L10n.text("lab.linear.retry", store.language)) {
+                        retryPrediction()
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+
+            if let isCorrect = round.lastAnswerCorrect {
+                Label(
+                    L10n.text(isCorrect ? "lab.linear.correct" : "lab.linear.incorrect", store.language),
+                    systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
+                )
+                .foregroundStyle(isCorrect ? Color.green : Color.orange)
+                .fixedSize(horizontal: false, vertical: true)
+
+                if isCorrect || round.attempts >= 2 {
+                    Text(solutionText)
+                        .font(.callout.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text(L10n.text("lab.linear.hint", store.language))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .onChange(of: slope) { _ in resetPrediction() }
+        .onChange(of: intercept) { _ in resetPrediction() }
+        .onChange(of: input) { _ in resetPrediction() }
+    }
+
+    private func parameterRow(
+        _ labelKey: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double>,
+        step: Double
+    ) -> some View {
+        HStack(spacing: 10) {
+            Text(L10n.text(labelKey, store.language))
+                .frame(width: 146, alignment: .leading)
+            Slider(value: value, in: range, step: step)
+                .accessibilityLabel(Text(L10n.text(labelKey, store.language)))
+            Text(format(value.wrappedValue))
+                .font(.callout.monospacedDigit())
+                .frame(width: 54, alignment: .trailing)
+        }
+    }
+
+    private func checkPrediction() {
+        guard let answer = parsedAnswer,
+              round.submit(answer: answer) != nil,
+              let evidence = round.evidence else { return }
+        store.recordStudyAssessment(lessonID: lessonID, evidence: evidence)
+    }
+
+    private func retryPrediction() {
+        round.retry()
+        predictionText = ""
+    }
+
+    private func resetPrediction() {
+        round = LinearFunctionPredictionRound(function: function, input: input)
+        predictionText = ""
+    }
+
+    private func format(_ value: Double) -> String {
+        value.formatted(
+            .number
+                .locale(Locale(identifier: store.language == .ru ? "ru_RU" : "en_US"))
+                .precision(.fractionLength(0...2))
+        )
+    }
+}
+
+private struct LinearFunctionPlot: View {
+    let function: LinearFunctionModel
+    let input: Double
+    let language: AppLanguage
+
+    private let xRange: ClosedRange<Double> = -4...4
+    private let yRange: ClosedRange<Double> = -12...12
+
+    var body: some View {
+        Canvas { context, size in
+            let plot = CGRect(x: 34, y: 10, width: max(0, size.width - 46), height: max(0, size.height - 26))
+            guard plot.width > 0, plot.height > 0 else { return }
+
+            var clippingPath = Path()
+            clippingPath.addRect(plot)
+            context.clip(to: clippingPath)
+
+            func location(_ x: Double, _ y: Double) -> CGPoint {
+                CGPoint(
+                    x: plot.minX + CGFloat((x - xRange.lowerBound) / (xRange.upperBound - xRange.lowerBound)) * plot.width,
+                    y: plot.maxY - CGFloat((y - yRange.lowerBound) / (yRange.upperBound - yRange.lowerBound)) * plot.height
+                )
+            }
+
+            var grid = Path()
+            for xTick in -4...4 {
+                let x = location(Double(xTick), 0).x
+                grid.move(to: CGPoint(x: x, y: plot.minY))
+                grid.addLine(to: CGPoint(x: x, y: plot.maxY))
+            }
+            for yTick in stride(from: -12, through: 12, by: 4) {
+                let y = location(0, Double(yTick)).y
+                grid.move(to: CGPoint(x: plot.minX, y: y))
+                grid.addLine(to: CGPoint(x: plot.maxX, y: y))
+            }
+            context.stroke(grid, with: .color(.secondary.opacity(0.16)), lineWidth: 1)
+
+            var axes = Path()
+            axes.move(to: location(xRange.lowerBound, 0))
+            axes.addLine(to: location(xRange.upperBound, 0))
+            axes.move(to: location(0, yRange.lowerBound))
+            axes.addLine(to: location(0, yRange.upperBound))
+            context.stroke(axes, with: .color(.secondary.opacity(0.65)), lineWidth: 1.5)
+
+            var line = Path()
+            for index in 0...160 {
+                let x = xRange.lowerBound + Double(index) / 160 * (xRange.upperBound - xRange.lowerBound)
+                guard let y = function.value(at: x) else { continue }
+                let point = location(x, y)
+                if index == 0 { line.move(to: point) } else { line.addLine(to: point) }
+            }
+            context.stroke(line, with: .color(.indigo), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+
+            if let output = function.value(at: input), yRange.contains(output) {
+                let point = location(input, output)
+                let marker = Path(ellipseIn: CGRect(x: point.x - 6, y: point.y - 6, width: 12, height: 12))
+                context.fill(marker, with: .color(.teal))
+                context.stroke(marker, with: .color(.primary.opacity(0.9)), lineWidth: 1.5)
+            }
+        }
+        .accessibilityLabel(L10n.text("lab.linear.graph", language))
+    }
+}
+
 private struct SlopeLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var slope = 1.5
@@ -3153,6 +4668,8 @@ private struct SentenceLab: View {
 }
 
 private struct ForceLab: View {
+    let lessonID: String?
+
     @EnvironmentObject private var store: LearningStore
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -3161,13 +4678,22 @@ private struct ForceLab: View {
     @State private var elapsed = 0.0
     @State private var elapsedAtStart = 0.0
     @State private var startedAt: ContinuousClock.Instant?
+    @State private var prediction: InteractivePredictionAttempt
     private let timer = Timer.publish(every: 1.0 / 30, on: .main, in: .common).autoconnect()
+
+    init(lessonID: String? = nil) {
+        self.lessonID = lessonID
+        _prediction = State(initialValue: Self.makePrediction())
+    }
 
     private var motion: ForceMotion { ForceMotion(force: force, mass: mass, time: elapsed) }
     private var isRunning: Bool { startedAt != nil }
 
     var body: some View {
         LabCard {
+            if lessonID != nil {
+                predictionView
+            }
             Force3DVisualization(force: force, mass: mass, displacement: motion.displacement)
                 .frame(height: 240)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
@@ -3221,6 +4747,79 @@ private struct ForceLab: View {
         .onDisappear(perform: pause)
     }
 
+    private var predictionView: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(L10n.text("lab.forcePredictionPrompt", store.language))
+                .font(.headline)
+                .fixedSize(horizontal: false, vertical: true)
+            ForEach(0..<prediction.choiceOrder.displayedOriginalIndices.count, id: \.self) { displayedIndex in
+                let optionIndex = prediction.choiceOrder.originalIndex(forDisplayedIndex: displayedIndex) ?? displayedIndex
+                Button {
+                    submitPrediction(displayedIndex: displayedIndex)
+                } label: {
+                    HStack {
+                        if prediction.selectedOriginalIndex == optionIndex {
+                            Image(systemName: prediction.isCorrect ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        }
+                        Text(L10n.text("lab.forcePredictionOption.\(optionIndex)", store.language))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .buttonStyle(.bordered)
+                .disabled(prediction.hasAnswered)
+            }
+            if prediction.hasAnswered {
+                if prediction.isCorrect {
+                    Label(L10n.text("lab.forcePredictionCorrect", store.language), systemImage: "checkmark.circle.fill")
+                        .font(.callout)
+                        .foregroundStyle(.green)
+                    Button(L10n.text("lab.forcePredictionNew", store.language), action: startNewPrediction)
+                        .buttonStyle(.link)
+                } else {
+                    Label(L10n.text("lab.forcePredictionWrong", store.language), systemImage: "arrow.counterclockwise.circle")
+                        .font(.callout)
+                        .foregroundStyle(.orange)
+                    Text(L10n.text("lab.forcePredictionHint", store.language))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(L10n.text("lab.forcePredictionRetry", store.language), action: retryPrediction)
+                        .buttonStyle(.link)
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.secondary.opacity(0.055), in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func submitPrediction(displayedIndex: Int) {
+        prediction.select(displayedIndex: displayedIndex)
+        guard let lessonID,
+              let evidence = prediction.currentAnswerEventEvidence() else { return }
+        store.recordStudyAssessment(lessonID: lessonID, evidence: evidence)
+    }
+
+    private func retryPrediction() {
+        prediction.retry()
+    }
+
+    private func startNewPrediction() {
+        prediction = Self.makePrediction()
+        reset()
+    }
+
+    private static func makePrediction() -> InteractivePredictionAttempt {
+        guard let attempt = InteractivePredictionAttempt(
+            optionCount: 3,
+            answerOriginalIndex: 2,
+            itemID: "physics.net_force_and_acceleration.force_doubling_prediction"
+        ) else {
+            preconditionFailure("The force-law prediction must have a valid correct option.")
+        }
+        return attempt
+    }
+
     private func reading(_ key: String, value: Double, unit: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(L10n.text(key, store.language)).font(.caption).foregroundStyle(.secondary)
@@ -3270,6 +4869,89 @@ private struct ForceLab: View {
     }
 }
 
+private struct LengthMeasurementLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var length = 12.4
+    @State private var uncertainty = 0.2
+
+    private let scaleCentimetres = 32.0
+
+    private var measurement: LengthMeasurement {
+        LengthMeasurement(centimetres: length, uncertaintyCentimetres: uncertainty)
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.measurementTitle", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.measurementHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            GeometryReader { geometry in
+                let trackWidth = max(geometry.size.width - 12, 0)
+                let lowerX = measurement.lowerCentimetres / scaleCentimetres * trackWidth
+                let centreX = measurement.centimetres / scaleCentimetres * trackWidth
+                let bandWidth = 2 * uncertainty / scaleCentimetres * trackWidth
+                ZStack(alignment: .topLeading) {
+                    Capsule()
+                        .fill(.secondary.opacity(0.5))
+                        .frame(width: trackWidth, height: 3)
+                        .offset(x: 6, y: 25)
+                    Capsule()
+                        .fill(Color.accentColor.opacity(0.35))
+                        .frame(width: bandWidth, height: 18)
+                        .offset(x: 6 + lowerX, y: 17)
+                    Circle()
+                        .fill(Color.accentColor)
+                        .frame(width: 10, height: 10)
+                        .offset(x: 1 + centreX, y: 21)
+                }
+            }
+            .frame(height: 54)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(L10n.text("lab.measurementBand", store.language)))
+            .accessibilityValue(Text(String(format: "%.1f–%.1f cm",
+                                                measurement.lowerCentimetres,
+                                                measurement.upperCentimetres)))
+
+            HStack {
+                Text("0 cm")
+                Spacer()
+                Text("32 cm")
+            }
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(.secondary)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(L10n.text("lab.measurementLength", store.language))
+                Slider(value: $length, in: 3...30, step: 0.1)
+                    .accessibilityLabel(Text(L10n.text("lab.measurementLength", store.language)))
+                    .accessibilityValue(Text(String(format: "%.1f cm", length)))
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(L10n.text("lab.measurementUncertainty", store.language))
+                Slider(value: $uncertainty, in: 0.1...2, step: 0.1)
+                    .accessibilityLabel(Text(L10n.text("lab.measurementUncertainty", store.language)))
+                    .accessibilityValue(Text(String(format: "%.1f cm", uncertainty)))
+            }
+
+            Text(String(format: "%.1f ± %.1f cm = %.3f ± %.3f m",
+                        length, uncertainty, measurement.metres, measurement.uncertaintyMetres))
+                .font(.headline.monospacedDigit())
+                .textSelection(.enabled)
+            Text(String(format: "%@: %.1f%%",
+                        L10n.text("lab.measurementRelative", store.language),
+                        measurement.relativeUncertaintyPercent))
+                .font(.callout.monospacedDigit())
+            Text(L10n.text("lab.measurementLimits", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
 private struct FrictionLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var mass = 5.0
@@ -3277,6 +4959,7 @@ private struct FrictionLab: View {
     @State private var staticCoefficient = 0.4
     @State private var kineticCoefficient = 0.3
     @State private var time = 2.0
+    @State private var predictionPractice = FrictionPredictionPracticeSession()
 
     private var motion: FrictionMotion {
         FrictionMotion(
@@ -3352,6 +5035,7 @@ private struct FrictionLab: View {
 
             Text(L10n.text("lab.frictionPrediction", store.language))
                 .font(.callout)
+            predictionPracticeView
             Text(L10n.text("lab.frictionLimits", store.language))
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -3359,6 +5043,84 @@ private struct FrictionLab: View {
         .onChange(of: staticCoefficient) { newValue in
             kineticCoefficient = min(kineticCoefficient, newValue)
         }
+    }
+
+    private var predictionPracticeView: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Divider()
+            if let question = predictionPractice.currentQuestion {
+                Text(L10n.text("lab.frictionPredictionTitle", store.language))
+                    .font(.subheadline.weight(.semibold))
+                Text(String(format: L10n.text("lab.frictionPredictionQuestion", store.language), question.appliedForce))
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ForEach(predictionPractice.currentOptionOriginalIndices.indices, id: \.self) { displayedIndex in
+                    let originalIndex = predictionPractice.currentOptionOriginalIndices[displayedIndex]
+                    let isSelected = predictionPractice.selectedDisplayedIndex == displayedIndex
+                    Button {
+                        predictionPractice.selectOption(at: displayedIndex)
+                    } label: {
+                        HStack {
+                            Text(L10n.text(
+                                originalIndex == 0 ? "lab.frictionPredictionRest" : "lab.frictionPredictionSlide",
+                                store.language
+                            ))
+                            Spacer(minLength: 8)
+                            if isSelected {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .accessibilityHidden(true)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(isSelected ? .accentColor : nil)
+                    .disabled(predictionPractice.feedback == .correct)
+                }
+
+                if let feedback = predictionPractice.feedback {
+                    let caseKey = question.expectedSliding ? "slide" : "rest"
+                    let resultKey = feedback == .correct ? "correct" : "review"
+                    Label(
+                        L10n.text("lab.frictionPrediction.\(caseKey).\(resultKey)", store.language),
+                        systemImage: feedback == .correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle.fill"
+                    )
+                    .font(.callout)
+                    .foregroundStyle(feedback == .correct ? Color.green : Color.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+
+                let buttonTitleKey = predictionPractice.feedback == .correct
+                    ? (question.id == FrictionPredictionPracticeSession.questions.last?.id
+                        ? "lab.frictionPredictionFinish"
+                        : "lab.frictionPredictionNext")
+                    : "lab.frictionPredictionCheck"
+                Button {
+                    if predictionPractice.feedback == .correct {
+                        predictionPractice.advance()
+                    } else if let evidence = predictionPractice.checkAnswer() {
+                        store.recordStudyAssessment(
+                            lessonID: "physics.static_and_kinetic_friction",
+                            evidence: evidence
+                        )
+                    }
+                } label: {
+                    Text(L10n.text(buttonTitleKey, store.language))
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(predictionPractice.selectedDisplayedIndex == nil && predictionPractice.feedback != .correct)
+            } else {
+                Text(L10n.text("lab.frictionPredictionComplete", store.language))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Button(L10n.text("lab.frictionPredictionRestart", store.language)) {
+                    predictionPractice.restart()
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding(.top, 4)
     }
 
     private func slider(
@@ -4220,9 +5982,14 @@ private struct GeneRegulationLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var variant = 0
     @State private var signalPresent = true
-    @State private var selectedAnswer: Int?
+    @State private var prediction = GeneRegulationPractice.makePredictionAttempt(
+        variant: 0,
+        signalPresent: true
+    )
 
-    private var productMade: Bool { variant == 0 && signalPresent }
+    private var productMade: Bool {
+        GeneRegulationPractice.isProductMade(variant: variant, signalPresent: signalPresent)
+    }
 
     var body: some View {
         LabCard {
@@ -4235,7 +6002,7 @@ private struct GeneRegulationLab: View {
                 Text(L10n.text("lab.dnaVariant1", store.language)).tag(1)
             }
             .pickerStyle(.segmented)
-            .onChange(of: variant) { _ in selectedAnswer = nil }
+            .onChange(of: variant) { _ in resetPrediction() }
 
             DNAHelixVisualization(variant: variant)
                 .frame(height: 230)
@@ -4249,19 +6016,33 @@ private struct GeneRegulationLab: View {
                 .accessibilityLabel(Text(L10n.text(variant == 0 ? "lab.dnaPairAT" : "lab.dnaPairCG", store.language)))
 
             Toggle(L10n.text("lab.dnaSignal", store.language), isOn: $signalPresent)
-                .onChange(of: signalPresent) { _ in selectedAnswer = nil }
+                .onChange(of: signalPresent) { _ in resetPrediction() }
+
+            let outcomeRevealed = prediction.isCorrect
 
             HStack(spacing: 8) {
                 flowNode(title: L10n.text("lab.dnaSequence", store.language), value: "A · T · C · G")
                 Image(systemName: "arrow.right").foregroundStyle(.secondary)
                 flowNode(
                     title: L10n.text("lab.dnaGeneActivity", store.language),
-                    value: L10n.text(productMade ? "lab.dnaGeneOn" : "lab.dnaGeneOff", store.language)
+                    value: L10n.text(
+                        GeneRegulationPractice.geneActivityKey(
+                            productMade: productMade,
+                            outcomeRevealed: outcomeRevealed
+                        ),
+                        store.language
+                    )
                 )
                 Image(systemName: "arrow.right").foregroundStyle(.secondary)
                 flowNode(
                     title: L10n.text("lab.dnaProduct", store.language),
-                    value: L10n.text(productMade ? "lab.dnaProductMade" : "lab.dnaProductAbsent", store.language)
+                    value: L10n.text(
+                        GeneRegulationPractice.productKey(
+                            productMade: productMade,
+                            outcomeRevealed: outcomeRevealed
+                        ),
+                        store.language
+                    )
                 )
             }
             .accessibilityElement(children: .combine)
@@ -4269,22 +6050,47 @@ private struct GeneRegulationLab: View {
             Text(L10n.text("lab.dnaPredict", store.language))
                 .font(.callout.weight(.medium))
             HStack {
-                answerButton(0, key: "lab.dnaPredictOption0")
-                answerButton(1, key: "lab.dnaPredictOption1")
+                ForEach(Array(prediction.choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    answerButton(
+                        displayIndex: displayIndex,
+                        originalIndex: originalIndex,
+                        key: originalIndex == 0 ? "lab.dnaPredictOption0" : "lab.dnaPredictOption1"
+                    )
+                }
             }
 
-            if let selectedAnswer {
+            if prediction.hasAnswered {
+                let isCorrect = prediction.isCorrect
                 Label(
                     L10n.text(
-                        selectedAnswer == 1 ? "lab.dnaPredictCorrect" : "lab.dnaPredictIncorrect",
+                        isCorrect ? "lab.dnaPredictCorrect" : "lab.dnaPredictIncorrect",
                         store.language
                     ),
-                    systemImage: selectedAnswer == 1 ? "checkmark.circle.fill" : "arrow.clockwise.circle"
+                    systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.clockwise.circle"
                 )
                 .font(.callout)
-                .foregroundStyle(selectedAnswer == 1 ? Color.green : Color.secondary)
+                .foregroundStyle(isCorrect ? Color.green : Color.secondary)
+
+                Text(L10n.text(GeneRegulationPractice.explanationKey(isCorrect: isCorrect), store.language))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if prediction.canRetry {
+                    Button(L10n.text("lab.dnaRetry", store.language)) {
+                        prediction.retry()
+                    }
+                    .buttonStyle(.bordered)
+                }
             }
         }
+    }
+
+    private func resetPrediction() {
+        prediction = GeneRegulationPractice.makePredictionAttempt(
+            variant: variant,
+            signalPresent: signalPresent
+        )
     }
 
     private func flowNode(title: String, value: String) -> some View {
@@ -4303,16 +6109,19 @@ private struct GeneRegulationLab: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func answerButton(_ answer: Int, key: String) -> some View {
+    private func answerButton(displayIndex: Int, originalIndex: Int, key: String) -> some View {
         Button {
-            selectedAnswer = answer
+            prediction.select(displayedIndex: displayIndex)
+            guard let evidence = prediction.currentAnswerEventEvidence() else { return }
+            store.recordStudyAssessment(lessonID: "biology.dna_genes_and_traits", evidence: evidence)
         } label: {
             Text(L10n.text(key, store.language))
                 .frame(maxWidth: .infinity, minHeight: 34)
         }
         .buttonStyle(.bordered)
-        .tint(selectedAnswer == answer ? Color.accentColor : nil)
-        .accessibilityAddTraits(selectedAnswer == answer ? .isSelected : [])
+        .tint(prediction.selectedOriginalIndex == originalIndex ? Color.accentColor : nil)
+        .disabled(prediction.hasAnswered)
+        .accessibilityAddTraits(prediction.selectedOriginalIndex == originalIndex ? .isSelected : [])
     }
 }
 
@@ -4322,6 +6131,13 @@ private struct GeneExpressionLab: View {
     @State private var selectedStage = 0
     @State private var selectedAnswer = -1
     @State private var didCheckAnswer = false
+    @State private var prediction = GeneExpressionPractice.makeStopCodonAttempt()
+
+    private let answerOptionKeys = [
+        "lab.geneExpressionOptionA",
+        "lab.geneExpressionOptionB",
+        "lab.geneExpressionOptionC"
+    ]
 
     private var snapshot: GeneExpressionSnapshot {
         GeneExpressionPractice.snapshot(promoterIsActive: transcriptionEnabled)
@@ -4336,8 +6152,7 @@ private struct GeneExpressionLab: View {
 
             Toggle(L10n.text("lab.geneExpressionRegulator", store.language), isOn: $transcriptionEnabled)
                 .onChange(of: transcriptionEnabled) { _ in
-                    selectedAnswer = -1
-                    didCheckAnswer = false
+                    resetPrediction()
                 }
 
             Picker(L10n.text("lab.geneExpressionStage", store.language), selection: $selectedStage) {
@@ -4367,28 +6182,39 @@ private struct GeneExpressionLab: View {
             Text(L10n.text("lab.geneExpressionQuiz", store.language))
                 .font(.callout.weight(.medium))
             Picker(L10n.text("lab.geneExpressionQuiz", store.language), selection: $selectedAnswer) {
-                Text(L10n.text("lab.geneExpressionOptionA", store.language)).tag(0)
-                Text(L10n.text("lab.geneExpressionOptionB", store.language)).tag(1)
-                Text(L10n.text("lab.geneExpressionOptionC", store.language)).tag(2)
+                ForEach(Array(prediction.choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Text(L10n.text(answerOptionKeys[originalIndex], store.language)).tag(displayIndex)
+                }
             }
             .pickerStyle(.radioGroup)
+            .disabled(prediction.hasAnswered)
             .onChange(of: selectedAnswer) { _ in didCheckAnswer = false }
 
             Button(L10n.text("lab.geneExpressionCheck", store.language)) {
+                prediction.select(displayedIndex: selectedAnswer)
+                guard let evidence = prediction.currentAnswerEventEvidence() else { return }
+                store.recordStudyAssessment(
+                    lessonID: "biology.gene_expression_and_regulation",
+                    evidence: evidence
+                )
                 didCheckAnswer = true
             }
             .buttonStyle(.borderedProminent)
-            .disabled(selectedAnswer < 0)
+            .disabled(selectedAnswer < 0 || prediction.hasAnswered)
 
             if didCheckAnswer {
-                let isCorrect = selectedAnswer == 1
                 Label(
-                    L10n.text(isCorrect ? "lab.geneExpressionCorrect" : "lab.geneExpressionReview", store.language),
-                    systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
+                    L10n.text(prediction.isCorrect ? "lab.geneExpressionCorrect" : "lab.geneExpressionReview", store.language),
+                    systemImage: prediction.isCorrect ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
                 )
                 .font(.callout.weight(.medium))
-                .foregroundStyle(isCorrect ? .green : .orange)
+                .foregroundStyle(prediction.isCorrect ? .green : .orange)
                 .fixedSize(horizontal: false, vertical: true)
+
+                if prediction.canRetry {
+                    Button(L10n.text("lab.geneExpressionRetry", store.language), action: retryPrediction)
+                        .buttonStyle(.link)
+                }
             }
 
             Text(L10n.text("lab.geneExpressionLimit", store.language))
@@ -4422,6 +6248,18 @@ private struct GeneExpressionLab: View {
             return peptide.joined(separator: " – ")
         }
     }
+
+    private func retryPrediction() {
+        prediction.retry()
+        selectedAnswer = -1
+        didCheckAnswer = false
+    }
+
+    private func resetPrediction() {
+        prediction = GeneExpressionPractice.makeStopCodonAttempt()
+        selectedAnswer = -1
+        didCheckAnswer = false
+    }
 }
 
 private struct CellCycleLab: View {
@@ -4429,6 +6267,13 @@ private struct CellCycleLab: View {
     @State private var selectedStage: CellCycleStage = .g1
     @State private var selectedAnswer = -1
     @State private var didCheckAnswer = false
+    @State private var prediction = CellCyclePractice.makeKnowledgeCheckAttempt()
+
+    private let answerOptionKeys = [
+        "lab.cellCycle.optionS",
+        "lab.cellCycle.optionAnaphase",
+        "lab.cellCycle.optionCytokinesis"
+    ]
 
     var body: some View {
         LabCard {
@@ -4443,10 +6288,6 @@ private struct CellCycleLab: View {
                 }
             }
             .pickerStyle(.menu)
-            .onChange(of: selectedStage) { _ in
-                selectedAnswer = -1
-                didCheckAnswer = false
-            }
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(L10n.text(selectedStage.localizationKey, store.language))
@@ -4481,31 +6322,61 @@ private struct CellCycleLab: View {
                 .disabled(selectedStage == CellCycleStage.allCases.last)
             }
 
+            VStack(alignment: .leading, spacing: 10) {
+                conceptCard(
+                    titleKey: "lab.cellCycle.cytokinesisTitle",
+                    descriptionKey: "lab.cellCycle.cytokinesisDescription",
+                    systemImage: "arrow.left.and.right"
+                )
+                conceptCard(
+                    titleKey: "lab.cellCycle.differentiationTitle",
+                    descriptionKey: "lab.cellCycle.differentiationDescription",
+                    systemImage: "sparkles"
+                )
+            }
+
             Text(L10n.text("lab.cellCycle.quiz", store.language))
                 .font(.callout.weight(.medium))
             Picker(L10n.text("lab.cellCycle.quiz", store.language), selection: $selectedAnswer) {
-                Text(L10n.text("lab.cellCycle.optionS", store.language)).tag(0)
-                Text(L10n.text("lab.cellCycle.optionAnaphase", store.language)).tag(1)
-                Text(L10n.text("lab.cellCycle.optionCytokinesis", store.language)).tag(2)
+                ForEach(Array(prediction.choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Text(L10n.text(answerOptionKeys[originalIndex], store.language)).tag(displayIndex)
+                }
             }
             .pickerStyle(.radioGroup)
+            .disabled(prediction.hasAnswered)
             .onChange(of: selectedAnswer) { _ in didCheckAnswer = false }
 
             Button(L10n.text("lab.cellCycle.check", store.language)) {
+                prediction.select(displayedIndex: selectedAnswer)
                 didCheckAnswer = true
+                if let evidence = prediction.currentAnswerEventEvidence() {
+                    store.recordStudyAssessment(
+                        lessonID: "biology.cell_cycle_and_differentiation",
+                        evidence: evidence
+                    )
+                }
             }
             .buttonStyle(.borderedProminent)
-            .disabled(selectedAnswer < 0)
+            .disabled(selectedAnswer < 0 || prediction.hasAnswered)
 
             if didCheckAnswer {
-                let correct = selectedAnswer == 0
-                Label(
-                    L10n.text(correct ? "lab.cellCycle.correct" : "lab.cellCycle.review", store.language),
-                    systemImage: correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
-                )
-                .font(.callout.weight(.medium))
-                .foregroundStyle(correct ? .green : .orange)
-                .fixedSize(horizontal: false, vertical: true)
+                if prediction.isCorrect {
+                    Label(L10n.text("lab.cellCycle.correct", store.language), systemImage: "checkmark.circle.fill")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.green)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Label(L10n.text("lab.cellCycle.review", store.language), systemImage: "arrow.uturn.backward.circle")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(L10n.text("lab.cellCycle.retry", store.language)) {
+                        prediction.retry()
+                        selectedAnswer = -1
+                        didCheckAnswer = false
+                    }
+                    .buttonStyle(.link)
+                }
             }
 
             Text(L10n.text("lab.cellCycle.limit", store.language))
@@ -4518,9 +6389,22 @@ private struct CellCycleLab: View {
     private var statusKey: String {
         if CellCyclePractice.isDNAReplicationStage(selectedStage) { return "lab.cellCycle.statusDNA" }
         if CellCyclePractice.isNuclearDivision(selectedStage) { return "lab.cellCycle.statusNucleus" }
-        if CellCyclePractice.isCytoplasmDivision(selectedStage) { return "lab.cellCycle.statusCytoplasm" }
-        if selectedStage == .differentiation { return "lab.cellCycle.statusSpecialize" }
         return "lab.cellCycle.statusPrepare"
+    }
+
+    private func conceptCard(titleKey: String, descriptionKey: String, systemImage: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(L10n.text(titleKey, store.language), systemImage: systemImage)
+                .font(.headline)
+            Text(L10n.text(descriptionKey, store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .combine)
     }
 
     private func move(by offset: Int) {
@@ -4536,6 +6420,13 @@ private struct AnimalFunctionLab: View {
     @State private var selectedFunction: AnimalFunction = .feeding
     @State private var selectedAnswer = -1
     @State private var didCheckAnswer = false
+    @State private var prediction = AnimalFunctionPractice.makeComparisonAttempt()
+
+    private let answerOptionKeys = [
+        "lab.zoology.optionA",
+        "lab.zoology.optionB",
+        "lab.zoology.optionC"
+    ]
 
     var body: some View {
         LabCard {
@@ -4550,10 +6441,7 @@ private struct AnimalFunctionLab: View {
                 }
             }
             .pickerStyle(.menu)
-            .onChange(of: selectedFunction) { _ in
-                selectedAnswer = -1
-                didCheckAnswer = false
-            }
+            .onChange(of: selectedFunction) { _ in resetPrediction() }
 
             VStack(alignment: .leading, spacing: 8) {
                 Label(L10n.text(selectedFunction.titleKey, store.language), systemImage: systemSymbol)
@@ -4576,28 +6464,39 @@ private struct AnimalFunctionLab: View {
             Text(L10n.text("lab.zoology.quiz", store.language))
                 .font(.callout.weight(.medium))
             Picker(L10n.text("lab.zoology.quiz", store.language), selection: $selectedAnswer) {
-                Text(L10n.text("lab.zoology.optionA", store.language)).tag(0)
-                Text(L10n.text("lab.zoology.optionB", store.language)).tag(1)
-                Text(L10n.text("lab.zoology.optionC", store.language)).tag(2)
+                ForEach(Array(prediction.choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Text(L10n.text(answerOptionKeys[originalIndex], store.language)).tag(displayIndex)
+                }
             }
             .pickerStyle(.radioGroup)
+            .disabled(prediction.hasAnswered)
             .onChange(of: selectedAnswer) { _ in didCheckAnswer = false }
 
             Button(L10n.text("lab.zoology.check", store.language)) {
+                prediction.select(displayedIndex: selectedAnswer)
+                guard let evidence = prediction.currentAnswerEventEvidence() else { return }
+                store.recordStudyAssessment(
+                    lessonID: "zoology.animal_function_and_environment",
+                    evidence: evidence
+                )
                 didCheckAnswer = true
             }
             .buttonStyle(.borderedProminent)
-            .disabled(selectedAnswer < 0)
+            .disabled(selectedAnswer < 0 || prediction.hasAnswered)
 
             if didCheckAnswer {
-                let correct = AnimalFunctionPractice.isCorrectComparisonAnswer(selectedAnswer)
                 Label(
-                    L10n.text(correct ? "lab.zoology.correct" : "lab.zoology.review", store.language),
-                    systemImage: correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
+                    L10n.text(prediction.isCorrect ? "lab.zoology.correct" : "lab.zoology.review", store.language),
+                    systemImage: prediction.isCorrect ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
                 )
                 .font(.callout.weight(.medium))
-                .foregroundStyle(correct ? .green : .orange)
+                .foregroundStyle(prediction.isCorrect ? .green : .orange)
                 .fixedSize(horizontal: false, vertical: true)
+
+                if prediction.canRetry {
+                    Button(L10n.text("lab.zoology.retry", store.language), action: retryPrediction)
+                        .buttonStyle(.link)
+                }
             }
 
             Text(L10n.text("lab.zoology.limit", store.language))
@@ -4614,6 +6513,310 @@ private struct AnimalFunctionLab: View {
         case .movement: return "figure.walk"
         case .reproduction: return "leaf"
         }
+    }
+
+    private func retryPrediction() {
+        prediction.retry()
+        selectedAnswer = -1
+        didCheckAnswer = false
+    }
+
+    private func resetPrediction() {
+        prediction = AnimalFunctionPractice.makeComparisonAttempt()
+        selectedAnswer = -1
+        didCheckAnswer = false
+    }
+}
+
+private struct ThermoregulationLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var selectedRangeID = ThermoregulationPractice.operativeTemperatureRange.id
+    @State private var selectedAnswer = -1
+    @State private var didCheckAnswer = false
+    @State private var attemptCount = 0
+    @State private var firstTryCorrect: Bool?
+    @State private var answerSolved = false
+    @State private var optionOrder = QuizAnswerOrder(
+        optionCount: 3,
+        answerOriginalIndex: ThermoregulationPractice.correctThresholdInterpretationAnswer
+    )
+
+    private let answerOptionKeys = [
+        "lab.zoology.thermo.optionA",
+        "lab.zoology.thermo.optionB",
+        "lab.zoology.thermo.optionC",
+    ]
+
+    private var selectedRange: ThermalExposureRange {
+        selectedRangeID == ThermoregulationPractice.ambientAirRange.id
+            ? ThermoregulationPractice.ambientAirRange
+            : ThermoregulationPractice.operativeTemperatureRange
+    }
+
+    private var selectedRangeNameKey: String {
+        selectedRangeID == ThermoregulationPractice.ambientAirRange.id
+            ? "lab.zoology.thermo.air"
+            : "lab.zoology.thermo.operative"
+    }
+
+    private var selectedRangeValueKey: String {
+        selectedRangeID == ThermoregulationPractice.ambientAirRange.id
+            ? "lab.zoology.thermo.airRange"
+            : "lab.zoology.thermo.operativeRange"
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.zoology.thermo.intro", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(alignment: .top, spacing: 16) {
+                ThermalProxyBirdVisualization()
+                    .frame(width: 220, height: 190)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .accessibilityLabel(L10n.text("lab.zoology.thermo.modelAccessibility", store.language))
+                    .accessibilityHint(L10n.text("lab.zoology.thermo.rotate", store.language))
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Label(L10n.text("lab.zoology.thermo.rotate", store.language), systemImage: "rotate.right")
+                        .font(.callout.weight(.medium))
+                    Text(L10n.text("lab.zoology.thermo.modelLimits", store.language))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 4)
+            }
+
+            HStack(alignment: .top, spacing: 12) {
+                ForEach([ThermoregulationPractice.ambientAirRange, ThermoregulationPractice.operativeTemperatureRange]) { range in
+                    let isAir = range.id == ThermoregulationPractice.ambientAirRange.id
+                    let isSelected = range.id == selectedRangeID
+                    let nameKey = isAir ? "lab.zoology.thermo.air" : "lab.zoology.thermo.operative"
+                    let valueKey = isAir ? "lab.zoology.thermo.airRange" : "lab.zoology.thermo.operativeRange"
+                    Button {
+                        selectedRangeID = range.id
+                    } label: {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label(
+                                L10n.text(nameKey, store.language),
+                                systemImage: isSelected ? "checkmark.circle.fill" : "circle"
+                            )
+                            .font(.subheadline.weight(.semibold))
+                            Text(L10n.text(valueKey, store.language))
+                                .font(.title3.monospacedDigit().weight(.semibold))
+                            ThermalRangeBar(range: range, color: isAir ? .blue : .orange)
+                                .frame(height: 12)
+                            HStack {
+                                Text(L10n.text("lab.zoology.thermo.axisMinimum", store.language))
+                                Spacer()
+                                Text(L10n.text("lab.zoology.thermo.axisMaximum", store.language))
+                            }
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.tertiary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .background(
+                            isSelected ? Color.teal.opacity(0.12) : Color.secondary.opacity(0.07),
+                            in: RoundedRectangle(cornerRadius: 12)
+                        )
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 12)
+                                .strokeBorder(isSelected ? Color.teal.opacity(0.65) : Color.clear, lineWidth: 1)
+                        }
+                        .contentShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(L10n.text(isAir ? "lab.zoology.thermo.airAccessibility" : "lab.zoology.thermo.operativeAccessibility", store.language))
+                }
+            }
+
+            HStack(spacing: 10) {
+                Image(systemName: "thermometer.high")
+                    .foregroundStyle(selectedRangeID == ThermoregulationPractice.ambientAirRange.id ? Color.blue : Color.orange)
+                Text(L10n.text(selectedRangeNameKey, store.language))
+                    .font(.callout.weight(.medium))
+                Spacer(minLength: 8)
+                Text(L10n.text(selectedRangeValueKey, store.language))
+                    .font(.title3.monospacedDigit().weight(.semibold))
+            }
+            Text(L10n.text("lab.zoology.thermo.rangeMeaning", store.language))
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Label(L10n.text("lab.zoology.thermo.threshold", store.language), systemImage: "thermometer.sun.fill")
+                    .font(.callout.weight(.medium))
+                ProgressView(value: Double(ThermoregulationPractice.heatStressDayPercentage), total: 100)
+                    .tint(.orange)
+                Text(L10n.text("lab.zoology.thermo.stressDays", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(12)
+            .background(Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+
+            Divider()
+
+            Text(L10n.text("lab.zoology.thermo.question", store.language))
+                .font(.callout.weight(.medium))
+            Picker(L10n.text("lab.zoology.thermo.question", store.language), selection: $selectedAnswer) {
+                ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Text(L10n.text(answerOptionKeys[originalIndex], store.language)).tag(displayIndex)
+                }
+            }
+            .pickerStyle(.radioGroup)
+            .disabled(answerSolved)
+            .onChange(of: selectedAnswer) { _ in didCheckAnswer = false }
+
+            Button(L10n.text("lab.zoology.thermo.check", store.language)) {
+                let correct = optionOrder.isCorrect(displayedIndex: selectedAnswer)
+                attemptCount += 1
+                if firstTryCorrect == nil { firstTryCorrect = correct }
+                store.recordStudyAssessment(
+                    lessonID: "zoology.comparative_thermoregulation_and_heat_stress",
+                    evidence: StudyAssessmentEvidence(
+                        taskType: "interactive_prediction",
+                        attempts: attemptCount,
+                        firstTryCorrect: firstTryCorrect ?? correct,
+                        hintsUsed: 0,
+                        itemID: ThermoregulationPractice.heatStressThresholdQuestionID
+                    )
+                )
+                didCheckAnswer = true
+                answerSolved = correct
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(selectedAnswer < 0 || didCheckAnswer || answerSolved)
+
+            if didCheckAnswer {
+                let correct = optionOrder.isCorrect(displayedIndex: selectedAnswer)
+                Label(
+                    L10n.text(correct ? "lab.zoology.thermo.correct" : "lab.zoology.thermo.review", store.language),
+                    systemImage: correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
+                )
+                .font(.callout.weight(.medium))
+                .foregroundStyle(correct ? .green : .orange)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+}
+
+private struct ThermalRangeBar: View {
+    let range: ThermalExposureRange
+    let color: Color
+
+    var body: some View {
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            let minimum = width * CGFloat(range.minimumCelsius / ThermoregulationPractice.chartMaximumCelsius)
+            let maximum = width * CGFloat(range.maximumCelsius / ThermoregulationPractice.chartMaximumCelsius)
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.secondary.opacity(0.14))
+                Capsule()
+                    .fill(color)
+                    .frame(width: max(4, maximum - minimum))
+                    .offset(x: minimum)
+            }
+            .clipShape(Capsule())
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+private struct ThermalProxyBirdVisualization: NSViewRepresentable {
+    func makeNSView(context: Context) -> SCNView {
+        let view = SCNView()
+        view.scene = Self.makeScene()
+        view.allowsCameraControl = true
+        view.autoenablesDefaultLighting = true
+        view.backgroundColor = .controlBackgroundColor
+        return view
+    }
+
+    func updateNSView(_ view: SCNView, context: Context) {}
+
+    private static func makeScene() -> SCNScene {
+        let scene = SCNScene()
+        scene.background.contents = NSColor.controlBackgroundColor
+        let bodyMaterial = material(color: .darkGray, roughness: 0.8)
+        let wingMaterial = material(color: .gray, roughness: 0.82)
+        let beakMaterial = material(color: .systemOrange, roughness: 0.62)
+        let footMaterial = material(color: .systemOrange, roughness: 0.75)
+        let eyeMaterial = material(color: .black, roughness: 0.35)
+        let bird = SCNNode()
+
+        let body = SCNNode(geometry: SCNSphere(radius: 1))
+        body.scale = SCNVector3(0.59, 0.62, 1.05)
+        body.position = SCNVector3(0, 0.02, -0.08)
+        body.geometry?.firstMaterial = bodyMaterial
+        bird.addChildNode(body)
+
+        let head = SCNNode(geometry: SCNSphere(radius: 0.39))
+        head.position = SCNVector3(0, 0.67, 0.54)
+        head.geometry?.firstMaterial = bodyMaterial
+        bird.addChildNode(head)
+
+        let beak = SCNNode(geometry: SCNCone(topRadius: 0.015, bottomRadius: 0.12, height: 0.34))
+        beak.position = SCNVector3(0, 0.57, 0.91)
+        beak.eulerAngles.x = .pi / 2
+        beak.geometry?.firstMaterial = beakMaterial
+        bird.addChildNode(beak)
+
+        for side in [Float(-1), Float(1)] {
+            let wing = SCNNode(geometry: SCNSphere(radius: 0.58))
+            wing.scale = SCNVector3(0.77, 0.14, 0.75)
+            wing.position = SCNVector3(side * 0.46, 0.02, -0.06)
+            wing.geometry?.firstMaterial = wingMaterial
+            bird.addChildNode(wing)
+
+            let eye = SCNNode(geometry: SCNSphere(radius: 0.038))
+            eye.position = SCNVector3(side * 0.25, 0.73, 0.87)
+            eye.geometry?.firstMaterial = eyeMaterial
+            bird.addChildNode(eye)
+
+            let foot = SCNNode(geometry: SCNCylinder(radius: 0.035, height: 0.45))
+            foot.position = SCNVector3(side * 0.21, -0.66, 0.03)
+            foot.geometry?.firstMaterial = footMaterial
+            bird.addChildNode(foot)
+        }
+
+        let tail = SCNNode(geometry: SCNSphere(radius: 0.3))
+        tail.scale = SCNVector3(0.34, 0.24, 0.68)
+        tail.position = SCNVector3(0, -0.05, -0.94)
+        tail.geometry?.firstMaterial = wingMaterial
+        bird.addChildNode(tail)
+        scene.rootNode.addChildNode(bird)
+
+        let camera = SCNCamera()
+        camera.fieldOfView = 46
+        let cameraNode = SCNNode()
+        cameraNode.camera = camera
+        cameraNode.position = SCNVector3(0, 0.1, 4.5)
+        scene.rootNode.addChildNode(cameraNode)
+
+        let light = SCNLight()
+        light.type = .omni
+        light.intensity = 650
+        let lightNode = SCNNode()
+        lightNode.light = light
+        lightNode.position = SCNVector3(-2, 3, 4)
+        scene.rootNode.addChildNode(lightNode)
+        return scene
+    }
+
+    private static func material(color: NSColor, roughness: CGFloat) -> SCNMaterial {
+        let material = SCNMaterial()
+        material.diffuse.contents = color
+        material.roughness.contents = roughness
+        return material
     }
 }
 
@@ -4791,30 +6994,14 @@ private struct CellLab: View {
 
 private struct BiomoleculeLab: View {
     @EnvironmentObject private var store: LearningStore
-    @State private var selectedExample = "enzyme"
-    @State private var selectedGroup = "protein"
-    @State private var checked = false
+    @State private var selectedExample: BiomoleculeExample = .enzyme
+    @State private var selectedGroup: BiomoleculeGroup? = nil
+    @State private var checkedGroup: BiomoleculeGroup?
     @State private var reactionJoins = true
-
-    private let examples = ["enzyme", "starch", "dna", "triglyceride"]
-    private let groups = ["carbohydrate", "lipid", "protein", "nucleic_acid"]
-
-    private var correctGroup: String {
-        switch selectedExample {
-        case "enzyme": "protein"
-        case "starch": "carbohydrate"
-        case "dna": "nucleic_acid"
-        default: "lipid"
-        }
-    }
+    @State private var assessmentTracker = BiomoleculeAssessmentTracker()
 
     private var exampleInfoKey: String {
-        switch selectedExample {
-        case "enzyme": "biology.moleculeLab.info.enzyme"
-        case "starch": "biology.moleculeLab.info.starch"
-        case "dna": "biology.moleculeLab.info.dna"
-        default: "biology.moleculeLab.info.triglyceride"
-        }
+        "biology.moleculeLab.info.\(selectedExample.rawValue)"
     }
 
     var body: some View {
@@ -4835,43 +7022,52 @@ private struct BiomoleculeLab: View {
                 }
 
                 Picker(L10n.text("biology.moleculeLab.example", store.language), selection: $selectedExample) {
-                    ForEach(examples, id: \.self) { example in
-                        Text(L10n.text("biology.moleculeLab.\(example)", store.language)).tag(example)
+                    ForEach(BiomoleculeExample.allCases, id: \.self) { example in
+                        Text(L10n.text("biology.moleculeLab.\(example.rawValue)", store.language)).tag(example)
                     }
                 }
                 .pickerStyle(.menu)
-                .onChange(of: selectedExample) { example in
-                    switch example {
-                    case "enzyme": selectedGroup = "protein"
-                    case "starch": selectedGroup = "carbohydrate"
-                    case "dna": selectedGroup = "nucleic_acid"
-                    default: selectedGroup = "lipid"
-                    }
-                    checked = false
+                .onChange(of: selectedExample) { _ in
+                    selectedGroup = nil
+                    checkedGroup = nil
                 }
 
                 Picker(L10n.text("biology.moleculeLab.chooseGroup", store.language), selection: $selectedGroup) {
-                    ForEach(groups, id: \.self) { group in
-                        Text(L10n.text("biology.moleculeLab.group.\(group)", store.language)).tag(group)
+                    Text(L10n.text("biology.moleculeLab.chooseGroupPrompt", store.language))
+                        .tag(nil as BiomoleculeGroup?)
+                    ForEach(BiomoleculeGroup.allCases, id: \.self) { group in
+                        Text(L10n.text("biology.moleculeLab.group.\(group.rawValue)", store.language))
+                            .tag(Optional(group))
                     }
                 }
                 .pickerStyle(.menu)
-                .onChange(of: selectedGroup) { _ in checked = false }
+                .onChange(of: selectedGroup) { _ in checkedGroup = nil }
 
                 Button {
-                    checked = true
+                    guard let selectedGroup,
+                          let evidence = assessmentTracker.recordSubmission(
+                            group: selectedGroup,
+                            for: selectedExample
+                          ) else { return }
+                    store.recordStudyAssessment(
+                        lessonID: "biology.biomolecules_and_building_blocks",
+                        evidence: evidence
+                    )
+                    checkedGroup = selectedGroup
                 } label: {
                     Label(L10n.text("biology.moleculeLab.check", store.language), systemImage: "checkmark.circle")
                 }
                 .buttonStyle(.borderedProminent)
+                .disabled(selectedGroup == nil || selectedGroup == checkedGroup)
 
-                if checked {
+                if let checkedGroup {
+                    let isCorrect = checkedGroup == selectedExample.correctGroup
                     Label(
-                        L10n.text(selectedGroup == correctGroup ? "biology.moleculeLab.correct" : "biology.moleculeLab.tryAgain", store.language),
-                        systemImage: selectedGroup == correctGroup ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
+                        L10n.text(isCorrect ? "biology.moleculeLab.correct" : "biology.moleculeLab.tryAgain", store.language),
+                        systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
                     )
                     .font(.callout.weight(.medium))
-                    .foregroundStyle(selectedGroup == correctGroup ? .green : .orange)
+                    .foregroundStyle(isCorrect ? .green : .orange)
                 }
 
                 Text(L10n.text(exampleInfoKey, store.language))
@@ -4912,6 +7108,16 @@ private struct BiomoleculeLab: View {
                 }
                 .font(.caption)
 
+                Text(L10n.text(
+                    selectedExample.isPolymer
+                        ? "biology.moleculeLab.polymerExample"
+                        : "biology.moleculeLab.nonPolymerExample",
+                    store.language
+                ))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
                 Text(L10n.text("biology.moleculeLab.caveat", store.language))
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -4923,12 +7129,20 @@ private struct BiomoleculeLab: View {
 
 private struct NaturalSelectionLab: View {
     @EnvironmentObject private var store: LearningStore
+    let lessonID: String
     @State private var environmentOptimum = 75.0
     @State private var selectionStrength = 0.45
     @State private var heritability = 0.8
-    @State private var traitMean = 35.0
-    @State private var traitSpread = 20.0
-    @State private var generation = 0
+    @State private var population = NaturalSelectionPopulation(traitMean: 35, traitSpread: 20, generation: 0)
+    @State private var prediction = NaturalSelectionPractice.makePredictionAttempt(for: .increase)
+    @State private var selectedDisplayIndex = -1
+    @State private var previousMean: Double?
+
+    private let trendOptionKeys = [
+        "lab.naturalSelection.option.decrease",
+        "lab.naturalSelection.option.noChange",
+        "lab.naturalSelection.option.increase"
+    ]
 
     var body: some View {
         LabCard {
@@ -4938,14 +7152,18 @@ private struct NaturalSelectionLab: View {
                 chartLegend
                 populationSummary
                 controls
+                predictionPrompt
+                predictionFeedback
                 actions
+                generationOutcome
+                modelRule
                 limitations
             }
         }
     }
 
     private var header: some View {
-        Label(L10n.text("biology.selectionLab.title", store.language), systemImage: "chart.xyaxis.line")
+        Label(L10n.text("lab.naturalSelection.title", store.language), systemImage: "chart.xyaxis.line")
             .font(.headline)
     }
 
@@ -4954,7 +7172,7 @@ private struct NaturalSelectionLab: View {
             var curve = Path()
             for step in 0...100 {
                 let trait = Double(step)
-                let distance = (trait - traitMean) / max(traitSpread, 1)
+                let distance = (trait - population.traitMean) / max(population.traitSpread, 1)
                 let height = exp(-0.5 * distance * distance)
                 let point = CGPoint(
                     x: CGFloat(step) / 100 * size.width,
@@ -4963,20 +7181,20 @@ private struct NaturalSelectionLab: View {
                 if step == 0 { curve.move(to: point) } else { curve.addLine(to: point) }
             }
             context.stroke(curve, with: .color(.teal), lineWidth: 2.5)
-            drawMarker(traitMean, color: .teal, context: context, size: size)
+            drawMarker(population.traitMean, color: .teal, context: context, size: size)
             drawMarker(environmentOptimum, color: .orange, context: context, size: size)
         }
         .frame(height: 116)
         .padding(.horizontal, 4)
-        .accessibilityLabel(Text(L10n.text("biology.selectionLab.chart", store.language)))
+        .accessibilityLabel(Text(L10n.text("lab.naturalSelection.chart", store.language)))
     }
 
     private var chartLegend: some View {
         HStack {
-            Label(L10n.text("biology.selectionLab.mean", store.language), systemImage: "line.diagonal")
+            Label(L10n.text("lab.naturalSelection.mean", store.language), systemImage: "line.diagonal")
                 .foregroundStyle(.teal)
             Spacer()
-            Label(L10n.text("biology.selectionLab.environment", store.language), systemImage: "line.diagonal")
+            Label(L10n.text("lab.naturalSelection.environment", store.language), systemImage: "line.diagonal")
                 .foregroundStyle(.orange)
         }
         .font(.caption)
@@ -4984,37 +7202,116 @@ private struct NaturalSelectionLab: View {
 
     private var populationSummary: some View {
         HStack {
-            Text("\(L10n.text("biology.selectionLab.generation", store.language)) \(generation)")
+            Text("\(L10n.text("lab.naturalSelection.generation", store.language)) \(population.generation)")
             Spacer()
-            Text("\(L10n.text("biology.selectionLab.meanValue", store.language)) \(traitMean, specifier: "%.1f")")
+            Text("\(L10n.text("lab.naturalSelection.meanValue", store.language)) \(population.traitMean, specifier: "%.1f")")
         }
         .font(.subheadline.monospacedDigit())
     }
 
     private var controls: some View {
         VStack(alignment: .leading, spacing: 8) {
-            parameterSlider("biology.selectionLab.environment", value: $environmentOptimum, range: 0...100)
-            parameterSlider("biology.selectionLab.strength", value: $selectionStrength)
-            parameterSlider("biology.selectionLab.heritable", value: $heritability)
+            parameterSlider(
+                "lab.naturalSelection.environment",
+                value: $environmentOptimum,
+                range: 0...100,
+                onChange: { startNewPrediction() }
+            )
+            parameterSlider(
+                "lab.naturalSelection.strength",
+                value: $selectionStrength,
+                onChange: { startNewPrediction() }
+            )
+            parameterSlider(
+                "lab.naturalSelection.heritable",
+                value: $heritability,
+                onChange: { startNewPrediction() }
+            )
+        }
+    }
+
+    private var predictionPrompt: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(L10n.text("lab.naturalSelection.predictionPrompt", store.language))
+                .font(.callout.weight(.medium))
+                .fixedSize(horizontal: false, vertical: true)
+
+            Picker(L10n.text("lab.naturalSelection.predictionPrompt", store.language), selection: $selectedDisplayIndex) {
+                ForEach(Array(prediction.choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Text(L10n.text(trendOptionKeys[originalIndex], store.language)).tag(displayIndex)
+                }
+            }
+            .pickerStyle(.segmented)
+            .disabled(prediction.hasAnswered)
+        }
+    }
+
+    @ViewBuilder
+    private var predictionFeedback: some View {
+        if prediction.hasAnswered {
+            if prediction.isCorrect {
+                Label(L10n.text("lab.naturalSelection.correct", store.language), systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                Text(L10n.text(expectedTrend.explanationKey, store.language))
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Label(L10n.text("lab.naturalSelection.review", store.language), systemImage: "arrow.uturn.backward.circle")
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
     private var actions: some View {
         HStack {
-            Button(action: advanceGeneration) {
-                Label(L10n.text("biology.selectionLab.next", store.language), systemImage: "forward.end.fill")
+            if !prediction.hasAnswered {
+                Button(action: checkPrediction) {
+                    Label(L10n.text("lab.naturalSelection.check", store.language), systemImage: "checkmark")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(selectedDisplayIndex < 0)
+            } else if prediction.canRetry {
+                Button(action: retryPrediction) {
+                    Label(L10n.text("lab.naturalSelection.retry", store.language), systemImage: "arrow.uturn.backward")
+                }
+                .buttonStyle(.borderedProminent)
+            } else {
+                Button(action: advanceGeneration) {
+                    Label(L10n.text("lab.naturalSelection.next", store.language), systemImage: "forward.end.fill")
+                }
+                .buttonStyle(.borderedProminent)
             }
-            .buttonStyle(.borderedProminent)
 
             Button(action: resetSimulation) {
-                Label(L10n.text("biology.selectionLab.reset", store.language), systemImage: "arrow.counterclockwise")
+                Label(L10n.text("lab.naturalSelection.reset", store.language), systemImage: "arrow.counterclockwise")
             }
             .buttonStyle(.bordered)
         }
     }
 
+    @ViewBuilder
+    private var generationOutcome: some View {
+        if let previousMean {
+            HStack(spacing: 6) {
+                Text(L10n.text("lab.naturalSelection.outcome", store.language))
+                Text("\(previousMean, specifier: "%.1f") → \(population.traitMean, specifier: "%.1f")")
+                    .monospacedDigit()
+            }
+            .font(.caption.weight(.medium))
+            .foregroundStyle(.secondary)
+        }
+    }
+
     private var limitations: some View {
-        Text(L10n.text("biology.selectionLab.limit", store.language))
+        Text(L10n.text("lab.naturalSelection.limit", store.language))
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var modelRule: some View {
+        Text(L10n.text("lab.naturalSelection.rule", store.language))
             .font(.caption)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
@@ -5028,26 +7325,60 @@ private struct NaturalSelectionLab: View {
         context.stroke(marker, with: .color(color.opacity(0.75)), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
     }
 
+    private var expectedTrend: NaturalSelectionTrend {
+        NaturalSelectionPractice.expectedTrend(
+            population: population,
+            environmentOptimum: environmentOptimum,
+            selectionStrength: selectionStrength,
+            heritability: heritability
+        )
+    }
+
+    private func checkPrediction() {
+        prediction.select(displayedIndex: selectedDisplayIndex)
+        guard let evidence = prediction.currentAnswerEventEvidence() else { return }
+        store.recordStudyAssessment(lessonID: lessonID, evidence: evidence)
+    }
+
+    private func retryPrediction() {
+        prediction.retry()
+        selectedDisplayIndex = -1
+    }
+
     private func advanceGeneration() {
-        let response = (environmentOptimum - traitMean) * selectionStrength * heritability
-        traitMean = min(100, max(0, traitMean + response))
-        traitSpread = max(6, traitSpread * (1 - selectionStrength * 0.12))
-        generation += 1
+        guard prediction.isCorrect else { return }
+        previousMean = population.traitMean
+        population = NaturalSelectionPractice.advanceGeneration(
+            from: population,
+            environmentOptimum: environmentOptimum,
+            selectionStrength: selectionStrength,
+            heritability: heritability
+        )
+        startNewPrediction(clearOutcome: false)
+    }
+
+    private func startNewPrediction(clearOutcome: Bool = true) {
+        prediction = NaturalSelectionPractice.makePredictionAttempt(for: expectedTrend)
+        selectedDisplayIndex = -1
+        if clearOutcome {
+            previousMean = nil
+        }
     }
 
     private func resetSimulation() {
         environmentOptimum = 75
         selectionStrength = 0.45
         heritability = 0.8
-        traitMean = 35
-        traitSpread = 20
-        generation = 0
+        population = NaturalSelectionPopulation(traitMean: 35, traitSpread: 20, generation: 0)
+        previousMean = nil
+        startNewPrediction()
     }
 
     private func parameterSlider(
         _ labelKey: String,
         value: Binding<Double>,
-        range: ClosedRange<Double> = 0...1
+        range: ClosedRange<Double> = 0...1,
+        onChange: @escaping () -> Void
     ) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack {
@@ -5057,7 +7388,11 @@ private struct NaturalSelectionLab: View {
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
             }
-            Slider(value: value, in: range)
+            Slider(value: value, in: range, onEditingChanged: { isEditing in
+                if !isEditing {
+                    onChange()
+                }
+            })
                 .accessibilityLabel(Text(L10n.text(labelKey, store.language)))
         }
         .font(.caption)
@@ -5324,11 +7659,27 @@ private struct FoodWebLab: View {
     }
 }
 
+private enum CellOrganelleID {
+    static let all: [String] = ["membrane", "nucleus", "rough_er", "golgi", "mitochondria", "ribosomes", "lysosome"]
+
+    static func from(sceneNodeName: String?) -> String? {
+        guard let sceneNodeName, sceneNodeName.hasPrefix("organelle-") else { return nil }
+        let part = String(sceneNodeName.dropFirst("organelle-".count))
+        return all.contains(part) ? part : nil
+    }
+}
+
 private struct EukaryoticCellLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var selectedPart = "nucleus"
+    @State private var sceneTapSequence = 0
+    @State private var sceneTapDiagnostic = "not tapped"
 
-    private let parts = ["membrane", "nucleus", "rough_er", "golgi", "mitochondria", "ribosomes", "lysosome"]
+    private var isCell3DUITestRoute: Bool {
+        ProcessInfo.processInfo.arguments.contains("-colidev.uiTestCell3D")
+    }
+
+    private let parts = CellOrganelleID.all
 
     var body: some View {
         LabCard {
@@ -5340,15 +7691,35 @@ private struct EukaryoticCellLab: View {
                     )
                     .font(.headline)
                     Spacer()
-                    Text(L10n.text("lab.cell3d.rotateHint", store.language))
+                    Text(L10n.text("lab.cell3d.interactionHint", store.language))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
-                EukaryoticCellScene(selectedPart: selectedPart)
+                EukaryoticCellScene(
+                    selectedPart: $selectedPart,
+                    tapSequence: $sceneTapSequence,
+                    tapDiagnostic: $sceneTapDiagnostic
+                )
                     .frame(height: 260)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .accessibilityElement(children: .ignore)
                     .accessibilityLabel(Text(L10n.text("lab.cell3d.accessibility", store.language)))
+                    .accessibilityValue(Text(L10n.text("biology.cell3d.\(selectedPart)", store.language)))
+                    .accessibilityIdentifier("biology.cell3d.scene")
+                    .overlay(alignment: .topLeading) {
+                        if isCell3DUITestRoute {
+                            let diagnostic = "tap=\(sceneTapSequence), part=\(selectedPart), \(sceneTapDiagnostic)"
+                            Text(diagnostic)
+                                .font(.system(size: 1))
+                                .foregroundStyle(.clear)
+                                .frame(width: 1, height: 1)
+                                .accessibilityLabel(Text(diagnostic))
+                                .accessibilityValue(Text(diagnostic))
+                                .accessibilityIdentifier("biology.cell3d.tapState")
+
+                        }
+                    }
 
                 Picker(L10n.text("lab.cellPart", store.language), selection: $selectedPart) {
                     ForEach(parts, id: \.self) { part in
@@ -5356,6 +7727,7 @@ private struct EukaryoticCellLab: View {
                     }
                 }
                 .pickerStyle(.menu)
+                .accessibilityIdentifier("biology.cell3d.organelles")
 
                 Text(L10n.text("biology.cell3d.\(selectedPart).function", store.language))
                     .font(.callout)
@@ -5363,6 +7735,7 @@ private struct EukaryoticCellLab: View {
                     .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(.background, in: RoundedRectangle(cornerRadius: 10))
+                    .accessibilityIdentifier("biology.cell3d.description")
 
                 Text(L10n.text("lab.cell3d.scaleNote", store.language))
                     .font(.caption)
@@ -5373,7 +7746,13 @@ private struct EukaryoticCellLab: View {
 }
 
 private struct EukaryoticCellScene: NSViewRepresentable {
-    let selectedPart: String
+    @Binding var selectedPart: String
+    @Binding var tapSequence: Int
+    @Binding var tapDiagnostic: String
+
+    fileprivate func makeCoordinator() -> Coordinator {
+        Coordinator(selectedPart: $selectedPart, tapSequence: $tapSequence, tapDiagnostic: $tapDiagnostic)
+    }
 
     func makeNSView(context: Context) -> SCNView {
         let view = SCNView()
@@ -5383,11 +7762,145 @@ private struct EukaryoticCellScene: NSViewRepresentable {
         view.backgroundColor = .controlBackgroundColor
         view.antialiasingMode = .multisampling4X
         Self.highlight(selectedPart, in: view.scene)
+        let clickGesture = NSClickGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.selectOrganelle(_:))
+        )
+        clickGesture.delegate = context.coordinator
+        view.addGestureRecognizer(clickGesture)
         return view
     }
 
     func updateNSView(_ view: SCNView, context: Context) {
+        context.coordinator.selectedPart = $selectedPart
+        context.coordinator.tapSequence = $tapSequence
+        context.coordinator.tapDiagnostic = $tapDiagnostic
         Self.highlight(selectedPart, in: view.scene)
+    }
+
+    fileprivate final class Coordinator: NSObject, NSGestureRecognizerDelegate {
+        var selectedPart: Binding<String>
+        var tapSequence: Binding<Int>
+        var tapDiagnostic: Binding<String>
+
+        init(selectedPart: Binding<String>, tapSequence: Binding<Int>, tapDiagnostic: Binding<String>) {
+            self.selectedPart = selectedPart
+            self.tapSequence = tapSequence
+            self.tapDiagnostic = tapDiagnostic
+        }
+
+        func gestureRecognizer(
+            _ gestureRecognizer: NSGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: NSGestureRecognizer
+        ) -> Bool {
+            // Keep selection available alongside SceneKit's camera controls.
+            // Сохраняем выбор органеллы вместе с управлением камерой SceneKit.
+            true
+        }
+
+        @objc func selectOrganelle(_ gesture: NSClickGestureRecognizer) {
+            guard let view = gesture.view as? SCNView else { return }
+            let point = gesture.location(in: view)
+            let (part, selectionDetails) = organelleCandidate(at: point, in: view)
+            let testTargetDetails = ProcessInfo.processInfo.arguments.contains("-colidev.uiTestCell3D")
+                ? " mitochondriaTarget=\(projectedTestTargetPoint(in: view))"
+                : ""
+            let diagnostic = "view=(\(Int(point.x)),\(Int(point.y))) size=(\(Int(view.bounds.width)),\(Int(view.bounds.height))) scale=\(view.window?.backingScaleFactor ?? 1) \(selectionDetails)\(testTargetDetails)"
+
+            // Update SwiftUI state after the AppKit click recognizer finishes its event.
+            // Обновляем состояние SwiftUI после завершения обработки щелчка AppKit.
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.tapSequence.wrappedValue += 1
+                if let part {
+                    self.selectedPart.wrappedValue = part
+                }
+                let finalPart = part ?? self.selectedPart.wrappedValue
+                self.tapDiagnostic.wrappedValue = "\(diagnostic) selected=\(finalPart)"
+            }
+        }
+
+        private func projectedTestTargetPoint(in view: SCNView) -> String {
+            guard let mitochondria = view.scene?.rootNode.childNode(
+                withName: "organelle-mitochondria",
+                recursively: false
+            ),
+                let body = mitochondria.childNodes.first(where: { $0.geometry != nil }) else {
+                return "unavailable(no-mitochondrion)"
+            }
+
+            let projected = view.projectPoint(body.presentation.worldPosition)
+            let backingBounds = view.convertToBacking(CGRect(origin: .zero, size: view.bounds.size))
+            guard backingBounds.width > 0, backingBounds.height > 0 else {
+                return "unavailable(backing-size)"
+            }
+            let normalizedX = CGFloat(projected.x) / backingBounds.width
+            let normalizedY = 1 - CGFloat(projected.y) / backingBounds.height
+            return String(format: "%.6f,%.6f", Double(normalizedX), Double(normalizedY))
+        }
+
+        private func organelleCandidate(at point: CGPoint, in view: SCNView) -> (String?, String) {
+            // SceneKit hit testing and projectPoint use renderer-space pixels;
+            // NSView event locations are in logical points.
+            // Хит-тест и projectPoint в SceneKit используют пиксели рендерера,
+            // а координаты событий NSView заданы в логических пунктах.
+            let rendererPoint = view.convertToBacking(point)
+            let pickRadius = 44 * (view.window?.backingScaleFactor ?? 1)
+            let hits = view.hitTest(rendererPoint, options: [.searchMode: SCNHitTestSearchMode.all.rawValue])
+            let hitParts = hits.compactMap { hit -> String? in
+                var node: SCNNode? = hit.node
+                while let current = node {
+                    if let part = CellOrganelleID.from(sceneNodeName: current.name) { return part }
+                    node = current.parent
+                }
+                return nil
+            }
+            // The transparent outer membrane can be hit before the organelle behind it.
+            // Прозрачная мембрана может определиться раньше органеллы за ней.
+            if let part = hitParts.first(where: { $0 != "membrane" }) {
+                return (part, "hit=\(hitParts.joined(separator: ","))")
+            }
+
+            let nearest = nearestOrganelle(to: rendererPoint, in: view)
+            if let nearest, nearest.distance <= pickRadius {
+                return (nearest.part, "renderer=(\(Int(rendererPoint.x)),\(Int(rendererPoint.y))) nearest=\(nearest.part)@\(Int(nearest.distance)) projected=(\(Int(nearest.projected.x)),\(Int(nearest.projected.y))) hit=\(hitParts.joined(separator: ","))")
+            }
+            let nearestDetails = nearest.map { "\($0.part)@\(Int($0.distance)) projected=(\(Int($0.projected.x)),\(Int($0.projected.y)))" } ?? "none"
+            return (hitParts.first, "renderer=(\(Int(rendererPoint.x)),\(Int(rendererPoint.y))) nearest=\(nearestDetails) hit=\(hitParts.joined(separator: ","))")
+        }
+
+        private func nearestOrganelle(to point: CGPoint, in view: SCNView) -> (part: String, distance: CGFloat, projected: CGPoint)? {
+            guard let scene = view.scene else { return nil }
+            var nearest: (part: String, distance: CGFloat, projected: CGPoint)?
+
+            func inspect(_ node: SCNNode, inheritedPart: String?) {
+                let part = CellOrganelleID.from(sceneNodeName: node.name) ?? inheritedPart
+                if let part, part != "membrane", node.geometry != nil {
+                    let projected = view.projectPoint(node.presentation.worldPosition)
+                    if (0...1).contains(projected.z) {
+                        let projectedPoint = CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y))
+                        let dx = projectedPoint.x - point.x
+                        let dy = projectedPoint.y - point.y
+                        let distance = hypot(dx, dy)
+                        if let current = nearest {
+                            if distance < current.distance {
+                                nearest = (part, distance, projectedPoint)
+                            }
+                        } else {
+                            nearest = (part, distance, projectedPoint)
+                        }
+                    }
+                }
+                for child in node.childNodes {
+                    inspect(child, inheritedPart: part)
+                }
+            }
+
+            for node in scene.rootNode.childNodes {
+                inspect(node, inheritedPart: nil)
+            }
+            return nearest
+        }
     }
 
     private static func makeScene() -> SCNScene {
@@ -5509,17 +8022,20 @@ private struct EukaryoticCellScene: NSViewRepresentable {
 
     private static func highlight(_ selectedPart: String, in scene: SCNScene?) {
         guard let scene else { return }
-        for part in ["membrane", "nucleus", "rough_er", "golgi", "mitochondria", "ribosomes", "lysosome"] {
+        for part in CellOrganelleID.all {
             guard let node = scene.rootNode.childNode(withName: "organelle-\(part)", recursively: false) else { continue }
-            node.enumerateChildNodes { child, _ in setEmission(on: child, selected: false) }
             setEmission(on: node, selected: part == selectedPart)
         }
     }
 
     private static func setEmission(on node: SCNNode, selected: Bool) {
-        guard let materials = node.geometry?.materials else { return }
-        for material in materials {
-            material.emission.contents = selected ? NSColor.systemYellow : NSColor.black
+        if let materials = node.geometry?.materials {
+            for material in materials {
+                material.emission.contents = selected ? NSColor.systemYellow : NSColor.black
+            }
+        }
+        for child in node.childNodes {
+            setEmission(on: child, selected: selected)
         }
     }
 
@@ -5590,6 +8106,9 @@ private struct ConditionalLab: View {
 private struct VariablesTypesLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var reassignToText = false
+    @State private var inputText = "12"
+    @State private var conversionResult: PythonInputPracticeResult?
+    @State private var practiceTracker = PythonInputPracticeTracker()
 
     var body: some View {
         LabCard {
@@ -5624,26 +8143,78 @@ private struct VariablesTypesLab: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(.background, in: RoundedRectangle(cornerRadius: 12))
             .accessibilityElement(children: .combine)
+
+            Divider()
+
+            Text(L10n.text("lab.input.title", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.input.explanation", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(L10n.text("lab.input.practiceHint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(L10n.text("lab.input.codeRead", store.language))
+                .font(.system(.body, design: .monospaced).weight(.medium))
+            Text("count = int(raw_text)")
+                .font(.system(.body, design: .monospaced).weight(.medium))
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                TextField(L10n.text("lab.input.placeholder", store.language), text: $inputText)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(maxWidth: 260)
+                    .accessibilityLabel(Text(L10n.text("lab.input.accessibility", store.language)))
+                    .onSubmit(convertInput)
+
+                Button(L10n.text("lab.input.convert", store.language), action: convertInput)
+                    .buttonStyle(.borderedProminent)
+            }
+
+            if let conversionResult {
+                switch conversionResult {
+                case .integer(let value):
+                    Label(
+                        String(format: L10n.text("lab.input.integerResult", store.language), value),
+                        systemImage: "checkmark.circle.fill"
+                    )
+                    .foregroundStyle(.green)
+                case .valueError:
+                    Label(L10n.text("lab.input.valueError", store.language), systemImage: "exclamationmark.circle.fill")
+                        .foregroundStyle(.orange)
+                case .outsideSimulatorRange:
+                    Label(L10n.text("lab.input.rangeLimit", store.language), systemImage: "info.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Text(L10n.text("lab.input.simulatorLimit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func convertInput() {
+        conversionResult = PythonInputPractice.convert(inputText)
+        if let evidence = practiceTracker.recordSubmission(text: inputText) {
+            store.recordStudyAssessment(lessonID: "programming.variables_and_types", evidence: evidence)
         }
     }
 }
 
 private struct AlgorithmicThinkingLab: View {
     @EnvironmentObject private var store: LearningStore
-    @State private var completedSteps: [String] = []
+    @State private var session = AlgorithmicThinkingPracticeSession()
     @State private var feedbackKey: String?
+    @State private var feedbackIsSuccess = false
     @State private var a = 6
     @State private var b = 3
 
-    private let stepOrder = ["input", "compare", "otherwise", "display"]
+    private var completedSteps: [String] { session.completedStepKeys }
 
-    private var choices: [String] {
-        switch completedSteps.count {
-        case 0: ["compare", "input", "display"]
-        case 1: ["otherwise", "compare", "display"]
-        case 2: ["display", "otherwise", "input"]
-        default: ["display", "compare", "input"]
-        }
+    private var stepOrder: [String] {
+        AlgorithmicThinkingPractice.questions.map { $0.choiceKeys[$0.correctOptionIndex] }
     }
 
     private var result: Int { max(a, b) }
@@ -5654,6 +8225,94 @@ private struct AlgorithmicThinkingLab: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            if let currentQuestion = session.currentQuestion {
+                Text(L10n.text(currentQuestion.contextKey, store.language))
+                    .font(.headline)
+
+                if let stage = currentQuestion.maximumDebuggingStage {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(L10n.text("lab.algorithmDebugSnippet", store.language))
+                            .font(.callout.weight(.semibold))
+                        Text("""
+                        func maximum(values):
+                            current_maximum = 0
+                            for value in values:
+                                if value > current_maximum:
+                                    current_maximum = value
+                            return current_maximum
+                        """)
+                        .font(.system(.callout, design: .monospaced))
+                        .textSelection(.enabled)
+
+                        if stage == .repairInitialization {
+                            let values = AlgorithmicThinkingPractice.maximumDebuggingCounterexampleValues
+                            if let expected = AlgorithmicThinkingPractice.maximum(of: values),
+                               let actual = AlgorithmicThinkingPractice.faultyMaximumInitializedAtZero(of: values) {
+                                Text("\(L10n.text("lab.algorithmTestCaseInput", store.language)): [\(formattedValues(values))]")
+                                    .font(.system(.callout, design: .monospaced))
+                                Text(String(format: L10n.text("lab.algorithmDebugFaultyOutput", store.language), actual))
+                                    .font(.system(.callout, design: .monospaced))
+                                Text(String(format: L10n.text("lab.algorithmDebugExpectedOutput", store.language), expected))
+                                    .font(.system(.callout, design: .monospaced))
+                            }
+                        }
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 12))
+                } else if let scenario = AlgorithmicThinkingPractice.maximumTestCase(forQuestionID: currentQuestion.id) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(L10n.text("lab.algorithmMaximumListContract", store.language))
+                            .font(.callout)
+                        Text("\(L10n.text("lab.algorithmTestCaseInput", store.language)): [\(formattedValues(scenario.values))]")
+                            .font(.system(.body, design: .monospaced))
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 12))
+                } else if currentQuestion.contextKey == "lab.algorithm.context.maximumList" {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(L10n.text("lab.algorithmMaximumListContract", store.language))
+                            .font(.callout)
+                        Text("\(L10n.text("lab.algorithmTestCaseInput", store.language)): [\(formattedValues(AlgorithmicThinkingPractice.maximumListValues))]")
+                            .font(.system(.body, design: .monospaced))
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 12))
+                } else if let scenario = AlgorithmicThinkingPractice.averageTestCase(forQuestionID: currentQuestion.id) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(L10n.text("lab.algorithmTestCaseContract", store.language))
+                            .font(.callout)
+                        Text("\(L10n.text("lab.algorithmTestCaseInput", store.language)): [\(formattedValues(scenario.values))]")
+                            .font(.system(.body, design: .monospaced))
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 12))
+                } else if let scenario = AlgorithmicThinkingPractice.decompositionScenario(forQuestionID: currentQuestion.id) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(L10n.text(scenario.promptKey, store.language))
+                            .font(.callout)
+                        Text(L10n.text(scenario.inputKey, store.language))
+                            .font(.system(.callout, design: .monospaced))
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 12))
+                } else if let testCase = AlgorithmicThinkingPractice.eligibilityTestCase(forQuestionID: currentQuestion.id) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(L10n.text("lab.algorithmEligibilityRule", store.language))
+                            .font(.callout)
+                        Text(String(format: L10n.text("lab.algorithmEligibilityAge", store.language), testCase.age))
+                            .font(.system(.body, design: .monospaced))
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 12))
+                }
+            }
 
             ForEach(Array(completedSteps.enumerated()), id: \.offset) { index, step in
                 Label("\(index + 1). \(L10n.text(stepTitleKey(step), store.language))", systemImage: "checkmark.circle.fill")
@@ -5666,9 +8325,9 @@ private struct AlgorithmicThinkingLab: View {
                     .font(.caption.weight(.semibold).monospacedDigit())
                     .foregroundStyle(.secondary)
 
-                ForEach(choices, id: \.self) { choice in
+                ForEach(Array(session.displayedChoiceKeys.enumerated()), id: \.offset) { displayIndex, choice in
                     Button {
-                        select(choice)
+                        select(displayedIndex: displayIndex)
                     } label: {
                         Label(L10n.text(stepTitleKey(choice), store.language), systemImage: "arrow.right")
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -5678,13 +8337,20 @@ private struct AlgorithmicThinkingLab: View {
             }
 
             if let feedbackKey {
-                Label(L10n.text(feedbackKey, store.language), systemImage: completedSteps.count == stepOrder.count ? "checkmark.circle.fill" : "info.circle")
+                Label(L10n.text(feedbackKey, store.language), systemImage: feedbackIsSuccess ? "checkmark.circle.fill" : "info.circle")
                     .font(.callout)
-                    .foregroundStyle(completedSteps.count == stepOrder.count ? Color.green : Color.secondary)
+                    .foregroundStyle(feedbackIsSuccess ? Color.green : Color.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            if completedSteps.count == stepOrder.count {
+            if session.isComplete {
+                Label(L10n.text("lab.algorithmComplete", store.language), systemImage: "checkmark.seal.fill")
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(Color.green)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if AlgorithmicThinkingPractice.showsMaximumExperiment(completedQuestionCount: completedSteps.count) {
                 VStack(alignment: .leading, spacing: 10) {
                     Text(L10n.text("lab.algorithmInputs", store.language))
                         .font(.caption.weight(.semibold))
@@ -5704,34 +8370,353 @@ private struct AlgorithmicThinkingLab: View {
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(.background, in: RoundedRectangle(cornerRadius: 12))
+            }
+
+            if AlgorithmicThinkingPractice.showsMaximumTestResults(completedQuestionCount: completedSteps.count) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(L10n.text("lab.algorithmMaximumTestCaseExamples", store.language))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    ForEach(AlgorithmicThinkingPractice.maximumTestCases) { scenario in
+                        HStack {
+                            Text("[\(formattedValues(scenario.values))]")
+                                .font(.system(.callout, design: .monospaced))
+                            Spacer(minLength: 12)
+                            if let maximum = AlgorithmicThinkingPractice.maximum(of: scenario.values) {
+                                Text("→ \(maximum)")
+                                    .font(.system(.callout, design: .monospaced))
+                            } else {
+                                Text(L10n.text("lab.algorithmMaximumInvalidOutcome", store.language))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.background, in: RoundedRectangle(cornerRadius: 12))
+
+            }
+
+            if session.isComplete {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(L10n.text("lab.algorithmTestCaseExamples", store.language))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    ForEach(AlgorithmicThinkingPractice.averageTestCases) { scenario in
+                        HStack {
+                            Text("[\(formattedValues(scenario.values))]")
+                                .font(.system(.callout, design: .monospaced))
+                            Spacer(minLength: 12)
+                            if let average = AlgorithmicThinkingPractice.average(of: scenario.values) {
+                                Text("→ \(String(average))")
+                                    .font(.system(.callout, design: .monospaced))
+                            } else {
+                                Text(L10n.text("lab.algorithmTestCaseInvalidOutcome", store.language))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.background, in: RoundedRectangle(cornerRadius: 12))
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(L10n.text("lab.algorithmDecompositionSolutions", store.language))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    ForEach(AlgorithmicThinkingPractice.decompositionScenarios) { scenario in
+                        Text(L10n.text(scenario.solutionKey, store.language))
+                            .font(.callout)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.background, in: RoundedRectangle(cornerRadius: 12))
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(L10n.text("lab.algorithmEligibilityTestResults", store.language))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    ForEach(AlgorithmicThinkingPractice.eligibilityTestCases) { testCase in
+                        HStack {
+                            Text(String(format: L10n.text("lab.algorithmEligibilityAge", store.language), testCase.age))
+                                .font(.system(.callout, design: .monospaced))
+                            Spacer(minLength: 12)
+                            Text(L10n.text(testCase.expectedResultKey, store.language))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.background, in: RoundedRectangle(cornerRadius: 12))
 
                 Button {
-                    completedSteps = []
+                    session.restart()
                     feedbackKey = nil
+                    feedbackIsSuccess = false
                 } label: {
                     Label(L10n.text("lab.algorithmRestart", store.language), systemImage: "arrow.counterclockwise")
                 }
                 .buttonStyle(.bordered)
+
+                PythonCodePracticeView()
             }
         }
     }
 
-    private func select(_ step: String) {
-        guard completedSteps.count < stepOrder.count else { return }
-        guard step == stepOrder[completedSteps.count] else {
-            feedbackKey = "lab.algorithmIncorrect"
+    private func select(displayedIndex: Int) {
+        guard let submission = session.submit(displayedIndex: displayedIndex) else { return }
+        if let evidence = submission.evidence {
+            store.recordStudyAssessment(lessonID: "programming.computational_thinking", evidence: evidence)
+        }
+        guard submission.isCorrect else {
+            if let stage = AlgorithmicThinkingPractice.maximumDebuggingStage(forQuestionID: submission.questionID) {
+                feedbackKey = stage == .findCounterexample
+                    ? "lab.algorithmDebugFindIncorrect"
+                    : "lab.algorithmDebugRepairIncorrect"
+            } else if AlgorithmicThinkingPractice.maximumTestCase(forQuestionID: submission.questionID) != nil {
+                feedbackKey = "lab.algorithmMaximumTestCaseIncorrect"
+            } else if AlgorithmicThinkingPractice.averageTestCase(forQuestionID: submission.questionID) != nil {
+                feedbackKey = "lab.algorithmTestCaseIncorrect"
+            } else if AlgorithmicThinkingPractice.eligibilityTestCase(forQuestionID: submission.questionID) != nil {
+                feedbackKey = "lab.algorithmEligibilityIncorrect"
+            } else {
+                feedbackKey = "lab.algorithmIncorrect"
+            }
+            feedbackIsSuccess = false
             return
         }
-        completedSteps.append(step)
-        feedbackKey = completedSteps.count == stepOrder.count ? "lab.algorithmComplete" : "lab.algorithmStepCorrect"
+        feedbackIsSuccess = true
+        if let stage = AlgorithmicThinkingPractice.maximumDebuggingStage(forQuestionID: submission.questionID) {
+            feedbackKey = stage == .findCounterexample
+                ? "lab.algorithmDebugFindCorrect"
+                : "lab.algorithmDebugRepairCorrect"
+        } else if let testCase = AlgorithmicThinkingPractice.maximumTestCase(forQuestionID: submission.questionID) {
+            feedbackKey = testCase.explanationKey
+        } else if let testCase = AlgorithmicThinkingPractice.averageTestCase(forQuestionID: submission.questionID) {
+            feedbackKey = testCase.explanationKey
+        } else if let testCase = AlgorithmicThinkingPractice.eligibilityTestCase(forQuestionID: submission.questionID) {
+            feedbackKey = testCase.explanationKey
+        } else {
+            feedbackKey = "lab.algorithmStepCorrect"
+        }
     }
 
     private func stepTitleKey(_ step: String) -> String {
         switch step {
+        case let key where key.hasPrefix("lab."): key
         case "input": "lab.algorithmInput"
         case "compare": "lab.algorithmCompare"
         case "otherwise": "lab.algorithmOtherwise"
+        case "checkNonempty": "lab.algorithmCheckNonempty"
+        case "checkNonemptyList": "lab.algorithmCheckNonempty"
+        case "initializeCurrentMaximum": "lab.algorithmInitializeCurrentMaximum"
+        case "initializeFromZero": "lab.algorithmInitializeFromZero"
+        case "initializeFromLast": "lab.algorithmInitializeFromLast"
+        case "inspectRemainingValues": "lab.algorithmInspectRemainingValues"
+        case "updateIfGreater": "lab.algorithmUpdateIfGreater"
+        case "returnMaximum": "lab.algorithmReturnMaximum"
+        case "initializeTotal": "lab.algorithmInitializeTotal"
+        case "accumulateValues": "lab.algorithmAccumulateValues"
+        case "divideByCount": "lab.algorithmDivideByCount"
+        case "returnAverage": "lab.algorithmReturnAverage"
+        case "typical": "lab.algorithmCaseTypical"
+        case "boundary": "lab.algorithmCaseBoundary"
+        case "invalid": "lab.algorithmCaseInvalid"
         default: "lab.algorithmDisplay"
+        }
+    }
+
+    private func formattedValues(_ values: [Int]) -> String {
+        values.map(String.init).joined(separator: ", ")
+    }
+}
+
+private struct PythonCodePracticeView: View {
+    @EnvironmentObject private var store: LearningStore
+    @AppStorage("colidev.pythonPractice.computationalThinking.code") private var code = AlgorithmicPythonPractice.startingCode
+    @State private var selectedCaseID = AlgorithmicPythonPractice.testCases[2].id
+    @State private var isRunning = false
+    @State private var lastRunCode: String?
+    @State private var lastRunCaseID: String?
+    @State private var lastResponse: PythonPracticeRunResponse?
+    @State private var lastPassed: Bool?
+    @State private var connectionErrorKey: String?
+    @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(
+        itemIDs: AlgorithmicPythonPractice.testCases.map(\.evidenceID)
+    )
+
+    private var selectedCase: AlgorithmicPythonTestCase {
+        AlgorithmicPythonPractice.testCases.first { $0.id == selectedCaseID }
+            ?? AlgorithmicPythonPractice.testCases[0]
+    }
+
+    private var isResultCurrent: Bool {
+        lastRunCode == code && lastRunCaseID == selectedCase.id
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(L10n.text("lab.pythonRunner.title", store.language))
+                .font(.headline)
+
+            Text(L10n.text("lab.pythonRunner.description", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Picker(L10n.text("lab.pythonRunner.testCase", store.language), selection: $selectedCaseID) {
+                ForEach(AlgorithmicPythonPractice.testCases) { testCase in
+                    Text(L10n.text(testCase.titleKey, store.language)).tag(testCase.id)
+                }
+            }
+            .accessibilityIdentifier("pythonRunner.testCase")
+            .disabled(isRunning)
+
+            Text("\(L10n.text("lab.pythonRunner.input", store.language)): values = [\(selectedCase.values.map(String.init).joined(separator: ", "))]")
+                .font(.system(.callout, design: .monospaced))
+                .foregroundStyle(.secondary)
+
+            Text(L10n.text("lab.pythonRunner.editor", store.language))
+                .font(.subheadline.weight(.semibold))
+
+            TextEditor(text: $code)
+                .font(.system(.body, design: .monospaced))
+                .frame(minHeight: 150, maxHeight: 250)
+                .scrollContentBackground(.hidden)
+                .padding(6)
+                .background(.background, in: RoundedRectangle(cornerRadius: 10))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(.quaternary, lineWidth: 1)
+                }
+                .accessibilityLabel(L10n.text("lab.pythonRunner.editor", store.language))
+                .accessibilityIdentifier("pythonRunner.editor")
+                .disabled(isRunning)
+
+            HStack {
+                Text(String(format: L10n.text("lab.pythonRunner.byteCount", store.language), code.utf8.count, 8_192))
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(code.utf8.count > 8_192 ? Color.red : Color.secondary)
+                Spacer()
+                Button(action: runSelectedCase) {
+                    Label(
+                        L10n.text(isRunning ? "lab.pythonRunner.running" : "lab.pythonRunner.run", store.language),
+                        systemImage: isRunning ? "hourglass" : "play.fill"
+                    )
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(isRunning || code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || code.utf8.count > 8_192)
+                .accessibilityIdentifier("pythonRunner.run")
+            }
+
+            if code.utf8.count > 8_192 {
+                Text(L10n.text("lab.pythonRunner.codeLimit", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+
+            if isResultCurrent, let lastResponse, let lastPassed {
+                VStack(alignment: .leading, spacing: 7) {
+                    Label(
+                        L10n.text(lastPassed ? "lab.pythonRunner.passed" : "lab.pythonRunner.failed", store.language),
+                        systemImage: lastPassed ? "checkmark.circle.fill" : "exclamationmark.circle.fill"
+                    )
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(lastPassed ? Color.green : Color.orange)
+                    .accessibilityIdentifier("pythonRunner.result")
+
+                    Text("\(L10n.text("lab.pythonRunner.expected", store.language)): \(selectedCase.expectedMaximum.map(String.init) ?? "ValueError")")
+                        .font(.system(.callout, design: .monospaced))
+
+                    Text("\(L10n.text("lab.pythonRunner.output", store.language)): \(lastResponse.resultText ?? lastResponse.code ?? "—")")
+                        .font(.system(.callout, design: .monospaced))
+                    if !lastPassed, let errorCode = lastResponse.code {
+                        Text(L10n.text(errorMessageKey(errorCode), store.language))
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.background, in: RoundedRectangle(cornerRadius: 10))
+            }
+
+            if let connectionErrorKey {
+                Label(L10n.text(connectionErrorKey, store.language), systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("pythonRunner.connectionError")
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.background, in: RoundedRectangle(cornerRadius: 12))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(.quaternary, lineWidth: 1)
+        }
+    }
+
+    private func runSelectedCase() {
+        guard !isRunning, code.utf8.count <= 8_192 else { return }
+        isRunning = true
+        connectionErrorKey = nil
+        lastResponse = nil
+        lastPassed = nil
+        let submittedCode = code
+        let submittedCase = selectedCase
+
+        Task { @MainActor in
+            defer { isRunning = false }
+            do {
+                let response = try await OrchestratorClient.runPythonPractice(
+                    code: submittedCode,
+                    values: submittedCase.values
+                )
+                let passed: Bool
+                if let expectedMaximum = submittedCase.expectedMaximum {
+                    passed = response.status == "ok" && response.resultText == String(expectedMaximum)
+                } else {
+                    passed = response.status == "error" && response.code == "ValueError"
+                }
+                if let evidence = assessmentTracker.recordSubmission(
+                    selectedAnswerIndex: passed ? 1 : 0,
+                    correctAnswerIndex: 1,
+                    optionCount: 2,
+                    itemID: submittedCase.evidenceID
+                ) {
+                    store.recordStudyAssessment(lessonID: "programming.computational_thinking", evidence: evidence)
+                }
+                lastRunCode = submittedCode
+                lastRunCaseID = submittedCase.id
+                lastResponse = response
+                lastPassed = passed
+            } catch {
+                connectionErrorKey = "lab.pythonRunner.error.unavailable"
+            }
+        }
+    }
+
+    private func errorMessageKey(_ code: String) -> String {
+        switch code {
+        case "syntax_error": "lab.pythonRunner.error.syntax"
+        case "unsupported_syntax": "lab.pythonRunner.error.unsupported"
+        case "iteration_limit": "lab.pythonRunner.error.limit"
+        case "code_too_large": "lab.pythonRunner.error.codeLimit"
+        case "invalid_arguments": "lab.pythonRunner.error.invalidInput"
+        case "invalid_result": "lab.pythonRunner.error.invalidResult"
+        case "ValueError": "lab.pythonRunner.error.value"
+        default: "lab.pythonRunner.error.runtime"
         }
     }
 }
@@ -5741,6 +8726,11 @@ private struct FileReadingLab: View {
     @State private var scenarioID = FileReadingPractice.scenarios[0].id
     @State private var selectedOutcome: FileReadingOutcome?
     @State private var hasCheckedAnswer = false
+    @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(itemIDs: FileReadingPractice.scenarios.map(\.id))
+    @State private var outcomeOrder = QuizAnswerOrder(
+        optionCount: FileReadingOutcome.allCases.count,
+        answerOriginalIndex: FileReadingPractice.scenarios[0].expectedOutcome.rawValue
+    )
 
     private var scenario: FileReadingScenario {
         FileReadingPractice.scenario(id: scenarioID) ?? FileReadingPractice.scenarios[0]
@@ -5762,6 +8752,10 @@ private struct FileReadingLab: View {
             .onChange(of: scenarioID) { _ in
                 selectedOutcome = nil
                 hasCheckedAnswer = false
+                outcomeOrder = QuizAnswerOrder(
+                    optionCount: FileReadingOutcome.allCases.count,
+                    answerOriginalIndex: scenario.expectedOutcome.rawValue
+                )
             }
 
             Text("""
@@ -5779,7 +8773,8 @@ private struct FileReadingLab: View {
                 .font(.headline)
                 .fixedSize(horizontal: false, vertical: true)
 
-            ForEach(FileReadingPractice.outcomes, id: \.self) { outcome in
+            ForEach(Array(outcomeOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                let outcome = FileReadingPractice.outcomes[originalIndex]
                 Button {
                     guard !hasCheckedAnswer else { return }
                     selectedOutcome = outcome
@@ -5818,6 +8813,18 @@ private struct FileReadingLab: View {
             }
 
             Button {
+                if let selectedOutcome,
+                   let evidence = assessmentTracker.recordSubmission(
+                    selectedAnswerIndex: selectedOutcome.rawValue,
+                    correctAnswerIndex: scenario.expectedOutcome.rawValue,
+                    optionCount: FileReadingOutcome.allCases.count,
+                    itemID: scenario.id
+                   ) {
+                    store.recordStudyAssessment(
+                        lessonID: "programming.strings_files_and_exceptions",
+                        evidence: evidence
+                    )
+                }
                 hasCheckedAnswer = true
             } label: {
                 Label(L10n.text("lab.fileTrace.check", store.language), systemImage: "checkmark")
@@ -5918,86 +8925,467 @@ private struct TransactionLab: View {
     }
 }
 
+private struct SQLSchemaQueryLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var stepIndex = 0
+    @State private var selectedDisplayIndex = -1
+    @State private var feedbackCorrect: Bool?
+    @State private var optionOrder = QuizAnswerOrder(
+        optionCount: SQLQueryPractice.steps[0].optionKeys.count,
+        answerOriginalIndex: SQLQueryPractice.steps[0].correctOptionIndex
+    )
+    @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(
+        itemIDs: SQLQueryPractice.steps.map(\.id)
+    )
+
+    private var currentStep: SQLQueryStep? {
+        guard SQLQueryPractice.steps.indices.contains(stepIndex) else { return nil }
+        return SQLQueryPractice.steps[stepIndex]
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.sql.title", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.sql.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(L10n.text("lab.sql.sampleTable", store.language))
+                    .font(.caption.weight(.medium))
+                Text(SQLQueryPractice.sampleSessions.map { "\($0.topic) | \($0.minutes)" }.joined(separator: "\n"))
+                    .font(.system(.caption, design: .monospaced))
+                    .textSelection(.enabled)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(.background, in: RoundedRectangle(cornerRadius: 12))
+
+            if let step = currentStep {
+                Text(String(format: L10n.text("lab.sql.progress", store.language), stepIndex + 1, SQLQueryPractice.steps.count))
+                    .font(.caption.weight(.medium).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                Text(L10n.text(step.promptKey, store.language))
+                    .font(.callout.weight(.medium))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Picker(L10n.text("lab.debugging.choicePicker", store.language), selection: $selectedDisplayIndex) {
+                    ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                        Text(L10n.text(step.optionKeys[originalIndex], store.language))
+                            .tag(displayIndex)
+                    }
+                }
+                .pickerStyle(.radioGroup)
+                .disabled(feedbackCorrect == true)
+                .onChange(of: selectedDisplayIndex) { _ in
+                    if feedbackCorrect == false { feedbackCorrect = nil }
+                }
+
+                if let feedbackCorrect {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label(
+                            L10n.text(feedbackCorrect ? "lab.sql.correct" : "lab.sql.incorrect", store.language),
+                            systemImage: feedbackCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
+                        )
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(feedbackCorrect ? Color.green : Color.orange)
+                        Text(L10n.text(step.explanationKey, store.language))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(L10n.text(step.sqlKey, store.language))
+                            .font(.system(.caption, design: .monospaced))
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(10)
+                            .background(.background, in: RoundedRectangle(cornerRadius: 10))
+                        if step.id == "programming.sql_queries.filter_and_order" && feedbackCorrect {
+                            Text(SQLQueryPractice.filteredSessions(minimumMinutes: 30).map { "\($0.topic) | \($0.minutes)" }.joined(separator: "\n"))
+                                .font(.system(.caption, design: .monospaced))
+                                .accessibilityIdentifier("sql-query-result")
+                        }
+                    }
+                }
+
+                HStack(spacing: 10) {
+                    Button {
+                        check(step: step)
+                    } label: {
+                        Label(L10n.text("lab.sql.check", store.language), systemImage: "checkmark")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(selectedDisplayIndex < 0 || feedbackCorrect == true)
+
+                    if feedbackCorrect == true {
+                        Button(action: advance) {
+                            Label(L10n.text("lab.sql.next", store.language), systemImage: "arrow.right.circle")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+            } else {
+                Label(L10n.text("lab.sql.complete", store.language), systemImage: "checkmark.circle.fill")
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(.green)
+                Button(action: restart) {
+                    Label(L10n.text("lab.sql.restart", store.language), systemImage: "arrow.counterclockwise")
+                }
+                .buttonStyle(.bordered)
+            }
+
+            Text(L10n.text("lab.sql.limit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func check(step: SQLQueryStep) {
+        guard let selectedOriginalIndex = optionOrder.originalIndex(forDisplayedIndex: selectedDisplayIndex) else { return }
+        let isCorrect = SQLQueryPractice.isCorrect(selectedOriginalIndex, for: step.id)
+        feedbackCorrect = isCorrect
+        guard let evidence = assessmentTracker.recordSubmission(
+            selectedAnswerIndex: selectedOriginalIndex,
+            correctAnswerIndex: step.correctOptionIndex,
+            optionCount: step.optionKeys.count,
+            itemID: step.id
+        ) else { return }
+        store.recordStudyAssessment(lessonID: "programming.sql_transactions", evidence: evidence)
+    }
+
+    private func advance() {
+        stepIndex += 1
+        selectedDisplayIndex = -1
+        feedbackCorrect = nil
+        guard let step = currentStep else { return }
+        optionOrder = QuizAnswerOrder(optionCount: step.optionKeys.count, answerOriginalIndex: step.correctOptionIndex)
+    }
+
+    private func restart() {
+        stepIndex = 0
+        selectedDisplayIndex = -1
+        feedbackCorrect = nil
+        let firstStep = SQLQueryPractice.steps[0]
+        optionOrder = QuizAnswerOrder(optionCount: firstStep.optionKeys.count, answerOriginalIndex: firstStep.correctOptionIndex)
+        assessmentTracker.reset()
+    }
+}
+
 private struct DebuggingLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var scenarioID = DebuggingPractice.scenarios[0].id
-    @State private var selectedChoice = 0
+    @State private var selectedChoice = -1
     @State private var hasChecked = false
+    @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(itemIDs: DebuggingPractice.scenarios.map(\.id))
+    @State private var optionOrder = QuizAnswerOrder(
+        optionCount: DebuggingPractice.scenarios[0].choiceKeys.count,
+        answerOriginalIndex: DebuggingPractice.scenarios[0].correctChoice
+    )
 
     private var scenario: DebuggingScenario {
         DebuggingPractice.scenario(id: scenarioID) ?? DebuggingPractice.scenarios[0]
     }
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            LabCard {
+                Text(L10n.text("lab.debugging.hint", store.language))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Picker(L10n.text("lab.debugging.scenarioPicker", store.language), selection: $scenarioID) {
+                    ForEach(DebuggingPractice.scenarios) { item in
+                        Text(L10n.text(item.promptKey, store.language)).tag(item.id)
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: scenarioID) { newScenarioID in
+                    selectedChoice = -1
+                    hasChecked = false
+                    if let newScenario = DebuggingPractice.scenario(id: newScenarioID) {
+                        optionOrder = QuizAnswerOrder(
+                            optionCount: newScenario.choiceKeys.count,
+                            answerOriginalIndex: newScenario.correctChoice
+                        )
+                    }
+                }
+
+                Text(scenario.code)
+                    .font(.system(.callout, design: .monospaced))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 12))
+                    .accessibilityLabel(Text(L10n.text("lab.debugging.code", store.language)))
+
+                Label(scenario.traceback, systemImage: "exclamationmark.triangle.fill")
+                    .font(.system(.callout, design: .monospaced))
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityLabel(Text(L10n.text("lab.debugging.traceback", store.language)))
+
+                Text(L10n.text("lab.debugging.choose", store.language))
+                    .font(.callout.weight(.medium))
+
+                Picker(L10n.text("lab.debugging.choicePicker", store.language), selection: $selectedChoice) {
+                    ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                        Text(L10n.text(scenario.choiceKeys[originalIndex], store.language)).tag(displayIndex)
+                    }
+                }
+                .pickerStyle(.radioGroup)
+                .disabled(hasChecked)
+
+                if hasChecked {
+                    Label(
+                        L10n.text(scenario.explanationKey, store.language),
+                        systemImage: optionOrder.isCorrect(displayedIndex: selectedChoice)
+                            ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
+                    )
+                    .font(.callout)
+                    .foregroundStyle(optionOrder.isCorrect(displayedIndex: selectedChoice) ? Color.green : Color.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Button {
+                    hasChecked = true
+                    guard let selectedOriginalIndex = optionOrder.originalIndex(forDisplayedIndex: selectedChoice),
+                          let evidence = assessmentTracker.recordSubmission(
+                            selectedAnswerIndex: selectedOriginalIndex,
+                            correctAnswerIndex: scenario.correctChoice,
+                            optionCount: scenario.choiceKeys.count,
+                            itemID: scenario.id
+                          ) else {
+                        return
+                    }
+                    store.recordStudyAssessment(
+                        lessonID: "programming.debugging_tests_and_git",
+                        evidence: evidence
+                    )
+                } label: {
+                    Label(L10n.text("lab.debugging.check", store.language), systemImage: "checkmark")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(hasChecked || selectedChoice < 0)
+            }
+
+            GitWorkflowLab()
+        }
+    }
+}
+
+private struct GitWorkflowLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var stepIndex = 0
+    @State private var selectedDisplayIndex = -1
+    @State private var feedbackCorrect: Bool?
+    @State private var optionOrder = QuizAnswerOrder(
+        optionCount: GitWorkflowPractice.steps[0].commandKeys.count,
+        answerOriginalIndex: GitWorkflowPractice.steps[0].correctCommandIndex
+    )
+    @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(
+        itemIDs: GitWorkflowPractice.steps.map(\.id)
+    )
+
+    private var currentStep: GitWorkflowStep? {
+        guard GitWorkflowPractice.steps.indices.contains(stepIndex) else { return nil }
+        return GitWorkflowPractice.steps[stepIndex]
+    }
+
+    private var snapshotKey: String {
+        switch GitWorkflowPractice.snapshotState(afterCompletedSteps: stepIndex) {
+        case .unstaged:
+            return "lab.git.snapshot.unstaged"
+        case .staged:
+            return "lab.git.snapshot.staged"
+        case .committedWithUntrackedFile:
+            return "lab.git.snapshot.committed"
+        case .featureBranchWithChanges:
+            return "lab.git.snapshot.featureBranch"
+        case .featureBranchStaged:
+            return "lab.git.snapshot.featureStaged"
+        case .featureBranchCommitted:
+            return "lab.git.snapshot.featureCommitted"
+        case .featureBranchPublished:
+            return "lab.git.snapshot.featurePublished"
+        case .pullRequestOpen:
+            return "lab.git.snapshot.pullRequest"
+        }
+    }
+
+    private var snapshotInfoKey: String {
+        switch GitWorkflowPractice.snapshotState(afterCompletedSteps: stepIndex) {
+        case .unstaged:
+            return "lab.git.snapshotInfo.unstaged"
+        case .staged:
+            return "lab.git.snapshotInfo.staged"
+        case .committedWithUntrackedFile:
+            return "lab.git.snapshotInfo.committed"
+        case .featureBranchWithChanges:
+            return "lab.git.snapshotInfo.featureBranch"
+        case .featureBranchStaged:
+            return "lab.git.snapshotInfo.featureStaged"
+        case .featureBranchCommitted:
+            return "lab.git.snapshotInfo.featureCommitted"
+        case .featureBranchPublished:
+            return "lab.git.snapshotInfo.featurePublished"
+        case .pullRequestOpen:
+            return "lab.git.snapshotInfo.pullRequest"
+        }
+    }
+
+    var body: some View {
         LabCard {
-            Text(L10n.text("lab.debugging.hint", store.language))
+            Text(L10n.text("lab.git.title", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.git.hint", store.language))
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            Text(L10n.text("lab.git.files", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
-            Picker(L10n.text("lab.debugging.scenarioPicker", store.language), selection: $scenarioID) {
-                ForEach(DebuggingPractice.scenarios) { item in
-                    Text(L10n.text(item.promptKey, store.language)).tag(item.id)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(L10n.text("lab.git.snapshotLabel", store.language))
+                    .font(.caption.weight(.medium))
+                Text(L10n.text(snapshotKey, store.language))
+                    .font(.system(.callout, design: .monospaced))
+                    .textSelection(.enabled)
+                Text(L10n.text(snapshotInfoKey, store.language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(.background, in: RoundedRectangle(cornerRadius: 12))
+
+            if let step = currentStep {
+                Text(String(format: L10n.text("lab.git.progress", store.language), stepIndex + 1, GitWorkflowPractice.steps.count))
+                    .font(.caption.weight(.medium).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                Text(L10n.text(step.promptKey, store.language))
+                    .font(.callout.weight(.medium))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Picker(L10n.text("lab.debugging.choicePicker", store.language), selection: $selectedDisplayIndex) {
+                    ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                        Text(L10n.text(step.commandKeys[originalIndex], store.language))
+                            .font(.system(.callout, design: .monospaced))
+                            .tag(displayIndex)
+                    }
                 }
-            }
-            .pickerStyle(.menu)
-            .onChange(of: scenarioID) { _ in
-                selectedChoice = 0
-                hasChecked = false
-            }
-
-            Text(scenario.code)
-                .font(.system(.callout, design: .monospaced))
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(12)
-                .background(.background, in: RoundedRectangle(cornerRadius: 12))
-                .accessibilityLabel(Text(L10n.text("lab.debugging.code", store.language)))
-
-            Label(scenario.traceback, systemImage: "exclamationmark.triangle.fill")
-                .font(.system(.callout, design: .monospaced))
-                .foregroundStyle(.orange)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityLabel(Text(L10n.text("lab.debugging.traceback", store.language)))
-
-            Text(L10n.text("lab.debugging.choose", store.language))
-                .font(.callout.weight(.medium))
-
-            Picker(L10n.text("lab.debugging.choicePicker", store.language), selection: $selectedChoice) {
-                ForEach(scenario.choiceKeys.indices, id: \.self) { index in
-                    Text(L10n.text(scenario.choiceKeys[index], store.language)).tag(index)
+                .pickerStyle(.radioGroup)
+                .disabled(feedbackCorrect == true)
+                .onChange(of: selectedDisplayIndex) { _ in
+                    if feedbackCorrect == false {
+                        feedbackCorrect = nil
+                    }
                 }
-            }
-            .pickerStyle(.radioGroup)
-            .disabled(hasChecked)
 
-            if hasChecked {
-                Label(
-                    L10n.text(scenario.explanationKey, store.language),
-                    systemImage: DebuggingPractice.isCorrect(selectedChoice, for: scenarioID)
-                        ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
-                )
-                .font(.callout)
-                .foregroundStyle(DebuggingPractice.isCorrect(selectedChoice, for: scenarioID) ? Color.green : Color.orange)
+                if let feedbackCorrect {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label(
+                            L10n.text(feedbackCorrect ? "lab.git.correct" : "lab.git.incorrect", store.language),
+                            systemImage: feedbackCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
+                        )
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(feedbackCorrect ? Color.green : Color.orange)
+                        Text(L10n.text(step.explanationKey, store.language))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                HStack(spacing: 10) {
+                    Button {
+                        check(step: step)
+                    } label: {
+                        Label(L10n.text("lab.git.check", store.language), systemImage: "checkmark")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(selectedDisplayIndex < 0 || feedbackCorrect == true)
+
+                    if feedbackCorrect == true {
+                        Button {
+                            advance()
+                        } label: {
+                            Label(L10n.text("lab.git.next", store.language), systemImage: "arrow.right.circle")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+            } else {
+                Label(L10n.text("lab.git.complete", store.language), systemImage: "checkmark.circle.fill")
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(.green)
+                Button {
+                    restart()
+                } label: {
+                    Label(L10n.text("lab.git.restart", store.language), systemImage: "arrow.counterclockwise")
+                }
+                .buttonStyle(.bordered)
+            }
+
+            Text(L10n.text("lab.git.limit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Button {
-                hasChecked = true
-            } label: {
-                Label(L10n.text("lab.debugging.check", store.language), systemImage: "checkmark")
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(hasChecked)
         }
+    }
+
+    private func check(step: GitWorkflowStep) {
+        guard let selectedOriginalIndex = optionOrder.originalIndex(forDisplayedIndex: selectedDisplayIndex) else { return }
+        let isCorrect = GitWorkflowPractice.isCorrect(selectedOriginalIndex, for: step.id)
+        feedbackCorrect = isCorrect
+        guard let evidence = assessmentTracker.recordSubmission(
+            selectedAnswerIndex: selectedOriginalIndex,
+            correctAnswerIndex: step.correctCommandIndex,
+            optionCount: step.commandKeys.count,
+            itemID: step.id
+        ) else {
+            return
+        }
+        store.recordStudyAssessment(lessonID: "programming.debugging_tests_and_git", evidence: evidence)
+    }
+
+    private func advance() {
+        stepIndex += 1
+        selectedDisplayIndex = -1
+        feedbackCorrect = nil
+        guard let step = currentStep else { return }
+        optionOrder = QuizAnswerOrder(
+            optionCount: step.commandKeys.count,
+            answerOriginalIndex: step.correctCommandIndex
+        )
+    }
+
+    private func restart() {
+        stepIndex = 0
+        selectedDisplayIndex = -1
+        feedbackCorrect = nil
+        optionOrder = QuizAnswerOrder(
+            optionCount: GitWorkflowPractice.steps[0].commandKeys.count,
+            answerOriginalIndex: GitWorkflowPractice.steps[0].correctCommandIndex
+        )
+        assessmentTracker.reset()
     }
 }
 
 private struct LinearSystemLab: View {
     @EnvironmentObject private var store: LearningStore
     @State private var scenarioID = LinearSystemPractice.scenarios[0].id
-    @State private var prediction = -1
-    @State private var hasChecked = false
+    @State private var selectedDisplayIndex = -1
+    @State private var prediction: InteractivePredictionAttempt
+    private let predictionOptionKeys = ["lab.linearSystemOne", "lab.linearSystemNone", "lab.linearSystemInfinite"]
+
+    init() {
+        _prediction = State(initialValue: Self.makePrediction(for: LinearSystemPractice.scenarios[0]))
+    }
 
     private var scenario: LinearSystemScenario {
         LinearSystemPractice.scenario(id: scenarioID)
@@ -6024,9 +9412,10 @@ private struct LinearSystemLab: View {
                 Text(L10n.text("lab.linearSystemSameLine", store.language)).tag("same-line")
             }
             .pickerStyle(.segmented)
-            .onChange(of: scenarioID) { _ in
-                prediction = -1
-                hasChecked = false
+            .disabled(prediction.hasAnswered)
+            .onChange(of: scenarioID) { newScenarioID in
+                selectedDisplayIndex = -1
+                prediction = Self.makePrediction(for: LinearSystemPractice.scenario(id: newScenarioID))
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -6042,37 +9431,60 @@ private struct LinearSystemLab: View {
                 .font(.title3.monospaced())
                 .accessibilityLabel(L10n.text("lab.linearSystemReduction", store.language))
 
-            Picker(L10n.text("lab.linearSystemPredict", store.language), selection: $prediction) {
-                Text(L10n.text("lab.linearSystemOne", store.language)).tag(0)
-                Text(L10n.text("lab.linearSystemNone", store.language)).tag(1)
-                Text(L10n.text("lab.linearSystemInfinite", store.language)).tag(2)
+            Picker(L10n.text("lab.linearSystemPredict", store.language), selection: $selectedDisplayIndex) {
+                ForEach(Array(prediction.choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    Text(L10n.text(predictionOptionKeys[originalIndex], store.language)).tag(displayIndex)
+                }
             }
             .pickerStyle(.segmented)
+            .disabled(prediction.hasAnswered)
 
             Button(L10n.text("lab.linearSystemCheck", store.language)) {
-                hasChecked = true
+                prediction.select(displayedIndex: selectedDisplayIndex)
+                guard let evidence = prediction.currentAnswerEventEvidence() else { return }
+                store.recordStudyAssessment(lessonID: "mathematics.systems_of_linear_equations", evidence: evidence)
             }
             .buttonStyle(.borderedProminent)
-            .disabled(prediction < 0)
+            .disabled(prediction.hasAnswered || selectedDisplayIndex < 0)
 
-            if hasChecked {
-                let correct = LinearSystemPractice.isCorrectPrediction(prediction, for: scenario)
-                Label(
-                    L10n.text(correct ? "lab.linearSystemCorrect" : "lab.linearSystemReview", store.language),
-                    systemImage: correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
-                )
-                .font(.callout.weight(.medium))
-                .foregroundStyle(correct ? .green : .orange)
-                .fixedSize(horizontal: false, vertical: true)
-            }
-
-            if hasChecked {
-                Text(outcomeDescription)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+            if prediction.hasAnswered {
+                if prediction.isCorrect {
+                    Label(L10n.text("lab.linearSystemCorrect", store.language), systemImage: "checkmark.circle.fill")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.green)
+                    Text(outcomeDescription)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(L10n.text("lab.linearSystemNew", store.language)) {
+                        prediction = Self.makePrediction(for: scenario)
+                        selectedDisplayIndex = -1
+                    }
+                    .buttonStyle(.link)
+                } else {
+                    Label(L10n.text("lab.linearSystemReview", store.language), systemImage: "arrow.uturn.backward.circle")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(L10n.text("lab.linearSystemRetry", store.language)) {
+                        prediction.retry()
+                        selectedDisplayIndex = -1
+                    }
+                    .buttonStyle(.link)
+                }
             }
         }
+    }
+
+    private static func makePrediction(for scenario: LinearSystemScenario) -> InteractivePredictionAttempt {
+        guard let attempt = InteractivePredictionAttempt(
+            optionCount: 3,
+            answerOriginalIndex: LinearSystemPractice.correctPredictionIndex(for: scenario),
+            itemID: scenario.itemID
+        ) else {
+            preconditionFailure("A linear-system prediction must have one valid answer.")
+        }
+        return attempt
     }
 
     private var outcomeDescription: String {
@@ -6170,12 +9582,146 @@ private struct AlgorithmComplexityLab: View {
     }
 }
 
+private struct DataStructureChoiceLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var stepIndex = 0
+    @State private var selectedDisplayIndex = -1
+    @State private var feedbackCorrect: Bool?
+    @State private var optionOrder = QuizAnswerOrder(
+        optionCount: DataStructureChoicePractice.scenarios[0].optionKeys.count,
+        answerOriginalIndex: DataStructureChoicePractice.scenarios[0].correctOptionIndex
+    )
+    @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(
+        itemIDs: DataStructureChoicePractice.scenarios.map(\.id)
+    )
+
+    private var currentScenario: DataStructureChoiceScenario? {
+        guard DataStructureChoicePractice.scenarios.indices.contains(stepIndex) else { return nil }
+        return DataStructureChoicePractice.scenarios[stepIndex]
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.dataStructures.title", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.dataStructures.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let scenario = currentScenario {
+                Text(String(format: L10n.text("lab.dataStructures.progress", store.language), stepIndex + 1, DataStructureChoicePractice.scenarios.count))
+                    .font(.caption.weight(.medium).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                Text(L10n.text(scenario.promptKey, store.language))
+                    .font(.callout.weight(.medium))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Picker(L10n.text("lab.dataStructures.choicePicker", store.language), selection: $selectedDisplayIndex) {
+                    Text(L10n.text("lab.dataStructures.choose", store.language)).tag(-1)
+                    ForEach(Array(optionOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                        Text(L10n.text(scenario.optionKeys[originalIndex], store.language))
+                            .tag(displayIndex)
+                    }
+                }
+                .pickerStyle(.radioGroup)
+                .disabled(feedbackCorrect == true)
+                .onChange(of: selectedDisplayIndex) { _ in
+                    if feedbackCorrect == false { feedbackCorrect = nil }
+                }
+
+                if let feedbackCorrect {
+                    Label(
+                        L10n.text(feedbackCorrect ? "lab.dataStructures.correct" : "lab.dataStructures.incorrect", store.language),
+                        systemImage: feedbackCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
+                    )
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(feedbackCorrect ? Color.green : Color.orange)
+                    Text(L10n.text(scenario.explanationKey, store.language))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                HStack(spacing: 10) {
+                    Button {
+                        check(scenario: scenario)
+                    } label: {
+                        Label(L10n.text("lab.dataStructures.check", store.language), systemImage: "checkmark")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(selectedDisplayIndex < 0 || feedbackCorrect == true)
+
+                    if feedbackCorrect == true {
+                        Button(action: advance) {
+                            Label(L10n.text("lab.dataStructures.next", store.language), systemImage: "arrow.right.circle")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+            } else {
+                Label(L10n.text("lab.dataStructures.complete", store.language), systemImage: "checkmark.circle.fill")
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(.green)
+                Button(action: restart) {
+                    Label(L10n.text("lab.dataStructures.restart", store.language), systemImage: "arrow.counterclockwise")
+                }
+                .buttonStyle(.bordered)
+            }
+
+            Text(L10n.text("lab.dataStructures.limit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func check(scenario: DataStructureChoiceScenario) {
+        guard let answerIndex = optionOrder.originalIndex(forDisplayedIndex: selectedDisplayIndex) else { return }
+        let isAnswerCorrect = DataStructureChoicePractice.isCorrect(answerIndex, for: scenario.id)
+        feedbackCorrect = isAnswerCorrect
+        guard let evidence = assessmentTracker.recordSubmission(
+            selectedAnswerIndex: answerIndex,
+            correctAnswerIndex: scenario.correctOptionIndex,
+            optionCount: scenario.optionKeys.count,
+            itemID: scenario.id
+        ) else { return }
+        store.recordStudyAssessment(lessonID: "programming.search_and_complexity", evidence: evidence)
+    }
+
+    private func advance() {
+        stepIndex += 1
+        selectedDisplayIndex = -1
+        feedbackCorrect = nil
+        guard let scenario = currentScenario else { return }
+        optionOrder = QuizAnswerOrder(optionCount: scenario.optionKeys.count, answerOriginalIndex: scenario.correctOptionIndex)
+    }
+
+    private func restart() {
+        stepIndex = 0
+        selectedDisplayIndex = -1
+        feedbackCorrect = nil
+        let firstScenario = DataStructureChoicePractice.scenarios[0]
+        optionOrder = QuizAnswerOrder(optionCount: firstScenario.optionKeys.count, answerOriginalIndex: firstScenario.correctOptionIndex)
+        assessmentTracker.reset()
+    }
+}
+
 private struct LoopTraceLab: View {
     @EnvironmentObject private var store: LearningStore
-    @State private var scenarioID = LoopTracePractice.scenarios[0].id
-    @State private var prediction = 0
-    @State private var hasCheckedPrediction = false
+    @State private var scenarioID: String
+    @State private var question: LoopTraceQuestion
+    @State private var prediction: InteractivePredictionAttempt
+    @State private var selectedDisplayIndex = -1
     @State private var revealedStepCount = 0
+
+    init() {
+        let initialScenario = LoopTracePractice.scenarios[0]
+        let initialQuestion = LoopTraceQuestion(scenario: initialScenario)
+        _scenarioID = State(initialValue: initialScenario.id)
+        _question = State(initialValue: initialQuestion)
+        _prediction = State(initialValue: Self.makePrediction(for: initialQuestion))
+    }
 
     private var scenario: LoopTraceScenario {
         LoopTracePractice.scenario(id: scenarioID) ?? LoopTracePractice.scenarios[0]
@@ -6193,13 +9739,18 @@ private struct LoopTraceLab: View {
                 .textSelection(.enabled)
                 .accessibilityLabel(Text(L10n.text("lab.loopTraceInput", store.language)))
 
-            Picker(L10n.text("lab.loopTraceScenario", store.language), selection: $scenarioID) {
+            Picker(
+                L10n.text("lab.loopTraceScenario", store.language),
+                selection: Binding(
+                    get: { scenarioID },
+                    set: selectScenario
+                )
+            ) {
                 ForEach(LoopTracePractice.scenarios) { item in
                     Text(L10n.text("lab.loopTraceScenario.\(item.id)", store.language)).tag(item.id)
                 }
             }
             .pickerStyle(.menu)
-            .onChange(of: scenarioID) { _ in resetPractice() }
 
             Text("""
             count = 0
@@ -6218,82 +9769,116 @@ private struct LoopTraceLab: View {
             HStack {
                 Text(L10n.text("lab.loopTracePrediction", store.language))
                 Spacer()
-                Picker(L10n.text("lab.loopTracePrediction", store.language), selection: $prediction) {
-                    ForEach(0...scenario.values.count, id: \.self) { value in
-                        Text(String(value)).tag(value)
+                Picker(L10n.text("lab.loopTracePrediction", store.language), selection: $selectedDisplayIndex) {
+                    Text(L10n.text("lab.loopTraceChoose", store.language)).tag(-1)
+                    ForEach(Array(prediction.choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                        Text(String(question.options[originalIndex])).tag(displayIndex)
                     }
                 }
-                .frame(width: 90)
-                .disabled(hasCheckedPrediction)
+                .pickerStyle(.menu)
+                .disabled(prediction.hasAnswered)
             }
 
-            if hasCheckedPrediction {
-                Label(
-                    String(format: L10n.text("lab.loopTraceFeedback", store.language), scenario.expectedCount),
-                    systemImage: LoopTracePractice.isCorrect(prediction: prediction, for: scenarioID)
-                        ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
-                )
-                .foregroundStyle(LoopTracePractice.isCorrect(prediction: prediction, for: scenarioID) ? Color.green : Color.orange)
-                .fixedSize(horizontal: false, vertical: true)
-
-                ForEach(Array(scenario.steps.prefix(revealedStepCount))) { step in
-                    HStack(alignment: .top, spacing: 10) {
-                        Text("\(step.index + 1)")
-                            .font(.caption.monospacedDigit().weight(.semibold))
-                            .foregroundStyle(.secondary)
-                            .frame(width: 22, alignment: .leading)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(String(format: L10n.text("lab.loopTraceStep", store.language), step.value))
-                                .font(.system(.callout, design: .monospaced).weight(.medium))
-                            Text(L10n.text(step.isEven ? "lab.loopTraceEven" : "lab.loopTraceOdd", store.language))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Text(String(step.countAfter))
-                            .font(.system(.callout, design: .monospaced).weight(.semibold))
-                            .accessibilityLabel(Text(L10n.text("lab.loopTraceCount", store.language)))
-                    }
-                    .padding(10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.background, in: RoundedRectangle(cornerRadius: 10))
-                    .accessibilityElement(children: .combine)
-                }
-
-                if revealedStepCount == scenario.steps.count {
+            if prediction.hasAnswered {
+                if prediction.isCorrect {
                     Label(
-                        String(format: L10n.text("lab.loopTraceReturn", store.language), scenario.expectedCount),
-                        systemImage: "arrow.uturn.backward.circle"
+                        String(format: L10n.text("lab.loopTraceFeedback", store.language), scenario.expectedCount),
+                        systemImage: "checkmark.circle.fill"
                     )
-                    .font(.callout.weight(.semibold))
-                    .foregroundStyle(.tint)
+                    .foregroundStyle(.green)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                    ForEach(Array(scenario.steps.prefix(revealedStepCount))) { step in
+                        HStack(alignment: .top, spacing: 10) {
+                            Text("\(step.index + 1)")
+                                .font(.caption.monospacedDigit().weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 22, alignment: .leading)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(String(format: L10n.text("lab.loopTraceStep", store.language), step.value))
+                                    .font(.system(.callout, design: .monospaced).weight(.medium))
+                                Text(L10n.text(step.isEven ? "lab.loopTraceEven" : "lab.loopTraceOdd", store.language))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text(String(step.countAfter))
+                                .font(.system(.callout, design: .monospaced).weight(.semibold))
+                                .accessibilityLabel(Text(L10n.text("lab.loopTraceCount", store.language)))
+                        }
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.background, in: RoundedRectangle(cornerRadius: 10))
+                        .accessibilityElement(children: .combine)
+                    }
+
+                    if revealedStepCount == scenario.steps.count {
+                        Label(
+                            String(format: L10n.text("lab.loopTraceReturn", store.language), scenario.expectedCount),
+                            systemImage: "arrow.uturn.backward.circle"
+                        )
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.tint)
+                    }
+                } else {
+                    Label(L10n.text("lab.loopTraceWrong", store.language), systemImage: "arrow.counterclockwise.circle")
+                        .foregroundStyle(.orange)
+                    Text(L10n.text("lab.loopTraceWrongHint", store.language))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(L10n.text("lab.loopTraceRetry", store.language)) {
+                        prediction.retry()
+                        selectedDisplayIndex = -1
+                        revealedStepCount = 0
+                    }
+                    .buttonStyle(.link)
                 }
             }
 
-            Button {
-                if hasCheckedPrediction {
+            if prediction.hasAnswered, prediction.isCorrect {
+                Button {
                     revealedStepCount = min(revealedStepCount + 1, scenario.steps.count)
-                } else {
-                    hasCheckedPrediction = true
-                    revealedStepCount = scenario.steps.isEmpty ? 0 : 1
+                } label: {
+                    Label(L10n.text("lab.loopTraceNextStep", store.language), systemImage: "arrow.right")
                 }
-            } label: {
-                Label(
-                    L10n.text(
-                        hasCheckedPrediction ? "lab.loopTraceNextStep" : "lab.loopTraceCheck",
-                        store.language
-                    ),
-                    systemImage: hasCheckedPrediction ? "arrow.right" : "checkmark"
-                )
+                .buttonStyle(.borderedProminent)
+                .disabled(revealedStepCount >= scenario.steps.count)
+            } else if !prediction.hasAnswered {
+                Button {
+                    prediction.select(displayedIndex: selectedDisplayIndex)
+                    guard let evidence = prediction.currentAnswerEventEvidence() else { return }
+                    store.recordStudyAssessment(lessonID: "programming.conditions_loops_functions", evidence: evidence)
+                    if prediction.isCorrect {
+                        revealedStepCount = scenario.steps.isEmpty ? 0 : 1
+                    }
+                } label: {
+                    Label(L10n.text("lab.loopTraceCheck", store.language), systemImage: "checkmark")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(selectedDisplayIndex < 0)
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(hasCheckedPrediction && revealedStepCount >= scenario.steps.count)
         }
     }
 
-    private func resetPractice() {
-        prediction = 0
-        hasCheckedPrediction = false
+    private static func makePrediction(for question: LoopTraceQuestion) -> InteractivePredictionAttempt {
+        guard let attempt = InteractivePredictionAttempt(
+            optionCount: question.options.count,
+            answerOriginalIndex: question.correctOptionIndex,
+            itemID: question.itemID
+        ) else {
+            preconditionFailure("A loop-trace prediction must have one valid answer.")
+        }
+        return attempt
+    }
+
+    private func selectScenario(_ id: String) {
+        guard let nextScenario = LoopTracePractice.scenario(id: id) else { return }
+        scenarioID = nextScenario.id
+        let nextQuestion = LoopTraceQuestion(scenario: nextScenario)
+        question = nextQuestion
+        prediction = Self.makePrediction(for: nextQuestion)
+        selectedDisplayIndex = -1
         revealedStepCount = 0
     }
 }
@@ -6303,6 +9888,9 @@ private struct CollectionsLoopsLab: View {
     @State private var tasks = ["docs", "tests", "app"]
     @State private var nextTask = 0
     @State private var includesIndexes = true
+    @State private var whileInitialValue = 5
+    @State private var whileDecrement = 2
+    @State private var whileTrace = WhileLoopTrace(initialValue: 5, decrement: 2)
 
     private let additions = ["build", "review", "ship", "notes", "measure"]
 
@@ -6407,12 +9995,112 @@ private struct CollectionsLoopsLab: View {
             Text(L10n.text("lab.collectionsCount", store.language) + ": \(tasks.count)")
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text(L10n.text("lab.collectionsWhileTitle", store.language))
+                    .font(.headline)
+                Text(L10n.text("lab.collectionsWhileHint", store.language))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("remaining = \(whileTrace.initialValue)\nwhile remaining > 0:\n    print(remaining)\n    remaining -= \(whileTrace.decrement)")
+                    .font(.system(.callout, design: .monospaced))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 12))
+
+                Stepper(value: $whileInitialValue, in: WhileLoopTrace.initialValueRange) {
+                    Text(String(format: L10n.text("lab.collectionsWhileInitial", store.language), whileInitialValue))
+                        .font(.callout.monospacedDigit())
+                }
+                .onChange(of: whileInitialValue) { _ in resetWhileTrace() }
+
+                Stepper(value: $whileDecrement, in: WhileLoopTrace.decrementRange) {
+                    Text(String(format: L10n.text("lab.collectionsWhileDecrement", store.language), whileDecrement))
+                        .font(.callout.monospacedDigit())
+                }
+                .onChange(of: whileDecrement) { _ in resetWhileTrace() }
+
+                Label(
+                    String(format: L10n.text("lab.collectionsWhileCurrent", store.language), whileTrace.currentValue),
+                    systemImage: whileTrace.isComplete ? "checkmark.circle.fill" : "repeat"
+                )
+                .font(.callout.weight(.medium).monospacedDigit())
+                .foregroundStyle(whileTrace.isComplete ? Color.green : Color.primary)
+
+                Text(L10n.text("lab.collectionsWhileOutput", store.language) + ": [\(whileTrace.printedValues.map(String.init).joined(separator: ", "))]")
+                    .font(.callout.monospacedDigit())
+                    .foregroundStyle(.secondary)
+
+                ForEach(whileTrace.steps) { step in
+                    VStack(alignment: .leading, spacing: 4) {
+                        let feedbackKey = step.conditionTrue
+                            ? "lab.collectionsWhileConditionTrue"
+                            : "lab.collectionsWhileConditionFalse"
+                        Label(
+                            String(format: L10n.text(feedbackKey, store.language), step.checkNumber, step.valueBeforeCheck),
+                            systemImage: step.conditionTrue ? "checkmark.circle" : "stop.circle.fill"
+                        )
+                        .font(.caption.weight(.medium).monospacedDigit())
+                        .foregroundStyle(step.conditionTrue ? Color.secondary : Color.green)
+
+                        if let valueAfterBody = step.valueAfterBody {
+                            Text(String(format: L10n.text("lab.collectionsWhileBody", store.language), valueAfterBody))
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text(L10n.text("lab.collectionsWhileExit", store.language))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 10))
+                }
+
+                HStack(spacing: 10) {
+                    Button {
+                        whileTrace.checkNextStep()
+                    } label: {
+                        Label(L10n.text("lab.collectionsWhileCheck", store.language), systemImage: "arrow.right.circle")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(whileTrace.isComplete)
+
+                    Button {
+                        resetWhileTrace()
+                    } label: {
+                        Label(L10n.text("lab.collectionsWhileRestart", store.language), systemImage: "arrow.counterclockwise")
+                    }
+                    .buttonStyle(.bordered)
+                }
+
+                Text(L10n.text("lab.collectionsWhileLimit", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
+    }
+
+    private func resetWhileTrace() {
+        whileTrace = WhileLoopTrace(initialValue: whileInitialValue, decrement: whileDecrement)
     }
 }
 
 
-private struct TutorChatView: View {
+private struct PendingCustomTopicOutlineReview: Identifiable {
+    let messageID: UUID
+    let proposal: CustomTopicOutlineProposal
+
+    var id: UUID { messageID }
+}
+
+struct TutorChatView: View {
     @EnvironmentObject private var store: LearningStore
     @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
     @StateObject private var chat: TutorChatModel
@@ -6421,11 +10109,70 @@ private struct TutorChatView: View {
     @State private var includeLocalSourcesInWebSearch = false
     @State private var hasConfirmedGoogleSearchAge = false
     @State private var showGoogleSearchAgeConfirmation = false
+    @State private var outlinePromptPrepared = false
+    @State private var outlineResponseMessageID: UUID?
+    @State private var pendingOutlineReview: PendingCustomTopicOutlineReview?
+    @State private var importedOutlineMessageIDs = Set<UUID>()
+    @State private var outlineErrorMessageID: UUID?
+    @State private var outlineImportError: String?
+    @State private var outlineImportSuccess: String?
     let language: AppLanguage
+    private let tutorSubjectID: String
+    private let outlineDraftPrompt: String?
+    private let outlineDestination: CustomTopicOutlineDestination?
+    private let outlineParentTopicID: UUID?
 
     init(subject: Subject, lesson: LessonContent, language: AppLanguage, mode: AIRoutingMode) {
         self.language = language
+        tutorSubjectID = subject.rawValue
+        outlineDraftPrompt = nil
+        outlineDestination = nil
+        outlineParentTopicID = nil
         _chat = StateObject(wrappedValue: TutorChatModel(subject: subject, lesson: lesson, language: language, mode: mode))
+    }
+
+    init(
+        customSubject: CustomLearningSubject,
+        topic: CustomLearningTopic,
+        language: AppLanguage,
+        mode: AIRoutingMode,
+        routeSubjectID: String? = nil,
+        outlineDestination: CustomTopicOutlineDestination? = nil,
+        outlineParentTopicID: UUID? = nil
+    ) {
+        self.language = language
+        let resolvedSubjectID = routeSubjectID ?? "custom-\(customSubject.id.uuidString.lowercased())"
+        tutorSubjectID = resolvedSubjectID
+        self.outlineDestination = outlineDestination
+        self.outlineParentTopicID = outlineParentTopicID
+        outlineDraftPrompt = outlineDestination != nil && outlineParentTopicID != nil
+            ? CustomTopicStudyPrompt.outlineDraft(languageCode: language.rawValue)
+            : nil
+        let topicName = topic.name.value(in: language.rawValue)
+        let subjectName = customSubject.name.value(in: language.rawValue)
+        let notes = topic.notes.value(in: language.rawValue)
+        let goal = topic.learningOutcome.value(in: language.rawValue)
+        let lesson = LessonContent(
+            title: topicName,
+            objective: goal.isEmpty ? topicName : goal,
+            explanation: notes,
+            mechanism: L10n.text("custom.learnPrompt", language),
+            example: notes,
+            limitations: language == .ru
+                ? "Это пользовательский материал. Не выдавай его за подтверждённый источник; отмечай, что требует проверки."
+                : "This is learner-provided material. Do not present it as a verified source; flag claims that need checking.",
+            question: "",
+            options: [],
+            answerIndex: 0,
+            feedback: ""
+        )
+        _chat = StateObject(wrappedValue: TutorChatModel(
+            subjectID: resolvedSubjectID,
+            subjectName: subjectName,
+            lesson: lesson,
+            language: language,
+            mode: mode
+        ))
     }
 
     var body: some View {
@@ -6434,14 +10181,44 @@ private struct TutorChatView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(L10n.text("tutor.title", language)).font(.title2.weight(.semibold))
                     Text(L10n.text("tutor.subtitle", language)).font(.subheadline).foregroundStyle(.secondary)
+                    if let preference = store.studyFormatPreferenceProfile.tutorPreference(forSubjectID: tutorSubjectID) {
+                        let preferenceKey = store.studyFormatPreferenceProfile.mostFrequentlyHelpful(forSubjectID: tutorSubjectID) == nil
+                            ? "studyFormat.tutorFallback"
+                            : "studyFormat.tutorPreference"
+                        Label(
+                            String(
+                                format: L10n.text(preferenceKey, language),
+                                L10n.text(preference.titleKey, language)
+                            ),
+                            systemImage: "sparkles"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
                 }
                 Spacer()
-                if store.isCheckingAI && store.aiHealth == nil {
+                if chat.isSending {
+                    Label(L10n.text("settings.tutorProbe.checking", language), systemImage: "hourglass")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else if let completionLabel = chat.completionLabel {
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Label(L10n.text("tutor.responseVerified", language), systemImage: "checkmark.circle.fill")
+                            .font(.caption).foregroundStyle(.green)
+                        if !completionLabel.isEmpty {
+                            Text(completionLabel)
+                                .font(.caption2.monospaced()).foregroundStyle(.secondary)
+                                .multilineTextAlignment(.trailing)
+                        }
+                    }
+                } else if store.isCheckingAI && store.aiHealth == nil {
                     ProgressView().controlSize(.small)
                 } else if let health = store.aiHealth {
                     VStack(alignment: .trailing, spacing: 4) {
-                        Label(L10n.text("settings.aiConnected", language), systemImage: "checkmark.circle.fill")
-                            .font(.caption).foregroundStyle(.green)
+                        Label(L10n.text("settings.aiBackendResponding", language), systemImage: "server.rack")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Text(L10n.text("tutor.responseNotVerified", language))
+                            .font(.caption2).foregroundStyle(.secondary)
+                            .multilineTextAlignment(.trailing)
                         Text(routeDescription(for: health))
                             .font(.caption2).foregroundStyle(.secondary)
                             .multilineTextAlignment(.trailing)
@@ -6459,9 +10236,30 @@ private struct TutorChatView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 12) {
                         if chat.messages.isEmpty {
-                            Text(L10n.text("tutor.empty", language))
-                                .foregroundStyle(.secondary)
-                                .frame(maxWidth: .infinity, minHeight: 220)
+                            VStack(spacing: 12) {
+                                Text(L10n.text("tutor.empty", language))
+                                    .foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity, minHeight: outlineDraftPrompt == nil ? 220 : 140)
+                                if outlineDraftPrompt != nil {
+                                    Button {
+                                        if let outlineDraftPrompt {
+                                            draft = outlineDraftPrompt
+                                            outlinePromptPrepared = true
+                                            outlineImportSuccess = nil
+                                        }
+                                    } label: {
+                                        Label(L10n.text("custom.outlineDraftAction", language), systemImage: "list.bullet.rectangle")
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .disabled(chat.isSending || !canSend)
+                                    Text(L10n.text("custom.outlineDraftHint", language))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .multilineTextAlignment(.center)
+                                        .frame(maxWidth: 520)
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
                         }
                         ForEach(chat.messages) { message in
                             messageBubble(message)
@@ -6485,6 +10283,11 @@ private struct TutorChatView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text(L10n.text(chat.mode == .localOnly ? "tutor.localPrivacy" : "tutor.privacy", language))
                     .font(.caption).foregroundStyle(.secondary)
+                if let outlineImportSuccess {
+                    Label(outlineImportSuccess, systemImage: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                }
                 if chat.mode == .automatic {
                     if let policy = store.autoCostPolicy, !policy.allowPaidRoutes {
                         Label(L10n.text("tutor.webSearchCostBlocked", language), systemImage: "lock.fill")
@@ -6546,15 +10349,15 @@ private struct TutorChatView: View {
                     Label(L10n.text("tutor.webSearchAutoOnly", language), systemImage: "wifi.slash")
                         .font(.caption2).foregroundStyle(.secondary)
                 }
-                if store.aiHealth == nil {
-                    Text(L10n.text("tutor.unavailable", language))
-                        .font(.caption.monospaced()).foregroundStyle(.secondary)
-                } else if chat.mode == .localOnly && store.aiHealth?.hasLocalModel != true {
-                    let key = store.aiHealth?.isOllamaEndpointLocal == true
-                        ? "tutor.localUnavailable"
-                        : "tutor.localEndpointBlocked"
-                    Text(L10n.text(key, language))
-                        .font(.caption).foregroundStyle(.orange)
+                if !composerReadiness.isReady, let messageKey = composerReadiness.messageKey {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Label(L10n.text(messageKey, language), systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption).foregroundStyle(.orange)
+                        if composerReadiness == .backendNotReady {
+                            Text(L10n.text(backendSupervisor.status.localizationKey, language))
+                                .font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
                 }
                 HStack(alignment: .bottom, spacing: 10) {
                     TextField(L10n.text("tutor.placeholder", language), text: $draft, axis: .vertical)
@@ -6579,6 +10382,23 @@ private struct TutorChatView: View {
             .padding(16)
             .background(Color(nsColor: .windowBackgroundColor))
         }
+        .sheet(item: $pendingOutlineReview) { pending in
+            if let outlineDestination, let outlineParentTopicID {
+                CustomTopicOutlineReviewView(
+                    proposal: pending.proposal,
+                    destination: outlineDestination,
+                    parentTopicID: outlineParentTopicID
+                ) { count in
+                    importedOutlineMessageIDs.insert(pending.messageID)
+                    outlineImportSuccess = String(
+                        format: L10n.text("custom.outlineSaved", language),
+                        "\(count)"
+                    )
+                    outlineErrorMessageID = nil
+                    outlineImportError = nil
+                }
+            }
+        }
         .task {
             guard await backendSupervisor.ensureRunning() else { return }
             await store.refreshAIStatus()
@@ -6593,7 +10413,20 @@ private struct TutorChatView: View {
             VStack(alignment: .leading, spacing: 5) {
                 Text(L10n.text(message.role == .learner ? "tutor.learner" : "tutor.assistant", language))
                     .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                if message.isGoogleGrounded {
+                if message.role == .tutor, message.id == outlineResponseMessageID {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label(L10n.text("custom.outlineDraftReady", language), systemImage: "list.bullet.rectangle")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                        DisclosureGroup(L10n.text("custom.outlineShowRaw", language)) {
+                            Text(message.text.isEmpty && chat.isSending ? "…" : message.text)
+                                .textSelection(.enabled)
+                                .font(.caption.monospaced())
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .font(.caption)
+                    }
+                } else if message.isGoogleGrounded {
                     Text((try? AttributedString(markdown: message.text)) ?? AttributedString(message.text))
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -6601,6 +10434,25 @@ private struct TutorChatView: View {
                     Text(message.text.isEmpty && chat.isSending ? "…" : message.text)
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if message.role == .tutor, message.id == outlineResponseMessageID, !message.text.isEmpty {
+                    if importedOutlineMessageIDs.contains(message.id) {
+                        Label(L10n.text("custom.outlineImported", language), systemImage: "checkmark.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.green)
+                    } else if !chat.isSending {
+                        Button {
+                            reviewOutline(message)
+                        } label: {
+                            Label(L10n.text("custom.outlineReviewAction", language), systemImage: "list.bullet.rectangle")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    if outlineErrorMessageID == message.id, let outlineImportError {
+                        Text(outlineImportError)
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
                 }
                 if message.role == .tutor, !message.isGoogleGrounded,
                    let label = chat.completionLabel, message.id == chat.messages.last?.id {
@@ -6671,12 +10523,31 @@ private struct TutorChatView: View {
                                         .font(.caption2).foregroundStyle(.tertiary)
                                 }
                                 if let sourceCheckedAt = item.sourceCheckedAt {
-                                    Text("\(L10n.text(item.sourceType == "official_web" ? "tutor.sourceSyncedAt" : "tutor.sourceReviewDate", language)): \(sourceCheckedAt)")
+                                    Text("\(L10n.text(item.sourceType == "official_web" ? "tutor.sourceCheckedAt" : "tutor.sourceReviewDate", language)): \(sourceCheckedAt)")
                                         .font(.caption2).foregroundStyle(.secondary)
                                     if item.sourceType != "official_web" {
                                         Text(L10n.text("tutor.sourceCheckCaveat", language))
                                         .font(.caption2).foregroundStyle(.tertiary)
                                     }
+                                }
+                                if let snapshotFetchedAt = item.sourceSnapshotFetchedAt {
+                                    Text("\(L10n.text("tutor.sourceSnapshotFetchedAt", language)): \(snapshotFetchedAt)")
+                                        .font(.caption2).foregroundStyle(.secondary)
+                                }
+                                if item.sourceType == "official_web",
+                                   item.pagePublishedAt != nil || item.pageUpdatedAt != nil {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        if let publishedAt = item.pagePublishedAt {
+                                            Text("\(L10n.text("tutor.publisherPublishedAt", language)): \(publishedAt)")
+                                        }
+                                        if let updatedAt = item.pageUpdatedAt {
+                                            Text("\(L10n.text("tutor.publisherUpdatedAt", language)): \(updatedAt)")
+                                        }
+                                        Text(L10n.text("tutor.publisherDateCaveat", language))
+                                            .foregroundStyle(.tertiary)
+                                    }
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
                                 }
                                 if let license = item.license {
                                     HStack(spacing: 4) {
@@ -6744,14 +10615,25 @@ private struct TutorChatView: View {
         }
     }
 
+    private var composerReadiness: TutorComposerReadiness {
+        TutorComposerReadiness.resolve(
+            backendReady: backendSupervisor.isReady,
+            routeStatusAvailable: store.aiHealth != nil,
+            isLocalOnly: chat.mode == .localOnly,
+            hasAutomaticRoute: store.aiHealth?.hasAutomaticRoute == true,
+            hasLocalModel: store.aiHealth?.hasLocalModel == true,
+            isLocalEndpointConfirmed: store.aiHealth?.isOllamaEndpointLocal == true
+        )
+    }
+
     private var canSend: Bool {
-        guard backendSupervisor.isReady, let health = store.aiHealth else { return false }
+        guard composerReadiness.isReady, let health = store.aiHealth else { return false }
         if useWebSearch {
             return chat.mode == .automatic
                 && store.autoCostPolicy?.allowPaidRoutes == true
                 && health.hasGroundedSearch
         }
-        return chat.mode == .automatic ? health.hasAutomaticRoute : health.hasLocalModel
+        return true
     }
 
     private func officialSourceURL(_ reference: TutorSourceReference) -> URL? {
@@ -6762,7 +10644,7 @@ private struct TutorChatView: View {
         if store.aiMode == .localOnly {
             return L10n.text(health.hasLocalModel ? "settings.aiLocalRoute" : "settings.aiNoLocal", language)
         }
-        if health.hasCloudSession { return L10n.text("settings.aiOnlineRoute", language) }
+        if health.hasCloudRoute { return L10n.text("settings.aiOnlineRoute", language) }
         if health.hasLocalModel { return L10n.text("settings.aiLocalRoute", language) }
         return L10n.text("settings.aiNoRoute", language)
     }
@@ -6770,6 +10652,7 @@ private struct TutorChatView: View {
     private func send() {
         guard canSend, !chat.isSending else { return }
         let message = draft
+        let isOutlineDraft = outlinePromptPrepared
         Task {
             guard await backendSupervisor.ensureRunning() else { return }
             await store.refreshAIStatus()
@@ -6780,9 +10663,60 @@ private struct TutorChatView: View {
                 message,
                 useWebSearch: useWebSearch,
                 groundingAgeConfirmed: hasConfirmedGoogleSearchAge,
-                includeLocalSourcesInWebSearch: includeLocalSourcesInWebSearch
+                includeLocalSourcesInWebSearch: includeLocalSourcesInWebSearch,
+                preferredLearningFormat: store.studyFormatPreferenceProfile.tutorPreference(forSubjectID: tutorSubjectID)
             )
+            if isOutlineDraft {
+                outlineResponseMessageID = chat.messages.last?.id
+                outlineImportError = nil
+                outlineImportSuccess = nil
+            }
+            outlinePromptPrepared = false
         }
+    }
+
+    private func reviewOutline(_ message: TutorMessage) {
+        guard outlineDestination != nil, outlineParentTopicID != nil else { return }
+        do {
+            let proposal = try CustomTopicOutlineProposal.parse(message.text)
+            pendingOutlineReview = PendingCustomTopicOutlineReview(
+                messageID: message.id,
+                proposal: proposal
+            )
+            outlineImportError = nil
+            outlineErrorMessageID = nil
+        } catch let error as CustomTopicOutlineError {
+            outlineImportError = outlineErrorText(error)
+            outlineErrorMessageID = message.id
+        } catch {
+            outlineImportError = L10n.text("custom.outlineParseMalformed", language)
+            outlineErrorMessageID = message.id
+        }
+    }
+
+    private func outlineErrorText(_ error: CustomTopicOutlineError) -> String {
+        let key: String
+        switch error {
+        case .malformedJSON:
+            key = "custom.outlineParseMalformed"
+        case .unsupportedSchema, .unsupportedVersion:
+            key = "custom.outlineParseUnsupported"
+        case .invalidBilingualContent:
+            key = "custom.outlineParseIncomplete"
+        case .invalidLevel:
+            key = "custom.outlineParseLevel"
+        case .duplicateSiblingName:
+            key = "custom.outlineParseDuplicates"
+        case .emptyTopics:
+            key = "custom.outlineParseEmpty"
+        case .tooManyTopics:
+            key = "custom.outlineParseTooMany"
+        case .tooDeep:
+            key = "custom.outlineParseTooDeep"
+        case .oversizedResponse:
+            key = "custom.outlineParseTooLarge"
+        }
+        return L10n.text(key, language)
     }
 }
 

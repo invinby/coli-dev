@@ -11,7 +11,7 @@ enum AppLanguage: String, CaseIterable, Identifiable, Hashable {
     var shortLabel: String { rawValue.uppercased() }
 }
 
-enum Subject: String, CaseIterable, Identifiable, Hashable {
+enum Subject: String, CaseIterable, Identifiable, Hashable, Sendable {
     case mathematics
     case english
     case physics
@@ -42,14 +42,7 @@ enum Subject: String, CaseIterable, Identifiable, Hashable {
     }
 
     var tint: Color {
-        switch self {
-        case .mathematics: return .indigo
-        case .english: return .orange
-        case .physics: return .blue
-        case .biology: return .green
-        case .zoology: return .brown
-        case .programming: return .purple
-        }
+        ColiDevVisualSystem.subjectColor(rawValue)
     }
 }
 
@@ -89,6 +82,8 @@ struct StudyReviewEvent: Codable, Identifiable {
     let lessonID: String
     let quality: Int
     let reflection: String?
+    let completeLesson: Bool?
+    let assessment: StudyAssessmentEvidence?
 
     var eventID: String { id }
 
@@ -97,6 +92,8 @@ struct StudyReviewEvent: Codable, Identifiable {
         case lessonID = "lesson_id"
         case quality
         case reflection
+        case completeLesson = "complete_lesson"
+        case assessment
     }
 }
 
@@ -107,9 +104,12 @@ struct StudyProgressRecord: Decodable, Identifiable {
     let intervalDays: Int
     let easeFactor: Double
     let reviewCount: Int
+    let lastQuality: Int?
     let dueAt: String?
     let lastReviewedAt: String?
     let reflection: String?
+    let assessment: StudyAssessmentEvidence?
+    let assessmentCount: Int?
     let updatedAt: String
 
     var id: String { lessonID }
@@ -124,21 +124,26 @@ struct StudyProgressRecord: Decodable, Identifiable {
         case intervalDays = "interval_days"
         case easeFactor = "ease_factor"
         case reviewCount = "review_count"
+        case lastQuality = "last_quality"
         case dueAt = "due_at"
         case lastReviewedAt = "last_reviewed_at"
         case reflection
+        case assessment
+        case assessmentCount = "assessment_count"
         case updatedAt = "updated_at"
     }
 }
 
 struct StudyProgressSnapshot: Decodable {
     let records: [StudyProgressRecord]
+    let assessmentEvidence: [StudyAssessmentEvidenceSummary]?
     let dueCount: Int
     let nextDueAt: String?
     let generatedAt: String
 
     enum CodingKeys: String, CodingKey {
         case records
+        case assessmentEvidence = "assessment_evidence"
         case dueCount = "due_count"
         case nextDueAt = "next_due_at"
         case generatedAt = "generated_at"
@@ -158,6 +163,35 @@ final class LearningStore: ObservableObject {
     @Published private(set) var completedLessonIDs: Set<String> {
         didSet { UserDefaults.standard.set(Array(completedLessonIDs), forKey: "colidev.completedLessons") }
     }
+    @Published private(set) var lastOpenedCourseRoute: StudyLessonRoute? {
+        didSet {
+            guard let lastOpenedCourseRoute,
+                  let data = try? JSONEncoder().encode(lastOpenedCourseRoute) else {
+                UserDefaults.standard.removeObject(forKey: "colidev.lastOpenedCourseRoute")
+                return
+            }
+            UserDefaults.standard.set(data, forKey: "colidev.lastOpenedCourseRoute")
+        }
+    }
+    @Published private(set) var lastLearningActivityAt: Date? {
+        didSet {
+            guard let lastLearningActivityAt else {
+                UserDefaults.standard.removeObject(forKey: "colidev.lastLearningActivityAt")
+                return
+            }
+            UserDefaults.standard.set(lastLearningActivityAt, forKey: "colidev.lastLearningActivityAt")
+        }
+    }
+    @Published private(set) var activeStudyGoal: StudyGoal? {
+        didSet {
+            guard let activeStudyGoal,
+                  let data = try? JSONEncoder().encode(activeStudyGoal) else {
+                UserDefaults.standard.removeObject(forKey: "colidev.activeStudyGoal")
+                return
+            }
+            UserDefaults.standard.set(data, forKey: "colidev.activeStudyGoal")
+        }
+    }
     @Published private(set) var aiHealth: OrchestratorHealth?
     @Published private(set) var isCheckingAI = false
     @Published private(set) var providerSecretStatuses: [String: ProviderSecretStatus] = [:]
@@ -172,11 +206,50 @@ final class LearningStore: ObservableObject {
     @Published private(set) var isRefreshingProviderUsage = false
     @Published private(set) var providerUsageUnavailable = false
     @Published private(set) var studyProgress: [String: StudyProgressRecord] = [:]
+    @Published private(set) var studyAssessmentEvidence: [String: StudyAssessmentEvidenceSummary] = [:]
+    @Published private(set) var studyFormatPreferenceProfile: StudyFormatPreferenceProfile {
+        didSet {
+            guard let data = try? JSONEncoder().encode(studyFormatPreferenceProfile) else { return }
+            UserDefaults.standard.set(data, forKey: "colidev.studyFormatPreferenceProfile")
+        }
+    }
     @Published private(set) var dueReviewCount = 0
+
+    var studyRecallEvidence: [String: StudyRecallEvidence] {
+        studyProgress.values.reduce(into: [:]) { evidence, record in
+            guard let quality = record.lastQuality else { return }
+            evidence[record.lessonID] = StudyRecallEvidence(
+                quality: quality,
+                reviewedAt: record.lastReviewedAt,
+                assessment: record.assessment
+            )
+        }
+    }
+
+    var studyProgressionEvidence: StudyProgressionEvidence {
+        StudyProgressionEvidence(
+            completedLessonIDs: completedLessonIDs,
+            recallEvidence: studyRecallEvidence,
+            assessmentEvidence: studyAssessmentEvidence
+        )
+    }
+
+    @Published private(set) var customCurriculum: CustomCurriculum {
+        didSet {
+            guard let data = try? JSONEncoder().encode(customCurriculum) else { return }
+            UserDefaults.standard.set(data, forKey: "colidev.customCurriculum")
+        }
+    }
     @Published private var pendingStudyReviews: [StudyReviewEvent] {
         didSet {
             guard let data = try? JSONEncoder().encode(pendingStudyReviews) else { return }
             UserDefaults.standard.set(data, forKey: "colidev.pendingStudyReviews")
+        }
+    }
+    @Published private var pendingStudyAssessments: [StudyAssessmentEvent] {
+        didSet {
+            guard let data = try? JSONEncoder().encode(pendingStudyAssessments) else { return }
+            UserDefaults.standard.set(data, forKey: "colidev.pendingStudyAssessments")
         }
     }
     private var isSyncingStudyProgress = false
@@ -191,6 +264,31 @@ final class LearningStore: ObservableObject {
         let savedLanguage = UserDefaults.standard.string(forKey: "colidev.language")
         language = AppLanguage(rawValue: savedLanguage ?? "") ?? .ru
         completedLessonIDs = Set(UserDefaults.standard.stringArray(forKey: "colidev.completedLessons") ?? [])
+        if let data = UserDefaults.standard.data(forKey: "colidev.lastOpenedCourseRoute"),
+           let savedRoute = try? JSONDecoder().decode(StudyLessonRoute.self, from: data) {
+            lastOpenedCourseRoute = savedRoute
+        } else {
+            lastOpenedCourseRoute = nil
+        }
+        lastLearningActivityAt = UserDefaults.standard.object(forKey: "colidev.lastLearningActivityAt") as? Date
+        if let data = UserDefaults.standard.data(forKey: "colidev.activeStudyGoal"),
+           let savedGoal = try? JSONDecoder().decode(StudyGoal.self, from: data) {
+            activeStudyGoal = savedGoal
+        } else {
+            activeStudyGoal = nil
+        }
+        if let data = UserDefaults.standard.data(forKey: "colidev.studyFormatPreferenceProfile"),
+           let savedProfile = try? JSONDecoder().decode(StudyFormatPreferenceProfile.self, from: data) {
+            studyFormatPreferenceProfile = savedProfile
+        } else {
+            studyFormatPreferenceProfile = StudyFormatPreferenceProfile()
+        }
+        if let data = UserDefaults.standard.data(forKey: "colidev.customCurriculum"),
+           let savedCurriculum = try? JSONDecoder().decode(CustomCurriculum.self, from: data) {
+            customCurriculum = savedCurriculum
+        } else {
+            customCurriculum = CustomCurriculum()
+        }
         let savedMode = UserDefaults.standard.string(forKey: "colidev.aiMode")
         aiMode = AIRoutingMode(rawValue: savedMode ?? "") ?? .automatic
         if let pending = UserDefaults.standard.data(forKey: "colidev.pendingStudyReviews"),
@@ -198,6 +296,12 @@ final class LearningStore: ObservableObject {
             pendingStudyReviews = events
         } else {
             pendingStudyReviews = []
+        }
+        if let pending = UserDefaults.standard.data(forKey: "colidev.pendingStudyAssessments"),
+           let events = try? JSONDecoder().decode([StudyAssessmentEvent].self, from: pending) {
+            pendingStudyAssessments = events
+        } else {
+            pendingStudyAssessments = []
         }
     }
 
@@ -280,8 +384,10 @@ final class LearningStore: ObservableObject {
         }
     }
 
-    func saveAutoAgentModelRoute(role: String, model: String?) async throws {
-        let route = try await OrchestratorClient.saveAutoAgentModelRoute(role: role, model: model)
+    func saveAutoAgentModelRoute(role: String, provider: String, model: String?) async throws {
+        let route = try await OrchestratorClient.saveAutoAgentModelRoute(
+            role: role, provider: provider, model: model
+        )
         autoAgentModelRoutes[route.role] = route
     }
 
@@ -317,9 +423,13 @@ final class LearningStore: ObservableObject {
         }
     }
 
-    func saveAutoCostPolicy(allowPaidRoutes: Bool) async throws {
+    func saveAutoCostPolicy(
+        allowPaidRoutes: Bool,
+        dailyCloudCallLimit: Int
+    ) async throws {
         autoCostPolicy = try await OrchestratorClient.saveAutoCostPolicy(
-            allowPaidRoutes: allowPaidRoutes
+            allowPaidRoutes: allowPaidRoutes,
+            dailyCloudCallLimit: dailyCloudCallLimit
         )
     }
 
@@ -364,21 +474,59 @@ final class LearningStore: ObservableObject {
         completedLessonIDs.contains(lessonID)
     }
 
+    func rememberCourseLesson(subject: Subject, resource: String) {
+        rememberStudyRoute(StudyLessonRoute(subjectID: subject.rawValue, resource: resource))
+    }
+
+    func rememberStudyRoute(_ route: StudyLessonRoute) {
+        lastOpenedCourseRoute = route
+        recordLearningActivity()
+    }
+
+    func setActiveStudyGoal(_ goal: StudyGoal?) {
+        activeStudyGoal = goal
+    }
+
     func markComplete(_ subject: Subject, reflection: String = "") {
         markComplete(lessonID: subject.lessonID, quality: 4, reflection: reflection)
     }
 
-    func markComplete(lessonID: String, quality: Int, reflection: String = "") {
-        completedLessonIDs.insert(lessonID)
-        queueStudyReview(lessonID: lessonID, quality: quality, reflection: reflection)
+    func markComplete(
+        lessonID: String,
+        quality: Int,
+        reflection: String = "",
+        assessment: StudyAssessmentEvidence? = nil
+    ) {
+        let isFirstCompletion = completedLessonIDs.insert(lessonID).inserted
+        if isFirstCompletion {
+            AppSoundFeedback.playCompletion()
+        }
+        queueStudyReview(
+            lessonID: lessonID,
+            quality: quality,
+            reflection: reflection,
+            completeLesson: true,
+            assessment: assessment
+        )
     }
 
     func recordReview(for subject: Subject, reflection: String = "") {
         recordReview(lessonID: subject.lessonID, quality: 4, reflection: reflection)
     }
 
-    func recordReview(lessonID: String, quality: Int, reflection: String = "") {
-        queueStudyReview(lessonID: lessonID, quality: quality, reflection: reflection)
+    func recordReview(
+        lessonID: String,
+        quality: Int,
+        reflection: String = "",
+        assessment: StudyAssessmentEvidence? = nil
+    ) {
+        queueStudyReview(
+            lessonID: lessonID,
+            quality: quality,
+            reflection: reflection,
+            completeLesson: false,
+            assessment: assessment
+        )
     }
 
     func isReviewDue(_ subject: Subject) -> Bool {
@@ -439,9 +587,22 @@ final class LearningStore: ObservableObject {
             }
         }
 
+        while let event = pendingStudyAssessments.first {
+            do {
+                try await OrchestratorClient.recordStudyAssessment(event)
+                pendingStudyAssessments.removeAll(where: { $0.id == event.id })
+            } catch {
+                return
+            }
+        }
+
         do {
             let snapshot = try await OrchestratorClient.studyProgress()
             studyProgress = Dictionary(uniqueKeysWithValues: snapshot.records.map { ($0.lessonID, $0) })
+            studyAssessmentEvidence = Dictionary(
+                uniqueKeysWithValues: (snapshot.assessmentEvidence ?? []).map { ($0.lessonID, $0) }
+            )
+            updateLastLearningActivity(from: snapshot.records)
             dueReviewCount = snapshot.records.filter { record in
                 (record.dueDate ?? .distantFuture) <= Date()
             }.count
@@ -453,21 +614,152 @@ final class LearningStore: ObservableObject {
         }
     }
 
-    var completedSubjectCount: Int {
-        Subject.allCases.filter(isComplete).count
+    var pendingStudyReviewCount: Int { pendingStudyReviews.count }
+    var pendingStudyAssessmentCount: Int { pendingStudyAssessments.count }
+
+    @discardableResult
+    func addCustomSubject(name: CustomCurriculumText, description: CustomCurriculumText) throws -> UUID {
+        var updated = customCurriculum
+        let reservedNames = Subject.allCases.map { subject in
+            CustomCurriculumText(
+                russian: subject.title(in: .ru),
+                english: subject.title(in: .en)
+            )
+        }
+        let id = try updated.addSubject(name: name, description: description, reservedNames: reservedNames)
+        customCurriculum = updated
+        return id
     }
 
-    var pendingStudyReviewCount: Int { pendingStudyReviews.count }
+    @discardableResult
+    func addCustomTopic(
+        subjectID: UUID,
+        parentTopicID: UUID?,
+        name: CustomCurriculumText,
+        learningOutcome: CustomCurriculumText,
+        notes: CustomCurriculumText,
+        level: Int
+    ) throws -> UUID {
+        var updated = customCurriculum
+        let id = try updated.addTopic(
+            subjectID: subjectID,
+            parentTopicID: parentTopicID,
+            name: name,
+            learningOutcome: learningOutcome,
+            notes: notes,
+            level: level
+        )
+        customCurriculum = updated
+        return id
+    }
 
-    private func queueStudyReview(lessonID: String, quality: Int, reflection: String) {
+    @discardableResult
+    func addCustomTopic(
+        builtInSubject: Subject,
+        parentTopicID: UUID?,
+        name: CustomCurriculumText,
+        learningOutcome: CustomCurriculumText,
+        notes: CustomCurriculumText,
+        level: Int
+    ) throws -> UUID {
+        var updated = customCurriculum
+        let id = try updated.addTopic(
+            builtInSubjectID: builtInSubject.rawValue,
+            parentTopicID: parentTopicID,
+            name: name,
+            learningOutcome: learningOutcome,
+            notes: notes,
+            level: level
+        )
+        customCurriculum = updated
+        return id
+    }
+
+    @discardableResult
+    func addCustomTopicOutline(
+        _ proposal: CustomTopicOutlineProposal,
+        to destination: CustomTopicOutlineDestination,
+        parentTopicID: UUID
+    ) throws -> [UUID] {
+        var updated = customCurriculum
+        let ids = try updated.addOutline(
+            proposal.topics,
+            to: destination,
+            parentTopicID: parentTopicID
+        )
+        customCurriculum = updated
+        return ids
+    }
+
+    func removeCustomSubject(id: UUID) {
+        var updated = customCurriculum
+        guard updated.removeSubject(id: id) else { return }
+        customCurriculum = updated
+    }
+
+    func removeCustomTopic(subjectID: UUID, topicID: UUID) {
+        var updated = customCurriculum
+        guard updated.removeTopic(subjectID: subjectID, topicID: topicID) else { return }
+        customCurriculum = updated
+    }
+
+    func removeCustomTopic(builtInSubject: Subject, topicID: UUID) {
+        var updated = customCurriculum
+        guard updated.removeTopic(builtInSubjectID: builtInSubject.rawValue, topicID: topicID) else { return }
+        customCurriculum = updated
+    }
+
+    func recordStudyAssessment(lessonID: String, evidence: StudyAssessmentEvidence) {
+        recordLearningActivity()
+        pendingStudyAssessments.append(StudyAssessmentEvent(
+            id: UUID().uuidString.lowercased(),
+            lessonID: lessonID,
+            assessment: evidence
+        ))
+        Task { await syncStudyProgress() }
+    }
+
+    func recordStudyFormatPreference(
+        _ choice: StudyFormatFeedbackChoice,
+        lessonID: String,
+        subjectID: String
+    ) {
+        studyFormatPreferenceProfile.record(choice, for: lessonID, subjectID: subjectID)
+    }
+
+    func clearStudyFormatPreferenceProfile() {
+        studyFormatPreferenceProfile.clear()
+    }
+
+    private func queueStudyReview(
+        lessonID: String,
+        quality: Int,
+        reflection: String,
+        completeLesson: Bool?,
+        assessment: StudyAssessmentEvidence? = nil
+    ) {
+        recordLearningActivity()
         guard !hasPendingReview(lessonID: lessonID) else { return }
         pendingStudyReviews.append(StudyReviewEvent(
             id: UUID().uuidString.lowercased(),
             lessonID: lessonID,
             quality: quality,
-            reflection: String(reflection.trimmingCharacters(in: .whitespacesAndNewlines).prefix(500))
+            reflection: String(reflection.trimmingCharacters(in: .whitespacesAndNewlines).prefix(500)),
+            completeLesson: completeLesson,
+            assessment: assessment
         ))
         Task { await syncStudyProgress() }
+    }
+
+    private func updateLastLearningActivity(from records: [StudyProgressRecord]) {
+        let formatter = ISO8601DateFormatter()
+        guard let latestActivity = records.compactMap({ formatter.date(from: $0.updatedAt) }).max() else { return }
+        recordLearningActivity(at: latestActivity)
+    }
+
+    private func recordLearningActivity(at date: Date = Date()) {
+        guard lastLearningActivityAt.map({ date > $0 }) ?? true else { return }
+        lastLearningActivityAt = date
     }
 }
 
@@ -496,6 +788,7 @@ final class LocalBackendSupervisor: ObservableObject {
     @Published private(set) var status: Status = .idle
     private var process: Process?
     private var startupTask: Task<Bool, Never>?
+    private var lastProbeError: String?
     private let baseURL = URL(string: "http://127.0.0.1:8000")!
 
     var isReady: Bool {
@@ -561,14 +854,33 @@ final class LocalBackendSupervisor: ObservableObject {
         child.executableURL = executable
         child.currentDirectoryURL = resources
         var environment = ProcessInfo.processInfo.environment
+        for key in environment.keys.filter({ $0.hasPrefix("DYLD_") || $0.hasPrefix("__XPC_DYLD_") }) {
+            environment.removeValue(forKey: key)
+        }
         environment["COLIDEV_PROJECT_ROOT"] = resources.path
         environment["HOST"] = "127.0.0.1"
         environment["PORT"] = "8000"
         environment["DEV_MODE"] = "false"
         child.environment = environment
-        child.standardOutput = FileHandle.nullDevice
-        child.standardError = FileHandle.nullDevice
-        child.terminationHandler = { [weak self] _ in
+        let backendLogHandle = try? makeBackendLogHandle()
+        if let backendLogHandle {
+            environment["COLIDEV_LOG_DIR"] = backendLogHandleURL().deletingLastPathComponent().path
+            child.environment = environment
+            child.standardOutput = backendLogHandle
+            child.standardError = backendLogHandle
+            appendBackendDiagnostic("Starting bundled backend on 127.0.0.1:8000.", to: backendLogHandle)
+        } else {
+            child.standardOutput = FileHandle.nullDevice
+            child.standardError = FileHandle.nullDevice
+        }
+        child.terminationHandler = { [weak self, backendLogHandle] terminatedChild in
+            if let backendLogHandle {
+                let reason = terminatedChild.terminationReason == .exit ? "exit" : "signal"
+                let line = "\(Date().timeIntervalSince1970) Bundled backend terminated by \(reason) with status \(terminatedChild.terminationStatus).\n"
+                try? backendLogHandle.write(contentsOf: Data(line.utf8))
+                try? backendLogHandle.synchronize()
+                try? backendLogHandle.close()
+            }
             Task { @MainActor [weak self] in
                 guard let self, self.process === child else { return }
                 self.process = nil
@@ -579,15 +891,23 @@ final class LocalBackendSupervisor: ObservableObject {
         do {
             try child.run()
         } catch {
+            appendBackendDiagnostic("Could not launch bundled backend: \(error.localizedDescription)", to: backendLogHandle)
+            try? backendLogHandle?.synchronize()
+            try? backendLogHandle?.close()
             status = .failed
             return false
         }
         process = child
 
         if await waitUntilReady(timeout: 15) {
+            appendBackendDiagnostic("Local backend /api/status responded successfully.", to: backendLogHandle)
             status = .running
             return true
         }
+        appendBackendDiagnostic(
+            "Local backend did not become ready: \(lastProbeError ?? "no HTTP response").",
+            to: backendLogHandle
+        )
         if child.isRunning {
             child.terminate()
         }
@@ -616,12 +936,55 @@ final class LocalBackendSupervisor: ObservableObject {
                   (200..<300).contains(response.statusCode),
                   let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let service = payload["service"] as? String else {
+                lastProbeError = "Unexpected HTTP response from the local backend."
                 return false
             }
-            return service.hasPrefix("coli-dev Orchestrator")
+            guard service.hasPrefix("coli-dev Orchestrator") else {
+                lastProbeError = "The service at 127.0.0.1:8000 is not the ColiDev orchestrator."
+                return false
+            }
+            lastProbeError = nil
+            return true
         } catch {
+            lastProbeError = String(describing: error)
             return false
         }
+    }
+
+    private func backendLogHandleURL() -> URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Logs/coli-dev", isDirectory: true)
+            .appendingPathComponent("backend-launch.log")
+    }
+
+    private func makeBackendLogHandle() throws -> FileHandle {
+        let logURL = backendLogHandleURL()
+        try FileManager.default.createDirectory(
+            at: logURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        if !FileManager.default.fileExists(atPath: logURL.path) {
+            FileManager.default.createFile(
+                atPath: logURL.path,
+                contents: nil,
+                attributes: [.posixPermissions: 0o600]
+            )
+        }
+        let handle = try FileHandle(forWritingTo: logURL)
+        let attributes = try? FileManager.default.attributesOfItem(atPath: logURL.path)
+        let existingSize = (attributes?[.size] as? NSNumber)?.uint64Value ?? 0
+        if existingSize >= 256 * 1024 {
+            try handle.truncate(atOffset: 0)
+        } else {
+            try handle.seekToEnd()
+        }
+        return handle
+    }
+
+    private func appendBackendDiagnostic(_ message: String, to handle: FileHandle?) {
+        guard let handle else { return }
+        let line = "\(Date().timeIntervalSince1970) \(message)\n"
+        try? handle.write(contentsOf: Data(line.utf8))
     }
 }
 
@@ -641,6 +1004,9 @@ struct OrchestratorHealth: Decodable {
     let sessionMode: String?
     let sessionCurrent: Int?
     let sessionMax: Int?
+    let cloudRouteReady: Bool?
+    let localRouteReady: Bool?
+    let automaticRouteReady: Bool?
     let cloudModelCallsToday: Int?
     let cloudModelCallsMax: Int?
     let cloudModelCallsRemaining: Int?
@@ -666,7 +1032,9 @@ struct OrchestratorHealth: Decodable {
         guard let sessionCurrent, let sessionMax else { return true }
         return sessionCurrent < sessionMax
     }
-    var hasAutomaticRoute: Bool { hasCloudSession || hasLocalModel }
+
+    var hasCloudRoute: Bool { cloudRouteReady ?? false }
+    var hasAutomaticRoute: Bool { automaticRouteReady ?? false }
 
     enum CodingKeys: String, CodingKey {
         case status, online, provider
@@ -682,6 +1050,9 @@ struct OrchestratorHealth: Decodable {
         case sessionMode = "session_mode"
         case sessionCurrent = "session_current"
         case sessionMax = "session_max"
+        case cloudRouteReady = "cloud_route_ready"
+        case localRouteReady = "local_route_ready"
+        case automaticRouteReady = "automatic_route_ready"
         case cloudModelCallsToday = "cloud_model_calls_today"
         case cloudModelCallsMax = "cloud_model_calls_max"
         case cloudModelCallsRemaining = "cloud_model_calls_remaining"
@@ -691,6 +1062,12 @@ struct OrchestratorHealth: Decodable {
         case knowledgeReviewScheduledDocumentCount = "knowledge_review_scheduled_document_count"
         case knowledgeReviewScheduleMissingDocumentCount = "knowledge_review_schedule_missing_document_count"
     }
+}
+
+struct PythonPracticeRunResponse {
+    let status: String
+    let resultText: String?
+    let code: String?
 }
 
 struct ProviderUsageCounts: Decodable {
@@ -703,6 +1080,9 @@ struct ProviderUsageCounts: Decodable {
     let responsesWithInputCount: Int
     let responsesWithOutputCount: Int
     let responsesWithTotalCount: Int
+    let responsesWithReportedCost: Int?
+    let responsesWithoutReportedCost: Int?
+    let reportedCostUSD: String?
 
     enum CodingKeys: String, CodingKey {
         case successfulResponses = "successful_responses"
@@ -714,6 +1094,9 @@ struct ProviderUsageCounts: Decodable {
         case responsesWithInputCount = "responses_with_input_count"
         case responsesWithOutputCount = "responses_with_output_count"
         case responsesWithTotalCount = "responses_with_total_count"
+        case responsesWithReportedCost = "responses_with_reported_cost"
+        case responsesWithoutReportedCost = "responses_without_reported_cost"
+        case reportedCostUSD = "reported_cost_usd"
     }
 }
 
@@ -729,6 +1112,9 @@ struct ProviderUsageBreakdown: Decodable, Identifiable {
     let responsesWithInputCount: Int
     let responsesWithOutputCount: Int
     let responsesWithTotalCount: Int
+    let responsesWithReportedCost: Int?
+    let responsesWithoutReportedCost: Int?
+    let reportedCostUSD: String?
 
     var id: String { "\(provider):\(model)" }
 
@@ -743,6 +1129,9 @@ struct ProviderUsageBreakdown: Decodable, Identifiable {
         case responsesWithInputCount = "responses_with_input_count"
         case responsesWithOutputCount = "responses_with_output_count"
         case responsesWithTotalCount = "responses_with_total_count"
+        case responsesWithReportedCost = "responses_with_reported_cost"
+        case responsesWithoutReportedCost = "responses_without_reported_cost"
+        case reportedCostUSD = "reported_cost_usd"
     }
 }
 
@@ -841,6 +1230,7 @@ struct TrustedSourceInventory: Decodable {
     let omittedCount: Int
     let automaticCheckEnabled: Bool?
     let automaticCheckIntervalHours: Int?
+    let automaticCheckDueAt: String?
     let sources: [TrustedSourceInventoryItem]
 
     enum CodingKeys: String, CodingKey {
@@ -858,6 +1248,7 @@ struct TrustedSourceInventory: Decodable {
         case omittedCount = "omitted_count"
         case automaticCheckEnabled = "automatic_check_enabled"
         case automaticCheckIntervalHours = "automatic_check_interval_hours"
+        case automaticCheckDueAt = "automatic_check_due_at"
     }
 }
 
@@ -878,6 +1269,8 @@ struct TrustedSourceInventoryItem: Decodable, Identifiable {
     let hasETag: Bool
     let pageTitle: String?
     let pageDescription: String?
+    let pagePublishedAt: String?
+    let pageUpdatedAt: String?
     let contentCheckedAt: String?
     let ragContentState: String?
     let ragContentFetchedAt: String?
@@ -902,6 +1295,8 @@ struct TrustedSourceInventoryItem: Decodable, Identifiable {
         case hasETag = "has_etag"
         case pageTitle = "page_title"
         case pageDescription = "page_description"
+        case pagePublishedAt = "page_published_at"
+        case pageUpdatedAt = "page_updated_at"
         case contentCheckedAt = "content_checked_at"
         case ragContentState = "rag_content_state"
         case ragContentFetchedAt = "rag_content_fetched_at"
@@ -951,6 +1346,8 @@ struct TrustedSourcePagePreview: Decodable, Identifiable {
     let lessonPaths: [String]
     let pageTitle: String?
     let pageDescription: String?
+    let pagePublishedAt: String?
+    let pageUpdatedAt: String?
     let excerpt: String
     let excerptTruncated: Bool
     let contentDigest: String
@@ -963,6 +1360,8 @@ struct TrustedSourcePagePreview: Decodable, Identifiable {
         case lessonPaths = "lesson_paths"
         case pageTitle = "page_title"
         case pageDescription = "page_description"
+        case pagePublishedAt = "page_published_at"
+        case pageUpdatedAt = "page_updated_at"
         case excerptTruncated = "excerpt_truncated"
         case contentDigest = "content_digest"
         case fetchedAt = "fetched_at"
@@ -1012,16 +1411,22 @@ struct SubjectModelRoute: Decodable, Identifiable, Hashable {
     let subject: String
     let provider: String
     let model: String?
+    let effectiveProvider: String
     let effectiveModel: String?
     let providerReady: Bool?
+    let effectiveProviderReady: Bool?
+    let paidRouteBlocked: Bool
     let status: String
 
     var id: String { subject }
 
     enum CodingKeys: String, CodingKey {
         case subject, provider, model, status
+        case effectiveProvider = "effective_provider"
         case effectiveModel = "effective_model"
         case providerReady = "provider_ready"
+        case effectiveProviderReady = "effective_provider_ready"
+        case paidRouteBlocked = "paid_route_blocked"
     }
 }
 
@@ -1031,17 +1436,24 @@ struct SubjectModelRoutingSnapshot: Decodable {
 
 struct AutoAgentModelRoute: Decodable, Identifiable, Hashable {
     let role: String
+    let provider: String
     let model: String?
+    let effectiveProvider: String
     let effectiveModel: String
-    let providerReady: Bool
+    let providerReady: Bool?
+    let effectiveProviderReady: Bool?
     let status: String
+    let paidRouteBlocked: Bool
 
     var id: String { role }
 
     enum CodingKeys: String, CodingKey {
-        case role, model, status
+        case role, provider, model, status
+        case effectiveProvider = "effective_provider"
         case effectiveModel = "effective_model"
         case providerReady = "provider_ready"
+        case effectiveProviderReady = "effective_provider_ready"
+        case paidRouteBlocked = "paid_route_blocked"
     }
 }
 
@@ -1058,15 +1470,23 @@ struct LocalOllamaModelCatalog: Decodable, Equatable {
     static let unavailable = Self(available: false, status: "unavailable", models: [])
 }
 
+struct OllamaEmbeddingModelSettings: Decodable, Equatable {
+    let model: String?
+    let source: String
+    let configured: Bool
+}
+
 struct FinalSynthesisModelRoute: Decodable, Hashable {
     let provider: String
     let model: String?
+    let effectiveProvider: String
     let effectiveModel: String
     let providerReady: Bool?
     let status: String
 
     enum CodingKeys: String, CodingKey {
         case provider, model, status
+        case effectiveProvider = "effective_provider"
         case effectiveModel = "effective_model"
         case providerReady = "provider_ready"
     }
@@ -1074,9 +1494,17 @@ struct FinalSynthesisModelRoute: Decodable, Hashable {
 
 struct AutoCostPolicy: Decodable, Hashable {
     let allowPaidRoutes: Bool
+    let dailyCloudCallLimit: Int
 
     enum CodingKeys: String, CodingKey {
         case allowPaidRoutes = "allow_paid_routes"
+        case dailyCloudCallLimit = "daily_cloud_call_limit"
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        allowPaidRoutes = try values.decode(Bool.self, forKey: .allowPaidRoutes)
+        dailyCloudCallLimit = try values.decodeIfPresent(Int.self, forKey: .dailyCloudCallLimit) ?? 25
     }
 }
 
@@ -1095,7 +1523,12 @@ private struct OpenAICompatibleSettingsUpdate: Encodable {
     }
 }
 
+private struct OllamaEmbeddingModelUpdate: Encodable {
+    let model: String?
+}
+
 private struct AutoAgentModelUpdate: Encodable {
+    let provider: String
     let model: String?
 }
 
@@ -1106,9 +1539,11 @@ private struct FinalSynthesisModelRouteUpdate: Encodable {
 
 private struct AutoCostPolicyUpdate: Encodable {
     let allowPaidRoutes: Bool
+    let dailyCloudCallLimit: Int
 
     enum CodingKeys: String, CodingKey {
         case allowPaidRoutes = "allow_paid_routes"
+        case dailyCloudCallLimit = "daily_cloud_call_limit"
     }
 }
 
@@ -1138,6 +1573,7 @@ private struct TutorRequest: Encodable {
     let language: String
     let mode: String
     let retrievalQuery: String
+    let skipRetrieval: Bool
     let useWebSearch: Bool
     let groundingAgeConfirmed: Bool
     let includeLocalSourcesInWebSearch: Bool
@@ -1146,6 +1582,7 @@ private struct TutorRequest: Encodable {
         case message, subject, language, mode
         case systemPrompt = "system_prompt"
         case retrievalQuery = "retrieval_query"
+        case skipRetrieval = "skip_retrieval"
         case useWebSearch = "use_web_search"
         case groundingAgeConfirmed = "grounding_age_confirmed"
         case includeLocalSourcesInWebSearch = "include_local_sources_in_web_search"
@@ -1161,6 +1598,9 @@ struct TutorSource: Decodable, Identifiable {
     let location: String?
     let modifiedAt: String?
     let sourceCheckedAt: String?
+    let sourceSnapshotFetchedAt: String?
+    let pagePublishedAt: String?
+    let pageUpdatedAt: String?
     let sourceReviewIntervalDays: String?
     let sourceReviewDueOn: String?
     let sourceReviewStatus: String?
@@ -1176,6 +1616,9 @@ struct TutorSource: Decodable, Identifiable {
         case path, location
         case modifiedAt = "modified_at"
         case sourceCheckedAt = "source_checked_at"
+        case sourceSnapshotFetchedAt = "source_snapshot_fetched_at"
+        case pagePublishedAt = "page_published_at"
+        case pageUpdatedAt = "page_updated_at"
         case sourceReviewIntervalDays = "source_review_interval_days"
         case sourceReviewDueOn = "source_review_due_on"
         case sourceReviewStatus = "source_review_status"
@@ -1237,6 +1680,11 @@ struct TutorCompletion {
 
 @MainActor
 enum OrchestratorClient {
+    private struct PythonPracticeRunRequestBody: Encodable {
+        let code: String
+        let arguments: [String: [Int]]
+    }
+
     enum ClientError: Error {
         case invalidResponse
         case unavailable
@@ -1255,6 +1703,39 @@ enum OrchestratorClient {
             throw ClientError.unavailable
         }
         return try JSONDecoder().decode(OrchestratorHealth.self, from: data)
+    }
+
+    static func runPythonPractice(code: String, values: [Int]) async throws -> PythonPracticeRunResponse {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/practice/python/run") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 20
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(
+            PythonPracticeRunRequestBody(code: code, arguments: ["values": values])
+        )
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        guard let payload = try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]) as? [String: Any],
+              let status = payload["status"] as? String else {
+            throw ClientError.invalidResponse
+        }
+        let resultText: String?
+        if let result = payload["result"] {
+            let resultData = try JSONSerialization.data(withJSONObject: result, options: [.fragmentsAllowed, .sortedKeys])
+            resultText = String(data: resultData, encoding: .utf8)
+        } else {
+            resultText = nil
+        }
+        return PythonPracticeRunResponse(
+            status: status,
+            resultText: resultText,
+            code: payload["code"] as? String
+        )
     }
 
     static func providerUsage(days: Int = 30, language: AppLanguage = .ru) async throws -> ProviderUsageSummary {
@@ -1277,7 +1758,7 @@ enum OrchestratorClient {
         }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.timeoutInterval = 30
+        request.timeoutInterval = 75
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             throw ClientError.unavailable
@@ -1489,6 +1970,21 @@ enum OrchestratorClient {
         return try JSONDecoder().decode(StudyProgressRecord.self, from: data)
     }
 
+    static func recordStudyAssessment(_ event: StudyAssessmentEvent) async throws {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/learning/assessments") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 8
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(event)
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+    }
+
     static func providerSecretStatuses() async throws -> [ProviderSecretStatus] {
         guard let url = URL(string: LearningStore.orchestratorBaseURL + "/settings/api-keys") else {
             throw ClientError.invalidResponse
@@ -1609,7 +2105,38 @@ enum OrchestratorClient {
         return try JSONDecoder().decode(LocalOllamaModelCatalog.self, from: data)
     }
 
-    static func saveAutoAgentModelRoute(role: String, model: String?) async throws -> AutoAgentModelRoute {
+    static func ollamaEmbeddingModelSettings() async throws -> OllamaEmbeddingModelSettings {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/settings/ollama-embedding-model") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 8
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(OllamaEmbeddingModelSettings.self, from: data)
+    }
+
+    static func saveOllamaEmbeddingModel(_ model: String?) async throws -> OllamaEmbeddingModelSettings {
+        guard let url = URL(string: LearningStore.orchestratorBaseURL + "/settings/ollama-embedding-model") else {
+            throw ClientError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.timeoutInterval = 30
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(OllamaEmbeddingModelUpdate(model: model))
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ClientError.unavailable
+        }
+        return try JSONDecoder().decode(OllamaEmbeddingModelSettings.self, from: data)
+    }
+
+    static func saveAutoAgentModelRoute(
+        role: String, provider: String, model: String?
+    ) async throws -> AutoAgentModelRoute {
         guard let url = URL(string: LearningStore.orchestratorBaseURL + "/settings/agent-models/\(role)") else {
             throw ClientError.invalidResponse
         }
@@ -1617,7 +2144,9 @@ enum OrchestratorClient {
         request.httpMethod = "PUT"
         request.timeoutInterval = 15
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(AutoAgentModelUpdate(model: model))
+        request.httpBody = try JSONEncoder().encode(
+            AutoAgentModelUpdate(provider: provider, model: model)
+        )
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             throw ClientError.unavailable
@@ -1700,7 +2229,10 @@ enum OrchestratorClient {
         return try JSONDecoder().decode(AutoCostPolicy.self, from: data)
     }
 
-    static func saveAutoCostPolicy(allowPaidRoutes: Bool) async throws -> AutoCostPolicy {
+    static func saveAutoCostPolicy(
+        allowPaidRoutes: Bool,
+        dailyCloudCallLimit: Int
+    ) async throws -> AutoCostPolicy {
         guard let url = URL(string: LearningStore.orchestratorBaseURL + "/settings/auto-cost-policy") else {
             throw ClientError.invalidResponse
         }
@@ -1709,7 +2241,10 @@ enum OrchestratorClient {
         request.timeoutInterval = 15
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(
-            AutoCostPolicyUpdate(allowPaidRoutes: allowPaidRoutes)
+            AutoCostPolicyUpdate(
+                allowPaidRoutes: allowPaidRoutes,
+                dailyCloudCallLimit: dailyCloudCallLimit
+            )
         )
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
@@ -1752,12 +2287,13 @@ enum OrchestratorClient {
         message: String,
         systemPrompt: String,
         retrievalQuery: String,
-        subject: Subject,
+        subjectID: String,
         language: AppLanguage,
         mode: AIRoutingMode,
         useWebSearch: Bool = false,
         groundingAgeConfirmed: Bool = false,
         includeLocalSourcesInWebSearch: Bool = false,
+        skipRetrieval: Bool = false,
         onToken: @MainActor (String) -> Void,
         onFinalAnswer: @MainActor (String) -> Void
     ) async throws -> TutorCompletion {
@@ -1772,10 +2308,11 @@ enum OrchestratorClient {
         request.httpBody = try JSONEncoder().encode(TutorRequest(
             message: message,
             systemPrompt: systemPrompt,
-            subject: subject.rawValue,
+            subject: subjectID,
             language: language.rawValue,
             mode: mode.rawValue,
             retrievalQuery: retrievalQuery,
+            skipRetrieval: skipRetrieval,
             useWebSearch: useWebSearch,
             groundingAgeConfirmed: groundingAgeConfirmed,
             includeLocalSourcesInWebSearch: includeLocalSourcesInWebSearch
@@ -1816,6 +2353,59 @@ enum OrchestratorClient {
 
         guard let completion else { throw ClientError.incompleteStream }
         return completion
+    }
+}
+
+@MainActor
+final class TutorRouteProbeModel: ObservableObject {
+    @Published private(set) var state: TutorRouteProbeState = .idle
+
+    var isChecking: Bool { state == .checking }
+
+    func begin() {
+        guard !isChecking else { return }
+        state = .checking
+    }
+
+    func reset() {
+        state = .idle
+    }
+
+    func fail(_ message: String) {
+        state = .failed(message)
+    }
+
+    func check(language: AppLanguage, mode: AIRoutingMode) async {
+        begin()
+        var answer = ""
+
+        do {
+            let completion = try await OrchestratorClient.streamChat(
+                message: L10n.text("settings.tutorProbe.message", language),
+                systemPrompt: L10n.text("settings.tutorProbe.system", language),
+                retrievalQuery: "",
+                subjectID: Subject.mathematics.rawValue,
+                language: language,
+                mode: mode,
+                skipRetrieval: true,
+                onToken: { answer += $0 },
+                onFinalAnswer: { answer = $0 }
+            )
+            guard let verified = TutorRouteProbeState.verifiedResponse(
+                provider: completion.provider,
+                model: completion.model,
+                answer: answer,
+                durationMS: completion.durationMS
+            ) else {
+                state = .failed(L10n.text("settings.tutorProbe.emptyResponse", language))
+                return
+            }
+            state = verified
+        } catch OrchestratorClient.ClientError.serverError(let message) {
+            state = .failed(message)
+        } catch {
+            state = .failed(L10n.text("settings.tutorProbe.failed", language))
+        }
     }
 }
 
@@ -1869,13 +2459,23 @@ final class TutorChatModel: ObservableObject {
     @Published private(set) var completionLabel: String?
     private var requestTask: Task<Void, Never>?
 
-    let subject: Subject
+    let subjectID: String
+    let subjectName: String
     let lesson: LessonContent
     let language: AppLanguage
     let mode: AIRoutingMode
 
     init(subject: Subject, lesson: LessonContent, language: AppLanguage, mode: AIRoutingMode) {
-        self.subject = subject
+        self.subjectID = subject.rawValue
+        self.subjectName = subject.title(in: language)
+        self.lesson = lesson
+        self.language = language
+        self.mode = mode
+    }
+
+    init(subjectID: String, subjectName: String, lesson: LessonContent, language: AppLanguage, mode: AIRoutingMode) {
+        self.subjectID = subjectID
+        self.subjectName = subjectName
         self.lesson = lesson
         self.language = language
         self.mode = mode
@@ -1885,7 +2485,8 @@ final class TutorChatModel: ObservableObject {
         _ rawText: String,
         useWebSearch: Bool = false,
         groundingAgeConfirmed: Bool = false,
-        includeLocalSourcesInWebSearch: Bool = false
+        includeLocalSourcesInWebSearch: Bool = false,
+        preferredLearningFormat: StudyFormatFeedbackChoice? = nil
     ) {
         let question = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !question.isEmpty, !isSending else { return }
@@ -1897,7 +2498,10 @@ final class TutorChatModel: ObservableObject {
         messages.append(reply)
         isSending = true
 
-        let subjectName = subject.title(in: language)
+        let preferenceInstruction = preferredLearningFormat.flatMap {
+            StudyFormatTutorPrompt.note(for: $0, languageCode: language.rawValue)
+        }.map { "\n\n" + $0 } ?? ""
+
         let systemPrompt: String
         if language == .ru {
             systemPrompt = """
@@ -1908,6 +2512,7 @@ final class TutorChatModel: ObservableObject {
             Пример: \(lesson.example)
             Ограничения модели: \(lesson.limitations)
             Отвечай по-русски. Объясняй ясно и по шагам, подбирай глубину к вопросу. Помогай разобраться вопросами и подсказками; не выдавай решение задания сразу, если ученик просит научить. Не выдумывай источники и текущие факты.
+            \(preferenceInstruction)
             """
         } else {
             systemPrompt = """
@@ -1918,6 +2523,7 @@ final class TutorChatModel: ObservableObject {
             Example: \(lesson.example)
             Model limitations: \(lesson.limitations)
             Answer in English. Explain clearly in steps at the learner's level. Use questions and hints to build understanding; do not immediately give away an exercise solution when the learner asks to learn. Do not invent sources or current facts.
+            \(preferenceInstruction)
             """
         }
 
@@ -1937,7 +2543,7 @@ final class TutorChatModel: ObservableObject {
                     message: requestMessage,
                     systemPrompt: systemPrompt,
                     retrievalQuery: "\(subjectName) \(lesson.title) \(question)",
-                    subject: subject,
+                    subjectID: subjectID,
                     language: language,
                     mode: mode,
                     useWebSearch: useWebSearch,
@@ -1946,12 +2552,18 @@ final class TutorChatModel: ObservableObject {
                     onToken: { [weak self] token in self?.append(token, to: reply.id) },
                     onFinalAnswer: { [weak self] answer in self?.replace(answer, in: reply.id) }
                 )
-                completionLabel = [result.provider, result.model].filter { !$0.isEmpty }.joined(separator: " · ")
-                if let index = messages.firstIndex(where: { $0.id == reply.id }) {
-                    messages[index].sources = result.sources
-                    messages[index].citationWarnings = result.citationWarnings
-                    messages[index].googleSearchSuggestions = result.googleSearchSuggestions
-                    messages[index].isGoogleGrounded = result.googleSearchSuggestions != nil
+                if let replyMessage = messages.first(where: { $0.id == reply.id }),
+                   !replyMessage.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    completionLabel = [result.provider, result.model].filter { !$0.isEmpty }.joined(separator: " · ")
+                    if let index = messages.firstIndex(where: { $0.id == reply.id }) {
+                        messages[index].sources = result.sources
+                        messages[index].citationWarnings = result.citationWarnings
+                        messages[index].googleSearchSuggestions = result.googleSearchSuggestions
+                        messages[index].isGoogleGrounded = result.googleSearchSuggestions != nil
+                    }
+                } else {
+                    discard(reply.id)
+                    errorMessage = L10n.text("tutor.emptyResponse", language)
                 }
             } catch is CancellationError {
                 // Keep a partial answer visible when the learner stops generation.
@@ -1961,8 +2573,8 @@ final class TutorChatModel: ObservableObject {
             } catch {
                 discard(reply.id)
                 errorMessage = language == .ru
-                    ? "Не удалось получить ответ. Проверь, запущен ли локальный оркестратор."
-                    : "The tutor could not reply. Check that the local orchestrator is running."
+                    ? "Не удалось получить ответ. Проверь доступность backend и настройки выбранной модели."
+                    : "The tutor could not reply. Check the backend and the selected model configuration."
             }
             isSending = false
             requestTask = nil
@@ -1994,6 +2606,10 @@ enum AppSection: Hashable {
     case subject(Subject)
     case lesson(Subject)
     case courseLesson(Subject, String)
+    case customSubject(UUID)
+    case customTopic(UUID, UUID)
+    case builtInCustomTopic(Subject, UUID)
     case management
+    case localModels
     case settings
 }
