@@ -44,7 +44,7 @@ struct ContentView: View {
                     ForEach(Subject.allCases) { subject in
                         Label { Text(subject.title(in: store.language)) } icon: {
                             Image(systemName: subject.symbol)
-                                .foregroundStyle(ColiDevVisualSystem.subjectColor(subject.rawValue))
+                                .foregroundStyle(Color.accentColor)
                         }
                             .tag(AppSection.subject(subject))
                     }
@@ -460,6 +460,15 @@ private struct TodayView: View {
 
     private var hasAddressableDueReview: Bool { nextDueReviewRoute != nil }
 
+    private var featuredStudyAccent: Color {
+        studyAccent(for: nextDueReviewRoute ?? studyRecommendation?.route)
+    }
+
+    private func studyAccent(for route: StudyLessonRoute?) -> Color {
+        guard let route else { return Color.accentColor }
+        return ColiDevVisualSystem.studyAccentToken(subjectID: route.subjectID, resource: route.resource).color
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
@@ -471,6 +480,7 @@ private struct TodayView: View {
                     Text(L10n.text("home.title", store.language))
                         .font(.system(size: 34, weight: .bold, design: .rounded))
                         .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("home.title")
                     Text(L10n.text("home.subtitle", store.language))
                         .font(.title3)
                         .foregroundStyle(.secondary)
@@ -557,7 +567,7 @@ private struct TodayView: View {
                     .foregroundStyle(.secondary)
                 HStack(spacing: 12) {
                     ProgressView(value: progress.fractionVerified)
-                        .tint(Color.accentColor)
+                        .tint(studyAccent(for: activeGoalOption?.route ?? studyRecommendation?.route))
                     Text(String(
                         format: L10n.text("home.goal.verifiedProgress", store.language),
                         progress.verifiedCount,
@@ -584,7 +594,7 @@ private struct TodayView: View {
                     Text(L10n.text("home.goal.nextStep", store.language)
                         .replacingOccurrences(of: "%@", with: goalStepTitle(next.route)))
                         .font(.caption.weight(.medium))
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(studyAccent(for: next.route))
                     if !hasAddressableDueReview, let recommendation = studyRecommendation {
                         Text(L10n.text("home.goal.microstart", store.language)
                             .replacingOccurrences(of: "%@", with: goalStepTitle(recommendation.route)))
@@ -595,7 +605,7 @@ private struct TodayView: View {
                 } else if progress.isComplete {
                     Text(L10n.text("home.goal.completed", store.language))
                         .font(.caption.weight(.medium))
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(studyAccent(for: activeGoalOption?.route))
                 }
 
                 DisclosureGroup(L10n.text("home.goal.showPath", store.language)) {
@@ -641,19 +651,7 @@ private struct TodayView: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            LinearGradient(
-                colors: [Color.teal.opacity(0.12), Color.blue.opacity(0.08)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: RoundedRectangle(cornerRadius: 18)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 18)
-                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
-        }
-        .coliGlassControl(cornerRadius: 18)
+        .coliContentCard(tint: studyAccent(for: activeGoalOption?.route ?? studyRecommendation?.route), cornerRadius: 18)
     }
 
     private func goalStepTitle(_ route: StudyLessonRoute) -> String {
@@ -687,7 +685,7 @@ private struct TodayView: View {
                 Text(L10n.text("home.return.next", store.language)
                     .replacingOccurrences(of: "%@", with: goalStepTitle(nextRoute)))
                     .font(.callout.weight(.medium))
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(studyAccent(for: nextRoute))
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 Text(L10n.text("home.return.noNext", store.language))
@@ -701,19 +699,7 @@ private struct TodayView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            LinearGradient(
-                colors: [Color.accentColor.opacity(0.09), Color.teal.opacity(0.06)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: RoundedRectangle(cornerRadius: 16)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
-        }
-        .coliGlassControl(cornerRadius: 16)
+        .coliContentCard(tint: studyAccent(for: snapshot.nextRoute), cornerRadius: 16)
     }
 
     private var progressCard: some View {
@@ -722,7 +708,7 @@ private struct TodayView: View {
                 Circle().stroke(.quaternary, lineWidth: 8)
                 Circle()
                     .trim(from: 0, to: CGFloat(courseProgress.fractionCompleted))
-                    .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                    .stroke(featuredStudyAccent, style: StrokeStyle(lineWidth: 8, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                     .animation(
                         reduceMotion ? nil : .easeInOut(duration: 0.28),
@@ -771,7 +757,7 @@ private struct TodayView: View {
                             knowledgeEvidenceCoverage.topicsNeedingPractice
                         ))
                             .font(.caption.weight(.medium))
-                            .foregroundStyle(Color.accentColor)
+                            .foregroundStyle(featuredStudyAccent)
                     }
                     let reportedDifficulties = StudyErrorCategory.allCases.filter {
                         (knowledgeEvidenceCoverage.reportedErrorTopicCounts[$0] ?? 0) > 0
@@ -799,20 +785,20 @@ private struct TodayView: View {
                 if !hasAddressableDueReview, studyRecommendation?.reason == .prerequisiteCheck {
                     Text(L10n.text("home.prerequisiteCheck", store.language))
                         .font(.caption.weight(.medium))
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(featuredStudyAccent)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if !hasAddressableDueReview, studyRecommendation?.reason == .practiceReview {
                     Text(L10n.text("home.quizNeedsPractice", store.language))
                         .font(.caption)
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(featuredStudyAccent)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if !hasAddressableDueReview,
                    studyRecommendation?.reason == .reportedFoundationPrerequisite {
                     Text(L10n.text("home.reportedFoundationPrerequisite", store.language))
                         .font(.caption.weight(.medium))
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(featuredStudyAccent)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if !hasAddressableDueReview,
@@ -821,7 +807,7 @@ private struct TodayView: View {
                         Text(L10n.text("home.reportedDifficultyRecommendation", store.language)
                             .replacingOccurrences(of: "%@", with: L10n.text(category.titleKey, store.language)))
                             .font(.caption.weight(.medium))
-                            .foregroundStyle(Color.accentColor)
+                            .foregroundStyle(featuredStudyAccent)
                         Text(L10n.text(category.guidanceKey, store.language))
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -831,14 +817,14 @@ private struct TodayView: View {
                 if !hasAddressableDueReview, studyRecommendation?.reason == .recallReview {
                     Text(L10n.text("home.recallNeedsPractice", store.language))
                         .font(.caption)
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(featuredStudyAccent)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if !addressableDueReviewRoutes.isEmpty {
                     Text(L10n.text("home.dueReviews", store.language)
                         .replacingOccurrences(of: "%@", with: "\(addressableDueReviewRoutes.count)"))
                         .font(.subheadline.weight(.medium))
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(featuredStudyAccent)
                 }
             }
             Spacer(minLength: 0)
@@ -871,21 +857,11 @@ private struct TodayView: View {
                 }
             }
             .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier("home.primary-action")
         }
         .padding(20)
-        .background(
-            LinearGradient(
-                colors: [Color.purple.opacity(0.12), Color.blue.opacity(0.09), Color.cyan.opacity(0.07)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: RoundedRectangle(cornerRadius: 20)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 20)
-                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
-        }
-        .coliGlassControl(cornerRadius: 20)
+        .coliContentCard(tint: featuredStudyAccent, cornerRadius: 20)
+        .accessibilityIdentifier("home.progress-card")
     }
 }
 
@@ -1098,6 +1074,7 @@ private struct SubjectCard: View {
             .coliGlassControl(cornerRadius: 18)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("home.subject.\(subject.rawValue)")
         .onHover { isHovered = $0 }
     }
 }

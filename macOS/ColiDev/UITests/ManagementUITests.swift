@@ -2,6 +2,35 @@ import XCTest
 
 final class ManagementUITests: XCTestCase {
     @MainActor
+    func testHomeDashboardShowsNextActionAndExportsScreenshot() async throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let homeTitle = app.staticTexts["home.title"]
+        XCTAssertTrue(
+            homeTitle.waitForExistence(timeout: 15),
+            "The Today dashboard did not appear after launch. / После запуска не открылся экран «Сегодня».\n\(app.debugDescription)"
+        )
+
+        let progressCard = app.descendants(matching: .any)["home.progress-card"]
+        XCTAssertTrue(
+            progressCard.waitForExistence(timeout: 10),
+            "The learning progress and next action card is missing. / Не найдена карточка прогресса и следующего шага.\n\(app.debugDescription)"
+        )
+
+        let primaryAction = app.buttons["home.primary-action"]
+        XCTAssertTrue(
+            primaryAction.waitForExistence(timeout: 10),
+            "The dashboard does not expose its next learning action. / На главном экране нет следующего учебного действия.\n\(app.debugDescription)"
+        )
+
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "ColiDev Today dashboard"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
+    @MainActor
     func testClickingCellOrganelleUpdatesSelectionAndDescription() async throws {
         let app = XCUIApplication()
         app.launchArguments = ["-colidev.uiTestCell3D", "YES"]

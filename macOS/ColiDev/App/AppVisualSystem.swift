@@ -45,6 +45,21 @@ enum ColiDevVisualSystem {
     static func subjectColor(_ subject: String) -> Color {
         subjectToken(subject).color
     }
+
+    static func studyAccentToken(subjectID: String, resource: String? = nil) -> ColorToken {
+        let resolvedSubjectID: String
+        switch subjectID {
+        case "intro":
+            resolvedSubjectID = resource ?? ""
+        case let value where value.hasPrefix("custom-builtin:"):
+            resolvedSubjectID = String(value.dropFirst("custom-builtin:".count))
+        case let value where value.hasPrefix("custom-user:"):
+            resolvedSubjectID = "custom-user"
+        default:
+            resolvedSubjectID = subjectID
+        }
+        return subjectToken(resolvedSubjectID)
+    }
 }
 
 enum AppSoundFeedback {
@@ -83,8 +98,37 @@ struct ColiDevGlassControlModifier: ViewModifier {
     }
 }
 
+struct ColiDevContentCardModifier: ViewModifier {
+    let tint: Color
+    let cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius)
+        content
+            .background {
+                shape
+                    .fill(.regularMaterial)
+                    .overlay {
+                        LinearGradient(
+                            colors: [tint.opacity(0.15), tint.opacity(0.035)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                        .clipShape(shape)
+                    }
+            }
+            .overlay {
+                shape.strokeBorder(tint.opacity(0.20), lineWidth: 1)
+            }
+    }
+}
+
 extension View {
     func coliGlassControl(cornerRadius: CGFloat = 16) -> some View {
         modifier(ColiDevGlassControlModifier(cornerRadius: cornerRadius))
+    }
+
+    func coliContentCard(tint: Color, cornerRadius: CGFloat = 16) -> some View {
+        modifier(ColiDevContentCardModifier(tint: tint, cornerRadius: cornerRadius))
     }
 }
