@@ -209,6 +209,12 @@ final class ManagementUITests: XCTestCase {
         )
         enablePlayback.click()
 
+        // On macOS, the first click on an off-screen SwiftUI control may only scroll it into view.
+        // If the consent action is still present and now hittable, click again to activate it.
+        if enablePlayback.exists && enablePlayback.isHittable {
+            enablePlayback.click()
+        }
+
         XCTAssertTrue(
             app.descendants(matching: .any)["lesson.video.player"].waitForExistence(timeout: 10),
             "The lesson must reveal an embedded player after consent. / После согласия в уроке должен появиться встроенный плеер.\n\(app.debugDescription)"
