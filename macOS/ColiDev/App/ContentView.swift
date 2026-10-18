@@ -1124,6 +1124,9 @@ private struct SettingsView: View {
     @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
     @AppStorage(ColiDevVisualSystem.soundPreferenceKey) private var soundEffectsEnabled = false
     @State private var showingStudyFormatClearConfirmation = false
+    @State private var isEffectiveAIRoutesExpanded = false
+    @State private var isLoadingEffectiveAIRoutes = false
+    @State private var hasLoadedEffectiveAIRoutes = false
 
     var body: some View {
         Form {
@@ -1194,6 +1197,7 @@ private struct SettingsView: View {
                 }
                 .pickerStyle(.segmented)
                 TutorRouteProbeCard()
+                effectiveAIRoutePreview
                 LabeledContent {
                     Text(LearningStore.orchestratorBaseURL).font(.callout.monospaced())
                 } label: {
@@ -1302,6 +1306,9 @@ private struct SettingsView: View {
                             guard await backendSupervisor.ensureRunning() else { return }
                             await store.refreshAIStatus()
                             await store.refreshProviderSecretStatuses()
+                            if isEffectiveAIRoutesExpanded {
+                                await refreshEffectiveAIRoutes()
+                            }
                         }
                     }
                 }
@@ -1347,6 +1354,127 @@ private struct SettingsView: View {
         .navigationTitle(Text(L10n.text("settings.title", store.language)))
     }
 
+    private var effectiveAIRoutePreview: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button {
+                isEffectiveAIRoutesExpanded.toggle()
+                if isEffectiveAIRoutesExpanded && !hasLoadedEffectiveAIRoutes {
+                    Task { await refreshEffectiveAIRoutes() }
+                }
+            } label: {
+                HStack {
+                    Text(L10n.text("settings.ai.routePreview.title", store.language))
+                        .font(.callout.weight(.medium))
+                    Spacer()
+                    Image(systemName: isEffectiveAIRoutesExpanded ? "chevron.up" : "chevron.down")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("settings.ai.route-preview.toggle")
+
+            if isEffectiveAIRoutesExpanded {
+                Text(L10n.text("settings.ai.routePreview.disclaimer", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                if isLoadingEffectiveAIRoutes {
+                    ProgressView(L10n.text("settings.ai.routePreview.loading", store.language))
+                        .controlSize(.small)
+                } else {
+                    if !store.autoAgentModelRoutes.isEmpty {
+                        routeGroupTitle("settings.ai.routePreview.agents", symbol: "person.3")
+                        ForEach(["local_draft", "gemini_draft", "critic", "verifier"], id: \.self) { role in
+                            if let route = store.autoAgentModelRoutes[role] {
+                                EffectiveAIRouteRow(
+                                    identifier: "settings.ai.route-preview.role.\(role)",
+                                    title: L10n.text("management.autoAgentRole.\(role)", store.language),
+                                    configuredProvider: route.provider,
+                                    effectiveProvider: route.effectiveProvider,
+                                    model: route.effectiveModel,
+                                    status: route.status,
+                                    language: store.language
+                                )
+                            }
+                        }
+                    }
+
+                    if let route = store.finalSynthesisModelRoute {
+                        routeGroupTitle("settings.ai.routePreview.finalGroup", symbol: "sparkles")
+                        EffectiveAIRouteRow(
+                            identifier: "settings.ai.route-preview.final",
+                            title: L10n.text("settings.ai.routePreview.finalTitle", store.language),
+                            configuredProvider: route.provider,
+                            effectiveProvider: route.effectiveProvider,
+                            model: route.effectiveModel,
+                            status: route.status,
+                            language: store.language
+                        )
+                    }
+
+                    if !store.subjectModelRoutes.isEmpty {
+                        routeGroupTitle("settings.ai.routePreview.subjects", symbol: "books.vertical")
+                        ForEach(Subject.allCases) { subject in
+                            if let route = store.subjectModelRoutes[subject.rawValue] {
+                                EffectiveAIRouteRow(
+                                    identifier: "settings.ai.route-preview.subject.\(subject.rawValue)",
+                                    title: subject.title(in: store.language),
+                                    configuredProvider: route.provider,
+                                    effectiveProvider: route.effectiveProvider,
+                                    model: route.effectiveModel,
+                                    status: route.status,
+                                    language: store.language
+                                )
+                            }
+                        }
+                    }
+
+                    if store.autoAgentModelRoutes.isEmpty,
+                       store.finalSynthesisModelRoute == nil,
+                       store.subjectModelRoutes.isEmpty {
+                        Text(L10n.text("settings.ai.routePreview.unavailable", store.language))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Button {
+                        Task { await refreshEffectiveAIRoutes() }
+                    } label: {
+                        Label(
+                            L10n.text("settings.ai.routePreview.refresh", store.language),
+                            systemImage: "arrow.clockwise"
+                        )
+                        .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isLoadingEffectiveAIRoutes)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func routeGroupTitle(_ key: String, symbol: String) -> some View {
+        Label(L10n.text(key, store.language), systemImage: symbol)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.top, 5)
+    }
+
+    @MainActor
+    private func refreshEffectiveAIRoutes() async {
+        guard !isLoadingEffectiveAIRoutes else { return }
+        isLoadingEffectiveAIRoutes = true
+        defer { isLoadingEffectiveAIRoutes = false }
+        guard await backendSupervisor.ensureRunning() else { return }
+        await store.refreshAutoAgentModelRoutes()
+        await store.refreshFinalSynthesisModelRoute()
+        await store.refreshSubjectModelRoutes()
+        hasLoadedEffectiveAIRoutes = true
+    }
+
     private func routeDescription(for health: OrchestratorHealth) -> String {
         if store.aiMode == .localOnly {
             return L10n.text(health.hasLocalModel ? "settings.aiLocalRoute" : "settings.aiNoLocal", store.language)
@@ -1356,6 +1484,46 @@ private struct SettingsView: View {
         return L10n.text("settings.aiNoRoute", store.language)
     }
 
+}
+
+private struct EffectiveAIRouteRow: View {
+    let identifier: String
+    let title: String
+    let configuredProvider: String
+    let effectiveProvider: String
+    let model: String?
+    let status: String
+    let language: AppLanguage
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.caption.weight(.medium))
+            Text("\(providerName(configuredProvider)) → \(providerName(effectiveProvider))")
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
+            if let model, !model.isEmpty {
+                Text(model)
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.tertiary)
+                    .textSelection(.enabled)
+            }
+            Text(L10n.text("management.routeStatus.\(status)", language))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(9)
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(identifier)
+    }
+
+    private func providerName(_ provider: String) -> String {
+        let key = "management.routeProvider.\(provider)"
+        let localized = L10n.text(key, language)
+        return localized == key ? provider : localized
+    }
 }
 
 private struct TutorRouteProbeCard: View {
