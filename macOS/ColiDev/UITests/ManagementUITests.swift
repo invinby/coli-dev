@@ -188,6 +188,48 @@ final class ManagementUITests: XCTestCase {
     }
 
     @MainActor
+    func testFrictionLessonReflectionDraftSurvivesAppRelaunch() async throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let physicsItem = app.staticTexts["Физика"]
+        XCTAssertTrue(physicsItem.waitForExistence(timeout: 15))
+        physicsItem.click()
+
+        let frictionLesson = app.buttons["roadmap.lesson.physics.static_and_kinetic_friction"]
+        XCTAssertTrue(frictionLesson.waitForExistence(timeout: 10))
+        frictionLesson.click()
+
+        let response = app.descendants(matching: .any)["lesson.video.response"]
+        XCTAssertTrue(response.waitForExistence(timeout: 10))
+
+        let draft = "Reflection draft survives app relaunch 39132086427"
+        response.click()
+        response.typeKey("a", modifierFlags: .command)
+        response.typeText(draft)
+        XCTAssertEqual(response.value as? String, draft)
+
+        app.terminate()
+        app.launch()
+
+        let relaunchedPhysicsItem = app.staticTexts["Физика"]
+        XCTAssertTrue(relaunchedPhysicsItem.waitForExistence(timeout: 15))
+        relaunchedPhysicsItem.click()
+
+        let relaunchedFrictionLesson = app.buttons["roadmap.lesson.physics.static_and_kinetic_friction"]
+        XCTAssertTrue(relaunchedFrictionLesson.waitForExistence(timeout: 10))
+        relaunchedFrictionLesson.click()
+
+        let restoredResponse = app.descendants(matching: .any)["lesson.video.response"]
+        XCTAssertTrue(restoredResponse.waitForExistence(timeout: 10))
+        XCTAssertEqual(
+            restoredResponse.value as? String,
+            draft,
+            "An unfinished lesson reflection must survive quitting and reopening ColiDev. / Незавершённый ответ к уроку должен сохраняться после закрытия и повторного запуска ColiDev."
+        )
+    }
+
+    @MainActor
     func testMissingIntroMarkdownShowsUnavailableStateInsteadOfLegacyLesson() async throws {
         let app = XCUIApplication()
         app.launchEnvironment["COLIDEV_UI_TEST_MISSING_INTRO_ROUTE"] = "1"
