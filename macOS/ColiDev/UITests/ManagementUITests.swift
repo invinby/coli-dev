@@ -356,10 +356,21 @@ final class ManagementUITests: XCTestCase {
         let predictionAction = app.buttons["lesson.friction.prediction.action"]
         scrollUntilHittable(predictionAction, in: lessonScrollView)
         predictionAction.click()
+        let predictionFeedback = app.staticTexts["lesson.friction.prediction.feedback"]
+        XCTAssertTrue(predictionFeedback.waitForExistence(timeout: 5))
+        XCTAssertTrue(predictionFeedback.label.localizedCaseInsensitiveContains("верно")
+            || predictionFeedback.label.localizedCaseInsensitiveContains("correct"))
+        scrollUntilHittable(predictionAction, in: lessonScrollView)
+        predictionAction.click()
 
         let secondPrediction = app.buttons["lesson.friction.prediction.option.friction.at-25n.1"]
         scrollUntilHittable(secondPrediction, in: lessonScrollView)
         secondPrediction.click()
+        scrollUntilHittable(predictionAction, in: lessonScrollView)
+        predictionAction.click()
+        XCTAssertTrue(predictionFeedback.waitForExistence(timeout: 5))
+        XCTAssertTrue(predictionFeedback.label.localizedCaseInsensitiveContains("верно")
+            || predictionFeedback.label.localizedCaseInsensitiveContains("correct"))
         scrollUntilHittable(predictionAction, in: lessonScrollView)
         predictionAction.click()
         XCTAssertTrue(app.staticTexts["lesson.friction.prediction.complete"].waitForExistence(timeout: 5))
