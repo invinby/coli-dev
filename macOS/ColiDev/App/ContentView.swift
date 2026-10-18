@@ -20,6 +20,40 @@ private struct LearningProgressBackupFile: FileDocument {
     }
 }
 
+private struct IntroLessonUnavailableView: View {
+    @EnvironmentObject private var store: LearningStore
+
+    let subject: Subject
+    let onBack: () -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "book.closed")
+                .font(.system(size: 36, weight: .regular))
+                .foregroundStyle(subject.tint)
+                .accessibilityHidden(true)
+            Text(L10n.text("lesson.intro.unavailable.title", store.language))
+                .font(.title2.weight(.semibold))
+                .accessibilityIdentifier("lesson.intro.unavailable.title")
+            Text(L10n.text("lesson.intro.unavailable.message", store.language))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            Button(action: onBack) {
+                Label(
+                    L10n.text("lesson.intro.unavailable.back", store.language),
+                    systemImage: "arrow.left"
+                )
+            }
+            .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier("lesson.intro.unavailable.back")
+        }
+        .frame(maxWidth: 520)
+        .padding(32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
 struct ContentView: View {
     @EnvironmentObject private var store: LearningStore
     @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
@@ -104,7 +138,8 @@ struct ContentView: View {
                         selection = .lesson(subject)
                     }
                 case .lesson(let subject):
-                    if let route = CurriculumCatalog.introLessonRoute(for: subject) {
+                    if !shouldSimulateMissingIntroRoute,
+                       let route = CurriculumCatalog.introLessonRoute(for: subject) {
                         CurriculumModuleView(
                             subject: subject,
                             resource: route.resource,
@@ -116,7 +151,7 @@ struct ContentView: View {
                             onPracticeFocusCompleted: { practiceFocusRoute = nil }
                         )
                     } else {
-                        LessonSessionView(subject: subject) {
+                        IntroLessonUnavailableView(subject: subject) {
                             selection = .subject(subject)
                         }
                     }
@@ -187,6 +222,14 @@ struct ContentView: View {
     private func open(_ subject: Subject) {
         practiceFocusRoute = nil
         selection = .subject(subject)
+    }
+
+    private var shouldSimulateMissingIntroRoute: Bool {
+        #if DEBUG
+        return UserDefaults.standard.bool(forKey: "colidev.uiTestMissingIntroRoute")
+        #else
+        return false
+        #endif
     }
 
     private func openCell3DUITestRouteIfNeeded() {
