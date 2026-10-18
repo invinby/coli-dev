@@ -6,9 +6,9 @@
 
 ## Короткий вывод / Executive summary
 
-**RU:** ColiDev — рабочий macOS-прототип Cause & Corse, а не готовая версия всей долгосрочной системы. Код, CI и сообщение пользователя о Mac подтверждают полезную часть: нативное приложение, локальный backend, несколько предметных курсов и тренажёров, AI-маршруты, источники/RAG, а также видеоактивность в уроке о трении. На Mac пользователь сообщает, что карточка видео отображается. Реальное воспроизведение, субтитры и сохранение ответа после перезапуска не проверены. Полный согласованный объём Cause & Corse за исходные 4–5 дней закончить реалистично нельзя; ниже отделены готовое, частично проверенное и оставшееся.
+**RU:** ColiDev — рабочий macOS-прототип Cause & Corse, а не готовая версия всей долгосрочной системы. Код и CI подтверждают нативное приложение, локальный backend, несколько предметных курсов и тренажёров, AI-маршруты и источники/RAG. В текущей Codex-сессии свежая beta из run 39132086427 была запущена на Mac: Codex открыл урок «Статическое и скользящее трение» и непосредственно увидел карточку видео с согласием, вопросами, ссылкой и полем ответа. Фактическое воспроизведение, субтитры и сохранение ответа после перезапуска остаются непроверенными. Полный согласованный объём Cause & Corse за исходные 4–5 дней закончить реалистично нельзя; ниже отделены готовое, частично проверенное и оставшееся.
 
-**EN:** ColiDev is a working macOS prototype of Cause & Corse, not the finished long-term system. Code, CI, and the user's Mac report support a useful subset: a native app, bundled local backend, several subject courses and practice activities, AI routes, source/RAG features, and a video activity in the friction lesson. The user reports that the video card appears on Mac. Actual playback, captions, and answer persistence after relaunch remain unverified. The entire agreed Cause & Corse scope cannot realistically be completed within the original four-to-five-day window; this audit separates completed, partially verified, and remaining work.
+**EN:** ColiDev is a working macOS prototype of Cause & Corse, not the finished long-term system. Code and CI support a useful subset: a native app, bundled local backend, several subject courses and practice activities, AI routes, and source/RAG features. During the current Codex session, the fresh beta from run 39132086427 was launched on Mac; Codex opened the “Static and kinetic friction” lesson and directly observed the video card with consent, questions, a link, and an answer field. Actual playback, captions, and answer persistence after relaunch remain unverified. The entire agreed Cause & Corse scope cannot realistically be completed within the original four-to-five-day window; this audit separates completed, partially verified, and remaining work.
 
 ## Миссия и границы продукта / Mission and product boundaries
 
@@ -52,15 +52,15 @@
 
 **EN:** The latest green app-code run is [39132086427](https://github.com/invinby/coli-dev/actions/runs/39132086427) for `06ca2b9`, and that is the code packaged in the beta. Backend checks and build/package jobs passed for macOS 15 ARM, macOS 26 ARM, and macOS 26 Intel; CI also has a UI check for consent and WebView appearance after consent. The later PR tip `167b378` contains documentation only and was marked `[skip ci]`, so it has no new workflow run. Some UI steps are skipped on Intel in the workflow. A successful build and bundled-backend smoke test do not equal real YouTube playback verification. CI did not send a learner prompt to confirm a live AI answer.
 
-## Что пользователь сообщил о Mac / User-reported Mac status
+## Непосредственная проверка Codex на Mac / Codex direct Mac check — 2026-10-19
 
-**RU:** На 19.10.2026 пользователь сообщает, что свежая beta запускается, открывается урок «Статическое и скользящее трение», и в нём видна встроенная видеокарточка. По его сообщению, карточка показывает согласие перед загрузкой YouTube, вопрос до просмотра, ссылку на Khan Academy и транскрипт, вопрос после просмотра и поле ответа. Это пользовательская проверка на его Mac; из Windows она не наблюдалась независимо.
+**RU:** В текущей Codex-сессии beta из CI run [39132086427](https://github.com/invinby/coli-dev/actions/runs/39132086427) была запущена на Mac. Codex открыл урок «Статическое и скользящее трение» и непосредственно увидел встроенную карточку видео с согласием, вопросами, ссылкой и полем ответа. Это непосредственное наблюдение Codex на Mac, а не только сообщение пользователя и не результат проверки на Windows.
 
-**EN:** On 2026-10-19, the user reports that the fresh beta launches, opens the “Static and kinetic friction” lesson, and shows the embedded video card. According to the user, the card presents consent before loading YouTube, a pre-video question, a Khan Academy link and transcript, a post-video question, and an answer field. This is the user's Mac check; it was not independently observed from Windows.
+**EN:** During the current Codex session, the beta from CI run [39132086427](https://github.com/invinby/coli-dev/actions/runs/39132086427) was launched on Mac. Codex opened the “Static and kinetic friction” lesson and directly observed the embedded video card with consent, questions, a link, and an answer field. This is Codex's direct observation on Mac, not merely a user report or a Windows check.
 
-**RU:** Пока **не проверены**: фактическое воспроизведение ролика после согласия, работа субтитров, фактическое отображение/чтение транскрипта в приложении и сохранение введённого ответа после закрытия и повторного запуска. До получения результата с Mac эти пункты не считать выполненными.
+**RU:** Пока **не проверены**: фактическое воспроизведение ролика после согласия, работа субтитров, фактическое отображение/чтение транскрипта в приложении и сохранение введённого ответа после закрытия и повторного запуска. Для этих функций отдельной проверки на Mac пока нет; их не считать выполненными.
 
-**EN:** Still **unverified**: actual playback after consent, captions, actual transcript rendering/reading in the app, and persistence of the entered answer after closing and relaunching. Do not mark these complete until the Mac check reports the results.
+**EN:** Still **unverified**: actual playback after consent, captions, actual transcript rendering/reading in the app, and persistence of the entered answer after closing and relaunching. There is no separate Mac check result for these functions yet; do not mark them complete.
 
 ## Последовательный учебный маршрут / Sequential learning path
 
@@ -90,7 +90,7 @@
 |---|---|---|
 | PR #5, состав и история / PR #5 scope and history | **Проверено / Verified** | GitHub: open Draft; 224 files, 490 commits; all inspected paths are ColiDev-related; stacked on PR #4. |
 | Нативная сборка и backend / Native build and backend | **CI прошло / CI passed** | [Run 39132086427](https://github.com/invinby/coli-dev/actions/runs/39132086427), commit `06ca2b9`, platform build/package jobs. |
-| Видео-карточка и согласие / Video card and consent | **Mac подтверждено пользователем / User-reported on Mac** | User saw the friction lesson card, consent, before/after questions, source/transcript access, and answer field. |
+| Видео-карточка и согласие / Video card and consent | **Непосредственно проверено Codex на Mac / Directly observed by Codex on Mac** | In the current session, Codex launched the beta from run 39132086427, opened the friction lesson, and saw the card, consent, questions, link, and answer field. |
 | Воспроизведение, captions и сохранение / Playback, captions, persistence | **Не проверено / Not verified** | No Mac result for actual playback, captions, or response after relaunch. |
 | Полный учебный продукт Cause & Corse / Complete Cause & Corse learning product | **Не завершено / Not complete** | Full path, media library, integrations, distribution, and release checks remain open. |
 | Hermes/OpenCode/OpenClaw/Freebuff в runtime приложения / In-app runtime integrations | **Не реализовано и не требуется сейчас / Not implemented and not currently needed** | Current research recommends separate, task-specific use; OpenRouter already exists. |
