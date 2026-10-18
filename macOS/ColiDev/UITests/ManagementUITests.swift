@@ -89,6 +89,13 @@ final class ManagementUITests: XCTestCase {
         )
         mathematicsItem.click()
 
+        let openIntroLessonButton = app.buttons["Открыть вводный урок"]
+        XCTAssertTrue(
+            openIntroLessonButton.waitForExistence(timeout: 10),
+            "The subject overview must expose its intro-lesson action. / На странице предмета должна быть кнопка вводного урока.\n\(app.debugDescription)"
+        )
+        openIntroLessonButton.click()
+
         let unavailableTitle = app.staticTexts["lesson.intro.unavailable.title"]
         XCTAssertTrue(
             unavailableTitle.waitForExistence(timeout: 10),
