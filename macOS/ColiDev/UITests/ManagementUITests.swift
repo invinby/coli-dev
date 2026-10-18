@@ -77,6 +77,30 @@ final class ManagementUITests: XCTestCase {
     }
 
     @MainActor
+    func testMissingIntroMarkdownShowsUnavailableStateInsteadOfLegacyLesson() async throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-colidev.uiTestMissingIntroRoute", "YES"]
+        app.launch()
+
+        let mathematicsItem = app.staticTexts["Математика"]
+        XCTAssertTrue(
+            mathematicsItem.waitForExistence(timeout: 15),
+            "The Mathematics navigation item did not appear. / Не появился пункт навигации «Математика».\n\(app.debugDescription)"
+        )
+        mathematicsItem.click()
+
+        let unavailableTitle = app.staticTexts["lesson.intro.unavailable.title"]
+        XCTAssertTrue(
+            unavailableTitle.waitForExistence(timeout: 10),
+            "A missing source-backed intro route must be visible instead of silently showing the legacy localized lesson. / При отсутствии основного маршрута должен отображаться явный статус, а не старая локализованная копия без источников.\n\(app.debugDescription)"
+        )
+        XCTAssertTrue(
+            app.buttons["lesson.intro.unavailable.back"].exists,
+            "The unavailable state must let the learner return to the subject. / Из состояния ошибки ученик должен иметь возможность вернуться к предмету."
+        )
+    }
+
+    @MainActor
     func testClickingCellOrganelleUpdatesSelectionAndDescription() async throws {
         let app = XCUIApplication()
         app.launchArguments = ["-colidev.uiTestCell3D", "YES"]
