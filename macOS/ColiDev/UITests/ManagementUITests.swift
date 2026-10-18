@@ -151,7 +151,11 @@ final class ManagementUITests: XCTestCase {
                 "The in-app journey is missing the ordered \(step) stage. / Встроенный маршрут пропускает этап \(step).\n\(app.debugDescription)"
             )
             let number = app.staticTexts["journey.step.\(step).number"]
-            XCTAssertEqual(number.label, "\(index + 1)", "The journey stage number must match its place in the learning sequence. / Номер этапа должен соответствовать его месту в маршруте.")
+            XCTAssertEqual(
+                number.value as? String,
+                "\(index + 1)",
+                "The journey stage number must match its place in the learning sequence. / Номер этапа должен соответствовать его месту в маршруте."
+            )
 
             let currentStepY = app.staticTexts["journey.step.\(step).title"].frame.midY
             if let previousStepY {
