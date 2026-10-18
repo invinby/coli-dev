@@ -512,6 +512,7 @@ private struct CauseAndCorseJourneyCard: View {
                 .foregroundStyle(Color.accentColor)
                 .frame(width: 30, height: 30)
                 .background(Color.accentColor.opacity(0.12), in: Circle())
+                .accessibilityLabel(Text("\(index + 1)"))
                 .accessibilityIdentifier("journey.step.\(step.id).number")
 
             VStack(alignment: .leading, spacing: 7) {
