@@ -124,6 +124,7 @@ struct SubjectOverviewView: View {
                                         .buttonStyle(.borderless)
                                         .disabled(!isAvailable)
                                         .padding(.top, 3)
+                                        .accessibilityIdentifier("roadmap.lesson.\(subject.rawValue).\(lessonResource)")
                                     }
                                 }
                                 .padding(14)
@@ -209,6 +210,7 @@ private struct CurriculumLessonDocument {
     let checkAnswerIndex: Int?
     let limitations: String
     let sources: String
+    let videoActivity: CurriculumLessonVideoActivity?
 
     static func load(subject: Subject, resource: String, language: AppLanguage) -> CurriculumLessonDocument? {
         guard let raw = CurriculumCatalog.lessonMarkdown(for: subject, resource: resource) else { return nil }
@@ -249,6 +251,10 @@ private struct CurriculumLessonDocument {
             : ["Limits", "Limits of the inference", "Limits and safe execution"])
         let sourceLines = lines.drop { $0.trimmingCharacters(in: .whitespaces) != "## Sources" }.dropFirst()
         let sources = sourceLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        let videoSection = extract(
+            section,
+            headings: language == .ru ? ["Видео и наблюдение"] : ["Video and observation"]
+        )
         return CurriculumLessonDocument(
             title: title,
             sourceCheckedOn: sourceCheckedOn,
@@ -260,7 +266,8 @@ private struct CurriculumLessonDocument {
             checkOptions: checkOptions,
             checkAnswerIndex: checkAnswerIndex,
             limitations: limitations,
-            sources: sources
+            sources: sources,
+            videoActivity: CurriculumLessonVideoActivity.parse(videoSection, language: language)
         )
     }
 
@@ -318,6 +325,111 @@ private struct CurriculumLessonDocument {
             guard let range = trimmed.range(of: "^\\d+[.)]\\s+", options: .regularExpression) else { return nil }
             return String(trimmed[range.upperBound...]).trimmingCharacters(in: .whitespaces)
         }
+    }
+}
+
+private struct CurriculumLessonVideoActivity {
+    let title: String
+    let url: URL
+    let beforeWatching: String
+    let afterWatching: String
+
+    static func parse(_ section: String, language: AppLanguage) -> CurriculumLessonVideoActivity? {
+        let pattern = #"\[([^\]]+)\]\((https://[^\s)]+)\)"#
+        guard let expression = try? NSRegularExpression(pattern: pattern),
+              let match = expression.firstMatch(
+                in: section,
+                range: NSRange(section.startIndex..<section.endIndex, in: section)
+              ),
+              let titleRange = Range(match.range(at: 1), in: section),
+              let urlRange = Range(match.range(at: 2), in: section) else {
+            return nil
+        }
+
+        let rawURL = String(section[urlRange])
+        guard let components = URLComponents(string: rawURL),
+              components.scheme?.lowercased() == "https",
+              let host = components.host?.lowercased(),
+              ["ru.khanacademy.org", "www.khanacademy.org"].contains(host),
+              let url = components.url else {
+            return nil
+        }
+
+        let beforeLabel = language == .ru ? "**Перед просмотром:**" : "**Before watching:**"
+        let afterLabel = language == .ru ? "**После просмотра:**" : "**After watching:**"
+        func value(after label: String) -> String? {
+            section.components(separatedBy: .newlines)
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .first(where: { $0.hasPrefix(label) })
+                .map { String($0.dropFirst(label.count)).trimmingCharacters(in: .whitespacesAndNewlines) }
+                .flatMap { $0.isEmpty ? nil : $0 }
+        }
+        guard let beforeWatching = value(after: beforeLabel),
+              let afterWatching = value(after: afterLabel) else {
+            return nil
+        }
+        return CurriculumLessonVideoActivity(
+            title: String(section[titleRange]),
+            url: url,
+            beforeWatching: beforeWatching,
+            afterWatching: afterWatching
+        )
+    }
+}
+
+private struct CurriculumLessonVideoCard: View {
+    let activity: CurriculumLessonVideoActivity
+    let tint: Color
+    let language: AppLanguage
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(L10n.text("lesson.video.title", language), systemImage: "play.rectangle.fill")
+                .font(.title3.weight(.semibold))
+                .accessibilityIdentifier("lesson.video.title")
+
+            Text(activity.title)
+                .font(.headline)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(L10n.text("lesson.video.beforeLabel", language))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(tint)
+                Text(activity.beforeWatching)
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("lesson.video.before")
+            }
+
+            Link(destination: activity.url) {
+                Label(L10n.text("lesson.video.open", language), systemImage: "arrow.up.right.square")
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(tint)
+            .accessibilityIdentifier("lesson.video.open")
+
+            Text(L10n.text("lesson.video.externalNotice", language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(L10n.text("lesson.video.afterLabel", language))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(tint)
+                Text(activity.afterWatching)
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("lesson.video.after")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(tint.opacity(0.25), lineWidth: 1))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("lesson.video.activity")
     }
 }
 
@@ -408,6 +520,14 @@ struct CurriculumModuleView: View {
                     }
                     PracticeLab(subject: subject, moduleResource: resource)
                         .id("module-interactive-practice")
+
+                    if let videoActivity = document.videoActivity {
+                        CurriculumLessonVideoCard(
+                            activity: videoActivity,
+                            tint: subject.tint,
+                            language: store.language
+                        )
+                    }
 
                     if !document.checkQuestion.isEmpty, !document.checkOptions.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {

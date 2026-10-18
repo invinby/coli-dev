@@ -47,6 +47,22 @@ def test_english_foundations_route_the_bilingual_subject_pronouns_and_be_lesson(
         assert 1 <= answer_index <= len(choices)
 
 
+def test_friction_lesson_has_bilingual_source_linked_video_activity():
+    lesson = (
+        REPOSITORY_ROOT
+        / "02_Areas/Physics/lessons/static_and_kinetic_friction.md"
+    ).read_text(encoding="utf-8")
+
+    assert "### Видео и наблюдение" in lesson
+    assert "### Video and observation" in lesson
+    assert "https://ru.khanacademy.org/science/physics/forces-newtons-laws/inclined-planes-friction/v/static-and-kinetic-friction-example" in lesson
+    assert "https://www.khanacademy.org/science/physics/forces-newtons-laws/inclined-planes-friction/v/static-and-kinetic-friction-example" in lesson
+    assert "**Перед просмотром:**" in lesson
+    assert "**После просмотра:**" in lesson
+    assert "**Before watching:**" in lesson
+    assert "**After watching:**" in lesson
+
+
 def test_programming_intro_has_a_reproducible_bilingual_branching_example():
     lesson = (
         REPOSITORY_ROOT / "02_Areas/Programming/lessons/intro.md"

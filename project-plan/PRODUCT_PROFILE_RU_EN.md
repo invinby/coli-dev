@@ -193,6 +193,10 @@
 
 **EN:** Most core topics should have a visual format that helps explain that specific material: an interactive diagram, graph, animation, experiment, simulation, video with questions, or manipulable 3D model. When useful, learners should be able to rotate and zoom a model, reveal or hide parts, observe a process change, and adjust meaningful parameters.
 
+**RU — состояние на 18.10.2026:** В работе первый сквозной пример видеоурока: тема о трении получает официальный русскоязычный ролик Khan Academy, вопрос для прогноза до просмотра и вопрос для сопоставления после. В приложении ссылка открывается на сайте источника; видео не загружается и не попадает в RAG. Это один проверяемый учебный сценарий, а не готовая видеотека; свежая сборка и экранный сценарий пока ожидают macOS CI и ручную проверку на Mac.
+
+**EN — status on 2026-10-18:** The first end-to-end video lesson example is in progress: the friction lesson adds an official Russian Khan Academy video, a prediction prompt before viewing, and a comparison prompt after. The link opens on the source website; the app does not download the video or add it to RAG. This is one reviewable learning activity, not a finished video library; the new build still needs macOS CI and hands-on Mac review.
+
 **RU:** Не добавляй 3D и анимацию ради эффекта. У каждого тренажёра должны быть понятные действия, наблюдаемый результат, объяснение ограничений модели и доступная текстовая альтернатива. Интерактивы должны подходить предмету и не скрывать объяснение.
 
 **EN:** Do not add 3D or animation for effect alone. Each activity needs clear controls, an observable outcome, an explanation of the model's limits, and an accessible text alternative. Interactions must fit the subject and must not replace the explanation.

@@ -78,6 +78,8 @@ CI did not verify a live Ollama request, live cloud AI replies, Keychain behavio
 
 - **RU:** В уроке об ударении прослушать все четыре предложения; проверить доступные UK/US голоса и их переключение, подпись о синтезе и поведение, если нужный голос не установлен. Сравнить с Cambridge; проверить RU/EN. Не считать этот тест оценкой речи.
 - **EN:** In the word-stress lesson, play all four sentences; check available UK/US voices and switching, the synthesis disclosure, and the fallback when a voice is missing. Compare with Cambridge and check RU/EN. This feature does not assess speech.
+- **RU:** В свежей beta открыть «Физика → Трение и начало движения → Статическое и скользящее трение». Проверить вопросы до/после просмотра и открыть ссылку Khan Academy во внешнем браузере. Переключить RU/EN; подтвердить, что видео не встраивается, не загружается и не отправляется в RAG.
+- **EN:** In the fresh beta, open “Physics → Friction and the onset of motion → Static and Kinetic Friction.” Check the before/after viewing prompts and open the Khan Academy link in an external browser. Switch RU/EN; confirm that the video is not embedded, downloaded, or sent to RAG.
 
 ## Актуальность источников и границы / Source freshness and limits
 

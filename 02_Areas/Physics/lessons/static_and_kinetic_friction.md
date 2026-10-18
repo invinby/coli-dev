@@ -29,6 +29,14 @@ source_review_interval_days: 365
 
 Проверь пример для толчка `25 Н`: выбери `μ_s = 0,4`, `μ_k = 0,3`. Найди нормальную силу, силу трения скольжения и ускорение. В тренажёре можно менять массу, толчок и оба коэффициента.
 
+### Видео и наблюдение
+
+[Khan Academy — примеры трения покоя и скольжения](https://ru.khanacademy.org/science/physics/forces-newtons-laws/inclined-planes-friction/v/static-and-kinetic-friction-example)
+
+**Перед просмотром:** Предскажи, как будут различаться сила трения покоя и сила трения скольжения, когда блок начнёт двигаться.
+
+**После просмотра:** Сравни пример в видео с тренажёром: где трение покоя подстраивается под толчок, а где достигает предельного значения? Назови одно допущение модели из урока.
+
 ### Вопрос
 
 На ровной поверхности лежит тело массой `5 кг`; `μ_s = 0,4`, `μ_k = 0,3`, а горизонтальный толчок равен `15 Н`. Что произойдёт в этой упрощённой модели? (`g = 9,8 м/с²`, округлённо; тренажёр использует `9,81 м/с²`.)
@@ -71,6 +79,14 @@ Keep the mass at `5 kg` and slowly increase the push. Below the threshold, the b
 
 Check the `25 N` example with `μ_s = 0.4` and `μ_k = 0.3`. Find the normal force, kinetic friction, and acceleration. The lab lets you vary mass, push, and both coefficients.
 
+### Video and observation
+
+[Khan Academy — Static and kinetic friction examples](https://www.khanacademy.org/science/physics/forces-newtons-laws/inclined-planes-friction/v/static-and-kinetic-friction-example)
+
+**Before watching:** Predict how static and kinetic friction will differ as the block starts to move.
+
+**After watching:** Compare the video example with the lab: when does static friction match the push, and when does it reach its limit? Name one model assumption from the lesson.
+
 ### Question
 
 A `5 kg` object rests on a level surface; `μ_s = 0.4`, `μ_k = 0.3`, and a horizontal push is `15 N`. What happens in this simplified model? (`g = 9.8 m/s²`, rounded; the lab uses `9.81 m/s²`.)
@@ -96,3 +112,4 @@ The coefficients are constant, the surface is level, the push acts along one axi
 ## Sources
 
 - OpenStax, *University Physics Volume 1*, [6.2 Friction](https://openstax.org/books/university-physics-volume-1/pages/6-2-friction) (concepts and model assumptions; the lesson text above is newly written).
+- Khan Academy, [Static and kinetic friction examples](https://www.khanacademy.org/science/physics/forces-newtons-laws/inclined-planes-friction/v/static-and-kinetic-friction-example) and [Примеры трения покоя и скольжения](https://ru.khanacademy.org/science/physics/forces-newtons-laws/inclined-planes-friction/v/static-and-kinetic-friction-example) (supplementary videos, opened and matched to this lesson on 2026-10-18; not cached for RAG).
