@@ -163,7 +163,7 @@ final class ManagementUITests: XCTestCase {
             "The app must disclose YouTube data sharing before playback is loaded. / До загрузки плеера приложение должно предупредить о передаче данных YouTube.\n\(app.debugDescription)"
         )
         XCTAssertFalse(
-            app.webViews["lesson.video.player"].exists,
+            app.descendants(matching: .any)["lesson.video.player"].exists,
             "The player must not load before the learner grants consent. / Плеер не должен загружаться до согласия ученика.\n\(app.debugDescription)"
         )
 
@@ -175,7 +175,7 @@ final class ManagementUITests: XCTestCase {
         enablePlayback.click()
 
         XCTAssertTrue(
-            app.webViews["lesson.video.player"].waitForExistence(timeout: 10),
+            app.descendants(matching: .any)["lesson.video.player"].waitForExistence(timeout: 10),
             "The lesson must reveal an embedded player after consent. / После согласия в уроке должен появиться встроенный плеер.\n\(app.debugDescription)"
         )
 
