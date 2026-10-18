@@ -48,6 +48,55 @@ final class ManagementUITests: XCTestCase {
     }
 
     @MainActor
+    func testSettingsShowsEffectiveAIRoutesBeforeSendingAnyRequest() async throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let settingsItem = app.staticTexts["sidebar.settings"]
+        XCTAssertTrue(
+            settingsItem.waitForExistence(timeout: 15),
+            "Settings navigation item did not appear. / Не появился пункт настроек.\n\(app.debugDescription)"
+        )
+        settingsItem.click()
+
+        let routePreviewToggle = app.buttons["settings.ai.route-preview.toggle"]
+        XCTAssertTrue(
+            routePreviewToggle.waitForExistence(timeout: 30),
+            "Settings must offer a read-only effective-route preview before a tutor request. / Настройки должны показывать эффективные маршруты до запроса тьютору.\n\(app.debugDescription)"
+        )
+        guard routePreviewToggle.exists else { return }
+        routePreviewToggle.click()
+
+        let routeIdentifiers = [
+            "settings.ai.route-preview.role.local_draft",
+            "settings.ai.route-preview.role.gemini_draft",
+            "settings.ai.route-preview.role.critic",
+            "settings.ai.route-preview.role.verifier",
+            "settings.ai.route-preview.final",
+            "settings.ai.route-preview.subject.mathematics",
+            "settings.ai.route-preview.subject.english",
+            "settings.ai.route-preview.subject.physics",
+            "settings.ai.route-preview.subject.biology",
+            "settings.ai.route-preview.subject.zoology",
+            "settings.ai.route-preview.subject.programming"
+        ]
+
+        for identifier in routeIdentifiers {
+            let route = app.descendants(matching: .any)[identifier]
+            XCTAssertTrue(
+                route.waitForExistence(timeout: 20),
+                "Effective route preview is missing \(identifier). / В предпросмотре нет маршрута \(identifier).\n\(app.debugDescription)"
+            )
+            if route.exists {
+                XCTAssertTrue(
+                    route.label.contains("→"),
+                    "The route preview must show configured and effective providers for \(identifier). / Для \(identifier) нужно показать настроенный и эффективный провайдер.\n\(route.debugDescription)"
+                )
+            }
+        }
+    }
+
+    @MainActor
     func testHomeDashboardShowsNextActionAndExportsScreenshot() async throws {
         let app = XCUIApplication()
         app.launch()
