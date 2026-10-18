@@ -422,7 +422,7 @@ final class ManagementUITests: XCTestCase {
     private func scrollUntilHittable(_ element: XCUIElement, in scrollView: XCUIElement) {
         for _ in 0..<12 {
             if element.isHittable { return }
-            scrollView.swipeUp()
+            scrollView.scroll(byDeltaX: 0, deltaY: 140)
         }
         XCTAssertTrue(element.isHittable, "Expected control to become visible after scrolling. / Элемент должен появиться после прокрутки.\n\(element.debugDescription)")
     }
