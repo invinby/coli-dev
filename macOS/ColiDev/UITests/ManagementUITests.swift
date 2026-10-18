@@ -140,15 +140,33 @@ final class ManagementUITests: XCTestCase {
         XCTAssertTrue(expandButton.exists)
         expandButton.click()
 
-        for step in ["mathematics", "python", "cs50x", "physics", "biology", "machine_learning", "brain_science", "own_projects"] {
+        let steps = [
+            "mathematics", "scientific_method", "python", "cs50x", "physics",
+            "biology", "machine_learning", "brain_science", "own_projects"
+        ]
+        var previousStepY: CGFloat?
+        for (index, step) in steps.enumerated() {
             XCTAssertTrue(
                 app.staticTexts["journey.step.\(step).title"].waitForExistence(timeout: 5),
                 "The in-app journey is missing the ordered \(step) stage. / Встроенный маршрут пропускает этап \(step).\n\(app.debugDescription)"
             )
+            let number = app.staticTexts["journey.step.\(step).number"]
+            XCTAssertEqual(number.label, "\(index + 1)", "The journey stage number must match its place in the learning sequence. / Номер этапа должен соответствовать его месту в маршруте.")
+
+            let currentStepY = app.staticTexts["journey.step.\(step).title"].frame.midY
+            if let previousStepY {
+                XCTAssertGreaterThan(currentStepY, previousStepY, "Journey stages must appear from foundations to later specializations. / Этапы должны идти от основ к последующим специализациям.")
+            }
+            previousStepY = currentStepY
+
+            XCTAssertTrue(
+                app.descendants(matching: .any)["journey.step.\(step).project-result"].exists,
+                "Every journey stage needs a locally saved mini-project result. / У каждого этапа должно быть поле для локально сохраняемого результата мини-проекта."
+            )
         }
 
         for source in [
-            "math.stepik", "python.stepik", "cs50x.official", "physics.phet",
+            "math.stepik", "science.stepik", "python.stepik", "cs50x.official", "physics.phet",
             "physics.geogebra", "biology.stepik", "machine_learning.stepik", "brain.hse"
         ] {
             XCTAssertTrue(
@@ -158,6 +176,46 @@ final class ManagementUITests: XCTestCase {
         }
 
         XCTAssertTrue(app.buttons["journey.primary-action"].exists)
+        let primaryActionLabel = app.buttons["journey.primary-action"].label.lowercased()
+        XCTAssertTrue(primaryActionLabel.contains("математ") || primaryActionLabel.contains("math"))
+        XCTAssertTrue(primaryActionLabel.contains("python"))
+    }
+
+    @MainActor
+    func testJourneyMiniProjectResultSurvivesAppRelaunch() async throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let expandButton = app.buttons["journey.expand"]
+        XCTAssertTrue(expandButton.waitForExistence(timeout: 15))
+        expandButton.click()
+
+        let projectResult = app.descendants(matching: .any)["journey.step.mathematics.project-result"]
+        XCTAssertTrue(projectResult.waitForExistence(timeout: 10))
+        if !projectResult.isHittable {
+            projectResult.click()
+        }
+        XCTAssertTrue(projectResult.isHittable)
+        projectResult.click()
+
+        let draft = "Saved math mini-project \(UUID().uuidString)"
+        projectResult.typeText(draft)
+        XCTAssertEqual(projectResult.value as? String, draft)
+
+        app.terminate()
+        app.launch()
+
+        let relaunchedExpandButton = app.buttons["journey.expand"]
+        XCTAssertTrue(relaunchedExpandButton.waitForExistence(timeout: 15))
+        relaunchedExpandButton.click()
+
+        let restoredResult = app.descendants(matching: .any)["journey.step.mathematics.project-result"]
+        XCTAssertTrue(restoredResult.waitForExistence(timeout: 10))
+        XCTAssertEqual(
+            restoredResult.value as? String,
+            draft,
+            "A learner's saved mini-project result must be restored after reopening ColiDev. / Результат мини-проекта должен восстановиться после повторного запуска ColiDev."
+        )
     }
 
     @MainActor

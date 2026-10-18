@@ -329,6 +329,7 @@ private struct CauseAndCorseJourneyStep: Identifiable {
     let id: String
     let title: JourneyCopy
     let description: JourneyCopy
+    let projectOutput: JourneyCopy
     let subjects: [Subject]
     let sources: [CauseAndCorseJourneySource]
 }
@@ -339,6 +340,7 @@ private enum CauseAndCorseLearningJourney {
             id: "mathematics",
             title: .init(ru: "Математика: фундамент", en: "Mathematics: foundations"),
             description: .init(ru: "Числа, алгебра, функции, геометрия и постепенный переход к анализу.", en: "Numbers, algebra, functions, geometry, and a gradual path into calculus."),
+            projectOutput: .init(ru: "Построй график функции и письменно объясни, как меняется результат при изменении входных значений.", en: "Plot a function and explain in writing how the output changes when its input changes."),
             subjects: [.mathematics],
             sources: [
                 .init(id: "math.stepik", title: .init(ru: "Stepik · математика 227868", en: "Stepik · mathematics 227868"), url: "https://stepik.org/course/227868/promo"),
@@ -346,9 +348,18 @@ private enum CauseAndCorseLearningJourney {
             ]
         ),
         .init(
+            id: "scientific_method",
+            title: .init(ru: "Научное мышление: вопрос → проверка → вывод", en: "Scientific thinking: question → test → conclusion"),
+            description: .init(ru: "Сначала сформулируй проверяемую гипотезу, измени один фактор, запиши наблюдения и ограничения вывода.", en: "State a testable hypothesis, change one factor, record observations, and describe the limits of the conclusion."),
+            projectOutput: .init(ru: "Проведи три измерения одного простого явления и запиши гипотезу, данные и возможную погрешность.", en: "Take three measurements of a simple phenomenon and record the hypothesis, data, and possible measurement error."),
+            subjects: [],
+            sources: [.init(id: "science.stepik", title: .init(ru: "Stepik · «Научное мышление» · бесплатно", en: "Stepik · Scientific Thinking · free, Russian"), url: "https://stepik.org/course/578/promo")]
+        ),
+        .init(
             id: "python",
             title: .init(ru: "Python: алгоритмы и практика", en: "Python: algorithms and practice"),
             description: .init(ru: "Переменные, функции, коллекции, алгоритмы, отладка и небольшие программы.", en: "Variables, functions, collections, algorithms, debugging, and small programs."),
+            projectOutput: .init(ru: "Напиши калькулятор порога трения: ввод массы и коэффициента → расчёт силы и понятный результат.", en: "Write a friction-threshold calculator: mass and coefficient in, force calculation and a clear result out."),
             subjects: [.programming],
             sources: [.init(id: "python.stepik", title: .init(ru: "Stepik · Python 67 · обновлён 16.05.2025", en: "Stepik · Python 67 · page updated 2025-05-16"), url: "https://stepik.org/course/67/promo")]
         ),
@@ -356,6 +367,7 @@ private enum CauseAndCorseLearningJourney {
             id: "cs50x",
             title: .init(ru: "CS50x: основы информатики", en: "CS50x: computer science foundations"),
             description: .init(ru: "Связывай программирование с памятью, алгоритмами, структурами данных и системами; курс Harvard идёт на английском.", en: "Connect programming to memory, algorithms, data structures, and systems; Harvard’s course is in English."),
+            projectOutput: .init(ru: "Собери небольшую программу поиска или сортировки, добавь тесты и объясни, почему выбрал этот алгоритм.", en: "Build a small search or sorting program, add tests, and explain why you chose that algorithm."),
             subjects: [.programming],
             sources: [.init(id: "cs50x.official", title: .init(ru: "Harvard · CS50x 2026", en: "Harvard · CS50x 2026"), url: "https://cs50.harvard.edu/x/")]
         ),
@@ -363,6 +375,7 @@ private enum CauseAndCorseLearningJourney {
             id: "physics",
             title: .init(ru: "Физика: проверить модель руками", en: "Physics: test models hands-on"),
             description: .init(ru: "Предскажи результат, меняй параметры в симуляции, сравнивай с графиком и отмечай ограничения модели.", en: "Predict an outcome, change simulation parameters, compare the graph, and note the model’s limits."),
+            projectOutput: .init(ru: "Сравни прогноз силы трения с моделью урока, сохрани график или таблицу и назови одно ограничение модели.", en: "Compare a friction prediction with the lesson model, save a graph or table, and name one model limitation."),
             subjects: [.physics],
             sources: [
                 .init(id: "physics.stepik.foundation", title: .init(ru: "Stepik · физика 7–9 класс 62700", en: "Stepik · physics grades 7–9 #62700"), url: "https://stepik.org/course/62700/promo"),
@@ -375,6 +388,7 @@ private enum CauseAndCorseLearningJourney {
             id: "biology",
             title: .init(ru: "Биология и зоология: системы жизни", en: "Biology and zoology: living systems"),
             description: .init(ru: "Клетки, наследственность, эволюция и функции животных; старые материалы сверяй с современными источниками.", en: "Cells, heredity, evolution, and animal function; compare older course material with current sources."),
+            projectOutput: .init(ru: "Сделай схему одной биологической системы и подпиши, какие источники подтверждают связи между её частями.", en: "Diagram one biological system and cite sources that support the links between its parts."),
             subjects: [.biology, .zoology],
             sources: [
                 .init(id: "biology.stepik", title: .init(ru: "Stepik · молекулярная биология 70 · обновлён 19.12.2023", en: "Stepik · molecular biology 70 · page updated 2023-12-19"), url: "https://stepik.org/course/70/promo"),
@@ -385,6 +399,7 @@ private enum CauseAndCorseLearningJourney {
             id: "machine_learning",
             title: .init(ru: "Машинное обучение: алгоритмы и эксперименты", en: "Machine learning: algorithms and experiments"),
             description: .init(ru: "После Python и математики: собери baseline, проверь модель на новых данных, изучи ошибки и ограничения.", en: "After Python and mathematics: build a baseline, evaluate on held-out data, and inspect errors and limits."),
+            projectOutput: .init(ru: "Обучи один простой baseline, оцени его на отложенных данных и запиши ошибки, а не только точность.", en: "Train one simple baseline, evaluate it on held-out data, and record its errors as well as its score."),
             subjects: [.programming],
             sources: [
                 .init(id: "machine_learning.stepik", title: .init(ru: "Stepik · ИИ в задачах 300891", en: "Stepik · AI through problems 300891"), url: "https://stepik.org/course/300891/promo"),
@@ -395,6 +410,7 @@ private enum CauseAndCorseLearningJourney {
             id: "brain_science",
             title: .init(ru: "Нейронаука, когнитивистика и сознание", en: "Neuroscience, cognitive science, and consciousness"),
             description: .init(ru: "Переходи к исследованиям после биологии и ML. Сознание и возможность создания жизни — дальние научные вопросы, не обещанный результат.", en: "Move into research after biology and ML. Consciousness and creating life are long-term scientific questions, not promised outcomes."),
+            projectOutput: .init(ru: "Подготовь карточку одного научного утверждения: источник, метод, результат и что пока неизвестно.", en: "Create an evidence card for one scientific claim: source, method, result, and what remains unknown."),
             subjects: [],
             sources: [.init(id: "brain.hse", title: .init(ru: "ВШЭ · «Мозг и психика» · сессия 2022", en: "HSE · Brain and Psyche · 2022 session"), url: "https://openedu.ru/course/hse/BRAPS/?session=2022")]
         ),
@@ -402,6 +418,7 @@ private enum CauseAndCorseLearningJourney {
             id: "own_projects",
             title: .init(ru: "Собственные проекты: создать и проверить", en: "Your own projects: build and test"),
             description: .init(ru: "Выбери реальную задачу, собери прототип, проверь его на данных и объясни источники, выводы и ограничения.", en: "Choose a real problem, build a prototype, test it with data, and explain sources, findings, and limitations."),
+            projectOutput: .init(ru: "Собери небольшой работающий прототип, приложи проверку и кратко запиши следующий шаг.", en: "Build a small working prototype, include a check, and note the next step."),
             subjects: [.programming],
             sources: []
         )
@@ -409,6 +426,7 @@ private enum CauseAndCorseLearningJourney {
 }
 
 private struct CauseAndCorseJourneyCard: View {
+    @EnvironmentObject private var store: LearningStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isExpanded = false
 
@@ -430,8 +448,8 @@ private struct CauseAndCorseJourneyCard: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("journey.title")
                     Text(language == .ru
-                         ? "8 этапов от основ к собственным проектам. Учимся сначала по-русски, английский добавляем постепенно."
-                         : "Eight stages from foundations to your own projects. Start in Russian and add English gradually.")
+                         ? "9 этапов по очереди: сначала математика, затем научное мышление и Python. Не нужно хвататься за все предметы сразу; английский добавляем постепенно."
+                         : "Nine stages in sequence: mathematics first, then scientific thinking and Python. No need to study everything at once; add English gradually.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -453,7 +471,7 @@ private struct CauseAndCorseJourneyCard: View {
 
             Button { open(.mathematics) } label: {
                 Label(
-                    language == .ru ? "Перейти к математике" : "Open mathematics",
+                    language == .ru ? "Начать с математики → затем Python" : "Start with mathematics → then Python",
                     systemImage: "arrow.right.circle.fill"
                 )
             }
@@ -473,8 +491,8 @@ private struct CauseAndCorseJourneyCard: View {
                 .transition(reduceMotion ? .identity : .opacity.combined(with: .move(edge: .top)))
 
                 Text(language == .ru
-                     ? "Ссылки проверены 18.10.2026. Страница Python 67 обновлялась 16.05.2025, биология 70 — 19.12.2023, страница ВШЭ помечена сессией 2022: перед обучением сверяй доступ и актуальность. PhET и GeoGebra открываются отдельно; лицензии на встраивание или коммерческое использование не подтверждены. Материалы и прогресс внешних курсов не копируются в ColiDev."
-                     : "Links were checked on 2026-10-18. Python 67’s page was updated 2025-05-16, biology 70’s on 2023-12-19, and the HSE page is marked as a 2022 session: check availability and freshness before studying. PhET and GeoGebra open separately; embedding or commercial-use rights are not confirmed. External course materials and progress are not copied into ColiDev.")
+                     ? "Ссылки перепроверены 19.10.2026. Python 67 обновлялся 16.05.2025, биология 70 — 19.12.2023, страница ВШЭ помечена сессией 2022: перед обучением проверь доступ и актуальность. PhET и GeoGebra открываются отдельно; права на встраивание не подтверждены. Твои проектные заметки сохраняются локально на этом Mac."
+                     : "Links were rechecked on 2026-10-19. Python 67 was updated 2025-05-16, biology 70 on 2023-12-19, and the HSE page is marked as a 2022 session: check access and freshness before studying. PhET and GeoGebra open separately; embedding rights are unconfirmed. Your project notes are saved locally on this Mac.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -494,6 +512,7 @@ private struct CauseAndCorseJourneyCard: View {
                 .foregroundStyle(Color.accentColor)
                 .frame(width: 30, height: 30)
                 .background(Color.accentColor.opacity(0.12), in: Circle())
+                .accessibilityIdentifier("journey.step.\(step.id).number")
 
             VStack(alignment: .leading, spacing: 7) {
                 Text(step.title.value(in: language))
@@ -503,6 +522,22 @@ private struct CauseAndCorseJourneyCard: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+
+                Text(language == .ru ? "Мини-проект · маленький проверяемый результат" : "Mini-project · a small verifiable result")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.accentColor)
+                Text(step.projectOutput.value(in: language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                TextField(
+                    language == .ru ? "Запиши результат или что уже сделал" : "Record your result or what you have done",
+                    text: journeyProjectBinding(for: step),
+                    axis: .vertical
+                )
+                .textFieldStyle(.roundedBorder)
+                .lineLimit(1...3)
+                .accessibilityIdentifier("journey.step.\(step.id).project-result")
 
                 if !step.subjects.isEmpty {
                     HStack(spacing: 8) {
@@ -550,6 +585,14 @@ private struct CauseAndCorseJourneyCard: View {
                 isExpanded.toggle()
             }
         }
+    }
+
+    private func journeyProjectBinding(for step: CauseAndCorseJourneyStep) -> Binding<String> {
+        let key = "cause_and_corse.journey.\(step.id)"
+        return Binding(
+            get: { store.studyReflectionDrafts[key] ?? "" },
+            set: { store.saveReflectionDraft($0, lessonID: key) }
+        )
     }
 }
 
