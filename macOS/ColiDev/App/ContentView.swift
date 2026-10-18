@@ -310,6 +310,249 @@ private struct StudyGoalOption: Identifiable {
     var id: String { route.lessonID }
 }
 
+private struct JourneyCopy {
+    let ru: String
+    let en: String
+
+    func value(in language: AppLanguage) -> String {
+        language == .ru ? ru : en
+    }
+}
+
+private struct CauseAndCorseJourneySource: Identifiable {
+    let id: String
+    let title: JourneyCopy
+    let url: String
+}
+
+private struct CauseAndCorseJourneyStep: Identifiable {
+    let id: String
+    let title: JourneyCopy
+    let description: JourneyCopy
+    let subjects: [Subject]
+    let sources: [CauseAndCorseJourneySource]
+}
+
+private enum CauseAndCorseLearningJourney {
+    static let steps: [CauseAndCorseJourneyStep] = [
+        .init(
+            id: "mathematics",
+            title: .init(ru: "Математика: фундамент", en: "Mathematics: foundations"),
+            description: .init(ru: "Числа, алгебра, функции, геометрия и постепенный переход к анализу.", en: "Numbers, algebra, functions, geometry, and a gradual path into calculus."),
+            subjects: [.mathematics],
+            sources: [
+                .init(id: "math.stepik", title: .init(ru: "Stepik · математика 227868", en: "Stepik · mathematics 227868"), url: "https://stepik.org/course/227868/promo"),
+                .init(id: "math.calculus", title: .init(ru: "Stepik · матанализ 229762", en: "Stepik · calculus 229762"), url: "https://stepik.org/course/229762/promo")
+            ]
+        ),
+        .init(
+            id: "python",
+            title: .init(ru: "Python: алгоритмы и практика", en: "Python: algorithms and practice"),
+            description: .init(ru: "Переменные, функции, коллекции, алгоритмы, отладка и небольшие программы.", en: "Variables, functions, collections, algorithms, debugging, and small programs."),
+            subjects: [.programming],
+            sources: [.init(id: "python.stepik", title: .init(ru: "Stepik · Python 67 · обновлён 16.05.2025", en: "Stepik · Python 67 · page updated 2025-05-16"), url: "https://stepik.org/course/67/promo")]
+        ),
+        .init(
+            id: "cs50x",
+            title: .init(ru: "CS50x: основы информатики", en: "CS50x: computer science foundations"),
+            description: .init(ru: "Связывай программирование с памятью, алгоритмами, структурами данных и системами; курс Harvard идёт на английском.", en: "Connect programming to memory, algorithms, data structures, and systems; Harvard’s course is in English."),
+            subjects: [.programming],
+            sources: [.init(id: "cs50x.official", title: .init(ru: "Harvard · CS50x 2026", en: "Harvard · CS50x 2026"), url: "https://cs50.harvard.edu/x/")]
+        ),
+        .init(
+            id: "physics",
+            title: .init(ru: "Физика: проверить модель руками", en: "Physics: test models hands-on"),
+            description: .init(ru: "Предскажи результат, меняй параметры в симуляции, сравнивай с графиком и отмечай ограничения модели.", en: "Predict an outcome, change simulation parameters, compare the graph, and note the model’s limits."),
+            subjects: [.physics],
+            sources: [
+                .init(id: "physics.stepik.foundation", title: .init(ru: "Stepik · физика 7–9 класс 62700", en: "Stepik · physics grades 7–9 #62700"), url: "https://stepik.org/course/62700/promo"),
+                .init(id: "physics.stepik.advanced", title: .init(ru: "Stepik · физика для студентов 287410", en: "Stepik · student physics #287410"), url: "https://stepik.org/course/287410/promo"),
+                .init(id: "physics.phet", title: .init(ru: "PhET · симуляции", en: "PhET · simulations"), url: "https://phet.colorado.edu/ru/"),
+                .init(id: "physics.geogebra", title: .init(ru: "GeoGebra · 3D", en: "GeoGebra · 3D"), url: "https://www.geogebra.org/3d")
+            ]
+        ),
+        .init(
+            id: "biology",
+            title: .init(ru: "Биология и зоология: системы жизни", en: "Biology and zoology: living systems"),
+            description: .init(ru: "Клетки, наследственность, эволюция и функции животных; старые материалы сверяй с современными источниками.", en: "Cells, heredity, evolution, and animal function; compare older course material with current sources."),
+            subjects: [.biology, .zoology],
+            sources: [
+                .init(id: "biology.stepik", title: .init(ru: "Stepik · молекулярная биология 70 · обновлён 19.12.2023", en: "Stepik · molecular biology 70 · page updated 2023-12-19"), url: "https://stepik.org/course/70/promo"),
+                .init(id: "biology.zoology", title: .init(ru: "Stepik · молекулярная филогенетика 2054", en: "Stepik · molecular phylogenetics #2054"), url: "https://stepik.org/course/2054/promo")
+            ]
+        ),
+        .init(
+            id: "machine_learning",
+            title: .init(ru: "Машинное обучение: алгоритмы и эксперименты", en: "Machine learning: algorithms and experiments"),
+            description: .init(ru: "После Python и математики: собери baseline, проверь модель на новых данных, изучи ошибки и ограничения.", en: "After Python and mathematics: build a baseline, evaluate on held-out data, and inspect errors and limits."),
+            subjects: [.programming],
+            sources: [
+                .init(id: "machine_learning.stepik", title: .init(ru: "Stepik · ИИ в задачах 300891", en: "Stepik · AI through problems 300891"), url: "https://stepik.org/course/300891/promo"),
+                .init(id: "machine_learning.advanced", title: .init(ru: "Stepik · углублённый ML 209247", en: "Stepik · advanced ML #209247"), url: "https://stepik.org/course/209247/promo")
+            ]
+        ),
+        .init(
+            id: "brain_science",
+            title: .init(ru: "Нейронаука, когнитивистика и сознание", en: "Neuroscience, cognitive science, and consciousness"),
+            description: .init(ru: "Переходи к исследованиям после биологии и ML. Сознание и возможность создания жизни — дальние научные вопросы, не обещанный результат.", en: "Move into research after biology and ML. Consciousness and creating life are long-term scientific questions, not promised outcomes."),
+            subjects: [],
+            sources: [.init(id: "brain.hse", title: .init(ru: "ВШЭ · «Мозг и психика» · сессия 2022", en: "HSE · Brain and Psyche · 2022 session"), url: "https://openedu.ru/course/hse/BRAPS/?session=2022")]
+        ),
+        .init(
+            id: "own_projects",
+            title: .init(ru: "Собственные проекты: создать и проверить", en: "Your own projects: build and test"),
+            description: .init(ru: "Выбери реальную задачу, собери прототип, проверь его на данных и объясни источники, выводы и ограничения.", en: "Choose a real problem, build a prototype, test it with data, and explain sources, findings, and limitations."),
+            subjects: [.programming],
+            sources: []
+        )
+    ]
+}
+
+private struct CauseAndCorseJourneyCard: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isExpanded = false
+
+    let language: AppLanguage
+    let open: (Subject) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "map.fill")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 42, height: 42)
+                    .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 13))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(language == .ru ? "Cause & Corse · путь к своим технологиям" : "Cause & Corse · a path to building new technology")
+                        .font(.headline)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("journey.title")
+                    Text(language == .ru
+                         ? "8 этапов от основ к собственным проектам. Учимся сначала по-русски, английский добавляем постепенно."
+                         : "Eight stages from foundations to your own projects. Start in Russian and add English gradually.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 4)
+
+                Button(action: toggleExpansion) {
+                    Label(
+                        isExpanded
+                            ? (language == .ru ? "Скрыть" : "Collapse")
+                            : (language == .ru ? "Все этапы" : "All stages"),
+                        systemImage: isExpanded ? "chevron.up" : "chevron.down"
+                    )
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("journey.expand")
+            }
+
+            Button { open(.mathematics) } label: {
+                Label(
+                    language == .ru ? "Перейти к математике" : "Open mathematics",
+                    systemImage: "arrow.right.circle.fill"
+                )
+            }
+            .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier("journey.primary-action")
+
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(Array(CauseAndCorseLearningJourney.steps.enumerated()), id: \.element.id) { index, step in
+                        if index > 0 {
+                            Divider().padding(.leading, 42)
+                        }
+                        journeyStep(step, index: index)
+                    }
+                }
+                .padding(.top, 2)
+                .transition(reduceMotion ? .identity : .opacity.combined(with: .move(edge: .top)))
+
+                Text(language == .ru
+                     ? "Ссылки проверены 18.10.2026. Страница Python 67 обновлялась 16.05.2025, биология 70 — 19.12.2023, страница ВШЭ помечена сессией 2022: перед обучением сверяй доступ и актуальность. PhET и GeoGebra открываются отдельно; лицензии на встраивание или коммерческое использование не подтверждены. Материалы и прогресс внешних курсов не копируются в ColiDev."
+                     : "Links were checked on 2026-10-18. Python 67’s page was updated 2025-05-16, biology 70’s on 2023-12-19, and the HSE page is marked as a 2022 session: check availability and freshness before studying. PhET and GeoGebra open separately; embedding or commercial-use rights are not confirmed. External course materials and progress are not copied into ColiDev.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("journey.source-notice")
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .coliContentCard(tint: Color.accentColor, cornerRadius: 18)
+    }
+
+    @ViewBuilder
+    private func journeyStep(_ step: CauseAndCorseJourneyStep, index: Int) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text("\(index + 1)")
+                .font(.callout.weight(.semibold).monospacedDigit())
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 30, height: 30)
+                .background(Color.accentColor.opacity(0.12), in: Circle())
+
+            VStack(alignment: .leading, spacing: 7) {
+                Text(step.title.value(in: language))
+                    .font(.subheadline.weight(.semibold))
+                    .accessibilityIdentifier("journey.step.\(step.id).title")
+                Text(step.description.value(in: language))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if !step.subjects.isEmpty {
+                    HStack(spacing: 8) {
+                        ForEach(step.subjects, id: \.self) { subject in
+                            Button { open(subject) } label: {
+                                Label(subject.title(in: language), systemImage: "arrow.up.right")
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            .accessibilityIdentifier("journey.step.\(step.id).subject.\(subject.rawValue)")
+                        }
+                    }
+                }
+
+                if !step.sources.isEmpty {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), alignment: .leading)], alignment: .leading, spacing: 7) {
+                        ForEach(step.sources) { source in
+                            if let url = URL(string: source.url) {
+                                Link(destination: url) {
+                                    Label(source.title.value(in: language), systemImage: "arrow.up.right.square")
+                                        .font(.caption)
+                                        .lineLimit(2)
+                                        .multilineTextAlignment(.leading)
+                                        .padding(.horizontal, 9)
+                                        .padding(.vertical, 6)
+                                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 9))
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityIdentifier("journey.source.\(source.id)")
+                                .accessibilityValue(source.url)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.vertical, 7)
+    }
+
+    private func toggleExpansion() {
+        if reduceMotion {
+            isExpanded.toggle()
+        } else {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isExpanded.toggle()
+            }
+        }
+    }
+}
+
 private struct TodayView: View {
     @EnvironmentObject private var store: LearningStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -533,6 +776,7 @@ private struct TodayView: View {
                     studyReturnCard(studyReturnSnapshot)
                 }
                 studyGoalCard
+                CauseAndCorseJourneyCard(language: store.language, open: open)
 
                 VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 4) {
