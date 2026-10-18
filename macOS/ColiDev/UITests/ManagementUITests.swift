@@ -152,7 +152,7 @@ final class ManagementUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["lesson.video.before"].exists)
         XCTAssertTrue(app.staticTexts["lesson.video.after"].exists)
 
-        let response = app.textFields["lesson.video.response"]
+        let response = app.descendants(matching: .any)["lesson.video.response"]
         XCTAssertTrue(
             response.waitForExistence(timeout: 10),
             "The post-video prompt must accept a learner response that can be saved with lesson progress. / После просмотра ученик должен иметь возможность записать ответ вместе с прогрессом урока.\n\(app.debugDescription)"
@@ -161,6 +161,10 @@ final class ManagementUITests: XCTestCase {
         XCTAssertTrue(
             app.staticTexts["lesson.video.privacyNotice"].exists,
             "The app must disclose YouTube data sharing before playback is loaded. / До загрузки плеера приложение должно предупредить о передаче данных YouTube.\n\(app.debugDescription)"
+        )
+        XCTAssertFalse(
+            app.webViews["lesson.video.player"].exists,
+            "The player must not load before the learner grants consent. / Плеер не должен загружаться до согласия ученика.\n\(app.debugDescription)"
         )
 
         let enablePlayback = app.buttons["lesson.video.enablePlayback"]
@@ -171,7 +175,7 @@ final class ManagementUITests: XCTestCase {
         enablePlayback.click()
 
         XCTAssertTrue(
-            app.descendants(matching: .any)["lesson.video.player"].waitForExistence(timeout: 10),
+            app.webViews["lesson.video.player"].waitForExistence(timeout: 10),
             "The lesson must reveal an embedded player after consent. / После согласия в уроке должен появиться встроенный плеер.\n\(app.debugDescription)"
         )
 

@@ -33,6 +33,8 @@ source_review_interval_days: 365
 
 [Khan Academy — примеры трения покоя и скольжения](https://ru.khanacademy.org/science/physics/forces-newtons-laws/inclined-planes-friction/v/static-and-kinetic-friction-example)
 
+**Встроенный плеер YouTube:** https://www.youtube.com/watch?v=ZA_D4O6l1lo
+
 **Перед просмотром:** Предскажи, как будут различаться сила трения покоя и сила трения скольжения, когда блок начнёт двигаться.
 
 **После просмотра:** Сравни пример в видео с тренажёром: где трение покоя подстраивается под толчок, а где достигает предельного значения? Назови одно допущение модели из урока.
@@ -82,6 +84,8 @@ Check the `25 N` example with `μ_s = 0.4` and `μ_k = 0.3`. Find the normal for
 ### Video and observation
 
 [Khan Academy — Static and kinetic friction examples](https://www.khanacademy.org/science/physics/forces-newtons-laws/inclined-planes-friction/v/static-and-kinetic-friction-example)
+
+**YouTube player:** https://www.youtube.com/watch?v=ZA_D4O6l1lo
 
 **Before watching:** Predict how static and kinetic friction will differ as the block starts to move.
 

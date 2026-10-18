@@ -331,6 +331,7 @@ private struct CurriculumLessonDocument {
 private struct CurriculumLessonVideoActivity {
     let title: String
     let url: URL
+    let youtubeVideoID: String?
     let beforeWatching: String
     let afterWatching: String
 
@@ -368,9 +369,17 @@ private struct CurriculumLessonVideoActivity {
               let afterWatching = value(after: afterLabel) else {
             return nil
         }
+        let youtubePattern = #"https://(?:www\.)?youtube\.com/watch\?(?:[^\s)]*&)?v=([A-Za-z0-9_-]{11})"#
+        let youtubeExpression = try? NSRegularExpression(pattern: youtubePattern)
+        let youtubeRange = NSRange(section.startIndex..<section.endIndex, in: section)
+        let youtubeVideoID = youtubeExpression?
+            .firstMatch(in: section, range: youtubeRange)
+            .flatMap { Range($0.range(at: 1), in: section) }
+            .map { String(section[$0]) }
         return CurriculumLessonVideoActivity(
             title: String(section[titleRange]),
             url: url,
+            youtubeVideoID: youtubeVideoID,
             beforeWatching: beforeWatching,
             afterWatching: afterWatching
         )
@@ -381,6 +390,8 @@ private struct CurriculumLessonVideoCard: View {
     let activity: CurriculumLessonVideoActivity
     let tint: Color
     let language: AppLanguage
+    @Binding var reflection: String
+    @State private var hasConsentedToYouTube = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -402,6 +413,38 @@ private struct CurriculumLessonVideoCard: View {
                     .accessibilityIdentifier("lesson.video.before")
             }
 
+            if let videoID = activity.youtubeVideoID {
+                if hasConsentedToYouTube {
+                    YouTubeLessonPlayer(videoID: videoID)
+                        .frame(maxWidth: .infinity)
+                        .aspectRatio(16.0 / 9.0, contentMode: .fit)
+                        .frame(minHeight: 270)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                } else {
+                    Text(L10n.text("lesson.video.privacyNotice", language))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("lesson.video.privacyNotice")
+
+                    if let privacyURL = URL(string: "https://policies.google.com/privacy") {
+                        Link(destination: privacyURL) {
+                            Text(L10n.text("lesson.video.googlePrivacy", language))
+                        }
+                        .font(.caption)
+                    }
+
+                    Button {
+                        hasConsentedToYouTube = true
+                    } label: {
+                        Label(L10n.text("lesson.video.enablePlayback", language), systemImage: "play.rectangle.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(tint)
+                    .accessibilityIdentifier("lesson.video.enablePlayback")
+                }
+            }
+
             Link(destination: activity.url) {
                 Label(L10n.text("lesson.video.open", language), systemImage: "arrow.up.right.square")
             }
@@ -409,7 +452,12 @@ private struct CurriculumLessonVideoCard: View {
             .tint(tint)
             .accessibilityIdentifier("lesson.video.open")
 
-            Text(L10n.text("lesson.video.externalNotice", language))
+            Text(L10n.text("lesson.video.attribution", language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(L10n.text("lesson.video.captionHelp", language))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -422,6 +470,16 @@ private struct CurriculumLessonVideoCard: View {
                     .font(.callout)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("lesson.video.after")
+
+                TextField(L10n.text("lesson.video.responsePlaceholder", language), text: $reflection, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .lineLimit(2...4)
+                    .accessibilityIdentifier("lesson.video.response")
+                    .onChange(of: reflection) { value in
+                        if value.unicodeScalars.count > 500 {
+                            reflection = String(String.UnicodeScalarView(value.unicodeScalars.prefix(500)))
+                        }
+                    }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -430,6 +488,88 @@ private struct CurriculumLessonVideoCard: View {
         .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(tint.opacity(0.25), lineWidth: 1))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("lesson.video.activity")
+    }
+}
+
+private struct YouTubeLessonPlayer: NSViewRepresentable {
+    let videoID: String
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeNSView(context: Context) -> WKWebView {
+        let configuration = WKWebViewConfiguration()
+        configuration.allowsInlineMediaPlayback = true
+        configuration.mediaTypesRequiringUserActionForPlayback = .all
+
+        let webView = WKWebView(frame: .zero, configuration: configuration)
+        webView.accessibilityIdentifier = "lesson.video.player"
+        webView.underPageBackgroundColor = .black
+        webView.navigationDelegate = context.coordinator
+        webView.uiDelegate = context.coordinator
+        context.coordinator.load(videoID, into: webView)
+        return webView
+    }
+
+    func updateNSView(_ webView: WKWebView, context: Context) {
+        context.coordinator.load(videoID, into: webView)
+    }
+
+    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
+        private var loadedVideoID: String?
+        private let appIdentity = "https://github.com/invinby/coli-dev/"
+
+        func load(_ videoID: String, into webView: WKWebView) {
+            guard loadedVideoID != videoID else { return }
+            loadedVideoID = videoID
+            guard videoID.range(of: #"^[A-Za-z0-9_-]{11}$"#, options: .regularExpression) != nil,
+                  var components = URLComponents(string: "https://www.youtube.com/embed/\(videoID)") else {
+                return
+            }
+            components.queryItems = [
+                URLQueryItem(name: "autoplay", value: "0"),
+                URLQueryItem(name: "controls", value: "1"),
+                URLQueryItem(name: "playsinline", value: "1"),
+                URLQueryItem(name: "cc_load_policy", value: "1"),
+                URLQueryItem(name: "origin", value: "https://github.com")
+            ]
+            guard let url = components.url else { return }
+            var request = URLRequest(url: url)
+            request.setValue(appIdentity, forHTTPHeaderField: "Referer")
+            webView.load(request)
+        }
+
+        func webView(
+            _ webView: WKWebView,
+            decidePolicyFor navigationAction: WKNavigationAction,
+            decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+        ) {
+            guard navigationAction.navigationType == .linkActivated,
+                  navigationAction.targetFrame?.isMainFrame ?? true,
+                  let url = navigationAction.request.url,
+                  url.scheme?.lowercased() == "https" else {
+                decisionHandler(.allow)
+                return
+            }
+            NSWorkspace.shared.open(url)
+            decisionHandler(.cancel)
+        }
+
+        func webView(
+            _ webView: WKWebView,
+            createWebViewWith configuration: WKWebViewConfiguration,
+            for navigationAction: WKNavigationAction,
+            windowFeatures: WKWindowFeatures
+        ) -> WKWebView? {
+            guard navigationAction.navigationType == .linkActivated,
+                  let url = navigationAction.request.url,
+                  url.scheme?.lowercased() == "https" else {
+                return nil
+            }
+            NSWorkspace.shared.open(url)
+            return nil
+        }
     }
 }
 
@@ -525,7 +665,8 @@ struct CurriculumModuleView: View {
                         CurriculumLessonVideoCard(
                             activity: videoActivity,
                             tint: subject.tint,
-                            language: store.language
+                            language: store.language,
+                            reflection: $reflection
                         )
                     }
 
@@ -720,7 +861,8 @@ struct CurriculumModuleView: View {
                         StudyReflectionFields(
                             language: store.language,
                             reflection: $reflection,
-                            learnerConfirmed: $learnerConfirmed
+                            learnerConfirmed: $learnerConfirmed,
+                            showsReflectionInput: document.videoActivity == nil
                         )
                         if learnerConfirmed, checkAttempt?.canComplete == true {
                             StudyFormatFeedbackCard(
@@ -1373,19 +1515,22 @@ private struct StudyReflectionFields: View {
     let language: AppLanguage
     @Binding var reflection: String
     @Binding var learnerConfirmed: Bool
+    let showsReflectionInput: Bool = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(L10n.text("session.listen", language))
                 .font(.headline)
-            TextField(L10n.text("session.reflectionPlaceholder", language), text: $reflection, axis: .vertical)
-                .textFieldStyle(.roundedBorder)
-                .lineLimit(2...4)
-                .onChange(of: reflection) { value in
-                    if value.unicodeScalars.count > 500 {
-                        reflection = String(String.UnicodeScalarView(value.unicodeScalars.prefix(500)))
+            if showsReflectionInput {
+                TextField(L10n.text("session.reflectionPlaceholder", language), text: $reflection, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .lineLimit(2...4)
+                    .onChange(of: reflection) { value in
+                        if value.unicodeScalars.count > 500 {
+                            reflection = String(String.UnicodeScalarView(value.unicodeScalars.prefix(500)))
+                        }
                     }
-                }
+            }
             Text(L10n.text("session.reflectionPrivacy", language))
                 .font(.caption2)
                 .foregroundStyle(.secondary)

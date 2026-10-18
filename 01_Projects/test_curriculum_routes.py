@@ -57,6 +57,8 @@ def test_friction_lesson_has_bilingual_source_linked_video_activity():
     assert "### Video and observation" in lesson
     assert "https://ru.khanacademy.org/science/physics/forces-newtons-laws/inclined-planes-friction/v/static-and-kinetic-friction-example" in lesson
     assert "https://www.khanacademy.org/science/physics/forces-newtons-laws/inclined-planes-friction/v/static-and-kinetic-friction-example" in lesson
+    assert "**Встроенный плеер YouTube:** https://www.youtube.com/watch?v=ZA_D4O6l1lo" in lesson
+    assert "**YouTube player:** https://www.youtube.com/watch?v=ZA_D4O6l1lo" in lesson
     assert "**Перед просмотром:**" in lesson
     assert "**После просмотра:**" in lesson
     assert "**Before watching:**" in lesson
