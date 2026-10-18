@@ -79,7 +79,7 @@ final class ManagementUITests: XCTestCase {
     @MainActor
     func testMissingIntroMarkdownShowsUnavailableStateInsteadOfLegacyLesson() async throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-colidev.uiTestMissingIntroRoute", "YES"]
+        app.launchEnvironment["COLIDEV_UI_TEST_MISSING_INTRO_ROUTE"] = "1"
         app.launch()
 
         let mathematicsItem = app.staticTexts["Математика"]

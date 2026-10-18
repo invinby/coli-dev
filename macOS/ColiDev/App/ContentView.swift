@@ -225,11 +225,7 @@ struct ContentView: View {
     }
 
     private var shouldSimulateMissingIntroRoute: Bool {
-        #if DEBUG
-        return UserDefaults.standard.bool(forKey: "colidev.uiTestMissingIntroRoute")
-        #else
-        return false
-        #endif
+        ProcessInfo.processInfo.environment["COLIDEV_UI_TEST_MISSING_INTRO_ROUTE"] == "1"
     }
 
     private func openCell3DUITestRouteIfNeeded() {
