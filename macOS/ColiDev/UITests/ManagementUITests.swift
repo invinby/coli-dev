@@ -331,6 +331,8 @@ final class ManagementUITests: XCTestCase {
 
         let response = app.descendants(matching: .any)["lesson.video.response"]
         XCTAssertTrue(response.waitForExistence(timeout: 10))
+        let lessonScrollView = app.windows.firstMatch.scrollViews.element(boundBy: 1)
+        scrollUntilHittable(response, in: lessonScrollView)
 
         let draft = "I predict 15 N is below the static-friction threshold."
         response.click()
@@ -338,7 +340,6 @@ final class ManagementUITests: XCTestCase {
         response.typeText(draft)
         XCTAssertEqual(response.value as? String, draft)
 
-        let lessonScrollView = app.windows.firstMatch.scrollViews.element(boundBy: 1)
         let pushSlider = app.sliders["lesson.friction.slider.push"]
         scrollUntilHittable(pushSlider, in: lessonScrollView)
         pushSlider.adjust(toNormalizedSliderPosition: 0.9)
@@ -420,7 +421,7 @@ final class ManagementUITests: XCTestCase {
 
     @MainActor
     private func scrollUntilHittable(_ element: XCUIElement, in scrollView: XCUIElement) {
-        for _ in 0..<12 {
+        for _ in 0..<64 {
             if element.isHittable { return }
             scrollView.scroll(byDeltaX: 0, deltaY: 140)
         }
