@@ -1177,6 +1177,7 @@ private struct SettingsView: View {
                                     health.orchestrator ?? health.provider
                                 ))
                                 .font(.caption).foregroundStyle(.secondary)
+                                .fixedSize(horizontal: true, vertical: false)
                                 .accessibilityIdentifier("settings.ai.orchestrator-status")
                                 Text(L10n.text("settings.aiRouteResolution", store.language))
                                     .font(.caption).foregroundStyle(.secondary)

@@ -19,7 +19,7 @@ final class ManagementUITests: XCTestCase {
             "Settings must identify the orchestrator separately from the per-request model route. / Настройки должны отделять оркестратор от маршрута модели для отдельного запроса.\n\(app.debugDescription)"
         )
         XCTAssertTrue(
-            routeExplanation.label.localizedCaseInsensitiveContains("consilium"),
+            (routeExplanation.value as? String)?.localizedCaseInsensitiveContains("consilium") == true,
             "The health payload's orchestrator identity was not rendered. / Идентификатор оркестратора из health не показан.\n\(routeExplanation.debugDescription)"
         )
         let routePolicy = app.staticTexts["settings.ai.route-resolution"]
@@ -27,7 +27,7 @@ final class ManagementUITests: XCTestCase {
             routePolicy.waitForExistence(timeout: 10),
             "Settings must explain that Auto resolves a route per request. / Настройки должны объяснять, что Auto выбирает маршрут для каждого запроса.\n\(app.debugDescription)"
         )
-        XCTAssertTrue(routePolicy.label.contains("Auto"))
+        XCTAssertTrue((routePolicy.value as? String)?.contains("Auto") == true)
 
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Settings with per-request AI routing explanation"

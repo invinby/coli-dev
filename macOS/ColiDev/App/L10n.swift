@@ -1319,7 +1319,7 @@ enum L10n {
         "settings.aiAddress": ("Локальный сервис", "Local service"),
         "settings.aiBackendResponding": ("Локальный backend отвечает", "Local backend is responding"),
         "settings.aiBackendOnlyStatus": ("Это проверка службы, а не ответа модели. Реальный ответ проверяется отдельным запросом.", "This checks the service, not a model reply. A real reply is checked with a separate request."),
-        "settings.aiOrchestratorStatus": ("Оркестратор: %@", "Orchestrator: %@"),
+        "settings.aiOrchestratorStatus": ("ИИ: %@", "AI: %@"),
         "settings.aiRouteResolution": ("Auto выбирает провайдера и модель отдельно для каждого запроса.", "Auto selects a provider and model separately for each request."),
         "settings.tutorProbe.title": ("Проверка реального ответа тьютора", "Test a real tutor reply"),
         "settings.tutorProbe.warning": ("Отправится только короткий тестовый запрос: история урока, заметки Obsidian и веб-поиск не используются. Запрос может расходовать лимит провайдера; при включённых платных маршрутах возможна оплата.", "Only a short test request is sent: lesson history, Obsidian notes, and web search are not used. The request may use provider quota; enabled paid routes may incur a charge."),
