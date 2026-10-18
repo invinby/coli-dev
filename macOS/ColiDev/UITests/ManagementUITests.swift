@@ -126,6 +126,41 @@ final class ManagementUITests: XCTestCase {
     }
 
     @MainActor
+    func testFrictionLessonOffersSourceBackedVideoStudyCard() async throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let physicsItem = app.staticTexts["Физика"]
+        XCTAssertTrue(
+            physicsItem.waitForExistence(timeout: 15),
+            "The Physics navigation item did not appear. / Не появился пункт «Физика».\n\(app.debugDescription)"
+        )
+        physicsItem.click()
+
+        let frictionLesson = app.buttons["roadmap.lesson.physics.static_and_kinetic_friction"]
+        XCTAssertTrue(
+            frictionLesson.waitForExistence(timeout: 10),
+            "The friction lesson must have a stable, discoverable roadmap action. / У урока о трении должна быть стабильная доступная кнопка в дорожной карте.\n\(app.debugDescription)"
+        )
+        frictionLesson.click()
+
+        let videoTitle = app.staticTexts["lesson.video.title"]
+        XCTAssertTrue(
+            videoTitle.waitForExistence(timeout: 10),
+            "The lesson did not render its source-backed video activity. / В уроке не появилась видеоактивность с указанным источником.\n\(app.debugDescription)"
+        )
+        XCTAssertTrue(app.staticTexts["lesson.video.before"].exists)
+        XCTAssertTrue(app.staticTexts["lesson.video.after"].exists)
+
+        let videoLink = app.links["lesson.video.open"]
+        XCTAssertTrue(
+            videoLink.waitForExistence(timeout: 10),
+            "The video activity must expose an external link without embedding third-party playback. / Видеоактивность должна показывать внешнюю ссылку без встраивания стороннего плеера.\n\(app.debugDescription)"
+        )
+        XCTAssertTrue(videoLink.label.localizedCaseInsensitiveContains("Khan Academy"))
+    }
+
+    @MainActor
     func testMissingIntroMarkdownShowsUnavailableStateInsteadOfLegacyLesson() async throws {
         let app = XCUIApplication()
         app.launchEnvironment["COLIDEV_UI_TEST_MISSING_INTRO_ROUTE"] = "1"
