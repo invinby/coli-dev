@@ -518,7 +518,7 @@ private struct CauseAndCorseJourneyCard: View {
                 }
 
                 if !step.sources.isEmpty {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), alignment: .leading)], alignment: .leading, spacing: 7) {
+                    VStack(alignment: .leading, spacing: 7) {
                         ForEach(step.sources) { source in
                             if let url = URL(string: source.url) {
                                 Link(destination: url) {
