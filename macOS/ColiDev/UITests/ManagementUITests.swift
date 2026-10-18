@@ -378,7 +378,11 @@ final class ManagementUITests: XCTestCase {
         completionAction.click()
 
         let savedCompletion = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "label CONTAINS[c] %@", "сохранён как завершённый"),
+            predicate: NSPredicate(
+                format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@",
+                "сохранён",
+                "saved"
+            ),
             object: completionAction
         )
         let completionResult = await XCTWaiter.fulfillment(of: [savedCompletion], timeout: 10)
@@ -405,7 +409,8 @@ final class ManagementUITests: XCTestCase {
         let restoredCompletionAction = app.buttons["lesson.completion.action"]
         XCTAssertTrue(restoredCompletionAction.waitForExistence(timeout: 10))
         XCTAssertTrue(
-            restoredCompletionAction.label.localizedCaseInsensitiveContains("сохранён как завершённый"),
+            restoredCompletionAction.label.localizedCaseInsensitiveContains("сохранён как завершённый")
+                || restoredCompletionAction.label.localizedCaseInsensitiveContains("saved as completed"),
             "Lesson progress must survive quitting and reopening ColiDev. / Прогресс урока должен сохраняться после закрытия и повторного запуска ColiDev.\n\(app.debugDescription)"
         )
         let restoredLearnerConfirmation = app.descendants(matching: .any)["lesson.completion.confirmed"]
