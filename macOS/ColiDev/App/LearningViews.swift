@@ -500,11 +500,10 @@ private struct YouTubeLessonPlayer: NSViewRepresentable {
 
     func makeNSView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
-        configuration.allowsInlineMediaPlayback = true
         configuration.mediaTypesRequiringUserActionForPlayback = .all
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
-        webView.accessibilityIdentifier = "lesson.video.player"
+        webView.setAccessibilityIdentifier("lesson.video.player")
         webView.underPageBackgroundColor = .black
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
@@ -573,6 +572,30 @@ private struct YouTubeLessonPlayer: NSViewRepresentable {
     }
 }
 
+private struct CurriculumCheckOptionButton: View {
+    let title: String
+    let isSelected: Bool
+    let isDisabled: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
+                Text(title)
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+            }
+            .padding(11)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.background, in: RoundedRectangle(cornerRadius: 11))
+            .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(.quaternary, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .disabled(isDisabled)
+    }
+}
+
 struct CurriculumModuleView: View {
     @EnvironmentObject private var store: LearningStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -619,6 +642,18 @@ struct CurriculumModuleView: View {
         self.onPracticeFocusCompleted = onPracticeFocusCompleted
     }
 
+    @ViewBuilder
+    private var videoActivityContent: some View {
+        if let activity = document?.videoActivity {
+            CurriculumLessonVideoCard(
+                activity: activity,
+                tint: subject.tint,
+                language: store.language,
+                reflection: $reflection
+            )
+        }
+    }
+
     var body: some View {
         ScrollViewReader { scrollProxy in
         ScrollView {
@@ -661,14 +696,7 @@ struct CurriculumModuleView: View {
                     PracticeLab(subject: subject, moduleResource: resource)
                         .id("module-interactive-practice")
 
-                    if let videoActivity = document.videoActivity {
-                        CurriculumLessonVideoCard(
-                            activity: videoActivity,
-                            tint: subject.tint,
-                            language: store.language,
-                            reflection: $reflection
-                        )
-                    }
+                    videoActivityContent
 
                     if !document.checkQuestion.isEmpty, !document.checkOptions.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
@@ -678,24 +706,12 @@ struct CurriculumModuleView: View {
                                 .font(.headline)
                             if let checkAttempt {
                                 ForEach(Array(checkAttempt.choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayedIndex, originalIndex in
-                                    Button {
-                                        selectCheckAnswer(displayedIndex: displayedIndex)
-                                    } label: {
-                                        HStack(spacing: 10) {
-                                            Image(systemName: checkAttempt.selectedOriginalIndex == originalIndex
-                                                ? "largecircle.fill.circle"
-                                                : "circle")
-                                            Text(document.checkOptions[originalIndex])
-                                                .multilineTextAlignment(.leading)
-                                            Spacer(minLength: 0)
-                                        }
-                                        .padding(11)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .background(.background, in: RoundedRectangle(cornerRadius: 11))
-                                        .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(.quaternary, lineWidth: 1))
-                                    }
-                                    .buttonStyle(.plain)
-                                    .disabled(checkAttempt.hasAnswered)
+                                    CurriculumCheckOptionButton(
+                                        title: document.checkOptions[originalIndex],
+                                        isSelected: checkAttempt.selectedOriginalIndex == originalIndex,
+                                        isDisabled: checkAttempt.hasAnswered,
+                                        action: { selectCheckAnswer(displayedIndex: displayedIndex) }
+                                    )
                                 }
 
                                 if checkAttempt.hasAnswered {
@@ -1383,7 +1399,8 @@ struct LessonSessionView: View {
                     StudyReflectionFields(
                         language: store.language,
                         reflection: $reflection,
-                        learnerConfirmed: $learnerConfirmed
+                        learnerConfirmed: $learnerConfirmed,
+                        showsReflectionInput: true
                     )
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -1515,7 +1532,7 @@ private struct StudyReflectionFields: View {
     let language: AppLanguage
     @Binding var reflection: String
     @Binding var learnerConfirmed: Bool
-    let showsReflectionInput: Bool = true
+    let showsReflectionInput: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
