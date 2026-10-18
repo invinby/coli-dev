@@ -33,7 +33,7 @@
 
 Подбирать видео и другие наглядные материалы к конкретному уроку, указывать источник, язык, длительность и дату проверки доступности. Встраивать просмотр в учебный сценарий с вопросами или задачами до, во время и после него; дополнять пассивный просмотр практикой или интерактивным модулем. Условия внешнего доступа и офлайн-доступность должны быть видны пользователю.
 
-**Текущий статус / Current status — 2026-10-18:** В уроке о трении готовится первый RU/EN-сценарий: ссылка на Khan Academy, прогноз до просмотра, сравнение с моделью после просмотра и внешнее открытие источника. Видеофайл не кэшируется, его содержимое не включено в RAG; XCUITest и ручная проверка на Mac ещё впереди. / The friction lesson now has the first RU/EN video activity: a Khan Academy link, a pre-view prediction, a post-view comparison with the model, and external source opening. The video is not cached or included in RAG; the XCUITest and physical-Mac review are still pending.
+**Текущий статус / Current status — 2026-10-18:** В уроке о трении добавлен RU/EN-сценарий: ссылка на Khan Academy, прогноз до просмотра, сравнение с моделью после просмотра и внешнее открытие источника. Видеофайл не кэшируется и не включён в RAG. Сборка и XCUITest прошли CI run 39122705820; ручная проверка на Mac ещё ожидается. / The friction lesson now has a RU/EN video activity: a Khan Academy link, a pre-view prediction, a post-view comparison with the model, and external source opening. The video is not cached or included in RAG. Build and XCUITest passed CI run 39122705820; physical-Mac review is still pending.
 
 ## Для всех материалов
 
