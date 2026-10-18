@@ -303,7 +303,7 @@ final class ManagementUITests: XCTestCase {
         XCTAssertTrue(frictionLesson.waitForExistence(timeout: 10))
         frictionLesson.click()
 
-        let theory = app.descendants(matching: .any)["lesson.theory"]
+        let theory = app.staticTexts["lesson.theory"].firstMatch
         let videoTitle = app.staticTexts["lesson.video.title"]
         let modelHint = app.staticTexts["lesson.friction.model"]
         XCTAssertTrue(theory.waitForExistence(timeout: 10))
