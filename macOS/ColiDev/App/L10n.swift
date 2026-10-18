@@ -1321,6 +1321,8 @@ enum L10n {
         "settings.aiBackendOnlyStatus": ("Это проверка службы, а не ответа модели. Реальный ответ проверяется отдельным запросом.", "This checks the service, not a model reply. A real reply is checked with a separate request."),
         "settings.aiOrchestratorStatus": ("ИИ: %@", "AI: %@"),
         "settings.aiRouteResolution": ("Auto выбирает провайдера и модель отдельно для каждого запроса.", "Auto selects a provider and model separately for each request."),
+        "settings.aiPaidRoutesBlocked": ("Вызовы, способные расходовать платную квоту, заблокированы политикой расходов.", "Potentially billed AI routes are blocked by the cost policy."),
+        "settings.aiPaidRoutesAllowed": ("Потенциально платные маршруты разрешены; облачные вызовы могут списывать средства.", "Potentially billed AI routes are allowed; cloud calls may incur charges."),
         "settings.tutorProbe.title": ("Проверка реального ответа тьютора", "Test a real tutor reply"),
         "settings.tutorProbe.warning": ("Отправится только короткий тестовый запрос: история урока, заметки Obsidian и веб-поиск не используются. Запрос может расходовать лимит провайдера; при включённых платных маршрутах возможна оплата.", "Only a short test request is sent: lesson history, Obsidian notes, and web search are not used. The request may use provider quota; enabled paid routes may incur a charge."),
         "settings.tutorProbe.unverified": ("Проверка сервиса подтверждает только работу backend и готовность маршрута. Ответ модели ещё не проверен.", "The service check confirms only that the backend responds and a route is configured. The model reply has not been verified."),

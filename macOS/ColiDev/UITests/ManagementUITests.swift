@@ -29,6 +29,18 @@ final class ManagementUITests: XCTestCase {
         )
         XCTAssertTrue((routePolicy.value as? String)?.contains("Auto") == true)
 
+        let paidRoutePolicy = app.descendants(matching: .any)["settings.ai.paid-routes"]
+        XCTAssertTrue(
+            paidRoutePolicy.waitForExistence(timeout: 10),
+            "Settings must expose the live paid-route policy. / Настройки должны показывать текущую политику платных маршрутов.\n\(app.debugDescription)"
+        )
+        let paidRoutePolicyValue = paidRoutePolicy.value as? String ?? ""
+        XCTAssertTrue(
+            paidRoutePolicyValue.localizedCaseInsensitiveContains("blocked")
+                || paidRoutePolicyValue.localizedCaseInsensitiveContains("заблокированы"),
+            "The fresh test backend must show its default free-only policy. / Новый тестовый backend должен показывать политику без платных маршрутов.\n\(paidRoutePolicy.debugDescription)"
+        )
+
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Settings with per-request AI routing explanation"
         screenshot.lifetime = .keepAlways

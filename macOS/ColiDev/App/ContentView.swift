@@ -1183,6 +1183,22 @@ private struct SettingsView: View {
                                     .font(.caption).foregroundStyle(.secondary)
                                     .fixedSize(horizontal: false, vertical: true)
                                     .accessibilityIdentifier("settings.ai.route-resolution")
+                                if let allowPaidRoutes = health.allowPaidRoutes {
+                                    Label(
+                                        L10n.text(
+                                            allowPaidRoutes
+                                                ? "settings.aiPaidRoutesAllowed"
+                                                : "settings.aiPaidRoutesBlocked",
+                                            store.language
+                                        ),
+                                        systemImage: allowPaidRoutes
+                                            ? "exclamationmark.triangle.fill"
+                                            : "lock.fill"
+                                    )
+                                    .font(.caption)
+                                    .foregroundStyle(allowPaidRoutes ? Color.orange : Color.secondary)
+                                    .accessibilityIdentifier("settings.ai.paid-routes")
+                                }
                             }
                             Text(routeDescription(for: health))
                                 .font(.caption).foregroundStyle(.secondary)

@@ -1083,6 +1083,7 @@ struct OrchestratorHealth: Decodable {
     let cloudRouteReady: Bool?
     let localRouteReady: Bool?
     let automaticRouteReady: Bool?
+    let allowPaidRoutes: Bool?
     let cloudModelCallsToday: Int?
     let cloudModelCallsMax: Int?
     let cloudModelCallsRemaining: Int?
@@ -1133,6 +1134,7 @@ struct OrchestratorHealth: Decodable {
         case cloudRouteReady = "cloud_route_ready"
         case localRouteReady = "local_route_ready"
         case automaticRouteReady = "automatic_route_ready"
+        case allowPaidRoutes = "allow_paid_routes"
         case cloudModelCallsToday = "cloud_model_calls_today"
         case cloudModelCallsMax = "cloud_model_calls_max"
         case cloudModelCallsRemaining = "cloud_model_calls_remaining"

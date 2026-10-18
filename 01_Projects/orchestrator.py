@@ -666,6 +666,7 @@ class HealthResponse(BaseModel):
     cloud_route_ready: bool = False
     local_route_ready: bool = False
     automatic_route_ready: bool = False
+    allow_paid_routes: bool = False
     cloud_model_calls_today: int | None = None
     cloud_model_calls_max: int | None = None
     cloud_model_calls_remaining: int | None = None
@@ -4887,6 +4888,7 @@ async def health(request: Request):
         status="ok" if (net_ok or ollama_info["available"]) else "degraded",
         online=net_ok,
         provider=state.provider,
+        allow_paid_routes=auto_cost_policy.get()["allow_paid_routes"],
         gemini_model=f"{GEMINI_FLASH_MODEL} drafts / {GEMINI_PRO_MODEL} final",
         ollama_model=OLLAMA_MODEL_RESEARCHER,
         ollama_embedding_model=(

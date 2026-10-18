@@ -697,6 +697,7 @@ class TestAPIEndpoints:
         assert data["provider_kind"] == "orchestrator"
         assert data["orchestrator"] == "consilium"
         assert data["route_resolution"] == "per_request"
+        assert data["allow_paid_routes"] is True
         assert data["effective_provider"] is None
         assert data["effective_model"] is None
         assert "gemini_model" in data
@@ -715,6 +716,16 @@ class TestAPIEndpoints:
         assert data["knowledge_review_due_document_count"] == 2
         assert data["knowledge_review_scheduled_document_count"] == 3
         assert data["knowledge_review_schedule_missing_document_count"] == 2
+
+    def test_health_reports_paid_route_policy(self, client):
+        orchestrator.auto_cost_policy.set(False)
+
+        blocked = client.get("/health").json()
+        assert blocked["allow_paid_routes"] is False
+
+        orchestrator.auto_cost_policy.set(True)
+        allowed = client.get("/health").json()
+        assert allowed["allow_paid_routes"] is True
 
     def test_health_does_not_advertise_cloud_route_when_daily_limit_is_zero(self, client, monkeypatch):
         monkeypatch.setattr(orchestrator, "OPENROUTER_KEY", "free-router-key")
