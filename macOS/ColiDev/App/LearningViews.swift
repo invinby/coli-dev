@@ -972,9 +972,11 @@ struct CurriculumModuleView: View {
         .task(id: lessonID) { await loadSourceInventory() }
         .onChange(of: store.language) { _ in loadDocument() }
         .onChange(of: store.studyProgress[lessonID]?.reflection) { savedReflection in
-            if reflection.isEmpty, let savedReflection {
-                reflection = savedReflection
-            }
+            guard store.studyReflectionDrafts[lessonID] == nil else { return }
+            reflection = savedReflection ?? ""
+        }
+        .onChange(of: reflection) { value in
+            store.saveReflectionDraft(value, lessonID: lessonID)
         }
         .fileExporter(
             isPresented: $isExportingNotebookSource,
@@ -1020,9 +1022,7 @@ struct CurriculumModuleView: View {
             )
         }
         learnerConfirmed = isComplete
-        if reflection.isEmpty {
-            reflection = store.studyProgress[lessonID]?.reflection ?? ""
-        }
+        reflection = store.studyReflectionDrafts[lessonID] ?? store.studyProgress[lessonID]?.reflection ?? ""
     }
 
     private func selectCheckAnswer(displayedIndex: Int) {
@@ -1440,12 +1440,16 @@ struct LessonSessionView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
             learnerConfirmed = store.isComplete(subject)
-            reflection = store.studyProgress[subject.lessonID]?.reflection ?? ""
+            reflection = store.studyReflectionDrafts[subject.lessonID]
+                ?? store.studyProgress[subject.lessonID]?.reflection
+                ?? ""
         }
         .onChange(of: store.studyProgress[subject.lessonID]?.reflection) { savedReflection in
-            if reflection.isEmpty, let savedReflection {
-                reflection = savedReflection
-            }
+            guard store.studyReflectionDrafts[subject.lessonID] == nil else { return }
+            reflection = savedReflection ?? ""
+        }
+        .onChange(of: reflection) { value in
+            store.saveReflectionDraft(value, lessonID: subject.lessonID)
         }
         .navigationTitle(Text(subject.title(in: store.language)))
         .sheet(isPresented: $showingTutor) {

@@ -206,6 +206,12 @@ final class LearningStore: ObservableObject {
     @Published private(set) var isRefreshingProviderUsage = false
     @Published private(set) var providerUsageUnavailable = false
     @Published private(set) var studyProgress: [String: StudyProgressRecord] = [:]
+    @Published private(set) var studyReflectionDrafts: [String: String] {
+        didSet {
+            guard let data = try? JSONEncoder().encode(studyReflectionDrafts) else { return }
+            UserDefaults.standard.set(data, forKey: "colidev.studyReflectionDrafts")
+        }
+    }
     @Published private(set) var studyAssessmentEvidence: [String: StudyAssessmentEvidenceSummary] = [:]
     @Published private(set) var studyFormatPreferenceProfile: StudyFormatPreferenceProfile {
         didSet {
@@ -291,6 +297,12 @@ final class LearningStore: ObservableObject {
         }
         let savedMode = UserDefaults.standard.string(forKey: "colidev.aiMode")
         aiMode = AIRoutingMode(rawValue: savedMode ?? "") ?? .automatic
+        if let data = UserDefaults.standard.data(forKey: "colidev.studyReflectionDrafts"),
+           let savedDrafts = try? JSONDecoder().decode([String: String].self, from: data) {
+            studyReflectionDrafts = savedDrafts
+        } else {
+            studyReflectionDrafts = [:]
+        }
         if let pending = UserDefaults.standard.data(forKey: "colidev.pendingStudyReviews"),
            let events = try? JSONDecoder().decode([StudyReviewEvent].self, from: pending) {
             pendingStudyReviews = events
@@ -481,6 +493,15 @@ final class LearningStore: ObservableObject {
     func rememberStudyRoute(_ route: StudyLessonRoute) {
         lastOpenedCourseRoute = route
         recordLearningActivity()
+    }
+
+    func saveReflectionDraft(_ reflection: String, lessonID: String) {
+        guard !lessonID.isEmpty else { return }
+        let boundedReflection = String(String.UnicodeScalarView(reflection.unicodeScalars.prefix(500)))
+        guard studyReflectionDrafts[lessonID] != boundedReflection else { return }
+        var updatedDrafts = studyReflectionDrafts
+        updatedDrafts[lessonID] = boundedReflection
+        studyReflectionDrafts = updatedDrafts
     }
 
     func setActiveStudyGoal(_ goal: StudyGoal?) {
