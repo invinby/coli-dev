@@ -126,6 +126,41 @@ final class ManagementUITests: XCTestCase {
     }
 
     @MainActor
+    func testTodayShowsSequentialLearningJourneyAndCheckedSources() async throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let journeyTitle = app.staticTexts["journey.title"]
+        XCTAssertTrue(
+            journeyTitle.waitForExistence(timeout: 15),
+            "Today must show the long-term learning journey, not leave it only in project documents. / На экране «Сегодня» должен быть учебный маршрут, а не только в документах проекта.\n\(app.debugDescription)"
+        )
+
+        let expandButton = app.buttons["journey.expand"]
+        XCTAssertTrue(expandButton.exists)
+        expandButton.click()
+
+        for step in ["mathematics", "python", "cs50x", "physics", "biology", "machine_learning", "brain_science", "own_projects"] {
+            XCTAssertTrue(
+                app.staticTexts["journey.step.\(step).title"].waitForExistence(timeout: 5),
+                "The in-app journey is missing the ordered \(step) stage. / Встроенный маршрут пропускает этап \(step).\n\(app.debugDescription)"
+            )
+        }
+
+        for source in [
+            "math.stepik", "python.stepik", "cs50x.official", "physics.phet",
+            "physics.geogebra", "biology.stepik", "machine_learning.stepik", "brain.hse"
+        ] {
+            XCTAssertTrue(
+                app.links["journey.source.\(source)"].exists,
+                "The checked external source \(source) is missing from the in-app route. / В маршруте нет проверенного внешнего источника \(source).\n\(app.debugDescription)"
+            )
+        }
+
+        XCTAssertTrue(app.buttons["journey.primary-action"].exists)
+    }
+
+    @MainActor
     func testFrictionLessonOffersSourceBackedVideoStudyCard() async throws {
         let app = XCUIApplication()
         app.launch()
