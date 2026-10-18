@@ -291,7 +291,7 @@ final class ManagementUITests: XCTestCase {
     }
 
     @MainActor
-    func testFrictionLessonReflectionDraftSurvivesAppRelaunch() async throws {
+    func testFrictionLessonLearningCycleAndProgressSurviveAppRelaunch() async throws {
         let app = XCUIApplication()
         app.launch()
 
@@ -303,14 +303,86 @@ final class ManagementUITests: XCTestCase {
         XCTAssertTrue(frictionLesson.waitForExistence(timeout: 10))
         frictionLesson.click()
 
+        let theory = app.descendants(matching: .any)["lesson.theory"]
+        let videoTitle = app.staticTexts["lesson.video.title"]
+        let modelHint = app.staticTexts["lesson.friction.model"]
+        XCTAssertTrue(theory.waitForExistence(timeout: 10))
+        XCTAssertTrue(videoTitle.waitForExistence(timeout: 10))
+        XCTAssertTrue(modelHint.waitForExistence(timeout: 10))
+        XCTAssertLessThan(theory.frame.midY, videoTitle.frame.midY)
+        XCTAssertLessThan(videoTitle.frame.midY, modelHint.frame.midY)
+        XCTAssertTrue(app.staticTexts["lesson.video.captionHelp"].exists)
+        XCTAssertTrue(app.staticTexts["lesson.video.before"].exists)
+        XCTAssertTrue(app.staticTexts["lesson.video.after"].exists)
+        XCTAssertTrue(app.staticTexts["lesson.video.privacyNotice"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["lesson.video.player"].exists)
+        XCTAssertTrue(app.links["lesson.video.open"].label.localizedCaseInsensitiveContains("Khan Academy"))
+
+        let consentButton = app.buttons["lesson.video.enablePlayback"]
+        XCTAssertTrue(consentButton.waitForExistence(timeout: 10))
+        consentButton.click()
+        if consentButton.exists && consentButton.isHittable {
+            consentButton.click()
+        }
+        XCTAssertTrue(
+            app.descendants(matching: .any)["lesson.video.player"].waitForExistence(timeout: 10),
+            "The embedded video must load only after explicit consent. / Встроенное видео должно загрузиться только после явного согласия.\n\(app.debugDescription)"
+        )
+
         let response = app.descendants(matching: .any)["lesson.video.response"]
         XCTAssertTrue(response.waitForExistence(timeout: 10))
 
-        let draft = "Reflection draft survives app relaunch 39132086427"
+        let draft = "I predict 15 N is below the static-friction threshold."
         response.click()
         response.typeKey("a", modifierFlags: .command)
         response.typeText(draft)
         XCTAssertEqual(response.value as? String, draft)
+
+        let lessonScrollView = app.windows.firstMatch.scrollViews.element(boundBy: 1)
+        let pushSlider = app.sliders["lesson.friction.slider.push"]
+        scrollUntilHittable(pushSlider, in: lessonScrollView)
+        pushSlider.adjust(toNormalizedSliderPosition: 0.9)
+        let motionState = app.staticTexts["lesson.friction.motion-state"]
+        XCTAssertTrue(motionState.waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            motionState.label.localizedCaseInsensitiveContains("скольжение"),
+            "Changing the applied-force slider must change the visual model's motion state. / Изменение силы должно менять состояние наглядной модели.\n\(app.debugDescription)"
+        )
+
+        let firstPrediction = app.buttons["lesson.friction.prediction.option.friction.at-15n.0"]
+        scrollUntilHittable(firstPrediction, in: lessonScrollView)
+        firstPrediction.click()
+        let predictionAction = app.buttons["lesson.friction.prediction.action"]
+        scrollUntilHittable(predictionAction, in: lessonScrollView)
+        predictionAction.click()
+
+        let secondPrediction = app.buttons["lesson.friction.prediction.option.friction.at-25n.1"]
+        scrollUntilHittable(secondPrediction, in: lessonScrollView)
+        secondPrediction.click()
+        scrollUntilHittable(predictionAction, in: lessonScrollView)
+        predictionAction.click()
+        XCTAssertTrue(app.staticTexts["lesson.friction.prediction.complete"].waitForExistence(timeout: 5))
+
+        let knowledgeAnswer = app.buttons["lesson.check.option.0"]
+        scrollUntilHittable(knowledgeAnswer, in: lessonScrollView)
+        knowledgeAnswer.click()
+        let knowledgeFeedback = app.staticTexts["lesson.check.feedback"]
+        XCTAssertTrue(knowledgeFeedback.waitForExistence(timeout: 5))
+        XCTAssertTrue(knowledgeFeedback.label.localizedCaseInsensitiveContains("верно"))
+
+        let learnerConfirmation = app.descendants(matching: .any)["lesson.completion.confirmed"]
+        scrollUntilHittable(learnerConfirmation, in: lessonScrollView)
+        learnerConfirmation.click()
+        let completionAction = app.buttons["lesson.completion.action"]
+        scrollUntilHittable(completionAction, in: lessonScrollView)
+        completionAction.click()
+
+        let savedCompletion = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS[c] %@", "сохранён как завершённый"),
+            object: completionAction
+        )
+        let completionResult = await XCTWaiter.fulfillment(of: [savedCompletion], timeout: 10)
+        XCTAssertEqual(completionResult, .completed, "The completed lesson must be saved before relaunch. / Завершение урока должно сохраниться до перезапуска.\n\(app.debugDescription)")
 
         app.terminate()
         app.launch()
@@ -330,6 +402,24 @@ final class ManagementUITests: XCTestCase {
             draft,
             "An unfinished lesson reflection must survive quitting and reopening ColiDev. / Незавершённый ответ к уроку должен сохраняться после закрытия и повторного запуска ColiDev."
         )
+        let restoredCompletionAction = app.buttons["lesson.completion.action"]
+        XCTAssertTrue(restoredCompletionAction.waitForExistence(timeout: 10))
+        XCTAssertTrue(
+            restoredCompletionAction.label.localizedCaseInsensitiveContains("сохранён как завершённый"),
+            "Lesson progress must survive quitting and reopening ColiDev. / Прогресс урока должен сохраняться после закрытия и повторного запуска ColiDev.\n\(app.debugDescription)"
+        )
+        let restoredLearnerConfirmation = app.descendants(matching: .any)["lesson.completion.confirmed"]
+        XCTAssertTrue(restoredLearnerConfirmation.waitForExistence(timeout: 5))
+        XCTAssertEqual(restoredLearnerConfirmation.value as? String, "1")
+    }
+
+    @MainActor
+    private func scrollUntilHittable(_ element: XCUIElement, in scrollView: XCUIElement) {
+        for _ in 0..<12 {
+            if element.isHittable { return }
+            scrollView.swipeUp()
+        }
+        XCTAssertTrue(element.isHittable, "Expected control to become visible after scrolling. / Элемент должен появиться после прокрутки.\n\(element.debugDescription)")
     }
 
     @MainActor

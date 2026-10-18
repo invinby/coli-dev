@@ -461,6 +461,7 @@ private struct CurriculumLessonVideoCard: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("lesson.video.captionHelp")
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(L10n.text("lesson.video.afterLabel", language))
@@ -690,13 +691,13 @@ struct CurriculumModuleView: View {
 
                     ModuleTextCard(title: L10n.text("session.goal", store.language), text: document.objective, tint: subject.tint)
                     ModuleTextCard(title: L10n.text("session.theory", store.language), text: document.theory, tint: subject.tint)
+                        .accessibilityIdentifier("lesson.theory")
+                    videoActivityContent
                     if !document.practice.isEmpty {
                         ModuleTextCard(title: L10n.text("session.lab", store.language), text: document.practice, tint: subject.tint)
                     }
                     PracticeLab(subject: subject, moduleResource: resource)
                         .id("module-interactive-practice")
-
-                    videoActivityContent
 
                     if !document.checkQuestion.isEmpty, !document.checkOptions.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
@@ -712,6 +713,7 @@ struct CurriculumModuleView: View {
                                         isDisabled: checkAttempt.hasAnswered,
                                         action: { selectCheckAnswer(displayedIndex: displayedIndex) }
                                     )
+                                    .accessibilityIdentifier("lesson.check.option.\(originalIndex)")
                                 }
 
                                 if checkAttempt.hasAnswered {
@@ -728,6 +730,7 @@ struct CurriculumModuleView: View {
                                         systemImage: isCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle"
                                     )
                                     .foregroundStyle(isCorrect ? Color.green : Color.orange)
+                                    .accessibilityIdentifier("lesson.check.feedback")
 
                                     if !isCorrect {
                                         Text(L10n.text("module.errorCategoryPrompt", store.language))
@@ -935,6 +938,7 @@ struct CurriculumModuleView: View {
                         Label(L10n.text(title, store.language), systemImage: isComplete ? "checkmark.circle.fill" : "checkmark")
                     }
                     .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("lesson.completion.action")
                     .disabled(
                         !learnerConfirmed
                             || checkAttempt?.canComplete != true
@@ -1557,6 +1561,7 @@ private struct StudyReflectionFields: View {
                 .foregroundStyle(.secondary)
             Toggle(L10n.text("session.doneCheck", language), isOn: $learnerConfirmed)
                 .toggleStyle(.checkbox)
+                .accessibilityIdentifier("lesson.completion.confirmed")
         }
     }
 
@@ -5262,6 +5267,7 @@ private struct FrictionLab: View {
             Text(L10n.text("lab.frictionHint", store.language))
                 .font(.callout)
                 .foregroundStyle(.secondary)
+                .accessibilityIdentifier("lesson.friction.model")
 
             GeometryReader { geometry in
                 let width = max(geometry.size.width - 64, 0)
@@ -5302,21 +5308,23 @@ private struct FrictionLab: View {
             Text(L10n.text(motion.isSliding ? "lab.frictionSliding" : "lab.frictionResting", store.language))
                 .font(.headline)
                 .foregroundStyle(motion.isSliding ? Color.orange : Color.primary)
+                .accessibilityIdentifier("lesson.friction.motion-state")
             Text("\(L10n.text("lab.frictionThreshold", store.language)): \(motion.maximumStaticFriction, specifier: "%.2f") N")
                 .font(.callout.monospacedDigit())
+                .accessibilityIdentifier("lesson.friction.threshold")
 
-            slider("lab.mass", value: $mass, range: 1...10, step: 0.5, unit: " kg")
-            slider("lab.frictionPush", value: $appliedForce, range: 0...60, step: 1, unit: " N")
-            slider("lab.frictionStaticCoefficient", value: $staticCoefficient, range: 0.1...0.8, step: 0.05, unit: "")
-            slider("lab.frictionKineticCoefficient", value: $kineticCoefficient, range: 0.05...staticCoefficient, step: 0.05, unit: "")
-            slider("lab.frictionTime", value: $time, range: 0...FrictionMotion.duration, step: 0.1, unit: " s")
+            slider("lab.mass", value: $mass, range: 1...10, step: 0.5, unit: " kg", identifier: "mass")
+            slider("lab.frictionPush", value: $appliedForce, range: 0...60, step: 1, unit: " N", identifier: "push")
+            slider("lab.frictionStaticCoefficient", value: $staticCoefficient, range: 0.1...0.8, step: 0.05, unit: "", identifier: "static-coefficient")
+            slider("lab.frictionKineticCoefficient", value: $kineticCoefficient, range: 0.05...staticCoefficient, step: 0.05, unit: "", identifier: "kinetic-coefficient")
+            slider("lab.frictionTime", value: $time, range: 0...FrictionMotion.duration, step: 0.1, unit: " s", identifier: "time")
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), alignment: .leading)], alignment: .leading, spacing: 12) {
-                reading("lab.frictionNormal", value: motion.normalForce, unit: "N")
-                reading("lab.frictionForce", value: motion.frictionForce, unit: "N")
-                reading("lab.frictionAcceleration", value: motion.acceleration, unit: "m/s²")
-                reading("lab.frictionVelocity", value: motion.velocity, unit: "m/s")
-                reading("lab.frictionDisplacement", value: motion.displacement, unit: "m")
+                reading("lab.frictionNormal", value: motion.normalForce, unit: "N", identifier: "normal")
+                reading("lab.frictionForce", value: motion.frictionForce, unit: "N", identifier: "force")
+                reading("lab.frictionAcceleration", value: motion.acceleration, unit: "m/s²", identifier: "acceleration")
+                reading("lab.frictionVelocity", value: motion.velocity, unit: "m/s", identifier: "velocity")
+                reading("lab.frictionDisplacement", value: motion.displacement, unit: "m", identifier: "displacement")
             }
 
             Text(L10n.text("lab.frictionPrediction", store.language))
@@ -5363,6 +5371,7 @@ private struct FrictionLab: View {
                     .buttonStyle(.bordered)
                     .tint(isSelected ? .accentColor : nil)
                     .disabled(predictionPractice.feedback == .correct)
+                    .accessibilityIdentifier("lesson.friction.prediction.option.\(question.id).\(originalIndex)")
                 }
 
                 if let feedback = predictionPractice.feedback {
@@ -5375,6 +5384,7 @@ private struct FrictionLab: View {
                     .font(.callout)
                     .foregroundStyle(feedback == .correct ? Color.green : Color.orange)
                     .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("lesson.friction.prediction.feedback")
                 }
 
                 let buttonTitleKey = predictionPractice.feedback == .correct
@@ -5395,11 +5405,13 @@ private struct FrictionLab: View {
                     Text(L10n.text(buttonTitleKey, store.language))
                 }
                 .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("lesson.friction.prediction.action")
                 .disabled(predictionPractice.selectedDisplayedIndex == nil && predictionPractice.feedback != .correct)
             } else {
                 Text(L10n.text("lab.frictionPredictionComplete", store.language))
                     .font(.callout)
                     .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("lesson.friction.prediction.complete")
                 Button(L10n.text("lab.frictionPredictionRestart", store.language)) {
                     predictionPractice.restart()
                 }
@@ -5414,7 +5426,8 @@ private struct FrictionLab: View {
         value: Binding<Double>,
         range: ClosedRange<Double>,
         step: Double,
-        unit: String
+        unit: String,
+        identifier: String
     ) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
@@ -5427,10 +5440,11 @@ private struct FrictionLab: View {
             Slider(value: value, in: range, step: step)
                 .accessibilityLabel(Text(L10n.text(titleKey, store.language)))
                 .accessibilityValue(Text("\(value.wrappedValue, specifier: "%.2f")\(unit)"))
+                .accessibilityIdentifier("lesson.friction.slider.\(identifier)")
         }
     }
 
-    private func reading(_ key: String, value: Double, unit: String) -> some View {
+    private func reading(_ key: String, value: Double, unit: String, identifier: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(L10n.text(key, store.language))
                 .font(.caption)
@@ -5439,6 +5453,7 @@ private struct FrictionLab: View {
                 .monospacedDigit()
         }
         .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("lesson.friction.reading.\(identifier)")
     }
 }
 
