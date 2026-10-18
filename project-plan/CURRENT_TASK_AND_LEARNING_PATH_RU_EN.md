@@ -1,6 +1,6 @@
 # Текущий статус, агенты и учебный маршрут / Current status, agents, and learning path
 
-**Дата / Date:** 2026-10-18
+**Дата / Date:** 2026-10-19
 **Назначение / Purpose:** продолжить общий план Cause & Corse / ColiDev, не подменяя проверки на пользовательском Mac выводами из CI. / Continue the unified Cause & Corse / ColiDev plan without treating CI as a user-Mac test.
 
 ## 1. Что подтверждено сейчас / What is verified now
@@ -15,9 +15,9 @@
 
 ## 1A. Новая видеоактивность — текущая проверка / New video activity — current verification
 
-**RU:** Урок о трении получил встроенный YouTube-плеер в `c477052`; ошибки macOS-сборки исправлены в `82eca4a`, XCUITest-запрос к accessibility-дереву — в `06ca2b9`. Весь run `39132086427` прошёл; [сборка macOS 15 ARM](https://github.com/invinby/coli-dev/actions/runs/39132086427/artifacts/12138785816) доступна. В CI проверены согласие и появление WebView; на Mac всё ещё нужны реальный запуск, воспроизведение, captions/транскрипт и сохранение ответа.
+**RU:** Урок о трении получил встроенный YouTube-плеер в `c477052`; ошибки macOS-сборки исправлены в `82eca4a`, XCUITest-запрос к accessibility-дереву — в `06ca2b9`. Весь run `39132086427` прошёл; [сборка macOS 15 ARM](https://github.com/invinby/coli-dev/actions/runs/39132086427/artifacts/12138785816) доступна. CI проверил согласие и появление WebView. По свежему сообщению пользователя, beta запускается, урок и карточка видео видны; в карточке видны согласие, вопросы до/после, ссылка на Khan Academy и транскрипт, поле ответа. Реальное воспроизведение, субтитры и сохранение ответа после перезапуска не проверены.
 
-**EN:** The friction lesson gained an embedded YouTube player in `c477052`; macOS build errors were fixed in `82eca4a`, and the accessibility-tree query in `06ca2b9`. Run `39132086427` passed in full; the [macOS 15 ARM build](https://github.com/invinby/coli-dev/actions/runs/39132086427/artifacts/12138785816) is available. CI verified consent and WebView appearance; the Mac still needs real launch, playback, captions/transcript, and response-persistence acceptance.
+**EN:** The friction lesson gained an embedded YouTube player in `c477052`; macOS build errors were fixed in `82eca4a`, and the accessibility-tree query in `06ca2b9`. Run `39132086427` passed in full; the [macOS 15 ARM build](https://github.com/invinby/coli-dev/actions/runs/39132086427/artifacts/12138785816) is available. CI verified consent and WebView appearance. In a fresh user report, the beta launches and the lesson/video card are visible, including consent, before/after questions, the Khan Academy link and transcript, and the answer field. Actual playback, captions, and answer persistence after relaunch remain unverified.
 
 **RU:** Статический аудит маршрутов: «Только локально» вызывает только Ollama. Auto при выключенной оплате разрешает локальную Ollama либо точный маршрут `openrouter/free`; если OpenRouter не настроен, выбирается Ollama, а если подходящего локального маршрута нет — приложение должно показать недоступность. При включённой оплате Auto может выбрать Gemini, Kimi или иную сохранённую роль, поэтому наличие Gemini-ключа само по себе не доказывает, что вызов платный или бесплатный. OpenRouter документирует `openrouter/free` как маршрутизатор бесплатных моделей без стоимости, но с меняющимися лимитами и доступностью ([официальное описание](https://openrouter.ai/docs/cookbook/get-started/free-models-router-playground)); это облачный, не офлайн-маршрут. В этом аудите запросов генерации не отправляли, значения ключей не читали. При старте backend может отправить настроенному провайдеру аутентифицированный GET каталога моделей без текста ученика и без генерации ответа.
 

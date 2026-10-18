@@ -1,5 +1,11 @@
 # 02. Текущее состояние ColiDev
 
+## Ручная проверка видеокарточки по сообщению пользователя / User-reported video-card check — 2026-10-19
+
+**RU:** Пользователь сообщает, что свежая beta запускается, открывает «Статическое и скользящее трение», и показывает видеокарточку с согласием перед YouTube, вопросом до видео, ссылкой на Khan Academy и транскрипт, вопросом после просмотра и полем ответа. Это частичная ручная проверка пользователя, а не наблюдение Codex на Mac. Воспроизведение, captions и сохранение ответа после перезапуска не проверены. Сверь [аудит всего проекта](../WHOLE_PROJECT_AUDIT_RU_EN.md) и [готовность прототипа](../PROTOTYPE_READINESS_RU_EN.md).
+
+**EN:** The user reports that the fresh beta launches, opens “Static and kinetic friction,” and shows a video card with consent before YouTube, a pre-video question, a Khan Academy link and transcript, a post-viewing question, and an answer field. This is partial user acceptance, not Codex observation on Mac. Playback, captions, and answer persistence after relaunch remain unverified. See the [whole-project audit](../WHOLE_PROJECT_AUDIT_RU_EN.md) and [prototype readiness report](../PROTOTYPE_READINESS_RU_EN.md).
+
 ## Ручная beta-приёмка по сообщению пользователя / User-reported beta acceptance — 2026-10-18
 
 **RU:** Пользователь сообщает: Mac beta из CI run 39069620653 / commit `ca2c5d1` открыла Today, математику, интерактивный график в уроке и Settings; backend ответил на порту 54657, старый процесс на 8000 не трогали. Это частичная ручная приёмка, переданная пользователем, а не проверка Codex на Mac. Реальный AI-ответ остаётся непроверенным. `provider=consilium` в `/api/status` сохранён как legacy-совместимость; рядом теперь возвращаются `provider_kind=orchestrator`, `route_resolution=per_request` и пустые `effective_provider`/`effective_model`. См. [разбор маршрутов Auto/Local и порта](../CURRENT_TASK_AND_LEARNING_PATH_RU_EN.md) и [аудит AI-маршрутов](04-ai.md).

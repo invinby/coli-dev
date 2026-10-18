@@ -1,5 +1,9 @@
 # 📋 ARCH_LOG — Бортовой журнал экосистемы coli-dev
 
+> **Исторический документ / Historical document:** Этот журнал создан 2026-07-13 для прежней конфигурации ColiDev. Упоминания Freebuff и Claude ниже описывают тогдашние роли/планы, а не подключённые компоненты текущего приложения. Для актуальной архитектуры см. `project-plan/WHOLE_PROJECT_AUDIT_RU_EN.md` и `project-plan/CURRENT_TASK_AND_LEARNING_PATH_RU_EN.md`.
+>
+> This log was created on 2026-07-13 for an earlier ColiDev setup. Freebuff and Claude references below describe historical roles/plans, not components integrated into the current app. For current architecture, see `project-plan/WHOLE_PROJECT_AUDIT_RU_EN.md` and `project-plan/CURRENT_TASK_AND_LEARNING_PATH_RU_EN.md`.
+
 > **Единый журнал координации между Freebuff (Главный Архитектор) и Claude Code (Дебаггер/Рефактор)**
 
 ---
