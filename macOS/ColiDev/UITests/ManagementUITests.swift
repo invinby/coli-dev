@@ -152,10 +152,33 @@ final class ManagementUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["lesson.video.before"].exists)
         XCTAssertTrue(app.staticTexts["lesson.video.after"].exists)
 
+        let response = app.textFields["lesson.video.response"]
+        XCTAssertTrue(
+            response.waitForExistence(timeout: 10),
+            "The post-video prompt must accept a learner response that can be saved with lesson progress. / После просмотра ученик должен иметь возможность записать ответ вместе с прогрессом урока.\n\(app.debugDescription)"
+        )
+
+        XCTAssertTrue(
+            app.staticTexts["lesson.video.privacyNotice"].exists,
+            "The app must disclose YouTube data sharing before playback is loaded. / До загрузки плеера приложение должно предупредить о передаче данных YouTube.\n\(app.debugDescription)"
+        )
+
+        let enablePlayback = app.buttons["lesson.video.enablePlayback"]
+        XCTAssertTrue(
+            enablePlayback.waitForExistence(timeout: 10),
+            "Playback must require a deliberate user action after the privacy notice. / Воспроизведение должно начинаться только после явного действия пользователя и предупреждения о приватности.\n\(app.debugDescription)"
+        )
+        enablePlayback.click()
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)["lesson.video.player"].waitForExistence(timeout: 10),
+            "The lesson must reveal an embedded player after consent. / После согласия в уроке должен появиться встроенный плеер.\n\(app.debugDescription)"
+        )
+
         let videoLink = app.links["lesson.video.open"]
         XCTAssertTrue(
             videoLink.waitForExistence(timeout: 10),
-            "The video activity must expose an external link without embedding third-party playback. / Видеоактивность должна показывать внешнюю ссылку без встраивания стороннего плеера.\n\(app.debugDescription)"
+            "The video activity must retain a direct source link as a fallback. / Видеоактивность должна сохранять прямую ссылку на источник как запасной вариант.\n\(app.debugDescription)"
         )
         XCTAssertTrue(videoLink.label.localizedCaseInsensitiveContains("Khan Academy"))
     }
