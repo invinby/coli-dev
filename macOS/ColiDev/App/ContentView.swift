@@ -477,14 +477,14 @@ private struct CauseAndCorseJourneyCard: View {
             }
 
             VStack(alignment: .leading, spacing: 7) {
-                Text(
-                    language == .ru
-                        ? "Мини-проекты по твоей отметке: \(completedJourneyProjectCount) из \(CauseAndCorseLearningJourney.steps.count) — шаги к своим технологиям."
-                        : "Mini-projects marked complete: \(completedJourneyProjectCount) of \(CauseAndCorseLearningJourney.steps.count) — steps toward building your own technology."
-                )
+                let progressSummary = language == .ru
+                    ? "Мини-проекты по твоей отметке: \(completedJourneyProjectCount) из \(CauseAndCorseLearningJourney.steps.count) — шаги к своим технологиям."
+                    : "Mini-projects marked complete: \(completedJourneyProjectCount) of \(CauseAndCorseLearningJourney.steps.count) — steps toward building your own technology."
+                Text(progressSummary)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+                .accessibilityLabel(Text(progressSummary))
                 .accessibilityIdentifier("journey.project-progress")
                 ProgressView(
                     value: Double(completedJourneyProjectCount),
