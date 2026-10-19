@@ -186,6 +186,31 @@ final class ManagementUITests: XCTestCase {
     }
 
     @MainActor
+    func testJourneyPrimaryActionOpensFirstMathematicsLesson() async throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let primaryAction = app.buttons["journey.primary-action"]
+        XCTAssertTrue(
+            primaryAction.waitForExistence(timeout: 15),
+            "The learning journey must offer a direct first step. / Маршрут должен предлагать прямой первый шаг.\n\(app.debugDescription)"
+        )
+        primaryAction.click()
+
+        let firstMathematicsLesson = app.staticTexts.containing(
+            NSPredicate(
+                format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@",
+                "Часть целого",
+                "Parts of a whole"
+            )
+        ).firstMatch
+        XCTAssertTrue(
+            firstMathematicsLesson.waitForExistence(timeout: 20),
+            "The journey action must open the first mathematics lesson, not only the subject overview. / Кнопка маршрута должна открыть первый урок математики, а не только обзор предмета.\n\(app.debugDescription)"
+        )
+    }
+
+    @MainActor
     func testJourneyMiniProjectResultSurvivesAppRelaunch() async throws {
         let app = XCUIApplication()
         app.launch()
