@@ -269,7 +269,7 @@ final class ManagementUITests: XCTestCase {
                 completion.click()
             }
         }
-        let startingProgress = progress.label
+        let startingProgress = accessibleText(of: progress)
         XCTAssertFalse(
             startingProgress.isEmpty,
             "The progress summary must expose its visible count to accessibility. / Сводка должна отдавать видимый счётчик через accessibility.\n\(progress.debugDescription)"
@@ -291,7 +291,7 @@ final class ManagementUITests: XCTestCase {
             "A saved project result must be markable as complete. / Сохранённый результат мини-проекта должен отмечаться выполненным.\n\(app.debugDescription)"
         )
         completion.click()
-        let completedProgress = progress.label
+        let completedProgress = accessibleText(of: progress)
         XCTAssertFalse(completedProgress.isEmpty)
         XCTAssertNotEqual(completedProgress, startingProgress)
 
@@ -304,7 +304,7 @@ final class ManagementUITests: XCTestCase {
 
         let restoredProgress = app.staticTexts["journey.project-progress"]
         XCTAssertTrue(restoredProgress.waitForExistence(timeout: 10))
-        XCTAssertEqual(restoredProgress.label, completedProgress)
+        XCTAssertEqual(accessibleText(of: restoredProgress), completedProgress)
         let restoredResult = app.descendants(matching: .any)["journey.step.mathematics.project-result"]
         XCTAssertTrue(restoredResult.waitForExistence(timeout: 10))
         XCTAssertEqual(restoredResult.value as? String, result)
