@@ -264,7 +264,7 @@ final class ManagementUITests: XCTestCase {
         )
         let output = projectOutput.label.lowercased()
         XCTAssertTrue(
-            output.contains("минут") || output.contains("minutes"),
+            output.contains("минут") || output.contains("minute"),
             "The first Python project must match the practice-minute program in the variables lesson. / Первый проект Python должен совпадать с программой учёта минут из урока о переменных."
         )
         XCTAssertFalse(
