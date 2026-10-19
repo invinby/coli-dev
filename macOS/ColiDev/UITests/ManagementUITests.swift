@@ -197,15 +197,15 @@ final class ManagementUITests: XCTestCase {
         )
         primaryAction.click()
 
-        let firstMathematicsLesson = app.staticTexts.containing(
+        let firstMathematicsLessonWindow = app.windows.matching(
             NSPredicate(
-                format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@",
+                format: "title CONTAINS[c] %@ OR title CONTAINS[c] %@",
                 "Часть целого",
                 "Parts of a whole"
             )
         ).firstMatch
         XCTAssertTrue(
-            firstMathematicsLesson.waitForExistence(timeout: 20),
+            firstMathematicsLessonWindow.waitForExistence(timeout: 20),
             "The journey action must open the first mathematics lesson, not only the subject overview. / Кнопка маршрута должна открыть первый урок математики, а не только обзор предмета.\n\(app.debugDescription)"
         )
     }
