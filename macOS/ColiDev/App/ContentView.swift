@@ -434,6 +434,12 @@ private struct CauseAndCorseJourneyCard: View {
     let open: (Subject) -> Void
     let startMathematics: () -> Void
 
+    private var completedJourneyProjectCount: Int {
+        CauseAndCorseLearningJourney.steps.filter {
+            store.completedJourneyProjectIDs.contains($0.id)
+        }.count
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 12) {
@@ -468,6 +474,26 @@ private struct CauseAndCorseJourneyCard: View {
                 }
                 .buttonStyle(.bordered)
                 .accessibilityIdentifier("journey.expand")
+            }
+
+            VStack(alignment: .leading, spacing: 7) {
+                Text(
+                    language == .ru
+                        ? "Мини-проекты по твоей отметке: \(completedJourneyProjectCount) из \(CauseAndCorseLearningJourney.steps.count) — шаги к своим технологиям."
+                        : "Mini-projects marked complete: \(completedJourneyProjectCount) of \(CauseAndCorseLearningJourney.steps.count) — steps toward building your own technology."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("journey.project-progress")
+                ProgressView(
+                    value: Double(completedJourneyProjectCount),
+                    total: Double(CauseAndCorseLearningJourney.steps.count)
+                )
+                .tint(Color.accentColor)
+                .accessibilityLabel(
+                    Text(language == .ru ? "Прогресс мини-проектов" : "Mini-project progress")
+                )
             }
 
             Button(action: startMathematics) {
@@ -510,6 +536,12 @@ private struct CauseAndCorseJourneyCard: View {
 
     @ViewBuilder
     private func journeyStep(_ step: CauseAndCorseJourneyStep, index: Int) -> some View {
+        let projectDraftKey = journeyProjectDraftKey(for: step)
+        let hasProjectResult = !(store.studyReflectionDrafts[projectDraftKey] ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty
+        let isProjectComplete = store.completedJourneyProjectIDs.contains(step.id)
+
         HStack(alignment: .top, spacing: 12) {
             Text("\(index + 1)")
                 .font(.callout.weight(.semibold).monospacedDigit())
@@ -543,6 +575,26 @@ private struct CauseAndCorseJourneyCard: View {
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(1...3)
                 .accessibilityIdentifier("journey.step.\(step.id).project-result")
+
+                Button {
+                    store.setJourneyProjectCompleted(!isProjectComplete, stepID: step.id)
+                } label: {
+                    Label(
+                        isProjectComplete
+                            ? (language == .ru ? "Мини-проект выполнен" : "Mini-project completed")
+                            : (language == .ru ? "Отметить результат выполненным" : "Mark project result complete"),
+                        systemImage: isProjectComplete ? "checkmark.circle.fill" : "circle"
+                    )
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(!isProjectComplete && !hasProjectResult)
+                .accessibilityIdentifier("journey.step.\(step.id).complete")
+                .accessibilityValue(
+                    Text(isProjectComplete
+                        ? (language == .ru ? "Выполнен" : "Completed")
+                        : (language == .ru ? "Не отмечен" : "Not completed"))
+                )
 
                 if !step.subjects.isEmpty {
                     HStack(spacing: 8) {
@@ -593,11 +645,20 @@ private struct CauseAndCorseJourneyCard: View {
     }
 
     private func journeyProjectBinding(for step: CauseAndCorseJourneyStep) -> Binding<String> {
-        let key = "cause_and_corse.journey.\(step.id)"
+        let key = journeyProjectDraftKey(for: step)
         return Binding(
             get: { store.studyReflectionDrafts[key] ?? "" },
-            set: { store.saveReflectionDraft($0, lessonID: key) }
+            set: {
+                store.saveReflectionDraft($0, lessonID: key)
+                if $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    store.setJourneyProjectCompleted(false, stepID: step.id)
+                }
+            }
         )
+    }
+
+    private func journeyProjectDraftKey(for step: CauseAndCorseJourneyStep) -> String {
+        "cause_and_corse.journey.\(step.id)"
     }
 }
 
