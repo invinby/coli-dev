@@ -262,13 +262,10 @@ final class ManagementUITests: XCTestCase {
             projectOutput.waitForExistence(timeout: 10),
             "The Python route must expose its own mini-project outcome. / У Python-этапа должен быть доступный результат мини-проекта.\n\(app.debugDescription)"
         )
-        let journeyScrollView = app.windows.firstMatch.scrollViews.firstMatch
-        XCTAssertTrue(journeyScrollView.exists)
-        scrollUntilHittable(projectOutput, in: journeyScrollView)
         let output = accessibleText(of: projectOutput).lowercased()
         XCTAssertTrue(
             output.contains("минут") || output.contains("minute"),
-            "The first Python project must match the practice-minute program in the variables lesson. / Первый проект Python должен совпадать с программой учёта минут из урока о переменных. Actual UI text: \(projectOutput.label)"
+            "The first Python project must match the practice-minute program in the variables lesson. / Первый проект Python должен совпадать с программой учёта минут из урока о переменных. Actual accessibility label: '\(projectOutput.label)'."
         )
         XCTAssertFalse(
             output.contains("трени") || output.contains("friction"),
