@@ -248,6 +248,60 @@ final class ManagementUITests: XCTestCase {
     }
 
     @MainActor
+    func testJourneyProjectCompletionUpdatesProgressAndSurvivesRelaunch() async throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let expandButton = app.buttons["journey.expand"]
+        XCTAssertTrue(expandButton.waitForExistence(timeout: 15))
+        expandButton.click()
+
+        let progress = app.staticTexts["journey.project-progress"]
+        XCTAssertTrue(
+            progress.waitForExistence(timeout: 10),
+            "The learning journey must show how many mini-project milestones are complete. / Маршрут должен показывать число завершённых мини-проектов.\n\(app.debugDescription)"
+        )
+        let startingProgress = progress.label
+
+        let projectResult = app.descendants(matching: .any)["journey.step.own_projects.project-result"]
+        XCTAssertTrue(projectResult.waitForExistence(timeout: 10))
+        if !projectResult.isHittable {
+            projectResult.click()
+        }
+        XCTAssertTrue(projectResult.isHittable)
+        projectResult.click()
+        projectResult.typeKey("a", modifierFlags: .command)
+        let result = "Verified prototype \(UUID().uuidString)"
+        projectResult.typeText(result)
+
+        let completion = app.buttons["journey.step.own_projects.complete"]
+        XCTAssertTrue(
+            completion.waitForExistence(timeout: 10),
+            "A saved project result must be markable as complete. / Сохранённый результат мини-проекта должен отмечаться выполненным.\n\(app.debugDescription)"
+        )
+        completion.click()
+        let completedProgress = progress.label
+        XCTAssertNotEqual(completedProgress, startingProgress)
+
+        app.terminate()
+        app.launch()
+
+        let relaunchedExpandButton = app.buttons["journey.expand"]
+        XCTAssertTrue(relaunchedExpandButton.waitForExistence(timeout: 15))
+        relaunchedExpandButton.click()
+
+        let restoredProgress = app.staticTexts["journey.project-progress"]
+        XCTAssertTrue(restoredProgress.waitForExistence(timeout: 10))
+        XCTAssertEqual(restoredProgress.label, completedProgress)
+        let restoredResult = app.descendants(matching: .any)["journey.step.own_projects.project-result"]
+        XCTAssertTrue(restoredResult.waitForExistence(timeout: 10))
+        XCTAssertEqual(restoredResult.value as? String, result)
+        let restoredCompletion = app.buttons["journey.step.own_projects.complete"]
+        XCTAssertTrue(restoredCompletion.exists)
+        XCTAssertEqual(restoredCompletion.value as? String, "completed")
+    }
+
+    @MainActor
     func testFrictionLessonOffersSourceBackedVideoStudyCard() async throws {
         let app = XCUIApplication()
         app.launch()
