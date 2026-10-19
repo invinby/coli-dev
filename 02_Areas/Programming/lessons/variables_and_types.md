@@ -76,9 +76,26 @@ def solve(values):
 
 Оставь значения `12` и `8`: результат должен быть `20`. Затем измени функцию, запусти её ещё раз и сравни результат с суммой. Успешная проверка записывается в прогресс обучения; код и поля сохраняются локально на этом Mac.
 
-Ограничение важно: редактор выполняет только небольшой безопасный поднабор Python через AST-интерпретатор. Он не запускает произвольные скрипты, `input()`, `print()`, `try/except`, импорты, доступ к файлам или сети; запрос не отправляется модели ИИ. Полную консольную версию можно написать отдельно в обычном Python после установки Python. В приложении ввод проверяет интерфейс: только неотрицательные целые числа, сумма которых помещается в обычное целое число.
+Ограничение важно: редактор приложения выполняет только небольшой безопасный поднабор Python через AST-интерпретатор. Он не запускает произвольные скрипты, `input()`, `print()`, `try/except`, импорты, доступ к файлам или сети; код не отправляется модели ИИ. Ввод в приложении проверяет интерфейс: только неотрицательные целые числа, сумма которых помещается в обычное целое число.
 
-Следующий шаг после условий и файлов — расширить отчёт третьим параметром, например минутами чтения. Отдельно спроектируй проверку неверного текста и отрицательных значений; текущая функция получает уже проверенные числа и сама такую проверку не выполняет.
+#### Полная версия в консоли Python
+
+В тренажёре выше ты передаёшь значения функции как список. После урока запусти эту отдельную консольную версию в локальном Python: здесь программа сама читает ввод, преобразует его через `int()` и ловит `ValueError`.
+
+```python
+try:
+    earlier_minutes = int(input("Сколько минут ты занимался раньше? "))
+    today_minutes = int(input("Сколько минут практиковался сегодня? "))
+except ValueError:
+    print("Введи целые числа, например 0 или 15.")
+else:
+    total_minutes = earlier_minutes + today_minutes
+    print(f"Всего: {total_minutes} мин")
+```
+
+Проверь вводы `12` и `8`: программа должна вывести `Всего: 20 мин`. Затем введи `twelve`: появится подсказка вместо аварийного завершения. Вводы `-12` и `8` дадут `Всего: -4 мин` — консольная версия пока не запрещает отрицательное количество минут. Это следующий вариант для улучшения после изучения условий.
+
+Следующий шаг после условий и файлов — расширить отчёт третьим параметром, например минутами чтения, и добавить проверку отрицательных значений.
 
 ### Вопрос
 
@@ -169,9 +186,26 @@ def solve(values):
 
 Keep the inputs `12` and `8`: the result should be `20`. Then edit the function, run it again, and compare its result with the sum. A successful check is recorded in learning progress; the code and inputs are saved locally on this Mac.
 
-The limit matters: the editor executes only a small safe subset of Python through an AST interpreter. It does not run arbitrary scripts, `input()`, `print()`, `try/except`, imports, file or network access; no request is sent to an AI model. You can write a full console version separately in regular Python after installing Python. In the app, the interface validates input: only non-negative whole numbers whose sum fits a standard integer.
+The limit matters: the app editor executes only a small safe subset of Python through an AST interpreter. It does not run arbitrary scripts, `input()`, `print()`, `try/except`, imports, file or network access; the code is not sent to an AI model. The app interface validates input: only non-negative whole numbers whose sum fits a standard integer.
 
-After learning conditionals and files, extend the report with a third parameter, such as reading time. Separately design validation for non-numeric text and negative values; the current function receives validated numbers and does not perform that validation itself.
+#### Full version in the Python console
+
+The trainer above passes values to the function as a list. After the lesson, run this separate console version in local Python: the program reads input, converts it with `int()`, and catches `ValueError`.
+
+```python
+try:
+    earlier_minutes = int(input("How many minutes did you study earlier? "))
+    today_minutes = int(input("How many minutes did you practise today? "))
+except ValueError:
+    print("Enter whole numbers, for example 0 or 15.")
+else:
+    total_minutes = earlier_minutes + today_minutes
+    print(f"Total: {total_minutes} minutes")
+```
+
+Try `12` and `8`: the program should print `Total: 20 minutes`. Then enter `twelve`: it should show a prompt instead of stopping with an error. Inputs `-12` and `8` produce `Total: -4 minutes` — the console version does not reject negative minutes yet. Add that check after learning conditionals.
+
+After learning conditionals and files, extend the report with a third parameter, such as reading time, and validate negative values.
 
 ### Question
 
