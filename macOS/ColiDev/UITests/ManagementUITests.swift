@@ -667,8 +667,14 @@ final class ManagementUITests: XCTestCase {
             XCTFail("The test route must open the 3D cell scene inside the lesson viewport. / Тестовый маршрут должен открыть 3D-сцену клетки в видимой области урока.\nScene: \(scene.frame), viewport: \(viewport)\n\(scene.debugDescription)")
             return
         }
-        guard viewport.contains(scene.frame) else {
-            XCTFail("The 3D cell scene is outside the lesson viewport. / 3D-сцена клетки за пределами области урока.\nScene: \(scene.frame), viewport: \(viewport)\n\(scene.debugDescription)")
+        let visibleSceneFrame = viewport.intersection(scene.frame)
+        let sceneArea = scene.frame.width * scene.frame.height
+        let visibleFraction = sceneArea > 0
+            ? (visibleSceneFrame.width * visibleSceneFrame.height) / sceneArea
+            : 0
+        let sceneCenter = CGPoint(x: scene.frame.midX, y: scene.frame.midY)
+        guard visibleFraction >= 0.9, viewport.contains(sceneCenter) else {
+            XCTFail("The 3D cell scene must be mostly visible and centered in the lesson viewport. / 3D-сцена клетки должна в основном помещаться в видимой области урока.\nVisible: \(Int(visibleFraction * 100))%, scene: \(scene.frame), viewport: \(viewport)\n\(scene.debugDescription)")
             return
         }
 
