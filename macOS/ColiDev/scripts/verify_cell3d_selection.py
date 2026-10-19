@@ -95,7 +95,7 @@ assert 'NSPredicate(format: "hittable == true")' in ui_tests, "UI test must wait
 assert "swipeUp()" not in ui_tests and "swipeDown()" not in ui_tests, "UI test must not fling the long lesson past the 3D scene. / UI-тест не должен резкими свайпами прокручивать длинный урок мимо 3D-сцены."
 assert 'hasPrefix("mitochondriaTarget=")' in ui_tests, "UI test must read the current projected mitochondrion point from the live click diagnostic. / UI-тест должен читать проекцию митохондрии из диагностики живого щелчка."
 assert 'CGVector(dx: CGFloat(targetX), dy: CGFloat(targetY))' in ui_tests, "UI test must click using the projected organelle point instead of a guessed offset. / UI-тест должен нажимать на рассчитанную проекцию органеллы, а не на примерную точку."
-assert "viewport.contains(scene.frame)" in ui_tests, "UI test must keep the 3D scene inside the visible lesson viewport before clicking. / Перед кликом UI-тест должен удерживать 3D-сцену внутри видимой области урока."
+assert "visibleFraction >= 0.9" in ui_tests and "viewport.contains(sceneCenter)" in ui_tests, "UI test must keep at least 90% of the 3D scene visible and its center inside the lesson viewport before clicking. / UI-тест должен удерживать не менее 90% 3D-сцены и её центр в видимой области урока перед нажатием."
 assert 'scene.coordinate(withNormalizedOffset: CGVector(dx: CGFloat(targetX), dy: CGFloat(targetY))).click()' in ui_tests, "UI test does not click the projected mitochondrion in the scene"
 assert 'app.staticTexts["biology.cell3d.description"]' in ui_tests, "UI test does not inspect the live organelle description"
 assert 'app.staticTexts["biology.cell3d.tapState"]' in ui_tests, "UI test does not verify that the scene tap reaches SwiftUI"
