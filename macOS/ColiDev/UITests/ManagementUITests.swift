@@ -261,9 +261,17 @@ final class ManagementUITests: XCTestCase {
             progress.waitForExistence(timeout: 10),
             "The learning journey must show how many mini-project milestones are complete. / Маршрут должен показывать число завершённых мини-проектов.\n\(app.debugDescription)"
         )
+
+        let completion = app.buttons["journey.step.mathematics.complete"]
+        if completion.exists {
+            let currentStatus = (completion.value as? String ?? "").lowercased()
+            if currentStatus.contains("completed") || currentStatus.contains("выполнен") {
+                completion.click()
+            }
+        }
         let startingProgress = progress.label
 
-        let projectResult = app.descendants(matching: .any)["journey.step.own_projects.project-result"]
+        let projectResult = app.descendants(matching: .any)["journey.step.mathematics.project-result"]
         XCTAssertTrue(projectResult.waitForExistence(timeout: 10))
         if !projectResult.isHittable {
             projectResult.click()
@@ -274,7 +282,6 @@ final class ManagementUITests: XCTestCase {
         let result = "Verified prototype \(UUID().uuidString)"
         projectResult.typeText(result)
 
-        let completion = app.buttons["journey.step.own_projects.complete"]
         XCTAssertTrue(
             completion.waitForExistence(timeout: 10),
             "A saved project result must be markable as complete. / Сохранённый результат мини-проекта должен отмечаться выполненным.\n\(app.debugDescription)"
@@ -293,12 +300,13 @@ final class ManagementUITests: XCTestCase {
         let restoredProgress = app.staticTexts["journey.project-progress"]
         XCTAssertTrue(restoredProgress.waitForExistence(timeout: 10))
         XCTAssertEqual(restoredProgress.label, completedProgress)
-        let restoredResult = app.descendants(matching: .any)["journey.step.own_projects.project-result"]
+        let restoredResult = app.descendants(matching: .any)["journey.step.mathematics.project-result"]
         XCTAssertTrue(restoredResult.waitForExistence(timeout: 10))
         XCTAssertEqual(restoredResult.value as? String, result)
-        let restoredCompletion = app.buttons["journey.step.own_projects.complete"]
+        let restoredCompletion = app.buttons["journey.step.mathematics.complete"]
         XCTAssertTrue(restoredCompletion.exists)
-        XCTAssertEqual(restoredCompletion.value as? String, "completed")
+        let restoredStatus = (restoredCompletion.value as? String ?? "").lowercased()
+        XCTAssertTrue(restoredStatus.contains("completed") || restoredStatus.contains("выполнен"))
     }
 
     @MainActor

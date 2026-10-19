@@ -212,6 +212,14 @@ final class LearningStore: ObservableObject {
             UserDefaults.standard.set(data, forKey: "colidev.studyReflectionDrafts")
         }
     }
+    @Published private(set) var completedJourneyProjectIDs: Set<String> {
+        didSet {
+            UserDefaults.standard.set(
+                completedJourneyProjectIDs.sorted(),
+                forKey: "colidev.completedJourneyProjectIDs"
+            )
+        }
+    }
     @Published private(set) var studyAssessmentEvidence: [String: StudyAssessmentEvidenceSummary] = [:]
     @Published private(set) var studyFormatPreferenceProfile: StudyFormatPreferenceProfile {
         didSet {
@@ -303,6 +311,9 @@ final class LearningStore: ObservableObject {
         } else {
             studyReflectionDrafts = [:]
         }
+        completedJourneyProjectIDs = Set(
+            UserDefaults.standard.stringArray(forKey: "colidev.completedJourneyProjectIDs") ?? []
+        )
         if let pending = UserDefaults.standard.data(forKey: "colidev.pendingStudyReviews"),
            let events = try? JSONDecoder().decode([StudyReviewEvent].self, from: pending) {
             pendingStudyReviews = events
@@ -502,6 +513,25 @@ final class LearningStore: ObservableObject {
         var updatedDrafts = studyReflectionDrafts
         updatedDrafts[lessonID] = boundedReflection
         studyReflectionDrafts = updatedDrafts
+    }
+
+    func setJourneyProjectCompleted(_ completed: Bool, stepID: String) {
+        guard !stepID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        let draftKey = "cause_and_corse.journey.\(stepID)"
+        if completed,
+           (studyReflectionDrafts[draftKey] ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty {
+            return
+        }
+
+        var updatedIDs = completedJourneyProjectIDs
+        if completed {
+            updatedIDs.insert(stepID)
+        } else {
+            updatedIDs.remove(stepID)
+        }
+        completedJourneyProjectIDs = updatedIDs
     }
 
     func setActiveStudyGoal(_ goal: StudyGoal?) {
