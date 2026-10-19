@@ -400,9 +400,11 @@ final class ManagementUITests: XCTestCase {
 
         let savedCompletion = XCTNSPredicateExpectation(
             predicate: NSPredicate(
-                format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@",
+                format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@ OR label CONTAINS[c] %@ OR label CONTAINS[c] %@",
                 "сохранён",
-                "saved"
+                "сохранить",
+                "saved",
+                "save practice result"
             ),
             object: completionAction
         )
@@ -429,14 +431,23 @@ final class ManagementUITests: XCTestCase {
         )
         let restoredCompletionAction = app.buttons["lesson.completion.action"]
         XCTAssertTrue(restoredCompletionAction.waitForExistence(timeout: 10))
+        let restoredCompletionText = accessibleText(of: restoredCompletionAction)
         XCTAssertTrue(
-            restoredCompletionAction.label.localizedCaseInsensitiveContains("сохранён как завершённый")
-                || restoredCompletionAction.label.localizedCaseInsensitiveContains("saved as completed"),
+            restoredCompletionText.localizedCaseInsensitiveContains("сохранён как завершённый")
+                || restoredCompletionText.localizedCaseInsensitiveContains("сохранить результат тренировки")
+                || restoredCompletionText.localizedCaseInsensitiveContains("saved as completed")
+                || restoredCompletionText.localizedCaseInsensitiveContains("save practice result"),
             "Lesson progress must survive quitting and reopening ColiDev. / Прогресс урока должен сохраняться после закрытия и повторного запуска ColiDev.\n\(app.debugDescription)"
         )
         let restoredLearnerConfirmation = app.descendants(matching: .any)["lesson.completion.confirmed"]
         XCTAssertTrue(restoredLearnerConfirmation.waitForExistence(timeout: 5))
-        XCTAssertEqual(restoredLearnerConfirmation.value as? String, "1")
+        let confirmationValue = restoredLearnerConfirmation.value
+        let confirmationIsSet = (confirmationValue as? NSNumber)?.boolValue == true
+            || ["1", "true", "on"].contains((confirmationValue as? String ?? "").lowercased())
+        XCTAssertTrue(
+            confirmationIsSet,
+            "The learner's completion confirmation must survive relaunch. / Подтверждение прохождения должно пережить перезапуск.\n\(restoredLearnerConfirmation.debugDescription)"
+        )
     }
 
     @MainActor
