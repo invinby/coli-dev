@@ -62,6 +62,25 @@ else:
 
 В тренажёре сначала попробуй `12`, затем при желании `-12`, `twelve`, `3.5` и пустой ввод. Результаты попыток преобразования сохраняются для этого урока без отправки введённой строки. Тренажёр проверяет только простое текстовое преобразование и не запускает введённый код.
 
+### Мини-проект: учёт минут практики
+
+Собери маленький отчёт о занятии: введи минуты, которые ты уже занимался, добавь минуты сегодняшней практики и выведи сумму. Это отдельная программа — её нужно запустить в локальном Python, сам тренажёр урока код не исполняет.
+
+```python
+try:
+    earlier_minutes = int(input("Сколько минут ты занимался раньше? "))
+    today_minutes = int(input("Сколько минут практиковался сегодня? "))
+except ValueError:
+    print("Введи целые числа, например 0 или 15.")
+else:
+    total_minutes = earlier_minutes + today_minutes
+    print(f"Всего: {total_minutes} мин")
+```
+
+Проверь в локальном Python вводы `12` и `8`: программа должна вывести `Всего: 20 мин`. Потом введи `twelve`: вместо аварийного завершения появится подсказка. Проверь и `-12` с `8`: первая версия покажет `Всего: -4 мин`, то есть пока принимает отрицательные значения. Попробуй сам добавить третий ввод — например, минуты чтения — и включить его в сумму.
+
+Граница первой версии: программа пока не проверяет отрицательное количество минут и не сохраняет отчёт между запусками. Это хорошие следующие улучшения после изучения условий и файлов. Для локальной проверки нужен установленный Python; ColiDev показывает задание и не запускает этот код за тебя.
+
 ### Вопрос
 
 Какой результат и тип у `amount` после выполнения `amount = 8 / 5`?
@@ -113,24 +132,6 @@ Predict the result first for `score = 12`, then for `score = "12"`. Toggle reass
 
 Try changing the initial number to `-3` and adding `1` again. What value is associated with the name afterwards? Then explain why `"12" + 1` is not the same operation as `12 + 1`.
 
-### Question
-
-What are the result and type of `amount` after `amount = 8 / 5`?
-
-### Options
-
-- `1.6`, type `float`
-- `1.6`, type `str`
-- `1`, type `int`
-
-### Answer
-
-1
-
-### Explanation
-
-The first option is correct: Python's `/` operator performs ordinary division and returns a `float`, even when the quotient is a whole number. Quotes would make the value text, but there are no quotes here.
-
 ### User input is text
 
 `input()` reads a line and returns it as `str`, even when the user types digits. If the program needs an integer, convert that string with `int()`:
@@ -154,6 +155,43 @@ else:
 ```
 
 Try `12` first, then optionally `-12`, `twelve`, `3.5`, and empty input. Conversion attempts are saved for this lesson without sending the entered text. The trainer checks only simple text conversion and does not run learner-entered code.
+
+### Mini-project: practice minute total
+
+Build a tiny session report: enter the minutes you studied earlier, add today's practice time, and print the sum. This is a separate program to run in local Python; the lesson trainer does not execute code.
+
+```python
+try:
+    earlier_minutes = int(input("How many minutes did you study earlier? "))
+    today_minutes = int(input("How many minutes did you practise today? "))
+except ValueError:
+    print("Enter whole numbers, for example 0 or 15.")
+else:
+    total_minutes = earlier_minutes + today_minutes
+    print(f"Total: {total_minutes} minutes")
+```
+
+Try `12` and `8` in local Python: the program should print `Total: 20 minutes`. Then enter `twelve`; you should see a helpful message instead of a traceback. Also try `-12` and `8`: the first version prints `Total: -4 minutes`, so it currently accepts negative values. Extend the program with a third input, such as reading time, and include it in the total.
+
+Limit of this first version: it does not reject negative minutes or save the report between runs. Those are good next improvements after learning conditionals and files. You need a local Python installation to run it; ColiDev presents the task but does not execute this code for you.
+
+### Question
+
+What are the result and type of `amount` after `amount = 8 / 5`?
+
+### Options
+
+- `1.6`, type `float`
+- `1.6`, type `str`
+- `1`, type `int`
+
+### Answer
+
+1
+
+### Explanation
+
+The first option is correct: Python's `/` operator performs ordinary division and returns a `float`, even when the quotient is a whole number. Quotes would make the value text, but there are no quotes here.
 
 ### Limits of the inference
 
