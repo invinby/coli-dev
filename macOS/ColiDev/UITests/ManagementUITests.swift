@@ -248,6 +248,31 @@ final class ManagementUITests: XCTestCase {
     }
 
     @MainActor
+    func testPythonJourneyProjectMatchesTheFirstProgrammingCourse() async throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let expandButton = app.buttons["journey.expand"]
+        XCTAssertTrue(expandButton.waitForExistence(timeout: 15))
+        expandButton.click()
+
+        let projectOutput = app.staticTexts["journey.step.python.project-output"]
+        XCTAssertTrue(
+            projectOutput.waitForExistence(timeout: 10),
+            "The Python route must expose its own mini-project outcome. / У Python-этапа должен быть доступный результат мини-проекта.\n\(app.debugDescription)"
+        )
+        let output = projectOutput.label.lowercased()
+        XCTAssertTrue(
+            output.contains("минут") || output.contains("minutes"),
+            "The first Python project must match the practice-minute program in the variables lesson. / Первый проект Python должен совпадать с программой учёта минут из урока о переменных."
+        )
+        XCTAssertFalse(
+            output.contains("трени") || output.contains("friction"),
+            "The Python project must not depend on friction before the physics stage. / Проект Python не должен зависеть от трения до этапа физики."
+        )
+    }
+
+    @MainActor
     func testJourneyProjectCompletionUpdatesProgressAndSurvivesRelaunch() async throws {
         let app = XCUIApplication()
         app.launch()
