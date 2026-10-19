@@ -432,6 +432,7 @@ private struct CauseAndCorseJourneyCard: View {
 
     let language: AppLanguage
     let open: (Subject) -> Void
+    let startMathematics: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -469,14 +470,17 @@ private struct CauseAndCorseJourneyCard: View {
                 .accessibilityIdentifier("journey.expand")
             }
 
-            Button { open(.mathematics) } label: {
+            Button(action: startMathematics) {
                 Label(
-                    language == .ru ? "Начать с математики → затем Python" : "Start with mathematics → then Python",
+                    language == .ru ? "Начать урок математики → затем Python" : "Start a mathematics lesson → then Python",
                     systemImage: "arrow.right.circle.fill"
                 )
             }
             .buttonStyle(.borderedProminent)
             .accessibilityIdentifier("journey.primary-action")
+            .accessibilityHint(Text(language == .ru
+                ? "Открывает следующий доступный урок математики."
+                : "Opens the next available mathematics lesson."))
 
             if isExpanded {
                 VStack(alignment: .leading, spacing: 8) {
@@ -787,6 +791,22 @@ private struct TodayView: View {
 
     private var hasAddressableDueReview: Bool { nextDueReviewRoute != nil }
 
+    private var nextMathematicsRoute: StudyLessonRoute? {
+        guard let mathematicsRoadmap = builtInStudyRoadmaps.first(where: {
+            $0.subjectID == Subject.mathematics.rawValue
+        }) else { return nil }
+        let resume = store.lastOpenedCourseRoute?.subjectID == mathematicsRoadmap.subjectID
+            ? store.lastOpenedCourseRoute
+            : nil
+        return StudyRecommendationSelector.recommendation(
+            roadmaps: [mathematicsRoadmap],
+            completedLessonIDs: store.completedLessonIDs,
+            resume: resume,
+            recallEvidence: recallEvidence,
+            assessmentEvidence: store.studyAssessmentEvidence
+        )?.route
+    }
+
     private var featuredStudyAccent: Color {
         studyAccent(for: nextDueReviewRoute ?? studyRecommendation?.route)
     }
@@ -820,7 +840,17 @@ private struct TodayView: View {
                     studyReturnCard(studyReturnSnapshot)
                 }
                 studyGoalCard
-                CauseAndCorseJourneyCard(language: store.language, open: open)
+                CauseAndCorseJourneyCard(
+                    language: store.language,
+                    open: open,
+                    startMathematics: {
+                        if let route = nextMathematicsRoute {
+                            openCourseLesson(route, false)
+                        } else {
+                            open(.mathematics)
+                        }
+                    }
+                )
 
                 VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 4) {
