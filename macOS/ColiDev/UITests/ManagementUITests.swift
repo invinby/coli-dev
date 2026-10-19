@@ -345,8 +345,10 @@ final class ManagementUITests: XCTestCase {
         pushSlider.adjust(toNormalizedSliderPosition: 0.9)
         let motionState = app.staticTexts["lesson.friction.motion-state"]
         XCTAssertTrue(motionState.waitForExistence(timeout: 5))
+        let motionStateText = accessibleText(of: motionState)
         XCTAssertTrue(
-            motionState.label.localizedCaseInsensitiveContains("скольжение"),
+            motionStateText.localizedCaseInsensitiveContains("скольжение")
+                || motionStateText.localizedCaseInsensitiveContains("sliding"),
             "Changing the applied-force slider must change the visual model's motion state. / Изменение силы должно менять состояние наглядной модели.\n\(app.debugDescription)"
         )
 
@@ -358,8 +360,10 @@ final class ManagementUITests: XCTestCase {
         predictionAction.click()
         let predictionFeedback = app.staticTexts["lesson.friction.prediction.feedback"]
         XCTAssertTrue(predictionFeedback.waitForExistence(timeout: 5))
-        XCTAssertTrue(predictionFeedback.label.localizedCaseInsensitiveContains("верно")
-            || predictionFeedback.label.localizedCaseInsensitiveContains("correct"))
+        let firstPredictionFeedback = accessibleText(of: predictionFeedback)
+        XCTAssertTrue(firstPredictionFeedback.localizedCaseInsensitiveContains("верно")
+            || firstPredictionFeedback.localizedCaseInsensitiveContains("correct"),
+            "The first prediction must receive correct feedback. / Первый прогноз должен получить отметку о правильном ответе.\n\(app.debugDescription)")
         scrollUntilHittable(predictionAction, in: lessonScrollView)
         predictionAction.click()
 
@@ -369,8 +373,10 @@ final class ManagementUITests: XCTestCase {
         scrollUntilHittable(predictionAction, in: lessonScrollView)
         predictionAction.click()
         XCTAssertTrue(predictionFeedback.waitForExistence(timeout: 5))
-        XCTAssertTrue(predictionFeedback.label.localizedCaseInsensitiveContains("верно")
-            || predictionFeedback.label.localizedCaseInsensitiveContains("correct"))
+        let secondPredictionFeedback = accessibleText(of: predictionFeedback)
+        XCTAssertTrue(secondPredictionFeedback.localizedCaseInsensitiveContains("верно")
+            || secondPredictionFeedback.localizedCaseInsensitiveContains("correct"),
+            "The second prediction must receive correct feedback. / Второй прогноз должен получить отметку о правильном ответе.\n\(app.debugDescription)")
         scrollUntilHittable(predictionAction, in: lessonScrollView)
         predictionAction.click()
         XCTAssertTrue(app.staticTexts["lesson.friction.prediction.complete"].waitForExistence(timeout: 5))
@@ -380,7 +386,10 @@ final class ManagementUITests: XCTestCase {
         knowledgeAnswer.click()
         let knowledgeFeedback = app.staticTexts["lesson.check.feedback"]
         XCTAssertTrue(knowledgeFeedback.waitForExistence(timeout: 5))
-        XCTAssertTrue(knowledgeFeedback.label.localizedCaseInsensitiveContains("верно"))
+        let knowledgeFeedbackText = accessibleText(of: knowledgeFeedback)
+        XCTAssertTrue(knowledgeFeedbackText.localizedCaseInsensitiveContains("верно")
+            || knowledgeFeedbackText.localizedCaseInsensitiveContains("correct"),
+            "The lesson check must accept the correct answer. / Проверочный вопрос урока должен принять правильный ответ.\n\(app.debugDescription)")
 
         let learnerConfirmation = app.descendants(matching: .any)["lesson.completion.confirmed"]
         scrollUntilHittable(learnerConfirmation, in: lessonScrollView)
@@ -440,6 +449,13 @@ final class ManagementUITests: XCTestCase {
             lessonScrollPoint.scroll(byDeltaX: 0, deltaY: -140)
         }
         XCTAssertTrue(element.isHittable, "Expected control to become visible after scrolling. / Элемент должен появиться после прокрутки.\n\(element.debugDescription)")
+    }
+
+    @MainActor
+    private func accessibleText(of element: XCUIElement) -> String {
+        [element.label, element.value as? String ?? ""]
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
     }
 
     @MainActor

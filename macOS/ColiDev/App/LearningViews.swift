@@ -949,7 +949,9 @@ struct CurriculumModuleView: View {
                                 hasAssessment: checkAttempt?.assessmentEvidence != nil
                             )
                     )
-                    .padding(.bottom, 32)
+                    // Leave enough scrollable space for the completion action to clear
+                    // the macOS Dock / bottom safe area in compact CI and laptop windows.
+                    .padding(.bottom, 88)
                 } else {
                     Label(L10n.text("module.unavailable", store.language), systemImage: "doc.questionmark")
                         .foregroundStyle(.secondary)
