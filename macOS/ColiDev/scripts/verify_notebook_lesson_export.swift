@@ -16,7 +16,14 @@ enum NotebookLessonExportVerification {
             checkOptions: ["During S phase"],
             checkAnswerIndex: 0,
             limitations: "This is a simplified model.",
-            sources: "- OpenStax Biology 2e"
+            sources: "- OpenStax Biology 2e",
+            videoActivity: NotebookLessonVideoActivityExport(
+                title: "Static and kinetic friction",
+                lessonURL: URL(string: "https://www.khanacademy.org/science/physics/forces-newtons-laws/inclined-planes-friction/v/static-and-kinetic-friction-example")!,
+                youtubeURL: URL(string: "https://www.youtube.com/watch?v=ZA_D4O6l1lo")!,
+                beforeWatching: "Predict what changes when the block starts moving.",
+                afterWatching: "Explain why kinetic friction is usually lower."
+            )
         ).markdown
 
         precondition(
@@ -31,6 +38,16 @@ enum NotebookLessonExportVerification {
         precondition(
             english.contains("- OpenStax Biology 2e"),
             "NotebookLM export must preserve the lesson's citations. / Экспорт NotebookLM должен сохранять ссылки урока."
+        )
+        precondition(
+            english.contains("## Video and observation")
+                && english.contains("[Open lesson source](https://www.khanacademy.org/science/physics/forces-newtons-laws/inclined-planes-friction/v/static-and-kinetic-friction-example)")
+                && english.contains("[Open video on YouTube](https://www.youtube.com/watch?v=ZA_D4O6l1lo)")
+                && english.contains("**Before watching:** Predict what changes when the block starts moving.")
+                && english.contains("**After watching:** Explain why kinetic friction is usually lower.")
+                && english.contains("Caption text is not included in this file")
+                && english.contains("when supported captions are available"),
+            "NotebookLM export must retain video links and both prompts without claiming captions are present. / Экспорт должен сохранять ссылки и оба вопроса, не утверждая, что субтитры доступны."
         )
         precondition(
             english.contains("## Knowledge check\nWhen is DNA copied?")
@@ -52,7 +69,14 @@ enum NotebookLessonExportVerification {
             checkOptions: ["В S-фазе"],
             checkAnswerIndex: 0,
             limitations: "Это упрощённая модель.",
-            sources: "- OpenStax Biology 2e"
+            sources: "- OpenStax Biology 2e",
+            videoActivity: NotebookLessonVideoActivityExport(
+                title: "Статическое и скользящее трение",
+                lessonURL: URL(string: "https://ru.khanacademy.org/science/physics/forces-newtons-laws/inclined-planes-friction/v/static-and-kinetic-friction-example")!,
+                youtubeURL: URL(string: "https://www.youtube.com/watch?v=ZA_D4O6l1lo")!,
+                beforeWatching: "Предскажи, что изменится при начале движения бруска.",
+                afterWatching: "Объясни, почему трение скольжения обычно меньше."
+            )
         ).markdown
 
         precondition(
@@ -63,6 +87,15 @@ enum NotebookLessonExportVerification {
             russian.contains("## Проверка понимания\nКогда копируется ДНК?")
                 && russian.contains("Правильный вариант: 1."),
             "Russian NotebookLM exports must retain the quiz and its answer mapping. / Экспорт NotebookLM на русском должен сохранять проверочный вопрос и соответствие правильного ответа."
+        )
+        precondition(
+            russian.contains("## Видео и наблюдение")
+                && russian.contains("[Открыть материал урока](https://ru.khanacademy.org/science/physics/forces-newtons-laws/inclined-planes-friction/v/static-and-kinetic-friction-example)")
+                && russian.contains("[Открыть видео на YouTube](https://www.youtube.com/watch?v=ZA_D4O6l1lo)")
+                && russian.contains("**Перед просмотром:** Предскажи, что изменится при начале движения бруска.")
+                && russian.contains("**После просмотра:** Объясни, почему трение скольжения обычно меньше.")
+                && russian.contains("Текст субтитров не включён в этот файл"),
+            "Russian NotebookLM export must retain the video activity and explain transcript availability. / Русский экспорт должен сохранять сценарий видео и пояснение о доступности расшифровки."
         )
 
         let undated = NotebookLessonExport(
@@ -78,11 +111,13 @@ enum NotebookLessonExportVerification {
             checkOptions: [],
             checkAnswerIndex: nil,
             limitations: "",
-            sources: ""
+            sources: "",
+            videoActivity: nil
         ).markdown
         precondition(
-            !undated.contains("editorially reviewed"),
-            "An unknown review date must not be invented. / Нельзя выдумывать отсутствующую дату проверки."
+            !undated.contains("editorially reviewed")
+                && !undated.contains("Video and observation"),
+            "An unknown review date must not be invented, and lessons without video must not gain a video section. / Нельзя выдумывать дату проверки и добавлять видео-раздел в урок без видео."
         )
 
         let invalidDate = NotebookLessonExport(
@@ -98,7 +133,8 @@ enum NotebookLessonExportVerification {
             checkOptions: [],
             checkAnswerIndex: nil,
             limitations: "",
-            sources: ""
+            sources: "",
+            videoActivity: nil
         ).markdown
         precondition(
             !invalidDate.contains("Sources in this lesson last editorially reviewed")

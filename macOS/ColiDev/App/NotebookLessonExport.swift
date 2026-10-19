@@ -1,5 +1,13 @@
 import Foundation
 
+struct NotebookLessonVideoActivityExport {
+    let title: String
+    let lessonURL: URL
+    let youtubeURL: URL?
+    let beforeWatching: String
+    let afterWatching: String
+}
+
 struct NotebookLessonExport {
     let title: String
     let subjectLabel: String
@@ -14,6 +22,7 @@ struct NotebookLessonExport {
     let checkAnswerIndex: Int?
     let limitations: String
     let sources: String
+    let videoActivity: NotebookLessonVideoActivityExport?
 
     var markdown: String {
         let goalHeading = isRussian ? "Цель" : "Learning goal"
@@ -23,6 +32,7 @@ struct NotebookLessonExport {
         let answerHeading = isRussian ? "Правильный ответ и разбор" : "Correct answer and explanation"
         let limitsHeading = isRussian ? "Ограничения" : "Limitations"
         let sourcesHeading = isRussian ? "Источники" : "Sources"
+        let videoHeading = isRussian ? "Видео и наблюдение" : "Video and observation"
         let origin = isRussian ? "Экспортировано из ColiDev" : "Exported from ColiDev"
 
         var sections = [
@@ -38,6 +48,21 @@ struct NotebookLessonExport {
 
         if !practice.isEmpty {
             sections.append("## \(practiceHeading)\n\(practice)")
+        }
+        if let videoActivity {
+            let lessonLinkLabel = isRussian ? "Открыть материал урока" : "Open lesson source"
+            let youtubeLinkLabel = isRussian ? "Открыть видео на YouTube" : "Open video on YouTube"
+            let beforeLabel = isRussian ? "Перед просмотром" : "Before watching"
+            let afterLabel = isRussian ? "После просмотра" : "After watching"
+            let transcriptNote = isRussian
+                ? "Текст субтитров не включён в этот файл. NotebookLM может импортировать расшифровку из публичного видео YouTube, если для него доступны поддерживаемые субтитры."
+                : "Caption text is not included in this file. NotebookLM may import a transcript from a public YouTube video when supported captions are available."
+            var videoSection = "## \(videoHeading)\n\n**\(videoActivity.title)**\n\n[\(lessonLinkLabel)](\(videoActivity.lessonURL.absoluteString))"
+            if let youtubeURL = videoActivity.youtubeURL {
+                videoSection += "\n\n[\(youtubeLinkLabel)](\(youtubeURL.absoluteString))"
+            }
+            videoSection += "\n\n**\(beforeLabel):** \(videoActivity.beforeWatching)\n\n**\(afterLabel):** \(videoActivity.afterWatching)\n\n> \(transcriptNote)"
+            sections.append(videoSection)
         }
         if !checkQuestion.isEmpty {
             var check = "## \(checkHeading)\n\(checkQuestion)"

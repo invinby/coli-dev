@@ -300,7 +300,16 @@ private struct CurriculumLessonDocument {
             checkOptions: checkOptions,
             checkAnswerIndex: checkAnswerIndex,
             limitations: limitations,
-            sources: sources
+            sources: sources,
+            videoActivity: videoActivity.map { activity in
+                NotebookLessonVideoActivityExport(
+                    title: activity.title,
+                    lessonURL: activity.url,
+                    youtubeURL: activity.youtubeVideoID.flatMap { URL(string: "https://www.youtube.com/watch?v=\($0)") },
+                    beforeWatching: activity.beforeWatching,
+                    afterWatching: activity.afterWatching
+                )
+            }
         ).markdown
     }
 
