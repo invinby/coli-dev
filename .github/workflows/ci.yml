@@ -46,7 +46,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [macos-15, macos-26, macos-26-intel]
+        runner: [macos-15, macos-26]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     steps:
@@ -365,6 +365,7 @@ jobs:
           -scheme ColiDev
           -destination 'platform=macOS'
           -derivedDataPath "$RUNNER_TEMP/ColiDevDerivedData"
+          ARCHS=arm64
           CODE_SIGNING_ALLOWED=NO
           build
 
@@ -376,12 +377,25 @@ jobs:
           -scheme ColiDev
           -destination 'platform=macOS'
           -derivedDataPath "$RUNNER_TEMP/ColiDevDerivedData"
+          ARCHS=arm64
           CODE_SIGN_IDENTITY=-
 
       - name: Embed the local backend runtime in the app
         run: |
           app="$RUNNER_TEMP/ColiDevDerivedData/Build/Products/Debug/ColiDev.app"
           ./macOS/ColiDev/scripts/package_backend_runtime.sh "$app"
+
+      - name: Verify Apple Silicon-only app and backend binaries
+        run: |
+          app="$RUNNER_TEMP/ColiDevDerivedData/Build/Products/Debug/ColiDev.app"
+          for binary in "$app/Contents/MacOS/ColiDev" "$app/Contents/Resources/ColiDevBackend/ColiDevBackend"; do
+            architectures="$(lipo -archs "$binary")"
+            if [[ "$architectures" != "arm64" ]]; then
+              echo "Expected an Apple Silicon arm64-only binary, got '$architectures' for $binary" >&2
+              exit 1
+            fi
+            echo "$binary: $architectures"
+          done
 
       - name: Sign packaged app for UI tests
         if: matrix.runner == 'macos-15' || matrix.runner == 'macos-26'
@@ -402,6 +416,7 @@ jobs:
           -scheme ColiDev
           -destination 'platform=macOS'
           -derivedDataPath "$RUNNER_TEMP/ColiDevDerivedData"
+          ARCHS=arm64
           CODE_SIGN_IDENTITY=-
 
       - name: Show local backend startup log / Показать журнал запуска backend
