@@ -8495,6 +8495,9 @@ private struct VariablesTypesLab: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            Divider()
+            PracticeMinutesRunner()
         }
     }
 
@@ -8502,6 +8505,218 @@ private struct VariablesTypesLab: View {
         conversionResult = PythonInputPractice.convert(inputText)
         if let evidence = practiceTracker.recordSubmission(text: inputText) {
             store.recordStudyAssessment(lessonID: "programming.variables_and_types", evidence: evidence)
+        }
+    }
+}
+
+private enum PracticeMinutesPractice {
+    static let starterCode = """
+    def solve(values):
+        earlier_minutes = values[0]
+        today_minutes = values[1]
+        total_minutes = earlier_minutes + today_minutes
+        return total_minutes
+    """
+}
+
+private struct PracticeMinutesRunner: View {
+    @EnvironmentObject private var store: LearningStore
+    @AppStorage("colidev.pythonPractice.practiceMinutes.code") private var code = PracticeMinutesPractice.starterCode
+    @AppStorage("colidev.pythonPractice.practiceMinutes.earlier") private var earlierMinutes = "12"
+    @AppStorage("colidev.pythonPractice.practiceMinutes.today") private var todayMinutes = "8"
+    @AppStorage("colidev.pythonPractice.practiceMinutes.lastRunCode") private var lastRunCode = ""
+    @AppStorage("colidev.pythonPractice.practiceMinutes.lastRunEarlier") private var lastRunEarlier = ""
+    @AppStorage("colidev.pythonPractice.practiceMinutes.lastRunToday") private var lastRunToday = ""
+    @AppStorage("colidev.pythonPractice.practiceMinutes.lastResult") private var lastResult = ""
+    @AppStorage("colidev.pythonPractice.practiceMinutes.lastErrorCode") private var lastErrorCode = ""
+    @AppStorage("colidev.pythonPractice.practiceMinutes.lastPassed") private var lastPassed = false
+    @State private var isRunning = false
+    @State private var connectionErrorKey: String?
+    @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(
+        itemIDs: ["programming.variables_and_types.practice_minutes"]
+    )
+
+    private var submittedValues: [Int]? {
+        guard let earlier = Int(earlierMinutes),
+              let today = Int(todayMinutes),
+              earlier >= 0,
+              today >= 0 else {
+            return nil
+        }
+        let (_, overflow) = earlier.addingReportingOverflow(today)
+        return overflow ? nil : [earlier, today]
+    }
+
+    private var isResultCurrent: Bool {
+        !lastResult.isEmpty
+            && lastRunCode == code
+            && lastRunEarlier == earlierMinutes
+            && lastRunToday == todayMinutes
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(L10n.text("lab.practiceMinutes.title", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.practiceMinutes.description", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 12) {
+                TextField(L10n.text("lab.practiceMinutes.earlier", store.language), text: $earlierMinutes)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityLabel(Text(L10n.text("lab.practiceMinutes.earlier", store.language)))
+                    .accessibilityIdentifier("python.minutes.earlier")
+                    .disabled(isRunning)
+                TextField(L10n.text("lab.practiceMinutes.today", store.language), text: $todayMinutes)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityLabel(Text(L10n.text("lab.practiceMinutes.today", store.language)))
+                    .accessibilityIdentifier("python.minutes.today")
+                    .disabled(isRunning)
+            }
+
+            Text(L10n.text("lab.practiceMinutes.editor", store.language))
+                .font(.subheadline.weight(.semibold))
+            TextEditor(text: $code)
+                .font(.system(.body, design: .monospaced))
+                .frame(minHeight: 110, maxHeight: 180)
+                .scrollContentBackground(.hidden)
+                .padding(6)
+                .background(.background, in: RoundedRectangle(cornerRadius: 10))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(.quaternary, lineWidth: 1)
+                }
+                .accessibilityLabel(Text(L10n.text("lab.practiceMinutes.editor", store.language)))
+                .accessibilityIdentifier("python.minutes.code")
+                .disabled(isRunning)
+
+            HStack {
+                Button(L10n.text("lab.practiceMinutes.reset", store.language)) {
+                    code = PracticeMinutesPractice.starterCode
+                }
+                .buttonStyle(.bordered)
+                .disabled(isRunning)
+
+                Spacer()
+                Button(action: runProject) {
+                    Label(
+                        L10n.text(isRunning ? "lab.practiceMinutes.running" : "lab.practiceMinutes.run", store.language),
+                        systemImage: isRunning ? "hourglass" : "play.fill"
+                    )
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(isRunning || code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    || code.utf8.count > 8_192 || submittedValues == nil)
+                .accessibilityIdentifier("python.minutes.run")
+            }
+
+            if submittedValues == nil {
+                Text(L10n.text("lab.practiceMinutes.invalidInput", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if code.utf8.count > 8_192 {
+                Text(L10n.text("lab.practiceMinutes.codeLimit", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+
+            if isResultCurrent {
+                VStack(alignment: .leading, spacing: 7) {
+                    Label(
+                        L10n.text(lastPassed ? "lab.practiceMinutes.passed" : "lab.practiceMinutes.failed", store.language),
+                        systemImage: lastPassed ? "checkmark.circle.fill" : "exclamationmark.circle.fill"
+                    )
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(lastPassed ? Color.green : Color.orange)
+
+                    if lastErrorCode.isEmpty {
+                        Text(String(format: L10n.text("lab.practiceMinutes.output", store.language), lastResult))
+                            .font(.system(.callout, design: .monospaced))
+                            .accessibilityIdentifier("python.minutes.result")
+                    } else {
+                        Text(L10n.text(errorMessageKey(lastErrorCode), store.language))
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("python.minutes.result")
+                    }
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.background, in: RoundedRectangle(cornerRadius: 10))
+            }
+
+            if let connectionErrorKey {
+                Label(L10n.text(connectionErrorKey, store.language), systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.background, in: RoundedRectangle(cornerRadius: 12))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(.quaternary, lineWidth: 1)
+        }
+    }
+
+    private func runProject() {
+        guard !isRunning, code.utf8.count <= 8_192, let values = submittedValues else { return }
+        isRunning = true
+        connectionErrorKey = nil
+        let submittedCode = code
+        let expectedTotal = values[0] + values[1]
+
+        Task { @MainActor in
+            defer { isRunning = false }
+            do {
+                let response = try await OrchestratorClient.runPythonPractice(code: submittedCode, values: values)
+                let passed = response.status == "ok" && response.resultText == String(expectedTotal)
+                lastRunCode = submittedCode
+                lastRunEarlier = earlierMinutes
+                lastRunToday = todayMinutes
+                lastPassed = passed
+                lastResult = response.status == "ok" ? (response.resultText ?? "") : (response.code ?? response.status)
+                lastErrorCode = response.status == "ok" ? "" : (response.code ?? response.status)
+
+                if let evidence = assessmentTracker.recordSubmission(
+                    selectedAnswerIndex: passed ? 1 : 0,
+                    correctAnswerIndex: 1,
+                    optionCount: 2,
+                    itemID: "programming.variables_and_types.practice_minutes"
+                ) {
+                    store.recordStudyAssessment(lessonID: "programming.variables_and_types", evidence: evidence)
+                }
+                if passed {
+                    store.saveReflectionDraft(
+                        "\(values[0]) + \(values[1]) = \(expectedTotal)",
+                        lessonID: "cause_and_corse.journey.python"
+                    )
+                    store.setJourneyProjectCompleted(true, stepID: "python")
+                }
+            } catch {
+                connectionErrorKey = "lab.practiceMinutes.error.unavailable"
+            }
+        }
+    }
+
+    private func errorMessageKey(_ code: String) -> String {
+        switch code {
+        case "syntax_error": "lab.pythonRunner.error.syntax"
+        case "unsupported_syntax": "lab.pythonRunner.error.unsupported"
+        case "iteration_limit": "lab.pythonRunner.error.limit"
+        case "code_too_large": "lab.pythonRunner.error.codeLimit"
+        case "invalid_arguments": "lab.pythonRunner.error.invalidInput"
+        case "invalid_result": "lab.pythonRunner.error.invalidResult"
+        case "ValueError": "lab.pythonRunner.error.value"
+        default: "lab.pythonRunner.error.runtime"
         }
     }
 }

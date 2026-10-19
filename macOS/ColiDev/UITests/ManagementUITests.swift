@@ -309,6 +309,38 @@ final class ManagementUITests: XCTestCase {
             accessibleText(of: result).contains("20"),
             "Adding the default inputs 12 and 8 must display 20. / Для входных значений 12 и 8 результат должен быть равен 20.\n\(result.debugDescription)"
         )
+
+        app.terminate()
+        app.launch()
+        let programmingAfterRelaunch = app.staticTexts["Программирование"]
+        XCTAssertTrue(programmingAfterRelaunch.waitForExistence(timeout: 15))
+        programmingAfterRelaunch.click()
+        let lessonAfterRelaunch = app.buttons["roadmap.lesson.programming.variables_and_types"]
+        XCTAssertTrue(lessonAfterRelaunch.waitForExistence(timeout: 10))
+        lessonAfterRelaunch.click()
+        let savedResult = app.staticTexts["python.minutes.result"]
+        XCTAssertTrue(
+            savedResult.waitForExistence(timeout: 15),
+            "The mini-project result must survive relaunch. / Результат мини-проекта должен сохраниться после перезапуска.\n\(app.debugDescription)"
+        )
+        XCTAssertTrue(
+            accessibleText(of: savedResult).contains("20"),
+            "The saved mini-project result should still be 20. / После перезапуска сохранённый результат должен оставаться равным 20.\n\(savedResult.debugDescription)"
+        )
+
+        let today = app.staticTexts["Сегодня"]
+        XCTAssertTrue(today.waitForExistence(timeout: 10))
+        today.click()
+        let expandJourney = app.buttons["journey.expand"]
+        XCTAssertTrue(expandJourney.waitForExistence(timeout: 10))
+        expandJourney.click()
+        let savedJourneyProject = app.descendants(matching: .any)["journey.step.python.project-result"]
+        XCTAssertTrue(savedJourneyProject.waitForExistence(timeout: 10))
+        XCTAssertEqual(savedJourneyProject.value as? String, "12 + 8 = 20")
+        let completedJourneyProject = app.buttons["journey.step.python.complete"]
+        XCTAssertTrue(completedJourneyProject.exists)
+        let completionStatus = (completedJourneyProject.value as? String ?? "").lowercased()
+        XCTAssertTrue(completionStatus.contains("completed") || completionStatus.contains("выполнен"))
     }
 
     @MainActor

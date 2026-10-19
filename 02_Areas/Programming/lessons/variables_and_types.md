@@ -64,22 +64,21 @@ else:
 
 ### Мини-проект: учёт минут практики
 
-Собери маленький отчёт о занятии: введи минуты, которые ты уже занимался, добавь минуты сегодняшней практики и выведи сумму. Это отдельная программа — её нужно запустить в локальном Python, сам тренажёр урока код не исполняет.
+Собери отчёт о занятии: передай функции минуты двух занятий, сложи их и верни итог. В уроке ColiDev есть редактор этого проекта: поля принимают два неотрицательных целых числа, а кнопка запускает `solve(values)` в ограниченном учебном интерпретаторе во встроенном локальном сервисе.
 
 ```python
-try:
-    earlier_minutes = int(input("Сколько минут ты занимался раньше? "))
-    today_minutes = int(input("Сколько минут практиковался сегодня? "))
-except ValueError:
-    print("Введи целые числа, например 0 или 15.")
-else:
+def solve(values):
+    earlier_minutes = values[0]
+    today_minutes = values[1]
     total_minutes = earlier_minutes + today_minutes
-    print(f"Всего: {total_minutes} мин")
+    return total_minutes
 ```
 
-Проверь в локальном Python вводы `12` и `8`: программа должна вывести `Всего: 20 мин`. Потом введи `twelve`: вместо аварийного завершения появится подсказка. Проверь и `-12` с `8`: первая версия покажет `Всего: -4 мин`, то есть пока принимает отрицательные значения. Попробуй сам добавить третий ввод — например, минуты чтения — и включить его в сумму.
+Оставь значения `12` и `8`: результат должен быть `20`. Затем измени функцию, запусти её ещё раз и сравни результат с суммой. Успешная проверка записывается в прогресс обучения; код и поля сохраняются локально на этом Mac.
 
-Граница первой версии: программа пока не проверяет отрицательное количество минут и не сохраняет отчёт между запусками. Это хорошие следующие улучшения после изучения условий и файлов. Для локальной проверки нужен установленный Python; ColiDev показывает задание и не запускает этот код за тебя.
+Ограничение важно: редактор выполняет только небольшой безопасный поднабор Python через AST-интерпретатор. Он не запускает произвольные скрипты, `input()`, `print()`, `try/except`, импорты, доступ к файлам или сети; запрос не отправляется модели ИИ. Полную консольную версию можно написать отдельно в обычном Python после установки Python. В приложении ввод проверяет интерфейс: только неотрицательные целые числа, сумма которых помещается в обычное целое число.
+
+Следующий шаг после условий и файлов — расширить отчёт третьим параметром, например минутами чтения. Отдельно спроектируй проверку неверного текста и отрицательных значений; текущая функция получает уже проверенные числа и сама такую проверку не выполняет.
 
 ### Вопрос
 
@@ -158,22 +157,21 @@ Try `12` first, then optionally `-12`, `twelve`, `3.5`, and empty input. Convers
 
 ### Mini-project: practice minute total
 
-Build a tiny session report: enter the minutes you studied earlier, add today's practice time, and print the sum. This is a separate program to run in local Python; the lesson trainer does not execute code.
+Build a session report: pass the minutes from two study sessions to a function, add them, and return the total. ColiDev’s lesson includes an editor for this project: enter two non-negative whole numbers in the fields, then run `solve(values)` in the app’s bounded teaching interpreter on its bundled local service.
 
 ```python
-try:
-    earlier_minutes = int(input("How many minutes did you study earlier? "))
-    today_minutes = int(input("How many minutes did you practise today? "))
-except ValueError:
-    print("Enter whole numbers, for example 0 or 15.")
-else:
+def solve(values):
+    earlier_minutes = values[0]
+    today_minutes = values[1]
     total_minutes = earlier_minutes + today_minutes
-    print(f"Total: {total_minutes} minutes")
+    return total_minutes
 ```
 
-Try `12` and `8` in local Python: the program should print `Total: 20 minutes`. Then enter `twelve`; you should see a helpful message instead of a traceback. Also try `-12` and `8`: the first version prints `Total: -4 minutes`, so it currently accepts negative values. Extend the program with a third input, such as reading time, and include it in the total.
+Keep the inputs `12` and `8`: the result should be `20`. Then edit the function, run it again, and compare its result with the sum. A successful check is recorded in learning progress; the code and inputs are saved locally on this Mac.
 
-Limit of this first version: it does not reject negative minutes or save the report between runs. Those are good next improvements after learning conditionals and files. You need a local Python installation to run it; ColiDev presents the task but does not execute this code for you.
+The limit matters: the editor executes only a small safe subset of Python through an AST interpreter. It does not run arbitrary scripts, `input()`, `print()`, `try/except`, imports, file or network access; no request is sent to an AI model. You can write a full console version separately in regular Python after installing Python. In the app, the interface validates input: only non-negative whole numbers whose sum fits a standard integer.
+
+After learning conditionals and files, extend the report with a third parameter, such as reading time. Separately design validation for non-numeric text and negative values; the current function receives validated numbers and does not perform that validation itself.
 
 ### Question
 

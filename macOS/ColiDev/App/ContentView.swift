@@ -359,7 +359,7 @@ private enum CauseAndCorseLearningJourney {
             id: "python",
             title: .init(ru: "Python: алгоритмы и практика", en: "Python: algorithms and practice"),
             description: .init(ru: "Переменные, функции, коллекции, алгоритмы, отладка и небольшие программы.", en: "Variables, functions, collections, algorithms, debugging, and small programs."),
-            projectOutput: .init(ru: "Собери мини-программу учёта минут практики: сложи ранее потраченное и сегодняшнее время, обработай ошибочный ввод и выведи сумму.", en: "Build a practice-minute program: add earlier study time and today's minutes, handle invalid input, and print the total."),
+            projectOutput: .init(ru: "Собери функцию учёта минут практики, запусти её в безопасном локальном тренажёре и получи верную сумму. Позже добавь проверку ввода после изучения условий.", en: "Build a practice-minute function, run it in the safe local trainer, and get the correct total. Add input validation later, after learning conditionals."),
             subjects: [.programming],
             sources: [.init(id: "python.stepik", title: .init(ru: "Stepik · Python 67 · обновлён 16.05.2025", en: "Stepik · Python 67 · page updated 2025-05-16"), url: "https://stepik.org/course/67/promo")]
         ),
