@@ -251,6 +251,7 @@ final class ManagementUITests: XCTestCase {
     func testPythonJourneyProjectMatchesTheFirstProgrammingCourse() async throws {
         let app = XCUIApplication()
         app.launch()
+        defer { app.terminate() }
 
         let expandButton = app.buttons["journey.expand"]
         XCTAssertTrue(expandButton.waitForExistence(timeout: 15))
