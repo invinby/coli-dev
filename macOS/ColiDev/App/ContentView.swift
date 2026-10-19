@@ -359,7 +359,7 @@ private enum CauseAndCorseLearningJourney {
             id: "python",
             title: .init(ru: "Python: алгоритмы и практика", en: "Python: algorithms and practice"),
             description: .init(ru: "Переменные, функции, коллекции, алгоритмы, отладка и небольшие программы.", en: "Variables, functions, collections, algorithms, debugging, and small programs."),
-            projectOutput: .init(ru: "Напиши калькулятор порога трения: ввод массы и коэффициента → расчёт силы и понятный результат.", en: "Write a friction-threshold calculator: mass and coefficient in, force calculation and a clear result out."),
+            projectOutput: .init(ru: "Собери мини-программу учёта минут практики: сложи ранее потраченное и сегодняшнее время, обработай ошибочный ввод и выведи сумму.", en: "Build a practice-minute program: add earlier study time and today's minutes, handle invalid input, and print the total."),
             subjects: [.programming],
             sources: [.init(id: "python.stepik", title: .init(ru: "Stepik · Python 67 · обновлён 16.05.2025", en: "Stepik · Python 67 · page updated 2025-05-16"), url: "https://stepik.org/course/67/promo")]
         ),
@@ -567,6 +567,7 @@ private struct CauseAndCorseJourneyCard: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("journey.step.\(step.id).project-output")
                 TextField(
                     language == .ru ? "Запиши результат или что уже сделал" : "Record your result or what you have done",
                     text: journeyProjectBinding(for: step),
