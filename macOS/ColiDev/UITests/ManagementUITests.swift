@@ -367,13 +367,23 @@ final class ManagementUITests: XCTestCase {
 
         let pushSlider = app.sliders["lesson.friction.slider.push"]
         scrollUntilHittable(pushSlider, in: lessonScrollView)
-        pushSlider.adjust(toNormalizedSliderPosition: 0.9)
+        pushSlider.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).click()
         let motionState = app.staticTexts["lesson.friction.motion-state"]
         XCTAssertTrue(motionState.waitForExistence(timeout: 5))
-        let motionStateText = accessibleText(of: motionState)
-        XCTAssertTrue(
-            motionStateText.localizedCaseInsensitiveContains("скольжение")
-                || motionStateText.localizedCaseInsensitiveContains("sliding"),
+        let slidingStateExpectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(
+                format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@ OR value CONTAINS[c] %@ OR value CONTAINS[c] %@",
+                "скольжение",
+                "sliding",
+                "скольжение",
+                "sliding"
+            ),
+            object: motionState
+        )
+        let slidingStateResult = await XCTWaiter.fulfillment(of: [slidingStateExpectation], timeout: 5)
+        XCTAssertEqual(
+            slidingStateResult,
+            .completed,
             "Changing the applied-force slider must change the visual model's motion state. / Изменение силы должно менять состояние наглядной модели.\n\(app.debugDescription)"
         )
 
