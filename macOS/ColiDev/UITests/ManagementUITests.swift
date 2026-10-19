@@ -535,21 +535,11 @@ final class ManagementUITests: XCTestCase {
         sliderThumb.press(forDuration: 0.2, thenDragTo: sliderTarget)
         let motionState = app.staticTexts["lesson.friction.motion-state"]
         XCTAssertTrue(motionState.waitForExistence(timeout: 5))
-        let slidingStateExpectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate(
-                format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@ OR value CONTAINS[c] %@ OR value CONTAINS[c] %@",
-                "скольжение",
-                "sliding",
-                "скольжение",
-                "sliding"
-            ),
-            object: motionState
-        )
-        let slidingStateResult = await XCTWaiter.fulfillment(of: [slidingStateExpectation], timeout: 5)
-        XCTAssertEqual(
-            slidingStateResult,
-            .completed,
-            "Changing the applied-force slider must change the visual model's motion state. / Изменение силы должно менять состояние наглядной модели.\n\(app.debugDescription)"
+        let motionStateText = accessibleText(of: motionState)
+        XCTAssertTrue(
+            motionStateText.localizedCaseInsensitiveContains("скольжение")
+                || motionStateText.localizedCaseInsensitiveContains("sliding"),
+            "Changing the applied-force slider must change the visual model's motion state. / Изменение силы должно менять состояние наглядной модели.\n\(motionStateText)\n\(app.debugDescription)"
         )
 
         let firstPrediction = app.buttons["lesson.friction.prediction.option.friction.at-15n.0"]
