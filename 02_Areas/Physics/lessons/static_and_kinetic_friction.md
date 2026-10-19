@@ -3,7 +3,7 @@ subject: physics
 lesson_id: physics.static_and_kinetic_friction
 level: foundations
 languages: ru, en
-source_checked: 2026-10-12
+source_checked: 2026-10-19
 source_review_interval_days: 365
 ---
 
@@ -37,7 +37,7 @@ source_review_interval_days: 365
 
 **Перед просмотром:** Предскажи, как будут различаться сила трения покоя и сила трения скольжения, когда блок начнёт двигаться.
 
-**После просмотра:** Сравни пример в видео с тренажёром: где трение покоя подстраивается под толчок, а где достигает предельного значения? Назови одно допущение модели из урока.
+**После просмотра:** Сравни механизм, а не численные ответы: в видео блок массой `5 кг`, `μ_s = 0,60`, `μ_k = 0,55` и толчок `100 Н`; в тренажёре `μ_s = 0,4`, `μ_k = 0,3` и толчки `15/25 Н`. Где трение покоя подстраивается под толчок, а где достигает предельного значения? Назови одно допущение модели из урока.
 
 ### Вопрос
 
@@ -89,7 +89,7 @@ Check the `25 N` example with `μ_s = 0.4` and `μ_k = 0.3`. Find the normal for
 
 **Before watching:** Predict how static and kinetic friction will differ as the block starts to move.
 
-**After watching:** Compare the video example with the lab: when does static friction match the push, and when does it reach its limit? Name one model assumption from the lesson.
+**After watching:** Compare the mechanism, not the numerical answers: the video uses a `5 kg` block, `μ_s = 0.60`, `μ_k = 0.55`, and a `100 N` push; the lab uses `μ_s = 0.4`, `μ_k = 0.3`, and pushes of `15/25 N`. When does static friction match the push, and when does it reach its limit? Name one model assumption from the lesson.
 
 ### Question
 

@@ -63,6 +63,14 @@ def test_friction_lesson_has_bilingual_source_linked_video_activity():
     assert "**После просмотра:**" in lesson
     assert "**Before watching:**" in lesson
     assert "**After watching:**" in lesson
+    assert "μ_s = 0,60" in lesson
+    assert "μ_k = 0,55" in lesson
+    assert "100 Н" in lesson
+    assert "Сравни механизм, а не численные ответы" in lesson
+    assert "μ_s = 0.60" in lesson
+    assert "μ_k = 0.55" in lesson
+    assert "100 N" in lesson
+    assert "Compare the mechanism, not the numerical answers" in lesson
 
 
 def test_programming_intro_has_a_reproducible_bilingual_branching_example():
