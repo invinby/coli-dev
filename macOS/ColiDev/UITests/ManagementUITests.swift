@@ -270,6 +270,10 @@ final class ManagementUITests: XCTestCase {
             }
         }
         let startingProgress = progress.label
+        XCTAssertFalse(
+            startingProgress.isEmpty,
+            "The progress summary must expose its visible count to accessibility. / Сводка должна отдавать видимый счётчик через accessibility.\n\(progress.debugDescription)"
+        )
 
         let projectResult = app.descendants(matching: .any)["journey.step.mathematics.project-result"]
         XCTAssertTrue(projectResult.waitForExistence(timeout: 10))
@@ -288,6 +292,7 @@ final class ManagementUITests: XCTestCase {
         )
         completion.click()
         let completedProgress = progress.label
+        XCTAssertFalse(completedProgress.isEmpty)
         XCTAssertNotEqual(completedProgress, startingProgress)
 
         app.terminate()
