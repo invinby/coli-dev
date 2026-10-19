@@ -367,7 +367,9 @@ final class ManagementUITests: XCTestCase {
 
         let pushSlider = app.sliders["lesson.friction.slider.push"]
         scrollUntilHittable(pushSlider, in: lessonScrollView)
-        pushSlider.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).click()
+        let sliderThumb = pushSlider.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.5))
+        let sliderTarget = pushSlider.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5))
+        sliderThumb.press(forDuration: 0.2, thenDragTo: sliderTarget)
         let motionState = app.staticTexts["lesson.friction.motion-state"]
         XCTAssertTrue(motionState.waitForExistence(timeout: 5))
         let slidingStateExpectation = XCTNSPredicateExpectation(
