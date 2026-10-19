@@ -274,6 +274,44 @@ final class ManagementUITests: XCTestCase {
     }
 
     @MainActor
+    func testVariablesLessonRunsPracticeMinutesProjectInLocalTrainer() async throws {
+        let app = XCUIApplication()
+        app.launch()
+        defer { app.terminate() }
+
+        let programmingItem = app.staticTexts["Программирование"]
+        XCTAssertTrue(
+            programmingItem.waitForExistence(timeout: 15),
+            "The programming subject must be available from the sidebar. / Предмет «Программирование» должен быть доступен в боковой панели.\n\(app.debugDescription)"
+        )
+        programmingItem.click()
+
+        let variablesLesson = app.buttons["roadmap.lesson.programming.variables_and_types"]
+        XCTAssertTrue(
+            variablesLesson.waitForExistence(timeout: 10),
+            "The variables lesson must be reachable from the programming roadmap. / Урок о переменных должен открываться из маршрута программирования.\n\(app.debugDescription)"
+        )
+        variablesLesson.click()
+
+        let runButton = app.buttons["python.minutes.run"]
+        XCTAssertTrue(
+            runButton.waitForExistence(timeout: 15),
+            "The variables lesson must include a runnable practice-minutes project. / В уроке о переменных должен быть запускаемый мини-проект учёта минут практики.\n\(app.debugDescription)"
+        )
+        runButton.click()
+
+        let result = app.staticTexts["python.minutes.result"]
+        XCTAssertTrue(
+            result.waitForExistence(timeout: 20),
+            "The local Python practice runner must display its output. / Локальный тренажёр Python должен показать результат выполнения.\n\(app.debugDescription)"
+        )
+        XCTAssertTrue(
+            accessibleText(of: result).contains("20"),
+            "Adding the default inputs 12 and 8 must display 20. / Для входных значений 12 и 8 результат должен быть равен 20.\n\(result.debugDescription)"
+        )
+    }
+
+    @MainActor
     func testJourneyProjectCompletionUpdatesProgressAndSurvivesRelaunch() async throws {
         let app = XCUIApplication()
         app.launch()
