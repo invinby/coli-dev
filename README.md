@@ -9,38 +9,30 @@ ColiDev объединяет последовательные курсы, сох
 **Project status: early team prototype.** The app is not a finished, signed, or bug-free release. Feature status and known limits are described below and in the project plan.<br>
 **Статус проекта: ранний командный прототип.** Приложение ещё не является готовым, подписанным или полностью проверенным релизом. Статус функций и известные ограничения описаны ниже и в плане проекта.
 
-## Свежая тестовая сборка CI / Latest CI test build
+## Свежая beta только для Apple Silicon / Latest Apple Silicon-only beta
 
-Последняя успешная сборка для тестирования: [GitHub Actions run 39132086427](https://github.com/invinby/coli-dev/actions/runs/39132086427), код `06ca2b9`. Backend checks и build/package прошли для macOS 15 ARM, macOS 26 ARM и macOS 26 Intel. UI-тест в CI проверил согласие перед созданием WebView и появление WebView после согласия; это не подтверждает воспроизведение реального ролика.<br>
-Latest successful test build: [GitHub Actions run 39132086427](https://github.com/invinby/coli-dev/actions/runs/39132086427), code `06ca2b9`. Backend checks and build/package passed for macOS 15 ARM, macOS 26 ARM, and macOS 26 Intel. The CI UI test checked consent before creating the WebView and its appearance after consent; this does not prove real video playback.<br>
+Поддерживаются только Mac с чипами Apple M1 и новее (`arm64`); Intel Mac не поддерживаются. Минимальная версия macOS в проекте — 13.0. Последняя зелёная сборка: PR #5, commit `49619d3`, [CI run 39328991031](https://github.com/invinby/coli-dev/actions/runs/39328991031). Backend-проверки, arm64-сборки, Swift-verifier’ы, UI-проверки, smoke-тест встроенного backend и упаковка прошли. / Only Macs with Apple M1 chips or later (`arm64`) are supported; Intel Macs are unsupported. The project deployment target is macOS 13.0. Latest green build: PR #5, commit `49619d3`, [CI run 39328991031](https://github.com/invinby/coli-dev/actions/runs/39328991031). Backend checks, arm64 builds, Swift verifiers, UI checks, bundled-backend smoke test, and packaging passed.<br>
 
-На начало этого обновления head PR #5 был `167b378`, документным коммитом после `06ca2b9`; код beta соответствует последнему зелёному app-code run. / At the start of this update, PR #5 pointed to `167b378`, a documentation-only commit after `06ca2b9`; the beta app code matches the latest green app-code run.
+- [Beta для macOS 15, arm64 — artifact 12224406843](https://github.com/invinby/coli-dev/actions/runs/39328991031/artifacts/12224406843)
+- [Beta для macOS 26, arm64 — artifact 12224681252](https://github.com/invinby/coli-dev/actions/runs/39328991031/artifacts/12224681252)
 
-- [macOS 15 Apple Silicon ZIP — artifact 12138785816](https://github.com/invinby/coli-dev/actions/runs/39132086427/artifacts/12138785816) (expires 1 Nov 2026) / [ZIP для Apple Silicon, macOS 15](https://github.com/invinby/coli-dev/actions/runs/39132086427/artifacts/12138785816) (истекает 1 ноября 2026).
-- [macOS 26 Apple Silicon ZIP — artifact 12137963762](https://github.com/invinby/coli-dev/actions/runs/39132086427/artifacts/12137963762) (expires 1 Nov 2026) / [ZIP для Apple Silicon, macOS 26](https://github.com/invinby/coli-dev/actions/runs/39132086427/artifacts/12137963762) (истекает 1 ноября 2026).
-- [macOS 26 Intel ZIP — artifact 12138239662](https://github.com/invinby/coli-dev/actions/runs/39132086427/artifacts/12138239662) (expires 1 Nov 2026) / [ZIP для Intel, macOS 26](https://github.com/invinby/coli-dev/actions/runs/39132086427/artifacts/12138239662) (истекает 1 ноября 2026).
+Это неподписанные временные CI-архивы, а не публичный релиз; для скачивания нужен вход в GitHub. Артефакты истекают 2 ноября 2026 года. CI прошёл на macOS arm64, но эта сборка не запускалась на физическом Mac в текущей проверке. Фактическое воспроизведение видео и доступность субтитров на MacBook Air M1 нужно проверить вручную.<br>
+These are temporary unsigned CI archives, not a public release; GitHub sign-in is required to download them. The artifacts expire on 2 November 2026. CI passed on macOS arm64, but this build was not launched on a physical Mac in this check. Actual video playback and caption availability on the MacBook Air M1 still need manual verification.<br>
 
-Это временные неподписанные CI-сборки, не публичный релиз. Для скачивания нужен вход в GitHub. По сообщению пользователя от 19.10.2026, свежая beta запускается на Mac, открывает урок «Статическое и скользящее трение» и показывает карточку с согласием, вопросами до/после, ссылкой на Khan Academy и транскрипт, и полем ответа. Codex не проверял это на физическом Mac. Реальное воспроизведение видео, субтитры и сохранение ответа после перезапуска пока не проверены.<br>
-These are temporary unsigned CI builds, not a public release. GitHub sign-in is required to download. In a user report dated 19 Oct 2026, the fresh beta launches on Mac, opens “Static and kinetic friction,” and shows the card with consent, before/after questions, the Khan Academy link and transcript, and an answer field. Codex did not inspect this on the physical Mac. Actual video playback, captions, and answer persistence after relaunch remain unverified.<br>
+Если GitHub CLI установлен и авторизован, команда скачает и откроет текущую beta для MacBook Air M1:
 
-Если установлен и авторизован GitHub CLI, эта команда скачает и откроет beta для MacBook Air M1 на macOS 15:
-If GitHub CLI is installed and authenticated, this command downloads and opens the macOS 15 beta for MacBook Air M1:
+```sh
+mkdir -p "$HOME/Downloads/ColiDev-ci-39328991031" && gh run download 39328991031 -R invinby/coli-dev -n ColiDev-macos-15-arm64 -D "$HOME/Downloads/ColiDev-ci-39328991031" && ditto -x -k "$HOME/Downloads/ColiDev-ci-39328991031/ColiDev-arm64.zip" "$HOME/Downloads/ColiDev-ci-39328991031" && open "$HOME/Downloads/ColiDev-ci-39328991031/ColiDev.app"
+```
 
-    mkdir -p "$HOME/Downloads/ColiDev-ci-39132086427" && gh run download 39132086427 -R invinby/coli-dev -n ColiDev-macos-15-arm64 -D "$HOME/Downloads/ColiDev-ci-39132086427" && ditto -x -k "$HOME/Downloads/ColiDev-ci-39132086427/ColiDev-arm64.zip" "$HOME/Downloads/ColiDev-ci-39132086427" && open "$HOME/Downloads/ColiDev-ci-39132086427/ColiDev.app"
+## Предыдущий опубликованный релиз: Beta 7 / Previous published release: Beta 7
 
-После запуска приложения проверь согласие перед загрузкой, затем фактическое воспроизведение, captions/транскрипт, ввод ответа и сохранение ответа после закрытия и повторного запуска. Не отключай Gatekeeper целиком. Полный список статусов находится в [аудите всего проекта](project-plan/WHOLE_PROJECT_AUDIT_RU_EN.md), а пошаговый ручной протокол — в [отчёте готовности прототипа](project-plan/PROTOTYPE_READINESS_RU_EN.md).<br>
-After launch, check consent before loading, actual playback, captions/transcript, answer entry, and answer persistence after quitting and relaunching. Do not disable Gatekeeper globally. Full status is in the [whole-project audit](project-plan/WHOLE_PROJECT_AUDIT_RU_EN.md); the step-by-step manual checklist is in the [prototype readiness report](project-plan/PROTOTYPE_READINESS_RU_EN.md).
+Это более старая beta. Для текущего тестирования используй arm64-архивы из последнего CI выше. Страница релиза может содержать устаревший Intel-архив; Intel Mac не поддерживаются. / This is an older beta. Use the arm64 archives from the latest CI above for current testing. The release page may contain a legacy Intel archive; Intel Macs are unsupported.<br>
 
-## Latest published release: Beta 7 / Последний опубликованный релиз: Beta 7
+[Страница Beta 7 / Beta 7 release page](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.7) · [Apple Silicon ZIP](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.7/ColiDev-beta-AppleSilicon.zip)
 
-[Release page / Страница беты](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.7) · [Apple Silicon ZIP](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.7/ColiDev-beta-AppleSilicon.zip) · [Intel ZIP](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.7/ColiDev-beta-Intel.zip)<br>
-[Страница беты](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.7) · [Архив для Apple Silicon](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.7/ColiDev-beta-AppleSilicon.zip) · [Архив для Intel](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.7/ColiDev-beta-Intel.zip)
-
-Extract the archive, move `ColiDev.app` to Applications, then launch it. If Gatekeeper warns, Control-click the app in Finder → Open → Open. This test build is unsigned and not notarized; do not disable Gatekeeper globally.<br>
-Распакуй архив, перемести `ColiDev.app` в «Программы» и запусти. Если Gatekeeper покажет предупреждение, нажми Control-кликом по приложению в Finder → «Открыть» → «Открыть». Тестовая сборка не подписана и не нотарифицирована; не отключай Gatekeeper целиком.
-
-GitHub Actions [38806495328](https://github.com/invinby/coli-dev/actions/runs/38806495328) passed for app commit `56c29f71795cf44115851ea101da4d0e888a8734`: backend checks, Swift verifiers, app build and packaging on macOS 15 ARM, macOS 26 ARM, and macOS 26 Intel, bundled-backend smoke check, and curriculum-route audit. Beta 7 adds a bilingual English foundations lesson with seven interactive questions on subject pronouns and *be*. CI does not verify SwiftUI rendering or live AI replies on a user's Mac; hands-on acceptance remains open.<br>
-GitHub Actions [38806495328](https://github.com/invinby/coli-dev/actions/runs/38806495328) успешно прошёл для коммита приложения `56c29f71795cf44115851ea101da4d0e888a8734`: проверки backend, Swift-verifier’ы, сборка и упаковка для macOS 15 ARM, macOS 26 ARM и macOS 26 Intel, smoke-проверка встроенного backend и аудит учебных маршрутов. В Beta 7 добавлен двуязычный вводный урок английского с семью интерактивными заданиями на личные местоимения и формы *be*. CI не проверяет отображение SwiftUI и живые ответы ИИ на Mac; ручная приёмка остаётся открытой.<br>
+Распакуй архив и перемести `ColiDev.app` в «Программы». Если Gatekeeper покажет предупреждение, Control-кликни по приложению в Finder → «Открыть» → «Открыть». Архив не подписан и не нотарифицирован; не отключай Gatekeeper целиком.<br>
+Extract the archive and move `ColiDev.app` to Applications. If Gatekeeper warns, Control-click the app in Finder → Open → Open. The archive is unsigned and not notarized; do not disable Gatekeeper globally.
 
 ## Previous verified code build / Предыдущая проверенная сборка кода
 
@@ -256,8 +248,8 @@ python -m pip install -r requirements-test.txt
 python -m pytest 01_Projects -q
 ~~~
 
-Automated tests use mocked providers and do not spend API credits or confirm live-provider access. GitHub Actions builds for Apple Silicon and Intel and smoke-checks the packaged backend, but it does not replace hands-on acceptance on a physical Mac.<br>
-В автоматических тестах используются заглушки провайдеров; они не расходуют API-кредиты и не подтверждают доступ к реальным моделям. GitHub Actions собирает приложение для Apple Silicon и Intel и проверяет упакованный сервер, но это не заменяет проверку на настоящем Mac.
+Automated tests use mocked providers and do not spend API credits or confirm live-provider access. Current GitHub Actions builds are Apple Silicon `arm64` only and smoke-check the packaged backend; older historical CI runs may mention Intel, which is not a supported target. CI does not replace hands-on acceptance on a physical Apple Silicon Mac.<br>
+В автоматических тестах используются заглушки провайдеров; они не расходуют API-кредиты и не подтверждают доступ к реальным моделям. Текущие сборки GitHub Actions предназначены только для Apple Silicon `arm64` и проверяют упакованный сервер; Intel может встречаться в старых исторических отчётах CI, но не поддерживается. CI не заменяет ручную проверку на физическом Mac с Apple Silicon.
 
 ## Privacy and cost / Приватность и расходы
 
