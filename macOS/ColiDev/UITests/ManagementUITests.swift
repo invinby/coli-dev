@@ -141,35 +141,35 @@ final class ManagementUITests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
 
-        let goalPickerButton = app.buttons["home.goal.picker-button"]
+        let goalPickerButton = app.buttons["study-goal-picker-button"]
         XCTAssertTrue(
             goalPickerButton.waitForExistence(timeout: 15),
             "Today must let the learner choose a long-term study goal. / На экране «Сегодня» ученик должен иметь возможность выбрать учебную цель.\n\(app.debugDescription)"
         )
         goalPickerButton.click()
 
-        let mathematicsGoal = app.buttons["home.goal.option.mathematics.numbers_fractions_and_percentages"]
+        let mathematicsGoal = app.buttons["study-goal-option.mathematics.numbers_fractions_and_percentages"]
         XCTAssertTrue(
             mathematicsGoal.waitForExistence(timeout: 15),
             "The goal picker must offer the first mathematics milestone. / В выборе цели должен быть доступен первый этап математики.\n\(app.debugDescription)"
         )
         mathematicsGoal.click()
 
-        let selectedGoal = app.staticTexts["home.goal.selected-title"]
-        let goalProgress = app.staticTexts["home.goal.progress"]
+        let selectedGoal = app.staticTexts["study-goal-selected-title"]
+        let goalProgress = app.staticTexts["study-goal-progress"]
         XCTAssertTrue(selectedGoal.waitForExistence(timeout: 10))
         XCTAssertTrue(goalProgress.exists)
-        XCTAssertTrue(app.staticTexts["home.goal.next-step"].exists)
+        XCTAssertTrue(app.staticTexts["study-goal-next-step"].exists)
 
         app.terminate()
         app.launch()
 
         XCTAssertTrue(
-            app.staticTexts["home.goal.selected-title"].waitForExistence(timeout: 15),
+            app.staticTexts["study-goal-selected-title"].waitForExistence(timeout: 15),
             "The selected study goal must be restored after relaunch. / После перезапуска выбранная учебная цель должна восстановиться.\n\(app.debugDescription)"
         )
-        XCTAssertTrue(app.staticTexts["home.goal.progress"].exists)
-        XCTAssertTrue(app.staticTexts["home.goal.next-step"].exists)
+        XCTAssertTrue(app.staticTexts["study-goal-progress"].exists)
+        XCTAssertTrue(app.staticTexts["study-goal-next-step"].exists)
     }
 
     @MainActor
