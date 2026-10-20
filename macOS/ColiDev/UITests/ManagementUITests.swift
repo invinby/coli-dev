@@ -234,6 +234,12 @@ final class ManagementUITests: XCTestCase {
             )
         }
 
+        let brainCourseSource = app.links["journey.source.brain.hse"]
+        XCTAssertTrue(brainCourseSource.label.contains("13"))
+        let sourceNotice = app.staticTexts["journey.source-notice"]
+        XCTAssertTrue(sourceNotice.label.contains("первых двух недель") || sourceNotice.label.contains("first two weeks"))
+        XCTAssertTrue(sourceNotice.label.contains("после оплаты") || sourceNotice.label.contains("require payment"))
+
         XCTAssertTrue(app.buttons["journey.primary-action"].exists)
         let primaryActionLabel = app.buttons["journey.primary-action"].label.lowercased()
         XCTAssertTrue(primaryActionLabel.contains("математ") || primaryActionLabel.contains("math"))

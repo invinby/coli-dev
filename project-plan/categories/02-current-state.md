@@ -1,5 +1,13 @@
 # 02. Текущее состояние ColiDev
 
+## Актуальность русскоязычного курса о мозге в маршруте / Brain-course access note in the learning path — 2026-10-21
+
+**RU:** Обновлена подпись встроенной ссылки ВШЭ «Мозг и психика»: теперь она показывает длительность и язык курса вместо неоднозначной метки сессии. При проверке официальная страница Open Education указывала 13-недельный курс на русском, открытые видеолекции только первых двух недель и оплату для доступа к остальным материалам. Это зафиксировано в приложении; пользователю предлагается проверить условия и запись перед началом. Stepik-ссылки оставлены с датами, указанными на их страницах при предыдущей проверке; доступность Stepik и обновления курсов в этой сессии не подтверждены. Изменены только маршрутный текст SwiftUI, проверка UI и эта запись; CI после правки ещё не запускался.
+
+**EN:** The in-app HSE “Brain and Psyche” link label now shows course length and language instead of an ambiguous session label. On review, Open Education's official page listed a 13-week Russian course, open video lectures for only the first two weeks, and payment for access to the remaining materials. The app now states this and tells learners to check enrollment and access terms before starting. Stepik links retain the dates listed on their pages during an earlier review; Stepik availability and course updates were not confirmed in this session. Only the SwiftUI journey copy, its UI assertion, and this record changed; CI has not run for this update yet.
+
+Source / источник: [Open Education — «Мозг и психика»](https://openedu.ru/course/hse/BRAPS/?session=2022).
+
 ## Ручная проверка видеокарточки по сообщению пользователя / User-reported video-card check — 2026-10-19
 
 **RU:** Пользователь сообщает, что свежая beta запускается, открывает «Статическое и скользящее трение», и показывает видеокарточку с согласием перед YouTube, вопросом до видео, ссылкой на Khan Academy и транскрипт, вопросом после просмотра и полем ответа. Это частичная ручная проверка пользователя, а не наблюдение Codex на Mac. Воспроизведение, captions и сохранение ответа после перезапуска не проверены. Сверь [аудит всего проекта](../WHOLE_PROJECT_AUDIT_RU_EN.md) и [готовность прототипа](../PROTOTYPE_READINESS_RU_EN.md).

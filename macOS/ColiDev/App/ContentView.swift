@@ -412,7 +412,7 @@ private enum CauseAndCorseLearningJourney {
             description: .init(ru: "Переходи к исследованиям после биологии и ML. Сознание и возможность создания жизни — дальние научные вопросы, не обещанный результат.", en: "Move into research after biology and ML. Consciousness and creating life are long-term scientific questions, not promised outcomes."),
             projectOutput: .init(ru: "Подготовь карточку одного научного утверждения: источник, метод, результат и что пока неизвестно.", en: "Create an evidence card for one scientific claim: source, method, result, and what remains unknown."),
             subjects: [],
-            sources: [.init(id: "brain.hse", title: .init(ru: "ВШЭ · «Мозг и психика» · сессия 2022", en: "HSE · Brain and Psyche · 2022 session"), url: "https://openedu.ru/course/hse/BRAPS/?session=2022")]
+            sources: [.init(id: "brain.hse", title: .init(ru: "ВШЭ · «Мозг и психика» · 13 недель, русский", en: "HSE · Brain and Psyche · 13 weeks, Russian"), url: "https://openedu.ru/course/hse/BRAPS/?session=2022")]
         ),
         .init(
             id: "own_projects",
@@ -521,8 +521,8 @@ private struct CauseAndCorseJourneyCard: View {
                 .transition(reduceMotion ? .identity : .opacity.combined(with: .move(edge: .top)))
 
                 Text(language == .ru
-                     ? "Ссылки перепроверены 19.10.2026. Python 67 обновлялся 16.05.2025, биология 70 — 19.12.2023, страница ВШЭ помечена сессией 2022: перед обучением проверь доступ и актуальность. PhET и GeoGebra открываются отдельно; права на встраивание не подтверждены. Твои проектные заметки сохраняются локально на этом Mac."
-                     : "Links were rechecked on 2026-10-19. Python 67 was updated 2025-05-16, biology 70 on 2023-12-19, and the HSE page is marked as a 2022 session: check access and freshness before studying. PhET and GeoGebra open separately; embedding rights are unconfirmed. Your project notes are saved locally on this Mac.")
+                     ? "Ссылки маршрута перепроверены 19.10.2026. По страницам Stepik, Python 67 обновлялся 16.05.2025, биология 70 — 19.12.2023; проверь наличие более новых материалов. Страница ВШЭ проверена 21.10.2026: 13-недельный курс на русском, открыты лекции первых двух недель, остальные материалы доступны после оплаты. Проверь актуальную запись и условия доступа. PhET и GeoGebra открываются отдельно; права на встраивание не подтверждены. Твои проектные заметки сохраняются локально на этом Mac."
+                     : "The route links were rechecked on 2026-10-19. Stepik's pages list Python 67 as updated 2025-05-16 and biology 70 as updated 2023-12-19; check for newer materials. The HSE page was checked on 2026-10-21: it lists a 13-week Russian course, with lectures from the first two weeks open and remaining materials requiring payment. Check current enrollment and access terms. PhET and GeoGebra open separately; embedding rights are unconfirmed. Your project notes are saved locally on this Mac.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
