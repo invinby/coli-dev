@@ -969,6 +969,7 @@ private struct TodayView: View {
                     showingGoalPicker = true
                 }
                 .buttonStyle(.bordered)
+                .accessibilityIdentifier("home.goal.picker-button")
             }
 
             if store.activeStudyGoal != nil,
@@ -976,6 +977,7 @@ private struct TodayView: View {
                let progress = goalProgress {
                 Text(option.topicTitle)
                     .font(.title3.weight(.semibold))
+                    .accessibilityIdentifier("home.goal.selected-title")
                 if !option.learningOutcome.isEmpty {
                     Text(option.learningOutcome)
                         .font(.callout)
@@ -995,6 +997,7 @@ private struct TodayView: View {
                     ))
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("home.goal.progress")
                 }
                 if let lastVerified = progress.lastVerifiedMilestone {
                     Text(L10n.text("home.goal.lastVerified", store.language)
@@ -1015,6 +1018,7 @@ private struct TodayView: View {
                         .replacingOccurrences(of: "%@", with: goalStepTitle(next.route)))
                         .font(.caption.weight(.medium))
                         .foregroundStyle(studyAccent(for: next.route))
+                        .accessibilityIdentifier("home.goal.next-step")
                     if !hasAddressableDueReview, let recommendation = studyRecommendation {
                         Text(L10n.text("home.goal.microstart", store.language)
                             .replacingOccurrences(of: "%@", with: goalStepTitle(recommendation.route)))
@@ -1346,6 +1350,7 @@ private struct StudyGoalPickerView: View {
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
+                            .accessibilityIdentifier("home.goal.option.\(option.id)")
                         }
                     }
                 }
