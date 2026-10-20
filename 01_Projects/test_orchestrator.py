@@ -3050,6 +3050,53 @@ def _parse_sse(text: str) -> list[dict]:
 class TestStreamingChat:
     """Проверка SSE-стриминга через /chat/stream."""
 
+    @pytest.mark.parametrize(
+        ("language", "expected_error"),
+        [("ru", "Локальный режим"), ("en", "Local mode")],
+    )
+    def test_local_chat_rejects_web_search_before_retrieval_or_provider_calls(
+        self,
+        client,
+        monkeypatch,
+        language,
+        expected_error,
+    ):
+        web_search = AsyncMock(return_value=orchestrator.StreamingResponse(
+            iter([b'data: {"type":"done","answer":"should not run"}\n\n']),
+            media_type="text/event-stream",
+        ))
+        retrievals = [AsyncMock(return_value=[]) for _ in range(3)]
+        local_route = AsyncMock(return_value=orchestrator.StreamingResponse(
+            iter([b'data: {"type":"done","answer":"should not run"}\n\n']),
+            media_type="text/event-stream",
+        ))
+        monkeypatch.setattr(orchestrator, "_handle_grounded_web_search", web_search)
+        monkeypatch.setattr(orchestrator, "_retrieve_local_course_sources", retrievals[0])
+        monkeypatch.setattr(orchestrator, "_retrieve_obsidian_sources", retrievals[1])
+        monkeypatch.setattr(orchestrator, "_retrieve_licensed_official_sources", retrievals[2])
+        monkeypatch.setattr(orchestrator, "_handle_local_or_error_stream", local_route)
+
+        response = client.post(
+            "/chat/stream",
+            json={
+                "message": "Search the web for this lesson",
+                "language": language,
+                "mode": "local",
+                "use_web_search": True,
+                "grounding_age_confirmed": True,
+            },
+        )
+
+        assert response.status_code == 200
+        events = _parse_sse(response.text)
+        error = next(event for event in events if event["type"] == "error")
+        assert error["provider"] == "unavailable"
+        assert expected_error in error["error"]
+        web_search.assert_not_awaited()
+        local_route.assert_not_awaited()
+        for retrieval in retrievals:
+            retrieval.assert_not_awaited()
+
     def test_chat_stream_enforces_its_rate_limit(self, monkeypatch):
         monkeypatch.setattr(orchestrator.limiter, "enabled", True)
 

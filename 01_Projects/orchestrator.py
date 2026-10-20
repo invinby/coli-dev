@@ -5366,6 +5366,13 @@ async def chat_stream(request: Request, req: ChatRequest):
     Если лимит сессий исчерпан → автономный локальный режим (Qwen 3).
     """
     _require_local_settings_request(request)
+    if req.mode == "local" and req.use_web_search:
+        unavailable_message = (
+            "Локальный режим не выполняет веб-поиск. Переключитесь на Auto, чтобы отдельно разрешить облачный поиск."
+            if req.language == "ru" else
+            "Local mode does not perform web search. Switch to Auto to explicitly use cloud search."
+        )
+        return _error_stream_response(req.language, unavailable_message)
     if req.use_web_search:
         return await _handle_grounded_web_search(req)
 
