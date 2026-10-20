@@ -351,7 +351,7 @@ jobs:
 
       - name: Verify bilingual YouTube caption preferences / Проверка языка субтитров YouTube
         run: |
-          swiftc macOS/ColiDev/App/SafeWebReferenceURL.swift macOS/ColiDev/scripts/verify_youtube_embed_url.swift \
+          swiftc macOS/ColiDev/App/YouTubeEmbedURL.swift macOS/ColiDev/scripts/verify_youtube_embed_url.swift \
             -o "$RUNNER_TEMP/verify-youtube-embed-url"
           "$RUNNER_TEMP/verify-youtube-embed-url"
 
