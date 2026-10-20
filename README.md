@@ -11,16 +11,16 @@ ColiDev объединяет последовательные курсы, сох
 
 ## Свежая beta только для Apple Silicon / Latest Apple Silicon-only beta
 
-Поддерживаются только Mac с чипами Apple M1 и новее (`arm64`); Intel Mac не поддерживаются. Минимальная версия macOS — 13.0. Последний полный CI для PR #5 — [run 39507806538](https://github.com/invinby/coli-dev/actions/runs/39507806538), app-код `548c701` и проверка `2b0b410`: 608 backend-тестов и оба arm64 macOS job прошли, включая UI, smoke-проверку, упаковку backend и app. / Only Apple Silicon Macs with M1 chips or later (`arm64`) are supported; Intel Macs are unsupported. The latest full PR #5 CI is [run 39507806538](https://github.com/invinby/coli-dev/actions/runs/39507806538), app code `548c701` plus test commit `2b0b410`: all 608 backend tests and both arm64 macOS jobs passed, including UI, smoke checks, backend and app packaging.<br>
+Поддерживаются только Mac с чипами Apple M1 и новее (`arm64`); Intel Mac не поддерживаются. Минимальная версия macOS — 13.0. Последний полный CI для PR #5 — [run 39510714430](https://github.com/invinby/coli-dev/actions/runs/39510714430): backend, обе arm64-сборки, UI, smoke-проверки и упаковка прошли. / Only Apple Silicon Macs with M1 chips or later (`arm64`) are supported; Intel Macs are unsupported. Latest full PR #5 CI is [run 39510714430](https://github.com/invinby/coli-dev/actions/runs/39510714430): backend, both arm64 builds, UI, smoke checks, and packaging passed.<br>
 
 ## Текущая beta / Current beta
 
-Свежая неподписанная beta для MacBook Air M1: [macOS 15 arm64, artifact 12304923082](https://github.com/invinby/coli-dev/actions/runs/39507806538/artifacts/12304923082). Альтернативная beta для macOS 26 arm64: [artifact 12305805467](https://github.com/invinby/coli-dev/actions/runs/39507806538/artifacts/12305805467). ZIP M1 скачан и проверен; размер 21.7 MB, SHA-256 `ACE3F17FF06EAB29BF3C1169642645D0FFA445B9CDD918E51343731855D671D4`. GitHub login требуется. Это временный неподписанный CI-архив; свежую beta ещё не запускали на физическом Mac.<br>
-Fresh unsigned beta for MacBook Air M1: [macOS 15 arm64, artifact 12304923082](https://github.com/invinby/coli-dev/actions/runs/39507806538/artifacts/12304923082). Alternative macOS 26 arm64 beta: [artifact 12305805467](https://github.com/invinby/coli-dev/actions/runs/39507806538/artifacts/12305805467). The M1 ZIP was downloaded and verified; size 21.7 MB, SHA-256 `ACE3F17FF06EAB29BF3C1169642645D0FFA445B9CDD918E51343731855D671D4`. GitHub sign-in is required. This is a temporary unsigned CI archive; it has not been launched on a physical Mac.<br>
+Свежая неподписанная beta для MacBook Air M1: [macOS 15 arm64, artifact 12305584495](https://github.com/invinby/coli-dev/actions/runs/39510714430/artifacts/12305584495). Альтернативная beta для macOS 26 arm64: [artifact 12306322257](https://github.com/invinby/coli-dev/actions/runs/39510714430/artifacts/12306322257). Для скачивания нужен вход в GitHub. Архивы созданы зелёными arm64 CI jobs, но новый ZIP локально не скачан, а beta не запускалась на физическом Mac.<br>
+Fresh unsigned beta for MacBook Air M1: [macOS 15 arm64, artifact 12305584495](https://github.com/invinby/coli-dev/actions/runs/39510714430/artifacts/12305584495). Alternative macOS 26 arm64 beta: [artifact 12306322257](https://github.com/invinby/coli-dev/actions/runs/39510714430/artifacts/12306322257). GitHub sign-in is required. These archives were produced by green arm64 CI jobs, but the new ZIP has not been downloaded locally and the beta has not been launched on a physical Mac.<br>
 
-- [Свежая beta для MacBook Air M1, macOS 15 arm64 — artifact 12304923082](https://github.com/invinby/coli-dev/actions/runs/39507806538/artifacts/12304923082)
-- [Свежая beta для macOS 26 arm64 — artifact 12305805467](https://github.com/invinby/coli-dev/actions/runs/39507806538/artifacts/12305805467)
-- [Скриншоты UI-тестов macOS 15 — artifact 12305640176](https://github.com/invinby/coli-dev/actions/runs/39507806538/artifacts/12305640176) · [macOS 26 — artifact 12305625637](https://github.com/invinby/coli-dev/actions/runs/39507806538/artifacts/12305625637)
+- [Свежая beta для MacBook Air M1, macOS 15 arm64 — artifact 12305584495](https://github.com/invinby/coli-dev/actions/runs/39510714430/artifacts/12305584495)
+- [Свежая beta для macOS 26 arm64 — artifact 12306322257](https://github.com/invinby/coli-dev/actions/runs/39510714430/artifacts/12306322257)
+- [Скриншоты UI-тестов macOS 15 — artifact 12306691991](https://github.com/invinby/coli-dev/actions/runs/39510714430/artifacts/12306691991) · [macOS 26 — artifact 12306018786](https://github.com/invinby/coli-dev/actions/runs/39510714430/artifacts/12306018786)
 
 Это неподписанные временные CI-архивы, а не публичный релиз; для скачивания нужен вход в GitHub. Оба arm64 job полностью прошли. Воспроизведение видео и фактическая доступность дорожек субтитров на MacBook Air M1 требуют ручной проверки.<br>
 These are temporary unsigned CI archives, not a public release; GitHub sign-in is required to download them. Both arm64 jobs passed in full. Video playback and actual subtitle-track availability on the MacBook Air M1 still need hands-on verification.<br>
@@ -28,7 +28,7 @@ These are temporary unsigned CI archives, not a public release; GitHub sign-in i
 Если GitHub CLI установлен и авторизован, команда скачает и попробует открыть текущую beta для MacBook Air M1. Архив неподписан: если Gatekeeper остановит запуск, в Finder нажми Control-клик по `ColiDev.app` → «Открыть» → «Открыть».
 
 ```sh
-mkdir -p "$HOME/Downloads/ColiDev-ci-39507806538" && gh run download 39507806538 -R invinby/coli-dev -n ColiDev-macos-15-arm64 -D "$HOME/Downloads/ColiDev-ci-39507806538" && ditto -x -k "$HOME/Downloads/ColiDev-ci-39507806538/ColiDev-arm64.zip" "$HOME/Downloads/ColiDev-ci-39507806538" && open "$HOME/Downloads/ColiDev-ci-39507806538/ColiDev.app"
+mkdir -p "$HOME/Downloads/ColiDev-ci-39510714430" && gh run download 39510714430 -R invinby/coli-dev -n ColiDev-macos-15-arm64 -D "$HOME/Downloads/ColiDev-ci-39510714430" && ditto -x -k "$HOME/Downloads/ColiDev-ci-39510714430/ColiDev-arm64.zip" "$HOME/Downloads/ColiDev-ci-39510714430" && open "$HOME/Downloads/ColiDev-ci-39510714430/ColiDev.app"
 ```
 
 ## Предыдущий опубликованный релиз: Beta 7 / Previous published release: Beta 7
