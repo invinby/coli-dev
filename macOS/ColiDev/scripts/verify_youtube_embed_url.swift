@@ -24,7 +24,7 @@ enum YouTubeEmbedURLVerification {
             .queryItems!
         precondition(englishQuery.first(where: { $0.name == "cc_lang_pref" })?.value == "en")
 
-        precondition(YouTubeEmbedURLBuilder.make(videoID: "not-a-video", captionLanguage: "ru") == nil)
+        precondition(YouTubeEmbedURLBuilder.make(videoID: "bad id", captionLanguage: "ru") == nil)
         precondition(YouTubeEmbedURLBuilder.make(videoID: "ZA_D4O6l1lo", captionLanguage: "fr") == nil)
         print("Bilingual YouTube caption preference checks passed.")
     }
