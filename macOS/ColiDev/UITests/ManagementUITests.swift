@@ -534,6 +534,48 @@ final class ManagementUITests: XCTestCase {
     }
 
     @MainActor
+    func testNotebookLMCanReceiveTheLessonAsCopiedMarkdown() async throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let physicsItem = app.staticTexts["Физика"]
+        XCTAssertTrue(physicsItem.waitForExistence(timeout: 15))
+        physicsItem.click()
+
+        let frictionLesson = app.buttons["roadmap.lesson.physics.static_and_kinetic_friction"]
+        XCTAssertTrue(frictionLesson.waitForExistence(timeout: 10))
+        frictionLesson.click()
+
+        let scrollView = app.windows.firstMatch.scrollViews.element(boundBy: 1)
+        let copyButton = app.buttons["lesson.notebook.copy"]
+        XCTAssertTrue(
+            copyButton.waitForExistence(timeout: 10),
+            "The lesson must offer a local Markdown copy path for manual NotebookLM import. / Урок должен позволять скопировать Markdown для ручного импорта в NotebookLM.\n\(app.debugDescription)"
+        )
+        scrollUntilHittable(copyButton, in: scrollView)
+        copyButton.click()
+
+        let copyStatus = app.staticTexts["lesson.notebook.status"]
+        XCTAssertTrue(
+            copyStatus.waitForExistence(timeout: 5),
+            "Copying the NotebookLM lesson source must show a result. / После копирования источника для NotebookLM должен появиться результат.\n\(app.debugDescription)"
+        )
+        XCTAssertFalse((copyStatus.value as? String ?? "").isEmpty)
+
+        let response = app.descendants(matching: .any)["lesson.video.response"]
+        XCTAssertTrue(response.waitForExistence(timeout: 10))
+        scrollUntilHittable(response, in: scrollView)
+        response.click()
+        response.typeKey("a", modifierFlags: .command)
+        response.typeKey("v", modifierFlags: .command)
+        XCTAssertTrue(
+            (response.value as? String)?.hasPrefix("# ") == true
+                && (response.value as? String)?.contains("ColiDev") == true,
+            "The clipboard must contain the lesson Markdown, ready to paste into NotebookLM. / В буфере должен быть Markdown урока, готовый к вставке в NotebookLM.\n\(response.debugDescription)"
+        )
+    }
+
+    @MainActor
     func testFrictionLessonLearningCycleAndProgressSurviveAppRelaunch() async throws {
         let app = XCUIApplication()
         app.launch()

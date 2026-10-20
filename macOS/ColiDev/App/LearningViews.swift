@@ -843,6 +843,12 @@ struct CurriculumModuleView: View {
                         Text(L10n.text("module.notebookTitle", store.language))
                             .font(.headline)
                         HStack(spacing: 12) {
+                            Button(action: copyNotebookLessonSource) {
+                                Label(L10n.text("module.notebookCopy", store.language), systemImage: "doc.on.clipboard")
+                            }
+                            .buttonStyle(.bordered)
+                            .accessibilityIdentifier("lesson.notebook.copy")
+
                             Button {
                                 notebookExportDocument = NotebookLMSourceFile(
                                     text: document.notebookSource(subject: subject, language: store.language)
@@ -873,6 +879,7 @@ struct CurriculumModuleView: View {
                             Text(notebookExportStatus)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                                .accessibilityIdentifier("lesson.notebook.status")
                         }
                     }
                     .padding(16)
@@ -1032,6 +1039,17 @@ struct CurriculumModuleView: View {
         }
         learnerConfirmed = isComplete
         reflection = store.studyReflectionDrafts[lessonID] ?? store.studyProgress[lessonID]?.reflection ?? ""
+    }
+
+    private func copyNotebookLessonSource() {
+        guard let document else { return }
+        let markdown = document.notebookSource(subject: subject, language: store.language)
+        NSPasteboard.general.clearContents()
+        if NSPasteboard.general.setString(markdown, forType: .string) {
+            notebookExportStatus = L10n.text("module.notebookCopied", store.language)
+        } else {
+            notebookExportStatus = L10n.text("module.notebookCopyFailed", store.language)
+        }
     }
 
     private func selectCheckAnswer(displayedIndex: Int) {
