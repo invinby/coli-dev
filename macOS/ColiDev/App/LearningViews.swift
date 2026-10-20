@@ -424,7 +424,7 @@ private struct CurriculumLessonVideoCard: View {
 
             if let videoID = activity.youtubeVideoID {
                 if hasConsentedToYouTube {
-                    YouTubeLessonPlayer(videoID: videoID)
+                    YouTubeLessonPlayer(videoID: videoID, captionLanguage: language)
                         .frame(maxWidth: .infinity)
                         .aspectRatio(16.0 / 9.0, contentMode: .fit)
                         .frame(minHeight: 270)
@@ -503,6 +503,7 @@ private struct CurriculumLessonVideoCard: View {
 
 private struct YouTubeLessonPlayer: NSViewRepresentable {
     let videoID: String
+    let captionLanguage: AppLanguage
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -517,33 +518,26 @@ private struct YouTubeLessonPlayer: NSViewRepresentable {
         webView.underPageBackgroundColor = .black
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
-        context.coordinator.load(videoID, into: webView)
+        context.coordinator.load(videoID, captionLanguage: captionLanguage, into: webView)
         return webView
     }
 
     func updateNSView(_ webView: WKWebView, context: Context) {
-        context.coordinator.load(videoID, into: webView)
+        context.coordinator.load(videoID, captionLanguage: captionLanguage, into: webView)
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
-        private var loadedVideoID: String?
+        private var loadedURL: URL?
         private let appIdentity = "https://github.com/invinby/coli-dev/"
 
-        func load(_ videoID: String, into webView: WKWebView) {
-            guard loadedVideoID != videoID else { return }
-            loadedVideoID = videoID
-            guard videoID.range(of: #"^[A-Za-z0-9_-]{11}$"#, options: .regularExpression) != nil,
-                  var components = URLComponents(string: "https://www.youtube.com/embed/\(videoID)") else {
+        func load(_ videoID: String, captionLanguage: AppLanguage, into webView: WKWebView) {
+            guard let url = YouTubeEmbedURLBuilder.make(
+                videoID: videoID,
+                captionLanguage: captionLanguage.rawValue
+            ), loadedURL != url else {
                 return
             }
-            components.queryItems = [
-                URLQueryItem(name: "autoplay", value: "0"),
-                URLQueryItem(name: "controls", value: "1"),
-                URLQueryItem(name: "playsinline", value: "1"),
-                URLQueryItem(name: "cc_load_policy", value: "1"),
-                URLQueryItem(name: "origin", value: "https://github.com")
-            ]
-            guard let url = components.url else { return }
+            loadedURL = url
             var request = URLRequest(url: url)
             request.setValue(appIdentity, forHTTPHeaderField: "Referer")
             webView.load(request)
