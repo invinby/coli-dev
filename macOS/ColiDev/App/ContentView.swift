@@ -520,13 +520,19 @@ private struct CauseAndCorseJourneyCard: View {
                 .padding(.top, 2)
                 .transition(reduceMotion ? .identity : .opacity.combined(with: .move(edge: .top)))
 
-                Text(language == .ru
-                     ? "Ссылки маршрута перепроверены 19.10.2026. По страницам Stepik, Python 67 обновлялся 16.05.2025, биология 70 — 19.12.2023; проверь наличие более новых материалов. Страница ВШЭ проверена 21.10.2026: 13-недельный курс на русском, открыты лекции первых двух недель, остальные материалы доступны после оплаты. Проверь актуальную запись и условия доступа. PhET и GeoGebra открываются отдельно; права на встраивание не подтверждены. Твои проектные заметки сохраняются локально на этом Mac."
-                     : "The route links were rechecked on 2026-10-19. Stepik's pages list Python 67 as updated 2025-05-16 and biology 70 as updated 2023-12-19; check for newer materials. The HSE page was checked on 2026-10-21: it lists a 13-week Russian course, with lectures from the first two weeks open and remaining materials requiring payment. Check current enrollment and access terms. PhET and GeoGebra open separately; embedding rights are unconfirmed. Your project notes are saved locally on this Mac.")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("journey.source-notice")
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(language == .ru
+                         ? "Ссылки маршрута перепроверены 19.10.2026. По страницам Stepik, Python 67 обновлялся 16.05.2025, биология 70 — 19.12.2023; проверь наличие более новых материалов. PhET и GeoGebra открываются отдельно; права на встраивание не подтверждены. Твои проектные заметки сохраняются локально на этом Mac."
+                         : "The route links were rechecked on 2026-10-19. Stepik's pages list Python 67 as updated 2025-05-16 and biology 70 as updated 2023-12-19; check for newer materials. PhET and GeoGebra open separately; embedding rights are unconfirmed. Your project notes are saved locally on this Mac.")
+                        .accessibilityIdentifier("journey.source-notice")
+                    Text(language == .ru
+                         ? "Страница ВШЭ проверена 21.10.2026: курс на русском на 13 недель; открыты лекции только первых двух недель, остальные материалы платные. Проверь актуальную запись и условия доступа."
+                         : "HSE page checked on 2026-10-21: a 13-week course in Russian; only the first two weeks' lectures are open, remaining material is paid. Check current enrollment and access terms.")
+                        .accessibilityIdentifier("journey.hse-access-note")
+                }
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(20)

@@ -236,9 +236,10 @@ final class ManagementUITests: XCTestCase {
 
         let brainCourseSource = app.links["journey.source.brain.hse"]
         XCTAssertTrue(brainCourseSource.label.contains("13"))
-        let sourceNotice = app.staticTexts["journey.source-notice"]
-        XCTAssertTrue(sourceNotice.label.contains("первых двух недель") || sourceNotice.label.contains("first two weeks"))
-        XCTAssertTrue(sourceNotice.label.contains("после оплаты") || sourceNotice.label.contains("require payment"))
+        let brainCourseAccessNote = app.staticTexts["journey.hse-access-note"]
+        XCTAssertTrue(brainCourseAccessNote.exists)
+        XCTAssertTrue(brainCourseAccessNote.label.contains("первых двух недель") || brainCourseAccessNote.label.contains("first two weeks"))
+        XCTAssertTrue(brainCourseAccessNote.label.contains("оплат") || brainCourseAccessNote.label.lowercased().contains("paid"))
 
         XCTAssertTrue(app.buttons["journey.primary-action"].exists)
         let primaryActionLabel = app.buttons["journey.primary-action"].label.lowercased()
