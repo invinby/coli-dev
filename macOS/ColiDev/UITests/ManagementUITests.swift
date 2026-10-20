@@ -564,7 +564,7 @@ final class ManagementUITests: XCTestCase {
 
         let response = app.descendants(matching: .any)["lesson.video.response"]
         XCTAssertTrue(response.waitForExistence(timeout: 10))
-        scrollUntilHittable(response, in: scrollView)
+        scrollUntilHittable(response, in: scrollView, deltaY: 140)
         response.click()
         response.typeKey("a", modifierFlags: .command)
         response.typeKey("v", modifierFlags: .command)
@@ -738,13 +738,17 @@ final class ManagementUITests: XCTestCase {
     }
 
     @MainActor
-    private func scrollUntilHittable(_ element: XCUIElement, in scrollView: XCUIElement) {
+    private func scrollUntilHittable(
+        _ element: XCUIElement,
+        in scrollView: XCUIElement,
+        deltaY: CGFloat = -140
+    ) {
         // Keep the wheel over the lesson's empty right gutter. The centered ScrollView gesture
         // lands on the embedded WKWebView and scrolls the player instead of the lesson.
         let lessonScrollPoint = scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.94, dy: 0.9))
         for _ in 0..<64 {
             if element.isHittable { return }
-            lessonScrollPoint.scroll(byDeltaX: 0, deltaY: -140)
+            lessonScrollPoint.scroll(byDeltaX: 0, deltaY: deltaY)
         }
         XCTAssertTrue(element.isHittable, "Expected control to become visible after scrolling. / Элемент должен появиться после прокрутки.\n\(element.debugDescription)")
     }
