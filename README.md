@@ -11,18 +11,18 @@ ColiDev объединяет последовательные курсы, сох
 
 ## Свежая beta только для Apple Silicon / Latest Apple Silicon-only beta
 
-Поддерживаются только Mac с чипами Apple M1 и новее (`arm64`); Intel Mac не поддерживаются. Минимальная версия macOS в проекте — 13.0. Последний полностью зелёный CI для PR #5 — [run 39479087791](https://github.com/invinby/coli-dev/actions/runs/39479087791), HEAD `a0850fb`: прошли backend, UI-тесты, проверка arm64-приложения и backend, smoke-тест и упаковка на macOS 15 и macOS 26. Backend отклоняет веб-поиск в режиме Local до поиска источников и генерации, с RU/EN-сообщением. / Only Apple Silicon Macs with M1 chips or later (`arm64`) are supported; Intel Macs are unsupported. The project deployment target is macOS 13.0. The latest fully green CI for PR #5 is [run 39479087791](https://github.com/invinby/coli-dev/actions/runs/39479087791), HEAD `a0850fb`: backend checks, UI tests, arm64 app/backend verification, smoke tests, and packaging passed on macOS 15 and macOS 26. The backend rejects web search in Local mode before retrieval or generation, with RU/EN error messages.<br>
+Поддерживаются только Mac с чипами Apple M1 и новее (`arm64`); Intel Mac не поддерживаются. Минимальная версия macOS в проекте — 13.0. Свежий CI для PR #5 — [run 39482634414](https://github.com/invinby/coli-dev/actions/runs/39482634414), HEAD `b25751a`: 607 backend-тестов и оба macOS job прошли, каждый подтвердил arm64-приложение/backend, UI smoke-test и упаковку. Local блокирует веб-поиск до извлечения и генерации; интерфейс отдельно объясняет фоновые проверки публичных источников. / Only Apple Silicon Macs with M1 chips or later (`arm64`) are supported; Intel Macs are unsupported. The project deployment target is macOS 13.0. Latest PR #5 CI is [run 39482634414](https://github.com/invinby/coli-dev/actions/runs/39482634414), HEAD `b25751a`: all 607 backend tests and both macOS jobs passed; each verified arm64 app/backend, UI smoke tests, and packaging. Local mode blocks web search before retrieval or generation; the UI separately discloses background public-source freshness checks.<br>
 
-- [Beta для macOS 15, arm64 — artifact 12290454805](https://github.com/invinby/coli-dev/actions/runs/39479087791/artifacts/12290454805)
-- [Beta для macOS 26, arm64 — artifact 12292435014](https://github.com/invinby/coli-dev/actions/runs/39479087791/artifacts/12292435014)
+- [Свежая beta для MacBook Air M1, macOS 15 arm64 — artifact 12292542082](https://github.com/invinby/coli-dev/actions/runs/39482634414/artifacts/12292542082)
+- [Свежая beta для macOS 26, arm64 — artifact 12293291212](https://github.com/invinby/coli-dev/actions/runs/39482634414/artifacts/12293291212)
 
-Это неподписанные временные CI-архивы, а не публичный релиз; для скачивания нужен вход в GitHub. CI завершился успешно на обоих arm64 job; эту beta на физическом Mac в текущей проверке не запускали. Воспроизведение видео и фактическая доступность дорожек субтитров на MacBook Air M1 требуют ручной проверки.<br>
-These are temporary unsigned CI archives, not a public release; GitHub sign-in is required to download them. Both arm64 CI jobs passed; this beta was not launched on a physical Mac in this check. Video playback and actual subtitle-track availability on the MacBook Air M1 still need hands-on verification.<br>
+Это неподписанные временные CI-архивы, а не публичный релиз; для скачивания нужен вход в GitHub. Оба arm64 job полностью прошли. Эту beta на физическом Mac в текущей проверке не запускали. Воспроизведение видео и фактическая доступность дорожек субтитров на MacBook Air M1 требуют ручной проверки.<br>
+These are temporary unsigned CI archives, not a public release; GitHub sign-in is required to download them. Both arm64 jobs passed in full. This beta was not launched on a physical Mac in this check. Video playback and actual subtitle-track availability on the MacBook Air M1 still need hands-on verification.<br>
 
-Если GitHub CLI установлен и авторизован, команда скачает и откроет текущую beta для MacBook Air M1:
+Если GitHub CLI установлен и авторизован, команда скачает и попробует открыть текущую beta для MacBook Air M1. Архив неподписан: если Gatekeeper остановит запуск, в Finder нажми Control-клик по `ColiDev.app` → «Открыть» → «Открыть».
 
 ```sh
-mkdir -p "$HOME/Downloads/ColiDev-ci-39441506276" && gh run download 39441506276 -R invinby/coli-dev -n ColiDev-macos-15-arm64 -D "$HOME/Downloads/ColiDev-ci-39441506276" && ditto -x -k "$HOME/Downloads/ColiDev-ci-39441506276/ColiDev-arm64.zip" "$HOME/Downloads/ColiDev-ci-39441506276" && open "$HOME/Downloads/ColiDev-ci-39441506276/ColiDev.app"
+mkdir -p "$HOME/Downloads/ColiDev-ci-39482634414" && gh run download 39482634414 -R invinby/coli-dev -n ColiDev-macos-15-arm64 -D "$HOME/Downloads/ColiDev-ci-39482634414" && ditto -x -k "$HOME/Downloads/ColiDev-ci-39482634414/ColiDev-arm64.zip" "$HOME/Downloads/ColiDev-ci-39482634414" && open "$HOME/Downloads/ColiDev-ci-39482634414/ColiDev.app"
 ```
 
 ## Предыдущий опубликованный релиз: Beta 7 / Previous published release: Beta 7
