@@ -1355,7 +1355,7 @@ enum L10n {
         "settings.aiAddress": ("Локальный сервис", "Local service"),
         "settings.aiBackendResponding": ("Локальный backend отвечает", "Local backend is responding"),
         "settings.aiBackendOnlyStatus": ("Это проверка службы, а не ответа модели. Реальный ответ проверяется отдельным запросом.", "This checks the service, not a model reply. A real reply is checked with a separate request."),
-        "settings.aiOrchestratorStatus": ("ИИ: %@", "AI: %@"),
+        "settings.aiOrchestratorStatus": ("Оркестратор: %@ — не маршрут модели", "Orchestrator: %@ — not the model route"),
         "settings.aiRouteResolution": ("Auto выбирает провайдера и модель отдельно для каждого запроса.", "Auto selects a provider and model separately for each request."),
         "settings.aiPaidRoutesBlocked": ("Вызовы, способные расходовать платную квоту, заблокированы политикой расходов.", "Potentially billed AI routes are blocked by the cost policy."),
         "settings.aiPaidRoutesAllowed": ("Потенциально платные маршруты разрешены; облачные вызовы могут списывать средства.", "Potentially billed AI routes are allowed; cloud calls may incur charges."),
