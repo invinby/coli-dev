@@ -56,6 +56,15 @@ jobs:
       - name: Show Xcode version
         run: xcodebuild -version
 
+      - name: Require Apple Silicon runner / Требовать runner Apple Silicon
+        run: |
+          architecture="$(uname -m)"
+          if [[ "$architecture" != "arm64" ]]; then
+            echo "ColiDev CI supports Apple Silicon runners only; found '$architecture'." >&2
+            exit 1
+          fi
+          echo "Verified Apple Silicon runner architecture: $architecture"
+
       - name: Verify the versioned local backend handshake / Проверка версии локального backend
         run: |
           swiftc macOS/ColiDev/App/BackendCompatibility.swift macOS/ColiDev/scripts/verify_backend_compatibility.swift \
