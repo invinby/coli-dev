@@ -349,6 +349,12 @@ jobs:
             -o "$RUNNER_TEMP/verify-safe-web-reference-url"
           "$RUNNER_TEMP/verify-safe-web-reference-url"
 
+      - name: Verify bilingual YouTube caption preferences / Проверка языка субтитров YouTube
+        run: |
+          swiftc macOS/ColiDev/App/SafeWebReferenceURL.swift macOS/ColiDev/scripts/verify_youtube_embed_url.swift \
+            -o "$RUNNER_TEMP/verify-youtube-embed-url"
+          "$RUNNER_TEMP/verify-youtube-embed-url"
+
       - name: Verify tutor source date provenance / Проверить даты источников в цитатах
         run: python macOS/ColiDev/scripts/verify_tutor_source_date_provenance.py
 
