@@ -3473,6 +3473,47 @@ class TestStreamingChat:
             done = next(event for event in events if event["type"] == "done")
             assert done["answer"] == mock_answer
 
+    def test_consilium_stream_marks_unknown_rag_citations_in_final_answer(self, client):
+        source = {
+            "title": "Python functions",
+            "excerpt": "A function maps inputs to outputs.",
+            "path": "02_Areas/python/functions.md",
+            "source_type": "course",
+        }
+        mock_log = DebateLog()
+        mock_engine = MagicMock()
+        raw_answer = "A function maps inputs to outputs [K1]. Extra claim [K8]."
+
+        async def run_with_citations(message, system_prompt, on_final_chunk=None, **kwargs):
+            await on_final_chunk("A function maps inputs to outputs [K1]. ")
+            await on_final_chunk("Extra claim [K8].")
+            return raw_answer, mock_log
+
+        mock_engine.run = run_with_citations
+        with (
+            patch("orchestrator.ConsiliumEngine", return_value=mock_engine),
+            patch("orchestrator._retrieve_local_course_sources", AsyncMock(return_value=[source])),
+            patch("orchestrator._retrieve_obsidian_sources", AsyncMock(return_value=[])),
+            patch("orchestrator._retrieve_licensed_official_sources", AsyncMock(return_value=[])),
+        ):
+            response = client.post("/chat/stream", json={
+                "message": "Explain functions",
+                "language": "en",
+                "mode": "auto",
+            })
+
+        events = _parse_sse(response.text)
+        tokens = [event["content"] for event in events if event["type"] == "token"]
+        done = next(event for event in events if event["type"] == "done")
+
+        assert response.status_code == 200
+        assert "".join(tokens) == raw_answer
+        assert done["answer"] == (
+            "A function maps inputs to outputs [K1]. Extra claim [source K8 unavailable]."
+        )
+        assert done["citation_warnings"] == ["K8"]
+        assert [item["id"] for item in done["sources"]] == ["K1"]
+
     def test_stream_done_replaces_partial_cloud_text_with_local_fallback(self, client):
         mock_log = DebateLog()
         mock_log.add("consilium", "qwen", "Local fallback complete", 20)
