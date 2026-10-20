@@ -18,9 +18,20 @@ final class ManagementUITests: XCTestCase {
             routeExplanation.waitForExistence(timeout: 30),
             "Settings must identify the orchestrator separately from the per-request model route. / Настройки должны отделять оркестратор от маршрута модели для отдельного запроса.\n\(app.debugDescription)"
         )
+        let orchestratorStatus = routeExplanation.value as? String ?? ""
         XCTAssertTrue(
-            (routeExplanation.value as? String)?.localizedCaseInsensitiveContains("consilium") == true,
+            orchestratorStatus.localizedCaseInsensitiveContains("consilium"),
             "The health payload's orchestrator identity was not rendered. / Идентификатор оркестратора из health не показан.\n\(routeExplanation.debugDescription)"
+        )
+        XCTAssertTrue(
+            orchestratorStatus.localizedCaseInsensitiveContains("orchestrator")
+                || orchestratorStatus.localizedCaseInsensitiveContains("оркестратор"),
+            "Settings must label 'consilium' as the orchestration layer, not as the selected AI provider. / Настройки должны обозначать consilium как слой оркестрации, а не выбранного ИИ-провайдера.\n\(routeExplanation.debugDescription)"
+        )
+        XCTAssertTrue(
+            orchestratorStatus.localizedCaseInsensitiveContains("model")
+                || orchestratorStatus.localizedCaseInsensitiveContains("модел"),
+            "Settings must make clear that the orchestrator is not the model route. / Настройки должны пояснять, что оркестратор — не маршрут модели.\n\(routeExplanation.debugDescription)"
         )
         let routePolicy = app.staticTexts["settings.ai.route-resolution"]
         XCTAssertTrue(
