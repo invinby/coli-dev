@@ -148,6 +148,14 @@ final class ManagementUITests: XCTestCase {
         )
         goalPickerButton.click()
 
+        let searchField = app.searchFields.firstMatch
+        XCTAssertTrue(
+            searchField.waitForExistence(timeout: 10),
+            "The goal picker must let the learner search the route. / В выборе цели должен работать поиск маршрута.\n\(app.debugDescription)"
+        )
+        searchField.click()
+        searchField.typeText("Числа, дроби")
+
         let mathematicsGoal = app.buttons["study-goal-option.mathematics.numbers_fractions_and_percentages"]
         XCTAssertTrue(
             mathematicsGoal.waitForExistence(timeout: 15),
@@ -168,8 +176,8 @@ final class ManagementUITests: XCTestCase {
             app.staticTexts["study-goal-selected-title"].waitForExistence(timeout: 15),
             "The selected study goal must be restored after relaunch. / После перезапуска выбранная учебная цель должна восстановиться.\n\(app.debugDescription)"
         )
-        XCTAssertTrue(app.staticTexts["study-goal-progress"].exists)
-        XCTAssertTrue(app.staticTexts["study-goal-next-step"].exists)
+        XCTAssertTrue(app.staticTexts["study-goal-progress"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["study-goal-next-step"].waitForExistence(timeout: 10))
     }
 
     @MainActor
