@@ -15,6 +15,7 @@ ColiDev объединяет последовательные курсы, сох
 
 - [Свежая beta для MacBook Air M1, macOS 15 arm64 — artifact 12292542082](https://github.com/invinby/coli-dev/actions/runs/39482634414/artifacts/12292542082)
 - [Свежая beta для macOS 26, arm64 — artifact 12293291212](https://github.com/invinby/coli-dev/actions/runs/39482634414/artifacts/12293291212)
+- [Скриншоты UI-тестов macOS 15 — artifact 12292627121](https://github.com/invinby/coli-dev/actions/runs/39482634414/artifacts/12292627121) · [macOS 26 — artifact 12292808132](https://github.com/invinby/coli-dev/actions/runs/39482634414/artifacts/12292808132)
 
 Это неподписанные временные CI-архивы, а не публичный релиз; для скачивания нужен вход в GitHub. Оба arm64 job полностью прошли. Эту beta на физическом Mac в текущей проверке не запускали. Воспроизведение видео и фактическая доступность дорожек субтитров на MacBook Air M1 требуют ручной проверки.<br>
 These are temporary unsigned CI archives, not a public release; GitHub sign-in is required to download them. Both arm64 jobs passed in full. This beta was not launched on a physical Mac in this check. Video playback and actual subtitle-track availability on the MacBook Air M1 still need hands-on verification.<br>
