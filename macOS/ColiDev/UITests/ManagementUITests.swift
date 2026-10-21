@@ -1044,10 +1044,10 @@ final class ManagementUITests: XCTestCase {
             "The bundled source registry must paginate when it has more than one page. / Большой реестр источников должен переключать страницы.\n\(app.debugDescription)"
         )
 
-        let firstPage = pageStatus.label
+        let firstPage = try XCTUnwrap(pageStatus.value as? String)
         nextPage.click()
         let pageAdvanced = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "label != %@", firstPage),
+            predicate: NSPredicate(format: "value != %@", firstPage),
             object: pageStatus
         )
         let pageAdvanceResult = await XCTWaiter.fulfillment(of: [pageAdvanced], timeout: 5)
