@@ -528,7 +528,6 @@ private struct YouTubeLessonPlayer: NSViewRepresentable {
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         private var loadedURL: URL?
-        private let appIdentity = "https://github.com/invinby/coli-dev/"
 
         func load(_ videoID: String, captionLanguage: AppLanguage, into webView: WKWebView) {
             guard let url = YouTubeEmbedURLBuilder.make(
@@ -539,7 +538,7 @@ private struct YouTubeLessonPlayer: NSViewRepresentable {
             }
             loadedURL = url
             var request = URLRequest(url: url)
-            request.setValue(appIdentity, forHTTPHeaderField: "Referer")
+            request.setValue(YouTubeEmbedURLBuilder.appReferer, forHTTPHeaderField: "Referer")
             webView.load(request)
         }
 

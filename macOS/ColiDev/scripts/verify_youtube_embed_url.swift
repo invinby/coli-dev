@@ -14,7 +14,8 @@ enum YouTubeEmbedURLVerification {
         precondition(russianQuery.first(where: { $0.name == "cc_lang_pref" })?.value == "ru")
         precondition(russianQuery.first(where: { $0.name == "cc_load_policy" })?.value == "1")
         precondition(russianQuery.first(where: { $0.name == "autoplay" })?.value == "0")
-        precondition(russianQuery.first(where: { $0.name == "origin" })?.value == "https://com.colidev.learningstudio")
+        precondition(russianQuery.first(where: { $0.name == "origin" })?.value == YouTubeEmbedURLBuilder.appOrigin)
+        precondition(YouTubeEmbedURLBuilder.appReferer == "https://com.colidev.learningstudio/")
 
         let englishURL = YouTubeEmbedURLBuilder.make(
             videoID: "ZA_D4O6l1lo",
