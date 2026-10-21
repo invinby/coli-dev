@@ -11,9 +11,6 @@ final class ManagementUITests: XCTestCase {
         settingsItem.click()
 
         let updatesTitle = app.staticTexts["settings.updates.title"]
-        for _ in 0..<8 where !updatesTitle.isHittable {
-            app.windows.firstMatch.swipeUp()
-        }
         XCTAssertTrue(
             updatesTitle.waitForExistence(timeout: 15),
             "Settings must include the in-app release catalogue. / В настройках должен быть каталог версий.")
