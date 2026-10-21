@@ -14,7 +14,15 @@ final class ManagementUITests: XCTestCase {
         XCTAssertTrue(
             updatesTitle.waitForExistence(timeout: 15),
             "Settings must include the in-app release catalogue. / В настройках должен быть каталог версий.")
-        XCTAssertTrue(app.buttons["settings.updates.refresh"].exists)
+        let refreshButton = app.buttons["settings.updates.refresh"]
+        let settingsScrollView = app.windows.firstMatch.scrollViews.element(boundBy: 1)
+        XCTAssertTrue(settingsScrollView.waitForExistence(timeout: 5))
+        let scrollPoint = settingsScrollView.coordinate(
+            withNormalizedOffset: CGVector(dx: 0.92, dy: 0.9))
+        for _ in 0..<10 where !refreshButton.isHittable {
+            scrollPoint.scroll(byDeltaX: 0, deltaY: -120)
+        }
+        XCTAssertTrue(refreshButton.waitForExistence(timeout: 5))
         let automaticToggle = app.descendants(matching: .any)["settings.updates.auto-toggle"]
         let unavailableStatus = app.descendants(matching: .any)["settings.updates.auto-unavailable"]
         XCTAssertTrue(
