@@ -254,8 +254,8 @@ python -m pip install -r requirements-test.txt
 python -m pytest 01_Projects -q
 ~~~
 
-Automated tests use mocked providers and do not spend API credits or confirm live-provider access. The CI matrix is being expanded to build and smoke-check matching `arm64` and `x86_64` app/backend bundles; Intel compatibility is pending the green Intel runner job. CI does not replace hands-on acceptance on a physical Mac.<br>
-В автоматических тестах используются заглушки провайдеров; они не расходуют API-кредиты и не подтверждают доступ к реальным моделям. Матрица CI расширяется для сборки и smoke-проверки согласованных пакетов `arm64` и `x86_64`; совместимость Intel подтверждается только после зелёного задания на Intel-runner. CI не заменяет ручную проверку на физическом Mac.
+Automated tests use mocked providers and do not spend API credits or confirm live-provider access. CI run [39524476548](https://github.com/invinby/coli-dev/actions/runs/39524476548) passed app and bundled-backend builds, UI checks, smoke checks, and packaging for Intel `x86_64` on macOS 15 plus Apple Silicon `arm64` on macOS 15 and 26. CI does not replace hands-on acceptance on a physical Mac.<br>
+В автоматических тестах используются заглушки провайдеров; они не расходуют API-кредиты и не подтверждают доступ к реальным моделям. CI [39524476548](https://github.com/invinby/coli-dev/actions/runs/39524476548) успешно собрал приложение и встроенный backend, прошёл UI-проверки, smoke-проверки и упаковку для Intel `x86_64` на macOS 15 и Apple Silicon `arm64` на macOS 15 и 26. CI не заменяет ручную проверку на физическом Mac.
 
 ## Privacy and cost / Приватность и расходы
 
