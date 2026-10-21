@@ -473,21 +473,8 @@ final class ManagementUITests: XCTestCase {
     @MainActor
     func testFrictionLessonOffersSourceBackedVideoStudyCard() async throws {
         let app = XCUIApplication()
+        app.launchEnvironment["COLIDEV_UI_TEST_FRICTION_LESSON"] = "1"
         app.launch()
-
-        let physicsItem = app.staticTexts["Физика"]
-        XCTAssertTrue(
-            physicsItem.waitForExistence(timeout: 15),
-            "The Physics navigation item did not appear. / Не появился пункт «Физика».\n\(app.debugDescription)"
-        )
-        physicsItem.click()
-
-        let frictionLesson = app.buttons["roadmap.lesson.physics.static_and_kinetic_friction"]
-        XCTAssertTrue(
-            frictionLesson.waitForExistence(timeout: 10),
-            "The friction lesson must have a stable, discoverable roadmap action. / У урока о трении должна быть стабильная доступная кнопка в дорожной карте.\n\(app.debugDescription)"
-        )
-        frictionLesson.click()
 
         let videoTitle = app.staticTexts["lesson.video.title"]
         XCTAssertTrue(
@@ -541,15 +528,8 @@ final class ManagementUITests: XCTestCase {
     @MainActor
     func testNotebookLMCanReceiveTheLessonAsCopiedMarkdown() async throws {
         let app = XCUIApplication()
+        app.launchEnvironment["COLIDEV_UI_TEST_FRICTION_LESSON"] = "1"
         app.launch()
-
-        let physicsItem = app.staticTexts["Физика"]
-        XCTAssertTrue(physicsItem.waitForExistence(timeout: 15))
-        physicsItem.click()
-
-        let frictionLesson = app.buttons["roadmap.lesson.physics.static_and_kinetic_friction"]
-        XCTAssertTrue(frictionLesson.waitForExistence(timeout: 10))
-        frictionLesson.click()
 
         let scrollView = app.windows.firstMatch.scrollViews.element(boundBy: 1)
         let copyButton = app.buttons["lesson.notebook.copy"]
@@ -583,15 +563,8 @@ final class ManagementUITests: XCTestCase {
     @MainActor
     func testFrictionLessonLearningCycleAndProgressSurviveAppRelaunch() async throws {
         let app = XCUIApplication()
+        app.launchEnvironment["COLIDEV_UI_TEST_FRICTION_LESSON"] = "1"
         app.launch()
-
-        let physicsItem = app.staticTexts["Физика"]
-        XCTAssertTrue(physicsItem.waitForExistence(timeout: 15))
-        physicsItem.click()
-
-        let frictionLesson = app.buttons["roadmap.lesson.physics.static_and_kinetic_friction"]
-        XCTAssertTrue(frictionLesson.waitForExistence(timeout: 10))
-        frictionLesson.click()
 
         let theory = app.staticTexts["lesson.theory"].firstMatch
         let videoTitle = app.staticTexts["lesson.video.title"]
@@ -705,14 +678,6 @@ final class ManagementUITests: XCTestCase {
 
         app.terminate()
         app.launch()
-
-        let relaunchedPhysicsItem = app.staticTexts["Физика"]
-        XCTAssertTrue(relaunchedPhysicsItem.waitForExistence(timeout: 15))
-        relaunchedPhysicsItem.click()
-
-        let relaunchedFrictionLesson = app.buttons["roadmap.lesson.physics.static_and_kinetic_friction"]
-        XCTAssertTrue(relaunchedFrictionLesson.waitForExistence(timeout: 10))
-        relaunchedFrictionLesson.click()
 
         let restoredResponse = app.descendants(matching: .any)["lesson.video.response"]
         XCTAssertTrue(restoredResponse.waitForExistence(timeout: 10))

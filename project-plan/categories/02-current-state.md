@@ -1,5 +1,11 @@
 # 02. Текущее состояние ColiDev
 
+## Изоляция UI-проверок урока о трении / Isolate friction lesson UI tests — 2026-10-21
+
+**RU:** CI `39518097790` прошёл backend и macOS 26; macOS 15 остался на дорожной карте физики, потому что тест открывал урок о трении прямым действием, не выполняя обязательные предыдущие уроки и проверки знаний. Видео, NotebookLM и полный цикл теперь получают урок через специальный `COLIDEV_UI_TEST_FRICTION_LESSON` только в UI-тестовом запуске. Это проверяет сами функции урока и не меняет обычные правила последовательного открытия уроков. Backend-набор локально: `608 passed`; macOS-сборка и UI-повтор требуют CI.
+
+**EN:** CI run `39518097790` passed backend checks and macOS 26; macOS 15 stayed on the Physics roadmap because the test directly opened the friction lesson without completing its required earlier lessons and knowledge checks. The video, NotebookLM, and full-cycle UI tests now open the lesson through `COLIDEV_UI_TEST_FRICTION_LESSON` only in UI-test launches. This tests lesson features without changing normal sequential lesson access. Local backend suite: `608 passed`; macOS build and UI rerun require CI.
+
 ## Актуальность русскоязычного курса о мозге в маршруте / Brain-course access note in the learning path — 2026-10-21
 
 **RU:** Обновлена подпись встроенной ссылки ВШЭ «Мозг и психика»: теперь она показывает длительность и язык курса вместо неоднозначной метки сессии. При проверке официальная страница Open Education указывала 13-недельный курс на русском, открытые видеолекции только первых двух недель и оплату для доступа к остальным материалам. Это зафиксировано в приложении; пользователю предлагается проверить условия и запись перед началом. Stepik-ссылки оставлены с датами, указанными на их страницах при предыдущей проверке; доступность Stepik и обновления курсов в этой сессии не подтверждены. CI `39514236436` прошёл backend, но UI-проверка длинного общего accessibility label оказалась ненадёжной. Во втором run `39516279952` тот же доступ-ноут отдельно существовал в accessibility hierarchy, но XCUITest не получал абзац целиком через `.label`; проверка теперь подтверждает отдельный доступный элемент и подпись ссылки, не сверяя длинный абзац через нестабильное поле.

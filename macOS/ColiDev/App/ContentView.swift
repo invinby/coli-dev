@@ -61,6 +61,7 @@ struct ContentView: View {
     @State private var selection: AppSection? = .today
     @State private var practiceFocusRoute: StudyLessonRoute?
     @State private var didOpenCell3DUITestRoute = false
+    @State private var didOpenFrictionUITestRoute = false
 
     var body: some View {
         NavigationSplitView {
@@ -124,7 +125,7 @@ struct ContentView: View {
                         },
                         openDueReview: openDueReview
                     )
-                    .onAppear(perform: openCell3DUITestRouteIfNeeded)
+                    .onAppear(perform: openUITestRouteIfNeeded)
                 case .subjects:
                     SubjectCatalogView(open: open, openCustom: openCustom)
                 case .subject(let subject):
@@ -239,6 +240,22 @@ struct ContentView: View {
         practiceFocusRoute = route
         DispatchQueue.main.async {
             selection = .courseLesson(.biology, "eukaryotic_cell_organelles")
+        }
+    }
+
+    private func openUITestRouteIfNeeded() {
+        guard !didOpenFrictionUITestRoute,
+              ProcessInfo.processInfo.environment["COLIDEV_UI_TEST_FRICTION_LESSON"] == "1" else {
+            openCell3DUITestRouteIfNeeded()
+            return
+        }
+
+        didOpenFrictionUITestRoute = true
+        // The video tests cover the lesson itself, not its earlier physics prerequisites.
+        // Keep this route override limited to the dedicated UI-test launch environment.
+        DispatchQueue.main.async {
+            store.rememberCourseLesson(subject: .physics, resource: "static_and_kinetic_friction")
+            selection = .courseLesson(.physics, "static_and_kinetic_friction")
         }
     }
 
