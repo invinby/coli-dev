@@ -238,7 +238,6 @@ struct UpdatesSettingsSection: View {
         .task {
             if catalog.releases.isEmpty { await catalog.refresh() }
         }
-        .accessibilityIdentifier("settings.updates.section")
     }
 
     @ViewBuilder
