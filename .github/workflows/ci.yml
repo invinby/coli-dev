@@ -382,6 +382,9 @@ jobs:
             -o "$RUNNER_TEMP/verify-notebook-lesson-export"
           "$RUNNER_TEMP/verify-notebook-lesson-export"
 
+      - name: Set a monotonic app build number / Установить возрастающий номер сборки
+        run: echo "COLIDEV_BUILD_VERSION=$(date -u +%Y%m%d)${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+
       - name: Build ColiDev for macOS
         run: >-
           xcodebuild
@@ -390,6 +393,8 @@ jobs:
           -destination 'platform=macOS'
           -derivedDataPath "$RUNNER_TEMP/ColiDevDerivedData"
           ARCHS=${{ matrix.arch }}
+          CURRENT_PROJECT_VERSION=${{ env.COLIDEV_BUILD_VERSION }}
+          INFOPLIST_KEY_SUPublicEDKey=${{ vars.SPARKLE_PUBLIC_ED_KEY }}
           CODE_SIGNING_ALLOWED=NO
           build
 
@@ -401,6 +406,8 @@ jobs:
           -destination 'platform=macOS'
           -derivedDataPath "$RUNNER_TEMP/ColiDevDerivedData"
           ARCHS=${{ matrix.arch }}
+          CURRENT_PROJECT_VERSION=${{ env.COLIDEV_BUILD_VERSION }}
+          INFOPLIST_KEY_SUPublicEDKey=${{ vars.SPARKLE_PUBLIC_ED_KEY }}
           CODE_SIGN_IDENTITY=-
 
       - name: Embed the local backend runtime in the app

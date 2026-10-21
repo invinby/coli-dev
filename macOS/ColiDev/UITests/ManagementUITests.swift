@@ -2,6 +2,30 @@ import XCTest
 
 final class ManagementUITests: XCTestCase {
     @MainActor
+    func testSettingsShowsReleaseCatalogAndSafeUpdateStatus() async throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let settingsItem = app.staticTexts["sidebar.settings"]
+        XCTAssertTrue(settingsItem.waitForExistence(timeout: 15))
+        settingsItem.click()
+
+        let updatesTitle = app.staticTexts["settings.updates.title"]
+        for _ in 0..<8 where !updatesTitle.isHittable {
+            app.windows.firstMatch.swipeUp()
+        }
+        XCTAssertTrue(
+            updatesTitle.waitForExistence(timeout: 15),
+            "Settings must include the in-app release catalogue. / В настройках должен быть каталог версий.")
+        XCTAssertTrue(app.buttons["settings.updates.refresh"].exists)
+        let automaticToggle = app.descendants(matching: .any)["settings.updates.auto-toggle"]
+        let unavailableStatus = app.descendants(matching: .any)["settings.updates.auto-unavailable"]
+        XCTAssertTrue(
+            automaticToggle.exists || unavailableStatus.exists,
+            "Settings must either expose configured Sparkle controls or explain why secure auto-updates are disabled. / Настройки должны показать готовый Sparkle или объяснить, почему автообновление закрыто.")
+    }
+
+    @MainActor
     func testSettingsExplainsOrchestratorIsNotTheSelectedModel() async throws {
         let app = XCUIApplication()
         app.launch()

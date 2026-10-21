@@ -1736,6 +1736,7 @@ private struct SettingsView: View {
             Section {
                 LabeledContent { Text(L10n.text("settings.preview", store.language)) } label: { Text(L10n.text("settings.version", store.language)) }
             }
+            UpdatesSettingsSection(language: store.language)
         }
         .confirmationDialog(
             L10n.text("settings.studyFormat.clearTitle", store.language),
