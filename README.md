@@ -9,37 +9,16 @@ ColiDev объединяет последовательные курсы, сох
 **Project status: early team prototype.** The app is not a finished, signed, or bug-free release. Feature status and known limits are described below and in the project plan.<br>
 **Статус проекта: ранний командный прототип.** Приложение ещё не является готовым, подписанным или полностью проверенным релизом. Статус функций и известные ограничения описаны ниже и в плане проекта.
 
-## Свежая beta для Intel и Apple Silicon / Latest Intel and Apple Silicon beta
-
-Полный CI [39645063049](https://github.com/invinby/coli-dev/actions/runs/39645063049) прошёл на коммите `38133bf`: 608 backend-тестов; сборка, UI-тесты, smoke встроенного backend и упаковка на Intel macOS 15 `x86_64`, Apple Silicon macOS 15 `arm64` и macOS 26 `arm64`. Все четыре job’а завершились успешно. Целевой минимум приложения — macOS 13; macOS 13/14 отдельно не проверялись. / Full CI [39645063049](https://github.com/invinby/coli-dev/actions/runs/39645063049) passed at commit `38133bf`: 608 backend tests; build, UI tests, bundled-backend smoke, and packaging on Intel macOS 15 `x86_64`, Apple Silicon macOS 15 `arm64`, and macOS 26 `arm64`. All four jobs succeeded. The deployment target is macOS 13; macOS 13/14 have not been separately checked.<br>
-
 ## Текущая beta / Current beta
 
-Для Intel скачивай [macOS 15 x86_64 — artifact 12368920324](https://github.com/invinby/coli-dev/actions/runs/39645063049/artifacts/12368920324); для M1+ — [macOS 15 arm64 — artifact 12368566426](https://github.com/invinby/coli-dev/actions/runs/39645063049/artifacts/12368566426) или [macOS 26 arm64 — artifact 12367637902](https://github.com/invinby/coli-dev/actions/runs/39645063049/artifacts/12367637902). Нужен вход в GitHub. Архивы неподписанные; запуск этой свежей beta на физическом Mac ещё не подтверждён.<br>
-For Intel, download [macOS 15 x86_64 — artifact 12368920324](https://github.com/invinby/coli-dev/actions/runs/39645063049/artifacts/12368920324); for M1+, use [macOS 15 arm64 — artifact 12368566426](https://github.com/invinby/coli-dev/actions/runs/39645063049/artifacts/12368566426) or [macOS 26 arm64 — artifact 12367637902](https://github.com/invinby/coli-dev/actions/runs/39645063049/artifacts/12367637902). GitHub sign-in is required. The archives are unsigned; launch of this fresh beta on a physical Mac is not yet confirmed.<br>
+Последняя опубликованная тестовая сборка — [ColiDev 0.1.0 Beta 8](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.8), собрана из PR #5, commit `c021343`. [CI run 39667108666](https://github.com/invinby/coli-dev/actions/runs/39667108666) завершился успешно: backend checks и сборка, UI smoke, проверка updater metadata и упаковка для macOS 15 Apple Silicon, macOS 26 Apple Silicon и macOS 15 Intel. Минимальная версия в проекте — macOS 13; версии 13 и 14 в этой матрице отдельно не запускались. / The latest published test build is [ColiDev 0.1.0 Beta 8](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.8), built from PR #5 at commit `c021343`. [CI run 39667108666](https://github.com/invinby/coli-dev/actions/runs/39667108666) completed successfully: backend checks plus build, UI smoke, updater-metadata verification, and packaging for macOS 15 Apple Silicon, macOS 26 Apple Silicon, and macOS 15 Intel. The deployment target is macOS 13; macOS 13 and 14 were not tested in this matrix.<br>
 
-- [Зелёный CI / Green CI 39645063049](https://github.com/invinby/coli-dev/actions/runs/39645063049) · [Intel x86_64 artifact](https://github.com/invinby/coli-dev/actions/runs/39645063049/artifacts/12368920324) · [Apple Silicon macOS 15 arm64 artifact](https://github.com/invinby/coli-dev/actions/runs/39645063049/artifacts/12368566426) · [Apple Silicon macOS 26 arm64 artifact](https://github.com/invinby/coli-dev/actions/runs/39645063049/artifacts/12367637902)
+Архивы: [Apple Silicon](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.8/ColiDev-beta-AppleSilicon.zip) · [Intel](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.8/ColiDev-beta-Intel.zip). Загрузка публичная, вход в GitHub не нужен. Архивы не подписаны Developer ID и не нотарифицированы; запуск на физическом Mac пользователя этой сессией не проверен.<br>
+Downloads: [Apple Silicon](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.8/ColiDev-beta-AppleSilicon.zip) · [Intel](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.8/ColiDev-beta-Intel.zip). These are public downloads and do not require GitHub sign-in. The archives are not Developer ID signed or notarized; this session did not launch them on the user's physical Mac.<br>
 
-Это временные неподписанные CI-архивы, а не публичный релиз; для скачивания нужен вход в GitHub. CI проверил архитектуры app/backend и упаковку. Архивы ещё не запускались на физическом Mac пользователя; видео, фактические субтитры и живой ответ ИИ не проверены.<br>
-These are temporary unsigned CI archives, not a public release; GitHub sign-in is required. CI checked app/backend architectures and packaging. The archives have not been launched on the user’s physical Mac; video playback, actual caption availability, and a live AI response remain unverified.<br>
-
-Если GitHub CLI установлен и авторизован, команда скачает Intel beta из CI 39645063049 и распакует её в `~/Downloads/ColiDev-ci-39645063049`. Архив неподписан: если Gatekeeper остановит запуск, в Finder нажми Control-клик по `ColiDev.app` → «Открыть» → «Открыть».
-
-```sh
-mkdir -p "$HOME/Downloads/ColiDev-ci-39645063049" && gh run download 39645063049 -R invinby/coli-dev -n ColiDev-macos-15-intel-x86_64 -D "$HOME/Downloads/ColiDev-ci-39645063049" && ditto -x -k "$HOME/Downloads/ColiDev-ci-39645063049/ColiDev-x86_64.zip" "$HOME/Downloads/ColiDev-ci-39645063049" && open "$HOME/Downloads/ColiDev-ci-39645063049/ColiDev.app"
-```
-
-Для Apple Silicon выбери вместо Intel артефакт `ColiDev-macos-15-arm64`, а архив `ColiDev-arm64.zip`.<br>
-For Apple Silicon, choose artifact `ColiDev-macos-15-arm64` and archive `ColiDev-arm64.zip` instead.
-
-## Предыдущий опубликованный релиз: Beta 7 / Previous published release: Beta 7
-
-Это более старая beta. Для текущего тестирования используй только архитектурный артефакт из нового зелёного CI выше. Старый исторический `x86_64` архив не используй — он собран до текущей проверки Intel-совместимости. / This is an older beta. For current testing, use only an architecture-specific artifact from a new green CI run. Do not use the old historical `x86_64` archive; it predates current Intel compatibility checks.<br>
-
-[Страница Beta 7 / Beta 7 release page](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.7) · [Apple Silicon ZIP](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.7/ColiDev-beta-AppleSilicon.zip)
-
-Распакуй архив и перемести `ColiDev.app` в «Программы». Если Gatekeeper покажет предупреждение, Control-кликни по приложению в Finder → «Открыть» → «Открыть». Архив не подписан и не нотарифицирован; не отключай Gatekeeper целиком.<br>
-Extract the archive and move `ColiDev.app` to Applications. If Gatekeeper warns, Control-click the app in Finder → Open → Open. The archive is unsigned and not notarized; do not disable Gatekeeper globally.
+В Settings есть двуязычный каталог опубликованных версий с архитектурными ссылками. Автоустановка через Sparkle отключена, пока не настроены EdDSA public key, подписанный appcast, Developer ID signing и notarization. Это остаётся отдельным шагом выпуска.<br>
+В Settings есть двуязычный каталог опубликованных версий с архитектурными ссылками. Автоустановка через Sparkle отключена: EdDSA public key ещё не задан, а feed-файлы пока доступны только в незлитой ветке PR, поэтому URL на `main` возвращает 404. Для выпуска нужны подписанный appcast, Developer ID signing и notarization.<br>
+Settings includes a bilingual release catalogue with architecture-specific links. Sparkle auto-install is disabled: the EdDSA public key is unset, and feed files exist only on the unmerged PR branch, so the URLs on `main` return 404. A release still needs a signed appcast, Developer ID signing, and notarization.
 
 ## Previous verified code build / Предыдущая проверенная сборка кода
 
