@@ -37,7 +37,7 @@ def main() -> None:
         + feed_name
     )
     if info.get("SUFeedURL") != expected_feed:
-        fail(f"SUFeedURL must point to the {arch} feed")
+        fail(f"SUFeedURL must point to the {arch} feed; found {info.get('SUFeedURL')!r}")
     for key in ("SUEnableAutomaticChecks", "SURequireSignedFeed", "SUVerifyUpdateBeforeExtraction"):
         if info.get(key) is not True:
             fail(f"{key} must be enabled")

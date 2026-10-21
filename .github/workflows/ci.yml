@@ -49,10 +49,13 @@ jobs:
         include:
           - runner: macos-15
             arch: arm64
+            feed: appcast-arm64.xml
           - runner: macos-26
             arch: arm64
+            feed: appcast-arm64.xml
           - runner: macos-15-intel
             arch: x86_64
+            feed: appcast-intel.xml
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     steps:
@@ -394,6 +397,7 @@ jobs:
           -derivedDataPath "$RUNNER_TEMP/ColiDevDerivedData"
           ARCHS=${{ matrix.arch }}
           CURRENT_PROJECT_VERSION=${{ env.COLIDEV_BUILD_VERSION }}
+          SUFeedURL=https://raw.githubusercontent.com/invinby/coli-dev/main/updates/${{ matrix.feed }}
           SUPublicEDKey=${{ vars.SPARKLE_PUBLIC_ED_KEY }}
           CODE_SIGNING_ALLOWED=NO
           build
@@ -414,6 +418,7 @@ jobs:
           -derivedDataPath "$RUNNER_TEMP/ColiDevDerivedData"
           ARCHS=${{ matrix.arch }}
           CURRENT_PROJECT_VERSION=${{ env.COLIDEV_BUILD_VERSION }}
+          SUFeedURL=https://raw.githubusercontent.com/invinby/coli-dev/main/updates/${{ matrix.feed }}
           SUPublicEDKey=${{ vars.SPARKLE_PUBLIC_ED_KEY }}
           CODE_SIGN_IDENTITY=-
 
