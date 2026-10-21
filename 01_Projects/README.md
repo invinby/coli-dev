@@ -52,5 +52,5 @@ python -m pip install -r requirements-test.txt
 python -m pytest 01_Projects -q
 ```
 
-The suite mocks external AI providers and Obsidian. GitHub Actions builds the macOS app and bundled Python backend for Apple Silicon only (`arm64`, M1 and later), then smoke-checks the packaged API. Intel Macs are not supported. These checks do not replace running the app and its live integrations on a Mac.<br>
-В тестах внешние ИИ-провайдеры и Obsidian заменены заглушками. GitHub Actions собирает приложение и встроенный сервер Python только для Apple Silicon (`arm64`, M1 и новее), затем выполняет smoke-проверку упакованного API. Intel Mac не поддерживаются. Эти проверки не заменяют запуск приложения и проверку настоящих интеграций на Mac.
+The suite mocks external AI providers and Obsidian. GitHub Actions builds the macOS app and bundled Python backend for both Intel (`x86_64`) and Apple Silicon (`arm64`); CI checks Intel on macOS 15 and Apple Silicon on macOS 15 and 26. The deployment target is macOS 13; macOS 13/14 and physical Intel devices have not been separately checked. These checks do not replace running the app and its live integrations on a Mac.<br>
+В тестах внешние ИИ-провайдеры и Obsidian заменены заглушками. GitHub Actions собирает приложение и встроенный сервер Python для Intel (`x86_64`) и Apple Silicon (`arm64`); CI проверяет Intel на macOS 15 и Apple Silicon на macOS 15 и 26. Целевой минимум — macOS 13; macOS 13/14 и физические Intel Mac отдельно не проверялись. Эти проверки не заменяют запуск приложения и проверку настоящих интеграций на Mac.
