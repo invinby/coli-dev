@@ -138,9 +138,10 @@ final class AppUpdateController: ObservableObject {
         let feed = info["SUFeedURL"] as? String ?? ""
         let hasValidPublicKey = Data(base64Encoded: key)?.count == 32
         let hasHTTPSFeed = URL(string: feed)?.scheme == "https"
-        isConfigured = hasValidPublicKey && hasHTTPSFeed
+        let updaterIsConfigured = hasValidPublicKey && hasHTTPSFeed
+        isConfigured = updaterIsConfigured
 
-        guard isConfigured else {
+        guard updaterIsConfigured else {
             controller = nil
             automaticChecksEnabled = false
             return
