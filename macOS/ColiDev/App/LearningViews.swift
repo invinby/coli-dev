@@ -3835,10 +3835,9 @@ private struct ConditionalsLab: View {
     @State private var wasCorrect: Bool?
     @State private var complete = false
     @State private var assessmentTracker = EnglishConditionalAssessmentTracker()
-    @State private var optionOrder = QuizAnswerOrder(
-        optionCount: EnglishConditionalForm.allCases.count,
-        answerOriginalIndex: EnglishConditionalPractice.scenarios[0].correctForm.rawValue
-    )
+    @State private var optionOrders = Self.makeOptionOrders()
+
+    private var optionOrder: QuizAnswerOrder { optionOrders[index] }
 
     private let questions = [
         ConditionalPracticeQuestion(id: EnglishConditionalPractice.scenarios[0].id, promptKey: "lab.conditionalScenario0", feedbackKey: "lab.conditionalFeedback0"),
@@ -3905,10 +3904,6 @@ private struct ConditionalsLab: View {
                             index += 1
                             selection = nil
                             wasCorrect = nil
-                            optionOrder = QuizAnswerOrder(
-                                optionCount: EnglishConditionalForm.allCases.count,
-                                answerOriginalIndex: EnglishConditionalPractice.scenarios[index].correctForm.rawValue
-                            )
                         }
                     } else if let selection {
                         let isCorrect = optionOrder.isCorrect(displayedIndex: selection)
@@ -3941,9 +3936,13 @@ private struct ConditionalsLab: View {
         wasCorrect = nil
         complete = false
         assessmentTracker.reset()
-        optionOrder = QuizAnswerOrder(
+        optionOrders = Self.makeOptionOrders()
+    }
+
+    private static func makeOptionOrders() -> [QuizAnswerOrder] {
+        QuizAnswerOrder.balancedSequence(
             optionCount: EnglishConditionalForm.allCases.count,
-            answerOriginalIndex: EnglishConditionalPractice.scenarios[0].correctForm.rawValue
+            answerOriginalIndices: EnglishConditionalPractice.scenarios.map { $0.correctForm.rawValue }
         )
     }
 }
@@ -3956,10 +3955,9 @@ private struct ReportedSpeechLab: View {
     @State private var incorrectAnswerOption: Int?
     @State private var complete = false
     @State private var attemptsForQuestion = 0
-    @State private var optionOrder = QuizAnswerOrder(
-        optionCount: 3,
-        answerOriginalIndex: EnglishReportedSpeechPractice.questions[0].correctOption
-    )
+    @State private var optionOrders = Self.makeOptionOrders()
+
+    private var optionOrder: QuizAnswerOrder { optionOrders[index] }
 
     private let questions = EnglishReportedSpeechPractice.questions
     private let lessonID = "english.reported_speech_questions_and_backshift"
@@ -4042,7 +4040,6 @@ private struct ReportedSpeechLab: View {
             selection = nil
             wasCorrect = nil
             attemptsForQuestion = 0
-            optionOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: questions[index].correctOption)
             return
         }
 
@@ -4053,7 +4050,6 @@ private struct ReportedSpeechLab: View {
         if !isCorrect {
             incorrectAnswerOption = optionOrder.displayedOriginalIndices[selectedDisplayIndex]
             selection = nil
-            optionOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: questions[index].correctOption)
         } else {
             incorrectAnswerOption = nil
         }
@@ -4077,7 +4073,14 @@ private struct ReportedSpeechLab: View {
         incorrectAnswerOption = nil
         complete = false
         attemptsForQuestion = 0
-        optionOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: questions[0].correctOption)
+        optionOrders = Self.makeOptionOrders()
+    }
+
+    private static func makeOptionOrders() -> [QuizAnswerOrder] {
+        QuizAnswerOrder.balancedSequence(
+            optionCount: 3,
+            answerOriginalIndices: EnglishReportedSpeechPractice.questions.map(\.correctOption)
+        )
     }
 }
 
@@ -9469,10 +9472,9 @@ private struct SQLSchemaQueryLab: View {
     @State private var stepIndex = 0
     @State private var selectedDisplayIndex = -1
     @State private var feedbackCorrect: Bool?
-    @State private var optionOrder = QuizAnswerOrder(
-        optionCount: SQLQueryPractice.steps[0].optionKeys.count,
-        answerOriginalIndex: SQLQueryPractice.steps[0].correctOptionIndex
-    )
+    @State private var optionOrders = Self.makeOptionOrders()
+
+    private var optionOrder: QuizAnswerOrder { optionOrders[stepIndex] }
     @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(
         itemIDs: SQLQueryPractice.steps.map(\.id)
     )
@@ -9598,17 +9600,22 @@ private struct SQLSchemaQueryLab: View {
         stepIndex += 1
         selectedDisplayIndex = -1
         feedbackCorrect = nil
-        guard let step = currentStep else { return }
-        optionOrder = QuizAnswerOrder(optionCount: step.optionKeys.count, answerOriginalIndex: step.correctOptionIndex)
+        guard currentStep != nil else { return }
     }
 
     private func restart() {
         stepIndex = 0
         selectedDisplayIndex = -1
         feedbackCorrect = nil
-        let firstStep = SQLQueryPractice.steps[0]
-        optionOrder = QuizAnswerOrder(optionCount: firstStep.optionKeys.count, answerOriginalIndex: firstStep.correctOptionIndex)
+        optionOrders = Self.makeOptionOrders()
         assessmentTracker.reset()
+    }
+
+    private static func makeOptionOrders() -> [QuizAnswerOrder] {
+        QuizAnswerOrder.balancedSequence(
+            optionCount: SQLQueryPractice.steps[0].optionKeys.count,
+            answerOriginalIndices: SQLQueryPractice.steps.map(\.correctOptionIndex)
+        )
     }
 }
 
@@ -9720,10 +9727,9 @@ private struct GitWorkflowLab: View {
     @State private var stepIndex = 0
     @State private var selectedDisplayIndex = -1
     @State private var feedbackCorrect: Bool?
-    @State private var optionOrder = QuizAnswerOrder(
-        optionCount: GitWorkflowPractice.steps[0].commandKeys.count,
-        answerOriginalIndex: GitWorkflowPractice.steps[0].correctCommandIndex
-    )
+    @State private var optionOrders = Self.makeOptionOrders()
+
+    private var optionOrder: QuizAnswerOrder { optionOrders[stepIndex] }
     @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(
         itemIDs: GitWorkflowPractice.steps.map(\.id)
     )
@@ -9896,22 +9902,22 @@ private struct GitWorkflowLab: View {
         stepIndex += 1
         selectedDisplayIndex = -1
         feedbackCorrect = nil
-        guard let step = currentStep else { return }
-        optionOrder = QuizAnswerOrder(
-            optionCount: step.commandKeys.count,
-            answerOriginalIndex: step.correctCommandIndex
-        )
+        guard currentStep != nil else { return }
     }
 
     private func restart() {
         stepIndex = 0
         selectedDisplayIndex = -1
         feedbackCorrect = nil
-        optionOrder = QuizAnswerOrder(
-            optionCount: GitWorkflowPractice.steps[0].commandKeys.count,
-            answerOriginalIndex: GitWorkflowPractice.steps[0].correctCommandIndex
-        )
+        optionOrders = Self.makeOptionOrders()
         assessmentTracker.reset()
+    }
+
+    private static func makeOptionOrders() -> [QuizAnswerOrder] {
+        QuizAnswerOrder.balancedSequence(
+            optionCount: GitWorkflowPractice.steps[0].commandKeys.count,
+            answerOriginalIndices: GitWorkflowPractice.steps.map(\.correctCommandIndex)
+        )
     }
 }
 
@@ -10126,10 +10132,9 @@ private struct DataStructureChoiceLab: View {
     @State private var stepIndex = 0
     @State private var selectedDisplayIndex = -1
     @State private var feedbackCorrect: Bool?
-    @State private var optionOrder = QuizAnswerOrder(
-        optionCount: DataStructureChoicePractice.scenarios[0].optionKeys.count,
-        answerOriginalIndex: DataStructureChoicePractice.scenarios[0].correctOptionIndex
-    )
+    @State private var optionOrders = Self.makeOptionOrders()
+
+    private var optionOrder: QuizAnswerOrder { optionOrders[stepIndex] }
     @State private var assessmentTracker = InteractiveChoiceAssessmentTracker(
         itemIDs: DataStructureChoicePractice.scenarios.map(\.id)
     )
@@ -10232,17 +10237,22 @@ private struct DataStructureChoiceLab: View {
         stepIndex += 1
         selectedDisplayIndex = -1
         feedbackCorrect = nil
-        guard let scenario = currentScenario else { return }
-        optionOrder = QuizAnswerOrder(optionCount: scenario.optionKeys.count, answerOriginalIndex: scenario.correctOptionIndex)
+        guard currentScenario != nil else { return }
     }
 
     private func restart() {
         stepIndex = 0
         selectedDisplayIndex = -1
         feedbackCorrect = nil
-        let firstScenario = DataStructureChoicePractice.scenarios[0]
-        optionOrder = QuizAnswerOrder(optionCount: firstScenario.optionKeys.count, answerOriginalIndex: firstScenario.correctOptionIndex)
+        optionOrders = Self.makeOptionOrders()
         assessmentTracker.reset()
+    }
+
+    private static func makeOptionOrders() -> [QuizAnswerOrder] {
+        QuizAnswerOrder.balancedSequence(
+            optionCount: DataStructureChoicePractice.scenarios[0].optionKeys.count,
+            answerOriginalIndices: DataStructureChoicePractice.scenarios.map(\.correctOptionIndex)
+        )
     }
 }
 

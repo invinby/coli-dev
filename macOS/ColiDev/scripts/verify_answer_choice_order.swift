@@ -16,9 +16,63 @@ struct SeededGenerator: RandomNumberGenerator {
     }
 }
 
+func verifyBalancedPracticeSequence(
+    name: String,
+    optionCount: Int,
+    answerOriginalIndices: [Int],
+    seed: UInt64
+) {
+    var generator = SeededGenerator(seed: seed)
+    let orders = QuizAnswerOrder.balancedSequence(
+        optionCount: optionCount,
+        answerOriginalIndices: answerOriginalIndices,
+        using: &generator
+    )
+    let positions = orders.map(\.correctDisplayedIndex)
+    let counts = (0..<optionCount).map { position in positions.filter { $0 == position }.count }
+    precondition(
+        positions.count == answerOriginalIndices.count
+            && zip(positions, positions.dropFirst()).allSatisfy { $0.0 != $0.1 }
+            && counts.max()! - counts.min()! <= 1,
+        "\(name): answer positions must be balanced and not repeat consecutively. / Позиции ответов должны быть сбалансированы и не повторяться подряд."
+    )
+    for (order, answerIndex) in zip(orders, answerOriginalIndices) {
+        precondition(
+            Set(order.displayedOriginalIndices) == Set(0..<optionCount)
+                && order.displayedOriginalIndices[order.correctDisplayedIndex] == answerIndex
+                && order.isCorrect(displayedIndex: order.correctDisplayedIndex),
+            "\(name): shuffling must preserve all options and the correct answer. / Перемешивание должно сохранять варианты и правильный ответ."
+        )
+    }
+}
+
+func verifyBalancedOrderIsWired(into viewNames: [String]) {
+    let source = try! String(contentsOfFile: "macOS/ColiDev/App/LearningViews.swift", encoding: .utf8)
+    let lines = source.components(separatedBy: .newlines)
+    for viewName in viewNames {
+        guard let start = lines.firstIndex(where: { $0.contains("private struct \(viewName): View") }) else {
+            preconditionFailure("Missing learner-facing view \(viewName). / Не найден экран тренажёра \(viewName).")
+        }
+        let end = lines[(start + 1)...].firstIndex(where: { $0.contains("private struct ") }) ?? lines.endIndex
+        let viewBody = lines[start..<end].joined(separator: "\n")
+        precondition(
+            viewBody.contains("QuizAnswerOrder.balancedSequence"),
+            "\(viewName) must use the verified balanced-order generator. / Экран \(viewName) должен использовать проверенный генератор сбалансированного порядка."
+        )
+    }
+}
+
 @main
 enum AnswerChoiceOrderVerification {
     static func main() {
+        verifyBalancedOrderIsWired(into: [
+            "ConditionalsLab",
+            "ReportedSpeechLab",
+            "SQLSchemaQueryLab",
+            "GitWorkflowLab",
+            "DataStructureChoiceLab"
+        ])
+
         var choiceAssessment = InteractiveChoiceAssessmentTracker(
             itemIDs: [
                 "routine-1", "animal-group-1", "lineage-1",
@@ -227,6 +281,37 @@ enum AnswerChoiceOrderVerification {
                 }
             }
         }
+
+        verifyBalancedPracticeSequence(
+            name: "English conditionals / Условные предложения",
+            optionCount: EnglishConditionalForm.allCases.count,
+            answerOriginalIndices: EnglishConditionalPractice.scenarios.map { $0.correctForm.rawValue },
+            seed: 301
+        )
+        verifyBalancedPracticeSequence(
+            name: "Reported speech / Косвенная речь",
+            optionCount: 3,
+            answerOriginalIndices: EnglishReportedSpeechPractice.questions.map(\.correctOption),
+            seed: 302
+        )
+        verifyBalancedPracticeSequence(
+            name: "SQL query practice / Практика SQL",
+            optionCount: SQLQueryPractice.steps[0].optionKeys.count,
+            answerOriginalIndices: SQLQueryPractice.steps.map(\.correctOptionIndex),
+            seed: 303
+        )
+        verifyBalancedPracticeSequence(
+            name: "Git workflow / Работа с Git",
+            optionCount: GitWorkflowPractice.steps[0].commandKeys.count,
+            answerOriginalIndices: GitWorkflowPractice.steps.map(\.correctCommandIndex),
+            seed: 304
+        )
+        verifyBalancedPracticeSequence(
+            name: "Data structures / Структуры данных",
+            optionCount: DataStructureChoicePractice.scenarios[0].optionKeys.count,
+            answerOriginalIndices: DataStructureChoicePractice.scenarios.map(\.correctOptionIndex),
+            seed: 305
+        )
 
         for optionCount in [2, 3] {
             let correctOriginalIndices = [1, 1, 2, 0, 2, 1, 0, 0, 2, 1, 1, 2, 0]

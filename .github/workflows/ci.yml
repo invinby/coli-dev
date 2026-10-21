@@ -168,7 +168,9 @@ jobs:
 
       - name: Verify answer choice order / Проверка порядка вариантов
         run: |
-          swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/scripts/verify_answer_choice_order.swift \
+          swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/EnglishLearningModels.swift \
+            macOS/ColiDev/App/SQLQueryPractice.swift macOS/ColiDev/App/DebuggingPractice.swift \
+            macOS/ColiDev/App/AlgorithmComplexity.swift macOS/ColiDev/scripts/verify_answer_choice_order.swift \
             -o "$RUNNER_TEMP/verify-answer-choice-order"
           "$RUNNER_TEMP/verify-answer-choice-order"
 
