@@ -3229,7 +3229,6 @@ private struct ManagementView: View {
                             .accessibilityIdentifier("control-center.sources.next-page")
                             .disabled(sourcePage >= sourcePageCount - 1)
                         }
-                        .accessibilityIdentifier("control-center.sources.pagination")
                     }
 
                     List(pagedSourceItems) { source in
