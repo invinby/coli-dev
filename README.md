@@ -11,26 +11,26 @@ ColiDev объединяет последовательные курсы, сох
 
 ## Свежая beta для Intel и Apple Silicon / Latest Intel and Apple Silicon beta
 
-Проект собирает отдельные варианты для Intel (`x86_64`) и Apple Silicon (`arm64`); минимум — macOS 13. CI проверяет оба процессорных семейства, а каждый архив содержит backend той же архитектуры, что и приложение. Используй только артефакты из зелёного запуска workflow, не старые Intel-архивы из истории. / The project builds separate Intel (`x86_64`) and Apple Silicon (`arm64`) variants; minimum macOS is 13. CI checks both processor families, and each archive bundles a backend matching the app architecture. Use artifacts only from a green workflow run, not historical Intel archives.<br>
+Полный CI [39524476548](https://github.com/invinby/coli-dev/actions/runs/39524476548) прошёл на commit `274df40`: 608 backend-тестов, сборки/UI на macOS 15 Intel `x86_64`, macOS 15 arm64 и macOS 26 arm64. В каждом архиве app и backend имеют одну архитектуру. Минимальная версия приложения в Info.plist — macOS 13. / Full CI [39524476548](https://github.com/invinby/coli-dev/actions/runs/39524476548) passed at commit `274df40`: 608 backend tests, builds/UI on macOS 15 Intel `x86_64`, macOS 15 arm64, and macOS 26 arm64. Each archive contains an app and backend for the same architecture. The app Info.plist minimum is macOS 13.<br>
 
 ## Текущая beta / Current beta
 
-Для MacBook с Intel скачивай артефакт `ColiDev-macos-15-intel-x86_64`; для Mac с M1 или новее — `ColiDev-macos-15-arm64`. Более новый Apple Silicon вариант также собирается на `macos-26`. Открой последний зелёный запуск [GitHub Actions](https://github.com/invinby/coli-dev/actions/workflows/ci.yml) и скачай нужный архитектурный артефакт из раздела Artifacts. Для скачивания нужен вход в GitHub. Архивы неподписаны; запуск на физическом Mac нужно проверить вручную.<br>
-For Intel Macs, download `ColiDev-macos-15-intel-x86_64`; for M1 or later Macs, download `ColiDev-macos-15-arm64`. A newer Apple Silicon variant is also built on `macos-26`. Open the latest green [GitHub Actions run](https://github.com/invinby/coli-dev/actions/workflows/ci.yml) and download the matching architecture artifact. GitHub sign-in is required. Archives are unsigned; launch on a physical Mac still needs hands-on verification.<br>
+Для Intel скачивай [macOS 15 x86_64 — artifact 12313822240](https://github.com/invinby/coli-dev/actions/runs/39524476548/artifacts/12313822240); для M1+ — [macOS 15 arm64 — artifact 12313801233](https://github.com/invinby/coli-dev/actions/runs/39524476548/artifacts/12313801233) или [macOS 26 arm64 — artifact 12312846696](https://github.com/invinby/coli-dev/actions/runs/39524476548/artifacts/12312846696). Нужен вход в GitHub. Архивы неподписаны и ещё требуют ручного запуска на физическом Mac.<br>
+For Intel, download [macOS 15 x86_64 — artifact 12313822240](https://github.com/invinby/coli-dev/actions/runs/39524476548/artifacts/12313822240); for M1+, use [macOS 15 arm64 — artifact 12313801233](https://github.com/invinby/coli-dev/actions/runs/39524476548/artifacts/12313801233) or [macOS 26 arm64 — artifact 12312846696](https://github.com/invinby/coli-dev/actions/runs/39524476548/artifacts/12312846696). GitHub sign-in is required. Archives are unsigned and still need a hands-on launch on a physical Mac.<br>
 
-- [Последние CI-запуски и архитектурные beta-архивы / Latest CI runs and architecture-specific beta archives](https://github.com/invinby/coli-dev/actions/workflows/ci.yml)
+- [Зелёный CI / Green CI 39524476548](https://github.com/invinby/coli-dev/actions/runs/39524476548) · [Intel x86_64 artifact](https://github.com/invinby/coli-dev/actions/runs/39524476548/artifacts/12313822240) · [Apple Silicon arm64 artifact](https://github.com/invinby/coli-dev/actions/runs/39524476548/artifacts/12313801233)
 
-Это временные неподписанные CI-архивы, а не публичный релиз; для скачивания нужен вход в GitHub. Выбирай артефакт по процессору Mac. Воспроизведение видео и фактическая доступность субтитров всё ещё требуют ручной проверки.<br>
-These are temporary unsigned CI archives, not a public release; GitHub sign-in is required to download them. Choose the artifact that matches the Mac processor. Video playback and actual subtitle availability still require hands-on verification.<br>
+Это временные неподписанные CI-архивы, а не публичный релиз; для скачивания нужен вход в GitHub. Архив Intel проверен здесь по CRC и Mach-O заголовкам приложения и backend (оба x86_64); запуск на физическом Intel Mac, видео и фактическая доступность субтитров требуют ручной проверки.<br>
+These are temporary unsigned CI archives, not a public release; GitHub sign-in is required to download them. The Intel archive was checked here for ZIP CRC and Mach-O app/backend headers (both x86_64); launch on a physical Intel Mac, video playback, and actual subtitle availability still require hands-on verification.<br>
 
-Если GitHub CLI установлен и авторизован, команда скачает и попробует открыть текущую beta для MacBook Air M1. Архив неподписан: если Gatekeeper остановит запуск, в Finder нажми Control-клик по `ColiDev.app` → «Открыть» → «Открыть».
+Если GitHub CLI установлен и авторизован, команда скачает Intel beta и распакует её в `~/Downloads/ColiDev-ci-39524476548`. Архив неподписан: если Gatekeeper остановит запуск, в Finder нажми Control-клик по `ColiDev.app` → «Открыть» → «Открыть».
 
 ```sh
-gh run list -R invinby/coli-dev --workflow ci.yml --limit 5
+mkdir -p "$HOME/Downloads/ColiDev-ci-39524476548" && gh run download 39524476548 -R invinby/coli-dev -n ColiDev-macos-15-intel-x86_64 -D "$HOME/Downloads/ColiDev-ci-39524476548" && ditto -x -k "$HOME/Downloads/ColiDev-ci-39524476548/ColiDev-x86_64.zip" "$HOME/Downloads/ColiDev-ci-39524476548" && open "$HOME/Downloads/ColiDev-ci-39524476548/ColiDev.app"
 ```
 
-Затем возьми ID последнего зелёного запуска и подходящую команду: `gh run download RUN_ID -R invinby/coli-dev -n ColiDev-macos-15-intel-x86_64` для Intel или `gh run download RUN_ID -R invinby/coli-dev -n ColiDev-macos-15-arm64` для Apple Silicon.<br>
-Then use the latest successful run ID and the matching command: `gh run download RUN_ID -R invinby/coli-dev -n ColiDev-macos-15-intel-x86_64` for Intel or `gh run download RUN_ID -R invinby/coli-dev -n ColiDev-macos-15-arm64` for Apple Silicon.
+Для Apple Silicon выбери вместо Intel артефакт `ColiDev-macos-15-arm64`, а архив `ColiDev-arm64.zip`.<br>
+For Apple Silicon, choose artifact `ColiDev-macos-15-arm64` and archive `ColiDev-arm64.zip` instead.
 
 ## Предыдущий опубликованный релиз: Beta 7 / Previous published release: Beta 7
 
@@ -117,8 +117,8 @@ Current implementation and limitations are listed below.
 - The mathematics starter includes a sourced RU/EN lesson and an interactive graph lab for quadratic functions. Learners predict a transformation, adjust `a`, `h`, and `k`, and inspect the graph, vertex, axis of symmetry, and real roots. The CI build and bundled lesson route passed; hands-on visual review on a Mac remains to be done.<br>
   В начальном курсе математики есть двуязычный урок с источником и интерактивная лаборатория графиков квадратичной функции. Ученик сначала предсказывает преобразование, затем меняет `a`, `h` и `k` и исследует график, вершину, ось симметрии и действительные корни. Сборка CI и проверка наличия урока в bundle прошли; вручную оценить отображение на Mac ещё предстоит.
 
-- Historical CI [run 37782398587](https://github.com/invinby/coli-dev/actions/runs/37782398587) checked the constrained-optimization lesson, draggable unit-circle lab, and Swift verifier. That old run included an Intel build, which is outside the supported target; current CI builds Apple Silicon only. Hands-on visual review on a Mac remains open.<br>
-  Исторический CI [37782398587](https://github.com/invinby/coli-dev/actions/runs/37782398587) проверил урок об оптимизации с ограничением, интерактивную единичную окружность и Swift-verifier. Старый запуск включал сборку Intel, которая не входит в поддержку; текущий CI собирает только Apple Silicon. Визуальная проверка на Mac остаётся открытой.
+- Historical CI [run 37782398587](https://github.com/invinby/coli-dev/actions/runs/37782398587) checked the constrained-optimization lesson, draggable unit-circle lab, and Swift verifier. Its Intel build was a historical precursor; current Intel support is verified separately in [run 39524476548](https://github.com/invinby/coli-dev/actions/runs/39524476548). Hands-on visual review on a physical user Mac remains open.<br>
+  Исторический CI [37782398587](https://github.com/invinby/coli-dev/actions/runs/37782398587) проверил урок об оптимизации с ограничением, интерактивную единичную окружность и Swift-verifier. Его Intel-сборка была предшественником текущей; актуальная Intel-совместимость проверена отдельно в [run 39524476548](https://github.com/invinby/coli-dev/actions/runs/39524476548). Визуальная проверка на физическом Mac пользователя остаётся открытой.
 
 - The course maps are planned from foundational material toward advanced topics. A topic listed in a roadmap does not necessarily have a finished lesson yet.<br>
   Карты курсов ведут от основ к углублённым темам. Наличие темы в плане не означает, что готовый урок уже написан.
