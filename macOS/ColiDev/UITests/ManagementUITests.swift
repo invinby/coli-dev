@@ -1021,6 +1021,49 @@ final class ManagementUITests: XCTestCase {
     }
 
     @MainActor
+    func testSourceRegistryPagesKeepManagementNavigationResponsive() async throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let managementItem = app.staticTexts["sidebar.management"]
+        XCTAssertTrue(managementItem.waitForExistence(timeout: 15))
+        managementItem.click()
+
+        let sourcesTab = app.buttons["control-center.pane.sources"]
+        XCTAssertTrue(sourcesTab.waitForExistence(timeout: 15))
+        sourcesTab.click()
+
+        let pageStatus = app.staticTexts["control-center.sources.page-status"]
+        let nextPage = app.buttons["control-center.sources.next-page"]
+        XCTAssertTrue(
+            pageStatus.waitForExistence(timeout: 15),
+            "The source registry must report its current page. / Реестр источников должен показывать текущую страницу.\n\(app.debugDescription)"
+        )
+        XCTAssertTrue(
+            nextPage.waitForExistence(timeout: 15),
+            "The bundled source registry must paginate when it has more than one page. / Большой реестр источников должен переключать страницы.\n\(app.debugDescription)"
+        )
+
+        let firstPage = pageStatus.label
+        nextPage.click()
+        let pageAdvanced = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label != %@", firstPage),
+            object: pageStatus
+        )
+        let pageAdvanceResult = await XCTWaiter.fulfillment(of: [pageAdvanced], timeout: 5)
+        XCTAssertEqual(
+            pageAdvanceResult,
+            .completed,
+            "Next page must advance the source registry. / Кнопка должна переключить страницу источников."
+        )
+
+        XCTAssertTrue(
+            app.buttons["control-center.pane.integrations"].exists,
+            "The Services tab must remain queryable while browsing sources. / Вкладка «Сервисы» должна оставаться доступной при просмотре источников.\n\(app.debugDescription)"
+        )
+    }
+
+    @MainActor
     func testRAGPaneExposesLocalEmbeddingModelControls() async throws {
         let app = XCUIApplication()
         app.launch()

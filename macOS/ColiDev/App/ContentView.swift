@@ -2178,6 +2178,7 @@ private struct ManagementView: View {
     @State private var hasLoadedCourseCoverage = false
     @State private var sourceSearchText = ""
     @State private var sourceFilter = SourceRegistryFilter.all
+    @State private var sourcePage = 0
     @State private var ragQuery = ""
     @State private var ragSearchResult: KnowledgeRAGSearchResult?
     @State private var includeObsidianRAG = false
@@ -2225,6 +2226,7 @@ private struct ManagementView: View {
     }
 
     private let metricColumns = [GridItem(.adaptive(minimum: 190), spacing: 12)]
+    private let sourcePageSize = 10
 
     var body: some View {
         GeometryReader { geometry in
@@ -2346,6 +2348,9 @@ private struct ManagementView: View {
         }
         .navigationTitle(Text(L10n.text("management.title", store.language)))
         .onChange(of: routeSubject) { _ in syncSubjectModelRouteForm() }
+        .onChange(of: sourceSearchText) { _ in sourcePage = 0 }
+        .onChange(of: sourceFilter) { _ in sourcePage = 0 }
+        .onChange(of: sourceInventory?.sources.count) { _ in sourcePage = 0 }
         .onChange(of: autoAgentRole) { _ in syncAutoAgentModelForm() }
         .onChange(of: autoAgentProvider) { provider in
             if provider == "auto" { autoAgentModel = "" }
@@ -3187,7 +3192,47 @@ private struct ManagementView: View {
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    List(visibleSourceItems) { source in
+                    if sourcePageCount > 1 {
+                        HStack(spacing: 12) {
+                            Text(
+                                String(
+                                    format: L10n.text("management.sourcePageStatus", store.language),
+                                    min(sourcePage + 1, sourcePageCount),
+                                    sourcePageCount
+                                )
+                            )
+                            .font(.callout.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("control-center.sources.page-status")
+
+                            Spacer()
+
+                            Button {
+                                sourcePage = max(0, sourcePage - 1)
+                            } label: {
+                                Image(systemName: "chevron.left")
+                            }
+                            .buttonStyle(.bordered)
+                            .help(L10n.text("management.sourcePagePrevious", store.language))
+                            .accessibilityLabel(L10n.text("management.sourcePagePrevious", store.language))
+                            .accessibilityIdentifier("control-center.sources.previous-page")
+                            .disabled(sourcePage == 0)
+
+                            Button {
+                                sourcePage = min(sourcePageCount - 1, sourcePage + 1)
+                            } label: {
+                                Image(systemName: "chevron.right")
+                            }
+                            .buttonStyle(.bordered)
+                            .help(L10n.text("management.sourcePageNext", store.language))
+                            .accessibilityLabel(L10n.text("management.sourcePageNext", store.language))
+                            .accessibilityIdentifier("control-center.sources.next-page")
+                            .disabled(sourcePage >= sourcePageCount - 1)
+                        }
+                        .accessibilityIdentifier("control-center.sources.pagination")
+                    }
+
+                    List(pagedSourceItems) { source in
                         SourceRegistryRow(source: source, language: store.language) {
                             Task { await reloadSourceInventory() }
                         }
@@ -3258,6 +3303,16 @@ private struct ManagementView: View {
                 return reviewStatuses.contains { $0 != "review_scheduled" }
             }
         }
+    }
+
+    private var sourcePageCount: Int {
+        max(1, (visibleSourceItems.count + sourcePageSize - 1) / sourcePageSize)
+    }
+
+    private var pagedSourceItems: [TrustedSourceInventoryItem] {
+        let currentPage = min(sourcePage, sourcePageCount - 1)
+        let startIndex = currentPage * sourcePageSize
+        return Array(visibleSourceItems.dropFirst(startIndex).prefix(sourcePageSize))
     }
 
     private var ollamaEmbeddingSettingsCard: some View {
