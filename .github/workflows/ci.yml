@@ -46,7 +46,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [macos-15, macos-26]
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-26
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     steps:
@@ -56,14 +62,15 @@ jobs:
       - name: Show Xcode version
         run: xcodebuild -version
 
-      - name: Require Apple Silicon runner / Требовать runner Apple Silicon
+      - name: Verify runner architecture / Проверить архитектуру runner
         run: |
           architecture="$(uname -m)"
-          if [[ "$architecture" != "arm64" ]]; then
-            echo "ColiDev CI supports Apple Silicon runners only; found '$architecture'." >&2
+          expected_arch="${{ matrix.arch }}"
+          if [[ "$architecture" != "$expected_arch" ]]; then
+            echo "Expected $expected_arch runner for this app artifact; found '$architecture'." >&2
             exit 1
           fi
-          echo "Verified Apple Silicon runner architecture: $architecture"
+          echo "Verified runner architecture: $architecture"
 
       - name: Verify the versioned local backend handshake / Проверка версии локального backend
         run: |
@@ -380,19 +387,18 @@ jobs:
           -scheme ColiDev
           -destination 'platform=macOS'
           -derivedDataPath "$RUNNER_TEMP/ColiDevDerivedData"
-          ARCHS=arm64
+          ARCHS=${{ matrix.arch }}
           CODE_SIGNING_ALLOWED=NO
           build
 
       - name: Build Control Center UI tests for macOS
-        if: matrix.runner == 'macos-15' || matrix.runner == 'macos-26'
         run: >-
           xcodebuild build-for-testing
           -project macOS/ColiDev/ColiDev.xcodeproj
           -scheme ColiDev
           -destination 'platform=macOS'
           -derivedDataPath "$RUNNER_TEMP/ColiDevDerivedData"
-          ARCHS=arm64
+          ARCHS=${{ matrix.arch }}
           CODE_SIGN_IDENTITY=-
 
       - name: Embed the local backend runtime in the app
@@ -400,20 +406,20 @@ jobs:
           app="$RUNNER_TEMP/ColiDevDerivedData/Build/Products/Debug/ColiDev.app"
           ./macOS/ColiDev/scripts/package_backend_runtime.sh "$app"
 
-      - name: Verify Apple Silicon-only app and backend binaries
+      - name: Verify app and backend binary architectures
         run: |
           app="$RUNNER_TEMP/ColiDevDerivedData/Build/Products/Debug/ColiDev.app"
+          expected_arch="${{ matrix.arch }}"
           for binary in "$app/Contents/MacOS/ColiDev" "$app/Contents/Resources/ColiDevBackend/ColiDevBackend"; do
             architectures="$(lipo -archs "$binary")"
-            if [[ "$architectures" != "arm64" ]]; then
-              echo "Expected an Apple Silicon arm64-only binary, got '$architectures' for $binary" >&2
+            if [[ "$architectures" != "$expected_arch" ]]; then
+              echo "Expected a $expected_arch binary, got '$architectures' for $binary" >&2
               exit 1
             fi
             echo "$binary: $architectures"
           done
 
       - name: Sign packaged app for UI tests
-        if: matrix.runner == 'macos-15' || matrix.runner == 'macos-26'
         run: |
           app="$RUNNER_TEMP/ColiDevDerivedData/Build/Products/Debug/ColiDev.app"
           codesign --force --deep --sign - "$app"
@@ -424,18 +430,17 @@ jobs:
           ./macOS/ColiDev/scripts/smoke_test_backend_runtime.sh "$app"
 
       - name: Verify Control Center opens and renders its overview
-        if: matrix.runner == 'macos-15' || matrix.runner == 'macos-26'
         run: >-
           xcodebuild test-without-building
           -project macOS/ColiDev/ColiDev.xcodeproj
           -scheme ColiDev
           -destination 'platform=macOS'
           -derivedDataPath "$RUNNER_TEMP/ColiDevDerivedData"
-          ARCHS=arm64
+          ARCHS=${{ matrix.arch }}
           CODE_SIGN_IDENTITY=-
 
       - name: Show local backend startup log / Показать журнал запуска backend
-        if: failure() && (matrix.runner == 'macos-15' || matrix.runner == 'macos-26')
+        if: failure()
         run: |
           log="$HOME/Library/Logs/coli-dev/backend-launch.log"
           if [[ -f "$log" ]]; then
@@ -445,7 +450,7 @@ jobs:
           fi
 
       - name: Export Control Center UI screenshots
-        if: always() && (matrix.runner == 'macos-15' || matrix.runner == 'macos-26')
+        if: always()
         run: |
           mkdir -p "$RUNNER_TEMP/ColiDevUITestAttachments"
           result="$(find "$RUNNER_TEMP/ColiDevDerivedData/Logs/Test" -maxdepth 1 -name '*.xcresult' -print -quit)"
@@ -457,7 +462,7 @@ jobs:
           fi
 
       - name: Upload Control Center UI screenshots
-        if: always() && (matrix.runner == 'macos-15' || matrix.runner == 'macos-26')
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: ColiDev-UI-Test-Screenshots-${{ matrix.runner }}

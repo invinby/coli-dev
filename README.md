@@ -9,31 +9,32 @@ ColiDev объединяет последовательные курсы, сох
 **Project status: early team prototype.** The app is not a finished, signed, or bug-free release. Feature status and known limits are described below and in the project plan.<br>
 **Статус проекта: ранний командный прототип.** Приложение ещё не является готовым, подписанным или полностью проверенным релизом. Статус функций и известные ограничения описаны ниже и в плане проекта.
 
-## Свежая beta только для Apple Silicon / Latest Apple Silicon-only beta
+## Свежая beta для Intel и Apple Silicon / Latest Intel and Apple Silicon beta
 
-Поддерживаются только Mac с чипами Apple M1 и новее (`arm64`); Intel Mac не поддерживаются. Минимальная версия macOS — 13.0. Последний полный CI для PR #5 — [run 39510714430](https://github.com/invinby/coli-dev/actions/runs/39510714430): backend, обе arm64-сборки, UI, smoke-проверки и упаковка прошли. / Only Apple Silicon Macs with M1 chips or later (`arm64`) are supported; Intel Macs are unsupported. Latest full PR #5 CI is [run 39510714430](https://github.com/invinby/coli-dev/actions/runs/39510714430): backend, both arm64 builds, UI, smoke checks, and packaging passed.<br>
+Проект собирает отдельные варианты для Intel (`x86_64`) и Apple Silicon (`arm64`); минимум — macOS 13. CI проверяет оба процессорных семейства, а каждый архив содержит backend той же архитектуры, что и приложение. Используй только артефакты из зелёного запуска workflow, не старые Intel-архивы из истории. / The project builds separate Intel (`x86_64`) and Apple Silicon (`arm64`) variants; minimum macOS is 13. CI checks both processor families, and each archive bundles a backend matching the app architecture. Use artifacts only from a green workflow run, not historical Intel archives.<br>
 
 ## Текущая beta / Current beta
 
-Свежая неподписанная beta для MacBook Air M1: [macOS 15 arm64, artifact 12305584495](https://github.com/invinby/coli-dev/actions/runs/39510714430/artifacts/12305584495). Альтернативная beta для macOS 26 arm64: [artifact 12306322257](https://github.com/invinby/coli-dev/actions/runs/39510714430/artifacts/12306322257). Для скачивания нужен вход в GitHub. Архивы созданы зелёными arm64 CI jobs, но новый ZIP локально не скачан, а beta не запускалась на физическом Mac.<br>
-Fresh unsigned beta for MacBook Air M1: [macOS 15 arm64, artifact 12305584495](https://github.com/invinby/coli-dev/actions/runs/39510714430/artifacts/12305584495). Alternative macOS 26 arm64 beta: [artifact 12306322257](https://github.com/invinby/coli-dev/actions/runs/39510714430/artifacts/12306322257). GitHub sign-in is required. These archives were produced by green arm64 CI jobs, but the new ZIP has not been downloaded locally and the beta has not been launched on a physical Mac.<br>
+Для MacBook с Intel скачивай артефакт `ColiDev-macos-15-intel-x86_64`; для Mac с M1 или новее — `ColiDev-macos-15-arm64`. Более новый Apple Silicon вариант также собирается на `macos-26`. Открой последний зелёный запуск [GitHub Actions](https://github.com/invinby/coli-dev/actions/workflows/ci.yml) и скачай нужный архитектурный артефакт из раздела Artifacts. Для скачивания нужен вход в GitHub. Архивы неподписаны; запуск на физическом Mac нужно проверить вручную.<br>
+For Intel Macs, download `ColiDev-macos-15-intel-x86_64`; for M1 or later Macs, download `ColiDev-macos-15-arm64`. A newer Apple Silicon variant is also built on `macos-26`. Open the latest green [GitHub Actions run](https://github.com/invinby/coli-dev/actions/workflows/ci.yml) and download the matching architecture artifact. GitHub sign-in is required. Archives are unsigned; launch on a physical Mac still needs hands-on verification.<br>
 
-- [Свежая beta для MacBook Air M1, macOS 15 arm64 — artifact 12305584495](https://github.com/invinby/coli-dev/actions/runs/39510714430/artifacts/12305584495)
-- [Свежая beta для macOS 26 arm64 — artifact 12306322257](https://github.com/invinby/coli-dev/actions/runs/39510714430/artifacts/12306322257)
-- [Скриншоты UI-тестов macOS 15 — artifact 12306691991](https://github.com/invinby/coli-dev/actions/runs/39510714430/artifacts/12306691991) · [macOS 26 — artifact 12306018786](https://github.com/invinby/coli-dev/actions/runs/39510714430/artifacts/12306018786)
+- [Последние CI-запуски и архитектурные beta-архивы / Latest CI runs and architecture-specific beta archives](https://github.com/invinby/coli-dev/actions/workflows/ci.yml)
 
-Это неподписанные временные CI-архивы, а не публичный релиз; для скачивания нужен вход в GitHub. Оба arm64 job полностью прошли. Воспроизведение видео и фактическая доступность дорожек субтитров на MacBook Air M1 требуют ручной проверки.<br>
-These are temporary unsigned CI archives, not a public release; GitHub sign-in is required to download them. Both arm64 jobs passed in full. Video playback and actual subtitle-track availability on the MacBook Air M1 still need hands-on verification.<br>
+Это временные неподписанные CI-архивы, а не публичный релиз; для скачивания нужен вход в GitHub. Выбирай артефакт по процессору Mac. Воспроизведение видео и фактическая доступность субтитров всё ещё требуют ручной проверки.<br>
+These are temporary unsigned CI archives, not a public release; GitHub sign-in is required to download them. Choose the artifact that matches the Mac processor. Video playback and actual subtitle availability still require hands-on verification.<br>
 
 Если GitHub CLI установлен и авторизован, команда скачает и попробует открыть текущую beta для MacBook Air M1. Архив неподписан: если Gatekeeper остановит запуск, в Finder нажми Control-клик по `ColiDev.app` → «Открыть» → «Открыть».
 
 ```sh
-mkdir -p "$HOME/Downloads/ColiDev-ci-39510714430" && gh run download 39510714430 -R invinby/coli-dev -n ColiDev-macos-15-arm64 -D "$HOME/Downloads/ColiDev-ci-39510714430" && ditto -x -k "$HOME/Downloads/ColiDev-ci-39510714430/ColiDev-arm64.zip" "$HOME/Downloads/ColiDev-ci-39510714430" && open "$HOME/Downloads/ColiDev-ci-39510714430/ColiDev.app"
+gh run list -R invinby/coli-dev --workflow ci.yml --limit 5
 ```
+
+Затем возьми ID последнего зелёного запуска и подходящую команду: `gh run download RUN_ID -R invinby/coli-dev -n ColiDev-macos-15-intel-x86_64` для Intel или `gh run download RUN_ID -R invinby/coli-dev -n ColiDev-macos-15-arm64` для Apple Silicon.<br>
+Then use the latest successful run ID and the matching command: `gh run download RUN_ID -R invinby/coli-dev -n ColiDev-macos-15-intel-x86_64` for Intel or `gh run download RUN_ID -R invinby/coli-dev -n ColiDev-macos-15-arm64` for Apple Silicon.
 
 ## Предыдущий опубликованный релиз: Beta 7 / Previous published release: Beta 7
 
-Это более старая beta. Для текущего тестирования используй только arm64-архивы из последнего CI выше. Если в истории GitHub Actions встретится архив `x86_64`, не скачивай его: это устаревший исторический артефакт, Intel Mac проектом не поддерживаются. / This is an older beta. For current testing, use only the arm64 archives from the latest CI above. If you see an `x86_64` archive in GitHub Actions history, do not download it: it is a legacy artifact, and Intel Macs are unsupported.<br>
+Это более старая beta. Для текущего тестирования используй только архитектурный артефакт из нового зелёного CI выше. Старый исторический `x86_64` архив не используй — он собран до текущей проверки Intel-совместимости. / This is an older beta. For current testing, use only an architecture-specific artifact from a new green CI run. Do not use the old historical `x86_64` archive; it predates current Intel compatibility checks.<br>
 
 [Страница Beta 7 / Beta 7 release page](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.7) · [Apple Silicon ZIP](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.7/ColiDev-beta-AppleSilicon.zip)
 
@@ -42,7 +43,7 @@ Extract the archive and move `ColiDev.app` to Applications. If Gatekeeper warns,
 
 ## Previous verified code build / Предыдущая проверенная сборка кода
 
-**Historical CI / Исторический CI:** GitHub Actions run [38169754953](https://github.com/invinby/coli-dev/actions/runs/38169754953) passed for code commit `fcc772d`: 506 backend tests, Swift verifiers, app/backend packaging and smoke checks, and curriculum checks on macOS 15 ARM, macOS 26 ARM, and macOS 26 Intel. All 53 curriculum routes resolved. The statistics lab explains a prediction using the current maximum and upper fence, lets the learner reveal an explanation or retry, clears stale feedback after changes, and records attempts. This old run also created an Intel artifact; **that artifact is obsolete and is not a supported or downloadable target**. Current CI and releases target Apple Silicon only. / **Исторический CI:** GitHub Actions [38169754953](https://github.com/invinby/coli-dev/actions/runs/38169754953) прошёл для коммита `fcc772d`: 506 backend-тестов, Swift-проверки, упаковка app/backend и smoke-проверки, проверка ресурсов на macOS 15 ARM, macOS 26 ARM и macOS 26 Intel. Разрешились все 53 маршрута курса. Тренажёр статистики объясняет прогноз через текущий максимум и верхнюю границу, даёт открыть разбор или повторить попытку, очищает устаревшую обратную связь после изменения параметров и сохраняет попытки. Старый запуск создал Intel-архив; **он устарел и не является поддерживаемой или доступной для тестирования целью**. Текущие CI и релизы предназначены только для Apple Silicon.<br>
+**Historical CI / Исторический CI:** GitHub Actions run [38169754953](https://github.com/invinby/coli-dev/actions/runs/38169754953) passed for code commit `fcc772d`: 506 backend tests, Swift verifiers, app/backend packaging and smoke checks, and curriculum checks on macOS 15 ARM, macOS 26 ARM, and macOS 26 Intel. All 53 curriculum routes resolved. The statistics lab explains a prediction using the current maximum and upper fence, lets the learner reveal an explanation or retry, clears stale feedback after changes, and records attempts. That old Intel archive is obsolete; use a new artifact from the current architecture-specific CI matrix. / **Исторический CI:** GitHub Actions [38169754953](https://github.com/invinby/coli-dev/actions/runs/38169754953) прошёл для коммита `fcc772d`: 506 backend-тестов, Swift-проверки, упаковка app/backend и smoke-проверки, проверка ресурсов на macOS 15 ARM, macOS 26 ARM и macOS 26 Intel. Разрешились все 53 маршрута курса. Тренажёр статистики объясняет прогноз через текущий максимум и верхнюю границу, даёт открыть разбор или повторить попытку, очищает устаревшую обратную связь после изменения параметров и сохраняет попытки. Старый Intel-архив устарел; используй новый артефакт из актуального CI с проверками обеих архитектур.<br>
 
 These CI artifacts are unsigned test builds, not a published release. CI verifies compilation and bundled-backend smoke checks; running the app and checking its real UI and model routes on a Mac still requires hands-on acceptance.<br>
 Эти тестовые архивы CI не подписаны и не являются опубликованным релизом. CI проверяет компиляцию и запуск встроенного сервера, но само приложение, его интерфейс и реальные ответы моделей всё ещё нужно вручную проверить на Mac.
@@ -253,8 +254,8 @@ python -m pip install -r requirements-test.txt
 python -m pytest 01_Projects -q
 ~~~
 
-Automated tests use mocked providers and do not spend API credits or confirm live-provider access. Current GitHub Actions builds are Apple Silicon `arm64` only and smoke-check the packaged backend; older historical CI runs may mention Intel, which is not a supported target. CI does not replace hands-on acceptance on a physical Apple Silicon Mac.<br>
-В автоматических тестах используются заглушки провайдеров; они не расходуют API-кредиты и не подтверждают доступ к реальным моделям. Текущие сборки GitHub Actions предназначены только для Apple Silicon `arm64` и проверяют упакованный сервер; Intel может встречаться в старых исторических отчётах CI, но не поддерживается. CI не заменяет ручную проверку на физическом Mac с Apple Silicon.
+Automated tests use mocked providers and do not spend API credits or confirm live-provider access. The CI matrix is being expanded to build and smoke-check matching `arm64` and `x86_64` app/backend bundles; Intel compatibility is pending the green Intel runner job. CI does not replace hands-on acceptance on a physical Mac.<br>
+В автоматических тестах используются заглушки провайдеров; они не расходуют API-кредиты и не подтверждают доступ к реальным моделям. Матрица CI расширяется для сборки и smoke-проверки согласованных пакетов `arm64` и `x86_64`; совместимость Intel подтверждается только после зелёного задания на Intel-runner. CI не заменяет ручную проверку на физическом Mac.
 
 ## Privacy and cost / Приватность и расходы
 
