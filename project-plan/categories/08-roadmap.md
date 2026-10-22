@@ -1,5 +1,13 @@
 # 08. Этапы реализации
 
+## Текущий статус beta 9 / Current Beta 9 status — 2026-10-23
+
+**RU:** ColiDev 0.1.0 Beta 9 опубликована для Mac-тестирования из commit `795d5e0`; полный CI run [39674644037](https://github.com/invinby/coli-dev/actions/runs/39674644037) зелёный для backend, macOS 15 Apple Silicon, macOS 15 Intel и macOS 26 Apple Silicon. Архивы доступны публично: [Apple Silicon](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.9/ColiDev-beta-AppleSilicon.zip) и [Intel](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.9/ColiDev-beta-Intel.zip). Исправлен app identity во встроенном YouTube-плеере. Фактическое воспроизведение/субтитры и запуск на пользовательском Mac ещё не проверены. Архивы unsigned/notarized не являются; Sparkle auto-update выключен. PR #5 остаётся Draft.
+
+**EN:** ColiDev 0.1.0 Beta 9 is published for Mac testing from commit `795d5e0`; full CI run [39674644037](https://github.com/invinby/coli-dev/actions/runs/39674644037) passed for the backend, macOS 15 Apple Silicon, macOS 15 Intel, and macOS 26 Apple Silicon. Public downloads: [Apple Silicon](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.9/ColiDev-beta-AppleSilicon.zip) and [Intel](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.9/ColiDev-beta-Intel.zip). The embedded YouTube app identity is fixed. Actual playback/captions and launch on the user's Mac are still unverified. Archives are not signed/notarized; Sparkle auto-update is disabled. PR #5 remains Draft.
+
+Entries below are dated implementation snapshots; use the current status above for the latest beta. / Записи ниже — снимки этапов на свои даты; актуальная beta описана выше.
+
 ## P0 — текущий приоритет Cause & Corse / Current Cause & Corse priority — 2026-10-19
 
 **RU:** Приоритеты выстроены по ценности для цели «стать создателем новых технологий»: сначала фундаментальные способы думать и строить, затем науки о природе и интеллекте. В приложении уже есть последовательность математика → научное мышление → Python → CS50x → физика → биология/зоология → машинное обучение → мозг/нейронаука/когнитивистика → собственные проекты. Каждый этап предлагает небольшой результат. Первый шаг — математика, затем Python; не распыляемся на поверхностные курсы по всем предметам сразу.
