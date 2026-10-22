@@ -1506,7 +1506,7 @@ enum L10n {
         "updates.empty": ("Опубликованных версий пока нет.", "There are no published releases yet."),
         "updates.manualHelp": ("Скачивание откроется в браузере. Распакуй архив, перетащи ColiDev.app в «Программы» и подтверди замену. Учебный прогресс хранится отдельно от приложения.", "The download opens in your browser. Extract the archive, move ColiDev.app to Applications, and confirm replacement. Learning progress is stored separately from the app."),
         "updates.download": ("Скачать сборку для этого Mac", "Download build for this Mac"),
-        "updates.noBuild": ("Для этой версии нет архива для Mac с чипом M.", "This release has no build for a Mac with an M-series chip."),
+        "updates.noBuild": ("Для этой версии нет архива для архитектуры этого Mac.", "This release has no archive for this Mac architecture."),
         "updates.github": ("Открыть страницу версии на GitHub", "Open release page on GitHub"),
         "updates.beta": ("Тестовая версия", "Pre-release"),
         "updates.unknownVersion": ("Версия не указана", "Version unavailable"),

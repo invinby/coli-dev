@@ -31,6 +31,31 @@ final class ManagementUITests: XCTestCase {
     }
 
     @MainActor
+    func testReleaseCatalogOffersBetaArchiveForCurrentMacArchitecture() async throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let settingsItem = app.staticTexts["sidebar.settings"]
+        XCTAssertTrue(settingsItem.waitForExistence(timeout: 15))
+        settingsItem.click()
+
+        let release = app.descendants(matching: .any)["settings.updates.release.v0.1.0-beta.9"]
+        XCTAssertTrue(
+            release.waitForExistence(timeout: 30),
+            "The published Beta 9 release must appear in the catalog. / Опубликованная Beta 9 должна отображаться в каталоге.")
+
+        let settingsScrollView = app.windows.firstMatch.scrollViews.element(boundBy: 1)
+        XCTAssertTrue(settingsScrollView.waitForExistence(timeout: 5))
+        scrollUntilHittable(release, in: settingsScrollView)
+        release.click()
+
+        let download = app.links["settings.updates.download.v0.1.0-beta.9"]
+        XCTAssertTrue(
+            download.waitForExistence(timeout: 10),
+            "The catalog must expose the archive for the running Mac architecture. / Каталог должен показывать архив для архитектуры этого Mac.\n\(app.debugDescription)")
+    }
+
+    @MainActor
     func testSettingsExplainsOrchestratorIsNotTheSelectedModel() async throws {
         let app = XCUIApplication()
         app.launch()
