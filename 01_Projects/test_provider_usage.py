@@ -7,6 +7,7 @@ from decimal import Decimal
 import json
 from pathlib import Path
 import sys
+import threading
 
 import httpx
 import pytest
@@ -307,6 +308,43 @@ def test_cloud_call_budget_is_atomic_under_concurrent_requests(tmp_path):
 
     assert sum(result["allowed"] for result in results) == 5
     assert store.cloud_call_status(5) == {"used": 5, "limit": 5, "remaining": 0}
+
+
+def test_cloud_call_reservation_uses_time_after_entering_the_serialized_section(tmp_path):
+    older_request_captured_time = threading.Event()
+    newer_request_captured_time = threading.Event()
+    release_older_request = threading.Event()
+    earlier = datetime(2026, 10, 5, 12, 0, 0, tzinfo=timezone.utc)
+    later = datetime(2026, 10, 5, 12, 0, 1, tzinfo=timezone.utc)
+
+    def clock():
+        if threading.current_thread().name.endswith("_0"):
+            older_request_captured_time.set()
+            assert release_older_request.wait(timeout=5)
+            return earlier
+        newer_request_captured_time.set()
+        return later
+
+    store = ProviderUsageStore(tmp_path / "usage.sqlite3", clock=clock)
+    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="cloud-budget") as executor:
+        older_request = executor.submit(
+            store.reserve_cloud_call, "openrouter", "older", 1
+        )
+        assert older_request_captured_time.wait(timeout=2)
+
+        newer_request = executor.submit(
+            store.reserve_cloud_call, "openrouter", "newer", 1
+        )
+        # Before the fix, timestamps were captured outside the lock, allowing this
+        # later request to reserve first while the older timestamp was waiting.
+        if newer_request_captured_time.wait(timeout=1):
+            assert newer_request.result(timeout=2)["allowed"] is True
+
+        release_older_request.set()
+        results = [older_request.result(timeout=3), newer_request.result(timeout=3)]
+
+    assert sum(result["allowed"] for result in results) == 1
+    assert store.cloud_call_status(1) == {"used": 1, "limit": 1, "remaining": 0}
 
 
 def test_cloud_call_budget_resets_at_next_utc_day(tmp_path):

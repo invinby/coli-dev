@@ -239,10 +239,13 @@ class ProviderUsageStore:
             raise ValueError("unsupported cloud provider")
         if isinstance(daily_limit, bool) or not isinstance(daily_limit, int) or daily_limit < 0:
             raise ValueError("daily_limit must be a non-negative integer")
-        now = self._now()
-        start_text = _timestamp(now.replace(hour=0, minute=0, second=0, microsecond=0))
         with self._lock, self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
+            # Capture the time only after acquiring both the in-process lock and
+            # SQLite's write lock. Otherwise an older timestamp can wait while a
+            # newer request commits first, hiding that attempt from the daily count.
+            now = self._now()
+            start_text = _timestamp(now.replace(hour=0, minute=0, second=0, microsecond=0))
             self._prune(connection, now=now)
             used = int(connection.execute(
                 "SELECT COUNT(*) FROM cloud_call_attempts WHERE occurred_at >= ? AND occurred_at <= ?",
