@@ -550,8 +550,8 @@ final class ManagementUITests: XCTestCase {
         if markWatched.exists && markWatched.isHittable {
             markWatched.click()
         }
-        XCTAssertTrue(app.staticTexts["lesson.video.after"].waitForExistence(timeout: 5))
-        XCTAssertTrue(response.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts["lesson.video.after"].exists)
+        XCTAssertFalse(response.exists)
 
         let videoLink = app.links["lesson.video.open"]
         XCTAssertTrue(
@@ -595,6 +595,10 @@ final class ManagementUITests: XCTestCase {
         if markWatched.exists && markWatched.isHittable {
             markWatched.click()
         }
+
+        let knowledgeAnswer = app.buttons["lesson.check.option.0"]
+        scrollUntilHittable(knowledgeAnswer, in: scrollView)
+        knowledgeAnswer.click()
 
         let response = app.descendants(matching: .any)["lesson.video.response"]
         XCTAssertTrue(response.waitForExistence(timeout: 10))
@@ -651,17 +655,8 @@ final class ManagementUITests: XCTestCase {
         if markWatched.exists && markWatched.isHittable {
             markWatched.click()
         }
-        XCTAssertTrue(app.staticTexts["lesson.video.after"].waitForExistence(timeout: 5))
-
-        let response = app.descendants(matching: .any)["lesson.video.response"]
-        XCTAssertTrue(response.waitForExistence(timeout: 10))
-        scrollUntilHittable(response, in: lessonScrollView)
-
-        let draft = "I predict 15 N is below the static-friction threshold."
-        response.click()
-        response.typeKey("a", modifierFlags: .command)
-        response.typeText(draft)
-        XCTAssertEqual(response.value as? String, draft)
+        XCTAssertFalse(app.staticTexts["lesson.video.after"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["lesson.video.response"].exists)
 
         let pushSlider = app.sliders["lesson.friction.slider.push"]
         scrollUntilHittable(pushSlider, in: lessonScrollView)
@@ -716,6 +711,17 @@ final class ManagementUITests: XCTestCase {
             || knowledgeFeedbackText.localizedCaseInsensitiveContains("correct"),
             "The lesson check must accept the correct answer. / Проверочный вопрос урока должен принять правильный ответ.\n\(app.debugDescription)")
 
+        let response = app.descendants(matching: .any)["lesson.video.response"]
+        XCTAssertTrue(app.staticTexts["lesson.video.after"].waitForExistence(timeout: 5))
+        XCTAssertTrue(response.waitForExistence(timeout: 10))
+        XCTAssertLessThan(knowledgeAnswer.frame.midY, response.frame.midY)
+        scrollUntilHittable(response, in: lessonScrollView)
+        let draft = "I predict 15 N is below the static-friction threshold."
+        response.click()
+        response.typeKey("a", modifierFlags: .command)
+        response.typeText(draft)
+        XCTAssertEqual(response.value as? String, draft)
+
         let learnerConfirmation = app.descendants(matching: .any)["lesson.completion.confirmed"]
         scrollUntilHittable(learnerConfirmation, in: lessonScrollView)
         learnerConfirmation.click()
@@ -751,6 +757,10 @@ final class ManagementUITests: XCTestCase {
         if restoredMarkWatched.exists && restoredMarkWatched.isHittable {
             restoredMarkWatched.click()
         }
+
+        let restoredKnowledgeAnswer = app.buttons["lesson.check.option.0"]
+        scrollUntilHittable(restoredKnowledgeAnswer, in: app.windows.firstMatch.scrollViews.element(boundBy: 1))
+        restoredKnowledgeAnswer.click()
 
         let restoredResponse = app.descendants(matching: .any)["lesson.video.response"]
         XCTAssertTrue(restoredResponse.waitForExistence(timeout: 10))

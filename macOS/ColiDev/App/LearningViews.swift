@@ -400,8 +400,8 @@ private struct CurriculumLessonVideoCard: View {
     let tint: Color
     let language: AppLanguage
     @Binding var reflection: String
+    @Binding var hasConfirmedWatching: Bool
     @State private var hasConsentedToYouTube = false
-    @State private var hasConfirmedWatching = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -485,27 +485,6 @@ private struct CurriculumLessonVideoCard: View {
                 .accessibilityIdentifier("lesson.video.markWatched")
             }
 
-            if hasConfirmedWatching {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(L10n.text("lesson.video.afterLabel", language))
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(tint)
-                    Text(activity.afterWatching)
-                        .font(.callout)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityIdentifier("lesson.video.after")
-
-                    TextField(L10n.text("lesson.video.responsePlaceholder", language), text: $reflection, axis: .vertical)
-                        .textFieldStyle(.roundedBorder)
-                        .lineLimit(2...4)
-                        .accessibilityIdentifier("lesson.video.response")
-                        .onChange(of: reflection) { value in
-                            if value.unicodeScalars.count > 500 {
-                                reflection = String(String.UnicodeScalarView(value.unicodeScalars.prefix(500)))
-                            }
-                        }
-                }
-            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
@@ -621,6 +600,7 @@ struct CurriculumModuleView: View {
     @State private var showingTutor = false
     @State private var learnerConfirmed = false
     @State private var reflection = ""
+    @State private var hasConfirmedWatching = false
     @State private var recallQuality = 4
     @State private var checkAttempt: CurriculumCheckAttempt?
     @State private var selectedErrorCategory = ""
@@ -667,8 +647,38 @@ struct CurriculumModuleView: View {
                 activity: activity,
                 tint: subject.tint,
                 language: store.language,
-                reflection: $reflection
+                reflection: $reflection,
+                hasConfirmedWatching: $hasConfirmedWatching
             )
+        }
+    }
+
+    @ViewBuilder
+    private var postVideoReflectionContent: some View {
+        if let activity = document?.videoActivity, hasConfirmedWatching {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(L10n.text("lesson.video.afterLabel", store.language))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(subject.tint)
+                Text(activity.afterWatching)
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("lesson.video.after")
+
+                TextField(L10n.text("lesson.video.responsePlaceholder", store.language), text: $reflection, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .lineLimit(2...4)
+                    .accessibilityIdentifier("lesson.video.response")
+                    .onChange(of: reflection) { value in
+                        if value.unicodeScalars.count > 500 {
+                            reflection = String(String.UnicodeScalarView(value.unicodeScalars.prefix(500)))
+                        }
+                    }
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+            .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(subject.tint.opacity(0.25), lineWidth: 1))
         }
     }
 
@@ -815,6 +825,8 @@ struct CurriculumModuleView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
                     }
+
+                    postVideoReflectionContent
 
                     if !document.limitations.isEmpty {
                         ModuleTextCard(title: L10n.text("session.limitations", store.language), text: document.limitations, tint: subject.tint)
