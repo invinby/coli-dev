@@ -511,13 +511,10 @@ final class ManagementUITests: XCTestCase {
             "The lesson did not render its source-backed video activity. / В уроке не появилась видеоактивность с указанным источником.\n\(app.debugDescription)"
         )
         XCTAssertTrue(app.staticTexts["lesson.video.before"].exists)
-        XCTAssertTrue(app.staticTexts["lesson.video.after"].exists)
+        XCTAssertFalse(app.staticTexts["lesson.video.after"].exists)
 
         let response = app.descendants(matching: .any)["lesson.video.response"]
-        XCTAssertTrue(
-            response.waitForExistence(timeout: 10),
-            "The post-video prompt must accept a learner response that can be saved with lesson progress. / После просмотра ученик должен иметь возможность записать ответ вместе с прогрессом урока.\n\(app.debugDescription)"
-        )
+        XCTAssertFalse(response.exists, "The response must stay hidden until the learner confirms watching. / Ответ должен быть скрыт, пока ученик не подтвердит просмотр.\n\(app.debugDescription)")
 
         XCTAssertTrue(
             app.staticTexts["lesson.video.privacyNotice"].exists,
@@ -527,6 +524,7 @@ final class ManagementUITests: XCTestCase {
             app.descendants(matching: .any)["lesson.video.player"].exists,
             "The player must not load before the learner grants consent. / Плеер не должен загружаться до согласия ученика.\n\(app.debugDescription)"
         )
+        XCTAssertFalse(app.buttons["lesson.video.markWatched"].exists)
 
         let enablePlayback = app.buttons["lesson.video.enablePlayback"]
         XCTAssertTrue(
@@ -545,6 +543,15 @@ final class ManagementUITests: XCTestCase {
             app.descendants(matching: .any)["lesson.video.player"].waitForExistence(timeout: 10),
             "The lesson must reveal an embedded player after consent. / После согласия в уроке должен появиться встроенный плеер.\n\(app.debugDescription)"
         )
+
+        let markWatched = app.buttons["lesson.video.markWatched"]
+        XCTAssertTrue(markWatched.waitForExistence(timeout: 10))
+        markWatched.click()
+        if markWatched.exists && markWatched.isHittable {
+            markWatched.click()
+        }
+        XCTAssertTrue(app.staticTexts["lesson.video.after"].waitForExistence(timeout: 5))
+        XCTAssertTrue(response.waitForExistence(timeout: 10))
 
         let videoLink = app.links["lesson.video.open"]
         XCTAssertTrue(
@@ -576,6 +583,19 @@ final class ManagementUITests: XCTestCase {
         )
         XCTAssertFalse((copyStatus.value as? String ?? "").isEmpty)
 
+        let consentButton = app.buttons["lesson.video.enablePlayback"]
+        scrollUntilHittable(consentButton, in: scrollView)
+        consentButton.click()
+        if consentButton.exists && consentButton.isHittable {
+            consentButton.click()
+        }
+        let markWatched = app.buttons["lesson.video.markWatched"]
+        scrollUntilHittable(markWatched, in: scrollView)
+        markWatched.click()
+        if markWatched.exists && markWatched.isHittable {
+            markWatched.click()
+        }
+
         let response = app.descendants(matching: .any)["lesson.video.response"]
         XCTAssertTrue(response.waitForExistence(timeout: 10))
         scrollUntilHittable(response, in: scrollView, deltaY: 140)
@@ -605,8 +625,10 @@ final class ManagementUITests: XCTestCase {
         XCTAssertLessThan(videoTitle.frame.midY, modelHint.frame.midY)
         XCTAssertTrue(app.staticTexts["lesson.video.captionHelp"].exists)
         XCTAssertTrue(app.staticTexts["lesson.video.before"].exists)
-        XCTAssertTrue(app.staticTexts["lesson.video.after"].exists)
+        XCTAssertFalse(app.staticTexts["lesson.video.after"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["lesson.video.response"].exists)
         XCTAssertTrue(app.staticTexts["lesson.video.privacyNotice"].exists)
+        XCTAssertFalse(app.buttons["lesson.video.markWatched"].exists)
         XCTAssertFalse(app.descendants(matching: .any)["lesson.video.player"].exists)
         XCTAssertTrue(app.links["lesson.video.open"].label.localizedCaseInsensitiveContains("Khan Academy"))
 
@@ -621,9 +643,18 @@ final class ManagementUITests: XCTestCase {
             "The embedded video must load only after explicit consent. / Встроенное видео должно загрузиться только после явного согласия.\n\(app.debugDescription)"
         )
 
+        let markWatched = app.buttons["lesson.video.markWatched"]
+        XCTAssertTrue(markWatched.waitForExistence(timeout: 10))
+        let lessonScrollView = app.windows.firstMatch.scrollViews.element(boundBy: 1)
+        scrollUntilHittable(markWatched, in: lessonScrollView)
+        markWatched.click()
+        if markWatched.exists && markWatched.isHittable {
+            markWatched.click()
+        }
+        XCTAssertTrue(app.staticTexts["lesson.video.after"].waitForExistence(timeout: 5))
+
         let response = app.descendants(matching: .any)["lesson.video.response"]
         XCTAssertTrue(response.waitForExistence(timeout: 10))
-        let lessonScrollView = app.windows.firstMatch.scrollViews.element(boundBy: 1)
         scrollUntilHittable(response, in: lessonScrollView)
 
         let draft = "I predict 15 N is below the static-friction threshold."
@@ -707,6 +738,19 @@ final class ManagementUITests: XCTestCase {
 
         app.terminate()
         app.launch()
+
+        let restoredConsent = app.buttons["lesson.video.enablePlayback"]
+        XCTAssertTrue(restoredConsent.waitForExistence(timeout: 10))
+        restoredConsent.click()
+        if restoredConsent.exists && restoredConsent.isHittable {
+            restoredConsent.click()
+        }
+        let restoredMarkWatched = app.buttons["lesson.video.markWatched"]
+        XCTAssertTrue(restoredMarkWatched.waitForExistence(timeout: 10))
+        restoredMarkWatched.click()
+        if restoredMarkWatched.exists && restoredMarkWatched.isHittable {
+            restoredMarkWatched.click()
+        }
 
         let restoredResponse = app.descendants(matching: .any)["lesson.video.response"]
         XCTAssertTrue(restoredResponse.waitForExistence(timeout: 10))

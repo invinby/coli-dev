@@ -401,6 +401,7 @@ private struct CurriculumLessonVideoCard: View {
     let language: AppLanguage
     @Binding var reflection: String
     @State private var hasConsentedToYouTube = false
+    @State private var hasConfirmedWatching = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -472,24 +473,38 @@ private struct CurriculumLessonVideoCard: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("lesson.video.captionHelp")
 
-            VStack(alignment: .leading, spacing: 5) {
-                Text(L10n.text("lesson.video.afterLabel", language))
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(tint)
-                Text(activity.afterWatching)
-                    .font(.callout)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("lesson.video.after")
-
-                TextField(L10n.text("lesson.video.responsePlaceholder", language), text: $reflection, axis: .vertical)
-                    .textFieldStyle(.roundedBorder)
-                    .lineLimit(2...4)
-                    .accessibilityIdentifier("lesson.video.response")
-                    .onChange(of: reflection) { value in
-                        if value.unicodeScalars.count > 500 {
-                            reflection = String(String.UnicodeScalarView(value.unicodeScalars.prefix(500)))
-                        }
+            if !hasConfirmedWatching && (activity.youtubeVideoID == nil || hasConsentedToYouTube) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        hasConfirmedWatching = true
                     }
+                } label: {
+                    Label(L10n.text("lesson.video.markWatched", language), systemImage: "checkmark.circle.fill")
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("lesson.video.markWatched")
+            }
+
+            if hasConfirmedWatching {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(L10n.text("lesson.video.afterLabel", language))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(tint)
+                    Text(activity.afterWatching)
+                        .font(.callout)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("lesson.video.after")
+
+                    TextField(L10n.text("lesson.video.responsePlaceholder", language), text: $reflection, axis: .vertical)
+                        .textFieldStyle(.roundedBorder)
+                        .lineLimit(2...4)
+                        .accessibilityIdentifier("lesson.video.response")
+                        .onChange(of: reflection) { value in
+                            if value.unicodeScalars.count > 500 {
+                                reflection = String(String.UnicodeScalarView(value.unicodeScalars.prefix(500)))
+                            }
+                        }
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

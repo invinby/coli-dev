@@ -210,6 +210,7 @@ enum L10n {
         "lesson.video.afterLabel": ("После просмотра", "After watching"),
         "lesson.video.open": ("Открыть Khan Academy и транскрипт", "Open Khan Academy and transcript"),
         "lesson.video.enablePlayback": ("Загрузить плеер YouTube", "Load YouTube player"),
+        "lesson.video.markWatched": ("Я посмотрел — открыть вопрос", "I finished watching — show question"),
         "lesson.video.privacyNotice": ("Плеер загрузится только после нажатия. При загрузке YouTube получает базовые технические данные, а при воспроизведении — дополнительные. Видео не скачивается и не попадает в RAG.", "The player loads only after you click. YouTube receives basic technical data when the player loads and additional data during playback. ColiDev does not download the video or add it to RAG."),
         "lesson.video.googlePrivacy": ("Политика конфиденциальности Google", "Google Privacy Policy"),
         "lesson.video.attribution": ("Видео: Khan Academy / Sal Khan. Примечание: весь контент Khan Academy доступен бесплатно на www.khanacademy.org.", "Video: Khan Academy / Sal Khan. Note: All Khan Academy content is available for free at www.khanacademy.org."),
