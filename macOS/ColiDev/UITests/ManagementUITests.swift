@@ -808,14 +808,20 @@ final class ManagementUITests: XCTestCase {
     @MainActor
     private func scrollUntilHittable(
         _ element: XCUIElement,
-        in scrollView: XCUIElement,
-        deltaY: CGFloat = -140
+        in scrollView: XCUIElement
     ) {
         // The left inset is outside the full-width WKWebView player, so the lesson scroll view receives the wheel.
         let lessonScrollPoint = scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.9))
         for _ in 0..<64 {
             if element.isHittable { return }
-            lessonScrollPoint.scroll(byDeltaX: 0, deltaY: deltaY)
+
+            // Scroll toward the element. A fixed negative wheel delta pushed content above the
+            // viewport farther away when the lesson opens focused on a lower practice section.
+            let elementFrame = element.frame
+            let scrollFrame = scrollView.frame
+            let elementIsAboveViewport = elementFrame.maxY < scrollFrame.minY
+            let direction: CGFloat = elementIsAboveViewport ? 140 : -140
+            lessonScrollPoint.scroll(byDeltaX: 0, deltaY: direction)
         }
         XCTAssertTrue(element.isHittable, "Expected control to become visible after scrolling. / Элемент должен появиться после прокрутки.\n\(element.debugDescription)")
     }
