@@ -602,7 +602,7 @@ final class ManagementUITests: XCTestCase {
 
         let response = app.descendants(matching: .any)["lesson.video.response"]
         XCTAssertTrue(response.waitForExistence(timeout: 10))
-        scrollUntilHittable(response, in: scrollView, deltaY: 140)
+        scrollUntilHittable(response, in: scrollView)
         response.click()
         response.typeKey("a", modifierFlags: .command)
         response.typeKey("v", modifierFlags: .command)
@@ -753,13 +753,15 @@ final class ManagementUITests: XCTestCase {
         }
         let restoredMarkWatched = app.buttons["lesson.video.markWatched"]
         XCTAssertTrue(restoredMarkWatched.waitForExistence(timeout: 10))
+        let restoredLessonScrollView = app.windows.firstMatch.scrollViews.element(boundBy: 1)
+        scrollUntilHittable(restoredMarkWatched, in: restoredLessonScrollView)
         restoredMarkWatched.click()
         if restoredMarkWatched.exists && restoredMarkWatched.isHittable {
             restoredMarkWatched.click()
         }
 
         let restoredKnowledgeAnswer = app.buttons["lesson.check.option.0"]
-        scrollUntilHittable(restoredKnowledgeAnswer, in: app.windows.firstMatch.scrollViews.element(boundBy: 1))
+        scrollUntilHittable(restoredKnowledgeAnswer, in: restoredLessonScrollView)
         restoredKnowledgeAnswer.click()
 
         let restoredResponse = app.descendants(matching: .any)["lesson.video.response"]
@@ -796,12 +798,17 @@ final class ManagementUITests: XCTestCase {
         in scrollView: XCUIElement,
         deltaY: CGFloat = -140
     ) {
-        // Keep the wheel over the lesson's empty right gutter. The centered ScrollView gesture
-        // lands on the embedded WKWebView and scrolls the player instead of the lesson.
-        let lessonScrollPoint = scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.94, dy: 0.9))
+        // Drag in the lesson's empty right gutter so the gesture scrolls the page, not WKWebView.
+        let lowerGutter = scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.94, dy: 0.88))
+        let upperGutter = scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.94, dy: 0.22))
+        let scrollsDownPage = deltaY < 0
         for _ in 0..<64 {
             if element.isHittable { return }
-            lessonScrollPoint.scroll(byDeltaX: 0, deltaY: deltaY)
+            if scrollsDownPage {
+                lowerGutter.press(forDuration: 0.05, thenDragTo: upperGutter)
+            } else {
+                upperGutter.press(forDuration: 0.05, thenDragTo: lowerGutter)
+            }
         }
         XCTAssertTrue(element.isHittable, "Expected control to become visible after scrolling. / Элемент должен появиться после прокрутки.\n\(element.debugDescription)")
     }

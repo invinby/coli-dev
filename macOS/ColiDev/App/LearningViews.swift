@@ -655,7 +655,9 @@ struct CurriculumModuleView: View {
 
     @ViewBuilder
     private var postVideoReflectionContent: some View {
-        if let activity = document?.videoActivity, hasConfirmedWatching {
+        if let activity = document?.videoActivity,
+           hasConfirmedWatching,
+           checkAttempt?.hasAnswered == true {
             VStack(alignment: .leading, spacing: 8) {
                 Text(L10n.text("lesson.video.afterLabel", store.language))
                     .font(.caption.weight(.semibold))
