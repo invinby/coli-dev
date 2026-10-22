@@ -1000,6 +1000,7 @@ struct CurriculumModuleView: View {
             .frame(maxWidth: 900, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .center)
         }
+        .accessibilityIdentifier("lesson.scrollView")
         .onChange(of: document?.title) { title in
             guard title != nil, focusPracticeOnOpen else { return }
             DispatchQueue.main.async {

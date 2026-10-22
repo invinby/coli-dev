@@ -504,6 +504,9 @@ final class ManagementUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchEnvironment["COLIDEV_UI_TEST_FRICTION_LESSON"] = "1"
         app.launch()
+        app.activate()
+        let lessonScrollView = app.scrollViews["lesson.scrollView"]
+        XCTAssertTrue(lessonScrollView.waitForExistence(timeout: 5))
 
         let videoTitle = app.staticTexts["lesson.video.title"]
         XCTAssertTrue(
@@ -531,6 +534,7 @@ final class ManagementUITests: XCTestCase {
             enablePlayback.waitForExistence(timeout: 10),
             "Playback must require a deliberate user action after the privacy notice. / Воспроизведение должно начинаться только после явного действия пользователя и предупреждения о приватности.\n\(app.debugDescription)"
         )
+        scrollUntilHittable(enablePlayback, in: lessonScrollView)
         enablePlayback.click()
 
         // On macOS, the first click on an off-screen SwiftUI control may only scroll it into view.
@@ -546,6 +550,7 @@ final class ManagementUITests: XCTestCase {
 
         let markWatched = app.buttons["lesson.video.markWatched"]
         XCTAssertTrue(markWatched.waitForExistence(timeout: 10))
+        scrollUntilHittable(markWatched, in: lessonScrollView)
         markWatched.click()
         if markWatched.exists && markWatched.isHittable {
             markWatched.click()
@@ -566,8 +571,10 @@ final class ManagementUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchEnvironment["COLIDEV_UI_TEST_FRICTION_LESSON"] = "1"
         app.launch()
+        app.activate()
 
-        let scrollView = app.windows.firstMatch.scrollViews.element(boundBy: 1)
+        let scrollView = app.scrollViews["lesson.scrollView"]
+        XCTAssertTrue(scrollView.waitForExistence(timeout: 5))
         let copyButton = app.buttons["lesson.notebook.copy"]
         XCTAssertTrue(
             copyButton.waitForExistence(timeout: 10),
@@ -618,6 +625,9 @@ final class ManagementUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchEnvironment["COLIDEV_UI_TEST_FRICTION_LESSON"] = "1"
         app.launch()
+        app.activate()
+        let lessonScrollView = app.scrollViews["lesson.scrollView"]
+        XCTAssertTrue(lessonScrollView.waitForExistence(timeout: 5))
 
         let theory = app.staticTexts["lesson.theory"].firstMatch
         let videoTitle = app.staticTexts["lesson.video.title"]
@@ -638,6 +648,7 @@ final class ManagementUITests: XCTestCase {
 
         let consentButton = app.buttons["lesson.video.enablePlayback"]
         XCTAssertTrue(consentButton.waitForExistence(timeout: 10))
+        scrollUntilHittable(consentButton, in: lessonScrollView)
         consentButton.click()
         if consentButton.exists && consentButton.isHittable {
             consentButton.click()
@@ -649,7 +660,6 @@ final class ManagementUITests: XCTestCase {
 
         let markWatched = app.buttons["lesson.video.markWatched"]
         XCTAssertTrue(markWatched.waitForExistence(timeout: 10))
-        let lessonScrollView = app.windows.firstMatch.scrollViews.element(boundBy: 1)
         scrollUntilHittable(markWatched, in: lessonScrollView)
         markWatched.click()
         if markWatched.exists && markWatched.isHittable {
@@ -744,16 +754,19 @@ final class ManagementUITests: XCTestCase {
 
         app.terminate()
         app.launch()
+        app.activate()
 
         let restoredConsent = app.buttons["lesson.video.enablePlayback"]
         XCTAssertTrue(restoredConsent.waitForExistence(timeout: 10))
+        let restoredLessonScrollView = app.scrollViews["lesson.scrollView"]
+        XCTAssertTrue(restoredLessonScrollView.waitForExistence(timeout: 5))
+        scrollUntilHittable(restoredConsent, in: restoredLessonScrollView)
         restoredConsent.click()
         if restoredConsent.exists && restoredConsent.isHittable {
             restoredConsent.click()
         }
         let restoredMarkWatched = app.buttons["lesson.video.markWatched"]
         XCTAssertTrue(restoredMarkWatched.waitForExistence(timeout: 10))
-        let restoredLessonScrollView = app.windows.firstMatch.scrollViews.element(boundBy: 1)
         scrollUntilHittable(restoredMarkWatched, in: restoredLessonScrollView)
         restoredMarkWatched.click()
         if restoredMarkWatched.exists && restoredMarkWatched.isHittable {
@@ -798,17 +811,11 @@ final class ManagementUITests: XCTestCase {
         in scrollView: XCUIElement,
         deltaY: CGFloat = -140
     ) {
-        // Drag in the lesson's empty right gutter so the gesture scrolls the page, not WKWebView.
-        let lowerGutter = scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.94, dy: 0.88))
-        let upperGutter = scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.94, dy: 0.22))
-        let scrollsDownPage = deltaY < 0
+        // The left inset is outside the full-width WKWebView player, so the lesson scroll view receives the wheel.
+        let lessonScrollPoint = scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.9))
         for _ in 0..<64 {
             if element.isHittable { return }
-            if scrollsDownPage {
-                lowerGutter.press(forDuration: 0.05, thenDragTo: upperGutter)
-            } else {
-                upperGutter.press(forDuration: 0.05, thenDragTo: lowerGutter)
-            }
+            lessonScrollPoint.scroll(byDeltaX: 0, deltaY: deltaY)
         }
         XCTAssertTrue(element.isHittable, "Expected control to become visible after scrolling. / Элемент должен появиться после прокрутки.\n\(element.debugDescription)")
     }
