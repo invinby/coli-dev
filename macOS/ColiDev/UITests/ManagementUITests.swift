@@ -435,6 +435,7 @@ final class ManagementUITests: XCTestCase {
     @MainActor
     func testJourneyProjectCompletionUpdatesProgressAndSurvivesRelaunch() async throws {
         let app = XCUIApplication()
+        defer { if app.state != .notRunning { app.terminate() } }
         app.launch()
 
         let expandButton = app.buttons["journey.expand"]
@@ -569,6 +570,7 @@ final class ManagementUITests: XCTestCase {
     @MainActor
     func testNotebookLMCanReceiveTheLessonAsCopiedMarkdown() async throws {
         let app = XCUIApplication()
+        defer { if app.state != .notRunning { app.terminate() } }
         app.launchEnvironment["COLIDEV_UI_TEST_FRICTION_LESSON"] = "1"
         app.launch()
         app.activate()
@@ -836,6 +838,7 @@ final class ManagementUITests: XCTestCase {
     @MainActor
     func testMissingIntroMarkdownShowsUnavailableStateInsteadOfLegacyLesson() async throws {
         let app = XCUIApplication()
+        defer { if app.state != .notRunning { app.terminate() } }
         app.launchEnvironment["COLIDEV_UI_TEST_MISSING_INTRO_ROUTE"] = "1"
         app.launch()
 
