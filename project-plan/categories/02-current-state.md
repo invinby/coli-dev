@@ -1,5 +1,11 @@
 # 02. Текущее состояние ColiDev
 
+## Поддерживаемые Mac / Supported Macs — 2026-10-23
+
+**RU:** По решению пользователя, текущая цель — только Apple Silicon, включая старые Mac с M1. В workflow CI и Xcode выставлена архитектура `arm64`; Intel больше не собирается и не предлагается в каталоге версий. Минимальный deployment target — macOS 13, однако CI пока исполняется только на macOS 15 и 26; отдельного запуска на macOS 13/14 нет. Архив Intel, приложенный к Beta 9, остаётся историческим и не считается поддерживаемым релизом.
+
+**EN:** Per the user's decision, the current target is Apple Silicon only, including older M1 Macs. CI and Xcode target `arm64`; Intel is no longer built or offered in the version catalogue. The deployment target remains macOS 13, but CI currently runs only on macOS 15 and 26; there is no macOS 13/14 runtime job. The Intel archive attached to Beta 9 is historical and is not a supported release.
+
 ## Текущая beta 9 и статус обновлений приложения / Current beta 9 and app-update status — 2026-10-23
 
 **RU:** Опубликована тестовая [ColiDev 0.1.0 Beta 9](https://github.com/invinby/coli-dev/releases/tag/v0.1.0-beta.9) из PR #5, commit `795d5e0`. Полный GitHub Actions run [39674644037](https://github.com/invinby/coli-dev/actions/runs/39674644037) завершился успешно: backend checks и три macOS job — macOS 15 arm64, macOS 26 arm64 и macOS 15 Intel x86_64. Все прошли сборку, UI smoke, встроенный backend smoke, архитектурные проверки и упаковку. Исправлен origin и заголовок Referer встроенного YouTube-плеера: теперь они используют app identity `com.colidev.learningstudio`, а не GitHub. Архивы [Apple Silicon](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.9/ColiDev-beta-AppleSilicon.zip) и [Intel](https://github.com/invinby/coli-dev/releases/download/v0.1.0-beta.9/ColiDev-beta-Intel.zip) публичны. Реальное воспроизведение YouTube, доступность субтитров и запуск на физическом Mac пользователя всё ещё требуют ручной проверки. Приложение и архивы не подписаны Developer ID и не нотарифицированы. Sparkle auto-install остаётся отключён: `SUPublicEDKey` пустой, а appcast-файлы находятся только в незлитой ветке PR; PR #5 остаётся открытым Draft и не влит.

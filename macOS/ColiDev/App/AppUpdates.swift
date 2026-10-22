@@ -49,8 +49,6 @@ struct GitHubRelease: Decodable, Identifiable {
         let suffix: String
         #if arch(arm64)
         suffix = "AppleSilicon.zip"
-        #elseif arch(x86_64)
-        suffix = "Intel.zip"
         #else
         return nil
         #endif
