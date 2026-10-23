@@ -2630,7 +2630,7 @@ class ConsiliumEngine:
                     "Content-Type": "application/json",
                     "Accept": "text/event-stream",
                     **(
-                        {"HTTP-Referer": "https://github.com/invinby/coli-dev", "X-Title": "ColiDev"}
+                        {"HTTP-Referer": "https://github.com/mirazizmamatkulov1-create/coli-dev", "X-Title": "ColiDev"}
                         if provider == "openrouter"
                         else {}
                     ),
