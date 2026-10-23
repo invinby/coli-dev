@@ -12,6 +12,8 @@ The short profile is in the [project README](../README.md#project-profile); the 
 
 Сверка полного согласованного объёма с кодом, CI и пользовательской проверкой на Mac находится в [двуязычном аудите готовности Cause & Corse / ColiDev](WHOLE_PROJECT_AUDIT_RU_EN.md). Это статус реализации, а не список функций, которые уже все готовы. / The full scope-to-code, CI, and user-reported Mac audit is in the [bilingual Cause & Corse / ColiDev readiness audit](WHOLE_PROJECT_AUDIT_RU_EN.md). It distinguishes implemented work from the remaining scope.
 
+Передача проекта новому разработчику и Claude Code: [подробный handoff-аудит на русском](HANDOFF_TO_CLAUDE_CODE_RU_2026-10-23.md). Он фиксирует проверенный Git/CI-срез, устройство проекта, границы подтверждённых функций, нерешённые задачи и безопасный prompt для продолжения.
+
 Обновлённый статус последнего CI-run, оценка Hermes/OpenCode/OpenClaw/Freebuff и последовательный личный маршрут обучения собраны в [плане текущей задачи и обучения RU/EN](CURRENT_TASK_AND_LEARNING_PATH_RU_EN.md). Проверка конкретных Stepik-курсов, научных и визуальных ресурсов собрана в [исследовании источников и агентных инструментов](research/learning-resources-and-agent-tools-audit-2026-10-18.md). / The latest CI status, Hermes/OpenCode/OpenClaw/Freebuff assessment, and sequential personal learning route are in the [current task and learning plan RU/EN](CURRENT_TASK_AND_LEARNING_PATH_RU_EN.md). The audit of selected Stepik courses, scientific/visual resources, and agent tools is in the [learning resources and agent tools research](research/learning-resources-and-agent-tools-audit-2026-10-18.md).
 
 ## Подтверждённое направление
