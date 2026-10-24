@@ -1835,6 +1835,10 @@ private struct PracticeLab: View {
             SynapticSummationLab()
         } else if subject == .physics, moduleResource == "oscillations_and_waves" {
             PendulumLab()
+        } else if subject == .physics, moduleResource == "temperature_and_heat" {
+            HeatMixingLab()
+        } else if subject == .english, moduleResource == "short_message_to_a_friend" {
+            ShortMessageLab()
         } else {
             switch subject {
         case .mathematics:
@@ -10979,6 +10983,216 @@ private struct PendulumDrawing: View {
             let radius = 6 + 8 * CGFloat(massFraction)
             context.fill(Path(ellipseIn: CGRect(x: bob.x - radius, y: bob.y - radius, width: radius * 2, height: radius * 2)), with: .color(.accentColor))
         }
+    }
+}
+
+private struct HeatMixingLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var coldMass = 1.0
+    @State private var coldTemperature = 20.0
+    @State private var hotMass = 1.0
+    @State private var hotTemperature = 80.0
+
+    private var finalTemperature: Double {
+        HeatMixingModel.finalTemperature(
+            coldMass: coldMass,
+            coldTemperature: coldTemperature,
+            hotMass: hotMass,
+            hotTemperature: hotTemperature
+        )
+    }
+
+    private var transferredHeat: Double {
+        abs(HeatMixingModel.heat(mass: coldMass, from: coldTemperature, to: finalTemperature))
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.heat.title", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.heat.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            portionControls(titleKey: "lab.heat.first", mass: $coldMass, temperature: $coldTemperature)
+            portionControls(titleKey: "lab.heat.second", mass: $hotMass, temperature: $hotTemperature)
+
+            Text(String(format: L10n.text("lab.heat.result", store.language), finalTemperature))
+                .font(.headline.monospacedDigit())
+                .accessibilityIdentifier("lab.heat.result")
+            Text(String(format: L10n.text("lab.heat.transfer", store.language), transferredHeat / 1000))
+                .font(.callout.monospacedDigit())
+                .foregroundStyle(.secondary)
+            temperatureScale
+                .frame(height: 28)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(L10n.text("lab.heat.scale", store.language))
+                .accessibilityValue(String(format: L10n.text("lab.heat.result", store.language), finalTemperature))
+
+            Text(L10n.text("lab.heat.challenge", store.language))
+                .font(.callout)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            Text(L10n.text("lab.heat.limit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func portionControls(titleKey: String, mass: Binding<Double>, temperature: Binding<Double>) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(L10n.text(titleKey, store.language))
+                .font(.callout.weight(.semibold))
+            HStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(format: L10n.text("lab.heat.mass", store.language), mass.wrappedValue))
+                        .font(.caption.monospacedDigit())
+                    Slider(value: mass, in: HeatMixingModel.massRange, step: 0.5)
+                        .accessibilityLabel(L10n.text(titleKey, store.language) + ", " + L10n.text("lab.heat.massLabel", store.language))
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(format: L10n.text("lab.heat.temperature", store.language), temperature.wrappedValue))
+                        .font(.caption.monospacedDigit())
+                    Slider(value: temperature, in: HeatMixingModel.temperatureRange, step: 1)
+                        .accessibilityLabel(L10n.text(titleKey, store.language) + ", " + L10n.text("lab.heat.temperatureLabel", store.language))
+                }
+            }
+        }
+    }
+
+    // Markers for both starting temperatures and the mixture on a 0–100 °C scale.
+    private var temperatureScale: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(LinearGradient(colors: [.blue.opacity(0.5), .red.opacity(0.5)], startPoint: .leading, endPoint: .trailing))
+                    .frame(height: 8)
+                marker(at: coldTemperature, width: geometry.size.width, color: .secondary)
+                marker(at: hotTemperature, width: geometry.size.width, color: .secondary)
+                marker(at: finalTemperature, width: geometry.size.width, color: .accentColor)
+            }
+            .frame(maxHeight: .infinity)
+        }
+    }
+
+    private func marker(at temperature: Double, width: CGFloat, color: Color) -> some View {
+        Circle()
+            .fill(color)
+            .frame(width: 12, height: 12)
+            .offset(x: width * CGFloat(temperature / HeatMixingModel.temperatureRange.upperBound) - 6)
+    }
+}
+
+private struct ShortMessageLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var stepIndex = 0
+    @State private var selectedDisplayIndex: Int?
+    @State private var feedbackCorrect: Bool?
+    @State private var choiceOrder = AnswerChoiceOrder(optionCount: 3)
+
+    private var currentStep: ShortMessageStep? {
+        ShortMessagePractice.steps.indices.contains(stepIndex) ? ShortMessagePractice.steps[stepIndex] : nil
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.message.title", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.message.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let step = currentStep {
+                Text(String(format: L10n.text("lab.message.progress", store.language), stepIndex + 1, ShortMessagePractice.steps.count))
+                    .font(.caption.weight(.medium).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                Text(L10n.text(step.promptKey, store.language))
+                    .font(.callout.weight(.medium))
+                    .fixedSize(horizontal: false, vertical: true)
+                Picker(L10n.text("lab.message.choose", store.language), selection: $selectedDisplayIndex) {
+                    ForEach(Array(choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                        Text(L10n.text(step.optionKeys[originalIndex], store.language)).tag(displayIndex as Int?)
+                    }
+                }
+                .pickerStyle(.radioGroup)
+                .disabled(feedbackCorrect == true)
+                .accessibilityIdentifier("lab.message.options")
+
+                if feedbackCorrect == true {
+                    Button(L10n.text("lab.message.next", store.language)) { advance() }
+                        .buttonStyle(.borderedProminent)
+                } else {
+                    Button(L10n.text("lab.message.check", store.language)) { check(step) }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(selectedDisplayIndex == nil)
+                }
+
+                if let feedbackCorrect {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label(
+                            L10n.text(feedbackCorrect ? "lab.message.correct" : "lab.message.review", store.language),
+                            systemImage: feedbackCorrect ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
+                        )
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(feedbackCorrect ? .green : .orange)
+                        if feedbackCorrect {
+                            Text(L10n.text(step.explanationKey, store.language))
+                                .font(.callout)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .accessibilityIdentifier("lab.message.feedback")
+                }
+            } else {
+                Text(L10n.text("lab.message.result", store.language))
+                    .font(.callout.weight(.medium))
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(ShortMessagePractice.assembledMessageKeys, id: \.self) { key in
+                        Text(L10n.text(key, store.language))
+                    }
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                .textSelection(.enabled)
+                .accessibilityIdentifier("lab.message.assembled")
+                Button(L10n.text("lab.message.restart", store.language)) { restart() }
+            }
+
+            Text(L10n.text("lab.message.limit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func check(_ step: ShortMessageStep) {
+        guard let selectedDisplayIndex, let original = choiceOrder.originalIndex(forDisplayedIndex: selectedDisplayIndex) else { return }
+        let correct = ShortMessagePractice.isCorrect(original, stepID: step.id)
+        feedbackCorrect = correct
+        if !correct {
+            // After a wrong answer the options are reshuffled so the retry is a fresh choice.
+            choiceOrder.reshuffle()
+            self.selectedDisplayIndex = nil
+        }
+    }
+
+    private func advance() {
+        stepIndex += 1
+        selectedDisplayIndex = nil
+        feedbackCorrect = nil
+        choiceOrder = AnswerChoiceOrder(optionCount: 3)
+    }
+
+    private func restart() {
+        stepIndex = 0
+        selectedDisplayIndex = nil
+        feedbackCorrect = nil
+        choiceOrder = AnswerChoiceOrder(optionCount: 3)
     }
 }
 

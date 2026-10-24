@@ -406,6 +406,18 @@ jobs:
             -o "$RUNNER_TEMP/verify-pendulum"
           "$RUNNER_TEMP/verify-pendulum"
 
+      - name: Verify heat mixing model / Проверка модели смешивания воды
+        run: |
+          swiftc macOS/ColiDev/App/HeatMixing.swift macOS/ColiDev/scripts/verify_heat_mixing.swift \
+            -o "$RUNNER_TEMP/verify-heat-mixing"
+          "$RUNNER_TEMP/verify-heat-mixing"
+
+      - name: Verify short message practice / Проверка тренажёра короткого письма
+        run: |
+          swiftc macOS/ColiDev/App/ShortMessagePractice.swift macOS/ColiDev/scripts/verify_short_message.swift \
+            -o "$RUNNER_TEMP/verify-short-message"
+          "$RUNNER_TEMP/verify-short-message"
+
       - name: Verify linear system practice model
         run: |
           swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/LinearSystemPractice.swift macOS/ColiDev/scripts/verify_linear_system_practice.swift \

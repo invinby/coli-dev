@@ -11,7 +11,7 @@
 | Частотная лексика и словообразование / Core vocabulary and word formation | Запоминать слова в контексте, распознавать части речи и строить устойчивые словосочетания. / Learn words in context and build common collocations. | lesson:daily_routines_and_collocations |
 | Порядок слов, вопросы, отрицание и базовые времена / Word order, questions, negatives, basic tense forms | Собирать утвердительные, вопросительные и отрицательные фразы для повседневного общения. / Form statements, questions, and negatives for everyday situations. | lesson:present_simple_and_continuous |
 | Чтение и аудирование коротких текстов / Short reading and listening | Находить тему и конкретные детали, не пытаясь переводить каждое слово. / Identify gist and details without translating every word. | lesson:reading_for_gist_and_detail |
-| Диалоги и короткое письмо / Everyday speaking and short writing | Представляться, задавать уточнения, рассказывать о планах и писать понятные сообщения. / Introduce oneself, clarify, discuss plans, and write clear messages. |
+| Диалоги и короткое письмо / Everyday speaking and short writing | Представляться, задавать уточнения, рассказывать о планах и писать понятные сообщения. / Introduce oneself, clarify, discuss plans, and write clear messages. | lesson:short_message_to_a_friend |
 
 ## Углубление / Intermediate
 
