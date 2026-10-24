@@ -403,6 +403,45 @@ final class ManagementUITests: XCTestCase {
     }
 
     @MainActor
+    func testPreviewOpensLockedGradientDescentLessonWithItsLab() async throws {
+        let app = XCUIApplication()
+        app.launchEnvironment["COLIDEV_UI_TEST_PREVIEW_LOCKED"] = "1"
+        app.launch()
+        defer { app.terminate() }
+
+        let programmingItem = app.staticTexts["Программирование"]
+        XCTAssertTrue(
+            programmingItem.waitForExistence(timeout: 15),
+            "The programming subject must be available from the sidebar. / Предмет «Программирование» должен быть доступен в боковой панели.\n\(app.debugDescription)"
+        )
+        programmingItem.click()
+
+        let lessonIdentifier = "roadmap.lesson.programming.gradient_descent_and_learning_rate"
+        let lessonButton = app.buttons[lessonIdentifier]
+        XCTAssertTrue(
+            lessonButton.waitForExistence(timeout: 10),
+            "The gradient descent lesson must be listed in the programming roadmap. / Урок о градиентном спуске должен быть в маршруте программирования.\n\(app.debugDescription)"
+        )
+        XCTAssertTrue(
+            lessonButton.isEnabled,
+            "Preview mode must open an intermediate lesson before its foundations are complete. / Режим просмотра должен открывать урок среднего уровня до прохождения базовых."
+        )
+        let roadmapScrollView = app.scrollViews.containing(.button, identifier: lessonIdentifier).firstMatch
+        scrollUntilHittable(lessonButton, in: roadmapScrollView)
+        lessonButton.click()
+
+        let state = app.staticTexts["lab.gd.state"]
+        XCTAssertTrue(
+            state.waitForExistence(timeout: 15),
+            "The gradient descent lesson must show its own lab. / Урок о градиентном спуске должен показывать свой тренажёр.\n\(app.debugDescription)"
+        )
+        XCTAssertTrue(
+            accessibleText(of: state).contains("1.988"),
+            "Five iterations at η = 0.05 must reach w ≈ 1.988. / Пять итераций при η = 0,05 должны дать w ≈ 1,988.\n\(state.debugDescription)"
+        )
+    }
+
+    @MainActor
     func testVariablesLessonRunsPracticeMinutesProjectInLocalTrainer() async throws {
         let app = XCUIApplication()
         app.launch()

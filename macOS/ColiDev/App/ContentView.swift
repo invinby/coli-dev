@@ -62,6 +62,7 @@ struct ContentView: View {
     @State private var practiceFocusRoute: StudyLessonRoute?
     @State private var didOpenCell3DUITestRoute = false
     @State private var didOpenFrictionUITestRoute = false
+    @AppStorage(StudyProgressionPolicy.previewLockedLessonsDefaultsKey) private var previewLockedLessons = false
 
     var body: some View {
         NavigationSplitView {
@@ -268,7 +269,8 @@ struct ContentView: View {
 
     private func openCourseLesson(subject: Subject, resource: String, focusPractice: Bool) {
         let route = StudyLessonRoute(subjectID: subject.rawValue, resource: resource)
-        if let roadmap = CurriculumCatalog.studyRoadmaps().first(where: { $0.subjectID == subject.rawValue }),
+        if !previewLockedLessons, !StudyProgressionPolicy.previewLockedLessonsForUITest,
+           let roadmap = CurriculumCatalog.studyRoadmaps().first(where: { $0.subjectID == subject.rawValue }),
            !StudyProgressionPolicy.isAvailable(route, in: roadmap, evidence: store.studyProgressionEvidence) {
             practiceFocusRoute = nil
             selection = .subject(subject)
@@ -365,9 +367,9 @@ private enum CauseAndCorseLearningJourney {
         .init(
             id: "scientific_method",
             title: .init(ru: "Научное мышление: вопрос → проверка → вывод", en: "Scientific thinking: question → test → conclusion"),
-            description: .init(ru: "Сначала сформулируй проверяемую гипотезу, измени один фактор, запиши наблюдения и ограничения вывода.", en: "State a testable hypothesis, change one factor, record observations, and describe the limits of the conclusion."),
+            description: .init(ru: "Сначала сформулируй проверяемую гипотезу, измени один фактор, запиши наблюдения и ограничения вывода. В приложении — уроки «Научный вопрос и план эксперимента» в биологии и «Измерения, единицы и неопределённость» в физике.", en: "State a testable hypothesis, change one factor, record observations, and describe the limits of the conclusion. In the app, see “Scientific questions and experimental design” in Biology and “Measurement, units, and uncertainty” in Physics."),
             projectOutput: .init(ru: "Проведи три измерения одного простого явления и запиши гипотезу, данные и возможную погрешность.", en: "Take three measurements of a simple phenomenon and record the hypothesis, data, and possible measurement error."),
-            subjects: [],
+            subjects: [.biology, .physics],
             sources: [.init(id: "science.stepik", title: .init(ru: "Stepik · «Научное мышление» · бесплатно", en: "Stepik · Scientific Thinking · free, Russian"), url: "https://stepik.org/course/578/promo")]
         ),
         .init(
@@ -413,7 +415,7 @@ private enum CauseAndCorseLearningJourney {
         .init(
             id: "machine_learning",
             title: .init(ru: "Машинное обучение: алгоритмы и эксперименты", en: "Machine learning: algorithms and experiments"),
-            description: .init(ru: "После Python и математики: собери baseline, проверь модель на новых данных, изучи ошибки и ограничения. Первый урок в приложении — «Машинное обучение: baseline и отложенная проверка» в программировании.", en: "After Python and mathematics: build a baseline, evaluate on held-out data, and inspect errors and limits. The first in-app lesson is “Machine learning: baselines and held-out evaluation” in Programming."),
+            description: .init(ru: "После Python и математики: собери baseline, проверь модель на новых данных, изучи ошибки и ограничения. В приложении — уроки «Машинное обучение: baseline и отложенная проверка» и «Градиентный спуск и шаг обучения» в программировании.", en: "After Python and mathematics: build a baseline, evaluate on held-out data, and inspect errors and limits. In the app, see “Machine learning: baselines and held-out evaluation” and “Gradient descent and the learning rate” in Programming."),
             projectOutput: .init(ru: "Обучи один простой baseline, оцени его на отложенных данных и запиши ошибки, а не только точность.", en: "Train one simple baseline, evaluate it on held-out data, and record its errors as well as its score."),
             subjects: [.programming],
             sources: [
@@ -424,7 +426,7 @@ private enum CauseAndCorseLearningJourney {
         .init(
             id: "brain_science",
             title: .init(ru: "Нейронаука, когнитивистика и сознание", en: "Neuroscience, cognitive science, and consciousness"),
-            description: .init(ru: "Переходи к исследованиям после биологии и ML; первый урок в приложении — «Нейрон и потенциал действия» в биологии. Сознание и возможность создания жизни — дальние научные вопросы, не обещанный результат.", en: "Move into research after biology and ML; the first in-app lesson is “Neurons and the action potential” in Biology. Consciousness and creating life are long-term scientific questions, not promised outcomes."),
+            description: .init(ru: "Переходи к исследованиям после биологии и ML; в приложении — уроки «Нейрон и потенциал действия» и «Синапс и суммация сигналов» в биологии. Сознание и возможность создания жизни — дальние научные вопросы, не обещанный результат.", en: "Move into research after biology and ML; in the app, see “Neurons and the action potential” and “Synapses and signal summation” in Biology. Consciousness and creating life are long-term scientific questions, not promised outcomes."),
             projectOutput: .init(ru: "Подготовь карточку одного научного утверждения: источник, метод, результат и что пока неизвестно.", en: "Create an evidence card for one scientific claim: source, method, result, and what remains unknown."),
             subjects: [.biology],
             sources: [.init(id: "brain.hse", title: .init(ru: "ВШЭ · «Мозг и психика» · 13 недель, русский", en: "HSE · Brain and Psyche · 13 weeks, Russian"), url: "https://openedu.ru/course/hse/BRAPS/?session=2022")]
@@ -1529,6 +1531,7 @@ private struct SettingsView: View {
     @EnvironmentObject private var store: LearningStore
     @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
     @AppStorage(ColiDevVisualSystem.soundPreferenceKey) private var soundEffectsEnabled = false
+    @AppStorage(StudyProgressionPolicy.previewLockedLessonsDefaultsKey) private var previewLockedLessons = false
     @State private var showingStudyFormatClearConfirmation = false
     @State private var isEffectiveAIRoutesExpanded = false
     @State private var isLoadingEffectiveAIRoutes = false
@@ -1552,6 +1555,18 @@ private struct SettingsView: View {
                     .foregroundStyle(.secondary)
             } header: {
                 Text(L10n.text("settings.feedback", store.language))
+            }
+            Section {
+                Toggle(isOn: $previewLockedLessons) {
+                    Text(L10n.text("settings.previewLocked", store.language))
+                }
+                .accessibilityIdentifier("settings.previewLocked")
+                Text(L10n.text("settings.previewLockedHelp", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } header: {
+                Text(L10n.text("settings.learningPath", store.language))
             }
             Section {
                 let profile = store.studyFormatPreferenceProfile

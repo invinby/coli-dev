@@ -382,6 +382,42 @@ jobs:
             -o "$RUNNER_TEMP/verify-thermal-strategy"
           "$RUNNER_TEMP/verify-thermal-strategy"
 
+      - name: Verify circulation route model / Проверка модели кровообращения
+        run: |
+          swiftc macOS/ColiDev/App/CirculationRoute.swift macOS/ColiDev/scripts/verify_circulation_route.swift \
+            -o "$RUNNER_TEMP/verify-circulation-route"
+          "$RUNNER_TEMP/verify-circulation-route"
+
+      - name: Verify gradient descent model / Проверка модели градиентного спуска
+        run: |
+          swiftc macOS/ColiDev/App/GradientDescent.swift macOS/ColiDev/scripts/verify_gradient_descent.swift \
+            -o "$RUNNER_TEMP/verify-gradient-descent"
+          "$RUNNER_TEMP/verify-gradient-descent"
+
+      - name: Verify synaptic summation model / Проверка модели суммации сигналов
+        run: |
+          swiftc macOS/ColiDev/App/SynapticSummation.swift macOS/ColiDev/scripts/verify_synaptic_summation.swift \
+            -o "$RUNNER_TEMP/verify-synaptic-summation"
+          "$RUNNER_TEMP/verify-synaptic-summation"
+
+      - name: Verify pendulum model / Проверка модели маятника
+        run: |
+          swiftc macOS/ColiDev/App/Pendulum.swift macOS/ColiDev/scripts/verify_pendulum.swift \
+            -o "$RUNNER_TEMP/verify-pendulum"
+          "$RUNNER_TEMP/verify-pendulum"
+
+      - name: Verify heat mixing model / Проверка модели смешивания воды
+        run: |
+          swiftc macOS/ColiDev/App/HeatMixing.swift macOS/ColiDev/scripts/verify_heat_mixing.swift \
+            -o "$RUNNER_TEMP/verify-heat-mixing"
+          "$RUNNER_TEMP/verify-heat-mixing"
+
+      - name: Verify short message practice / Проверка тренажёра короткого письма
+        run: |
+          swiftc macOS/ColiDev/App/ShortMessagePractice.swift macOS/ColiDev/scripts/verify_short_message.swift \
+            -o "$RUNNER_TEMP/verify-short-message"
+          "$RUNNER_TEMP/verify-short-message"
+
       - name: Verify linear system practice model
         run: |
           swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/LinearSystemPractice.swift macOS/ColiDev/scripts/verify_linear_system_practice.swift \

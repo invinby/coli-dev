@@ -25,7 +25,7 @@ source_review_interval_days: 180
 
 ### Исследуй и потренируйся
 
-Начерти для рыбы и млекопитающего путь крови стрелками, отметь место газообмена и посчитай, сколько раз за полный маршрут кровь проходит через сердце. Затем сравни земноводное: укажи два возможных участка газообмена и место, где потоки могут смешиваться. Объясни, какие детали схемы являются общим описанием группы, а какие могут различаться между видами.
+Начерти для рыбы и млекопитающего путь крови стрелками, отметь место газообмена и посчитай, сколько раз за полный маршрут кровь проходит через сердце. Затем сравни земноводное: укажи два возможных участка газообмена и место, где потоки могут смешиваться. Объясни, какие детали схемы являются общим описанием группы, а какие могут различаться между видами. В тренажёре выбери группу, сначала предскажи число проходов через сердце, затем проверь прогноз по маршруту.
 
 ### Вопрос
 
@@ -65,7 +65,7 @@ In many fish, blood follows one main circuit: heart → gills → body tissues �
 
 ### Explore and practise
 
-Draw the route of blood through a fish and a mammal using arrows, mark gas exchange, and count how many times blood passes through the heart on one full route. Then compare an amphibian: mark two possible gas-exchange surfaces and where flows may mix. Explain which parts are broad group patterns and which may vary among species.
+Draw the route of blood through a fish and a mammal using arrows, mark gas exchange, and count how many times blood passes through the heart on one full route. Then compare an amphibian: mark two possible gas-exchange surfaces and where flows may mix. Explain which parts are broad group patterns and which may vary among species. In the lab, choose a group, predict how many times blood passes through the heart, then check the prediction against the route.
 
 ### Question
 

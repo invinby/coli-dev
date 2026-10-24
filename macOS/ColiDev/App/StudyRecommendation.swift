@@ -341,6 +341,15 @@ struct StudyProgressionEvidence: Equatable {
 }
 
 enum StudyProgressionPolicy {
+    /// Opt-in setting that lets the learner open later-level lessons for reading and practice.
+    /// It never changes progress, Continue, or recommendations, which still follow `isAvailable`.
+    static let previewLockedLessonsDefaultsKey = "colidev.previewLockedLessons"
+
+    /// UI tests enable preview for one launch without writing the learner's saved setting.
+    static var previewLockedLessonsForUITest: Bool {
+        ProcessInfo.processInfo.environment["COLIDEV_UI_TEST_PREVIEW_LOCKED"] == "1"
+    }
+
     static func reportedFoundationPrerequisiteRecommendation(
         for resource: String,
         in roadmap: StudyRoadmap,

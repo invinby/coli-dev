@@ -14,6 +14,7 @@ struct SubjectOverviewView: View {
     @State private var customTopicParentID: UUID?
     @State private var pendingCustomTopicID: UUID?
     @State private var showingCustomTopicDelete = false
+    @AppStorage(StudyProgressionPolicy.previewLockedLessonsDefaultsKey) private var previewLockedLessons = false
 
     let subject: Subject
     let openCourseLesson: (String) -> Void
@@ -111,18 +112,20 @@ struct SubjectOverviewView: View {
                                         .fixedSize(horizontal: false, vertical: true)
                                     if let lessonResource = topic.lessonResource {
                                         let isAvailable = isCourseLessonAvailable(lessonResource)
+                                        let isPreview = !isAvailable
+                                            && (previewLockedLessons || StudyProgressionPolicy.previewLockedLessonsForUITest)
                                         Button { openCourseLesson(lessonResource) } label: {
                                             Label(
-                                                L10n.text("roadmap.openFullLesson", store.language),
+                                                L10n.text(isPreview ? "roadmap.previewLesson" : "roadmap.openFullLesson", store.language),
                                                 systemImage: isAvailable
                                                     ? (store.isComplete(lessonID: "\(subject.rawValue).\(lessonResource)")
                                                         ? "checkmark.circle.fill"
                                                         : "book.closed")
-                                                    : "lock.fill"
+                                                    : (isPreview ? "eye" : "lock.fill")
                                             )
                                         }
                                         .buttonStyle(.borderless)
-                                        .disabled(!isAvailable)
+                                        .disabled(!isAvailable && !isPreview)
                                         .padding(.top, 3)
                                         .accessibilityIdentifier("roadmap.lesson.\(subject.rawValue).\(lessonResource)")
                                     }
@@ -1827,6 +1830,18 @@ private struct PracticeLab: View {
             HeldOutEvaluationLab()
         } else if subject == .biology, moduleResource == "neurons_and_action_potentials" {
             NeuronSignalLab()
+        } else if subject == .zoology, moduleResource == "comparative_gas_exchange_and_circulation" {
+            CirculationRouteLab()
+        } else if subject == .programming, moduleResource == "gradient_descent_and_learning_rate" {
+            GradientDescentLab()
+        } else if subject == .biology, moduleResource == "synapses_and_signal_summation" {
+            SynapticSummationLab()
+        } else if subject == .physics, moduleResource == "oscillations_and_waves" {
+            PendulumLab()
+        } else if subject == .physics, moduleResource == "temperature_and_heat" {
+            HeatMixingLab()
+        } else if subject == .english, moduleResource == "short_message_to_a_friend" {
+            ShortMessageLab()
         } else {
             switch subject {
         case .mathematics:
@@ -10613,6 +10628,574 @@ private struct ThermalStrategyLab: View {
     private func resetPrediction() {
         selectedResponse = nil
         didCheck = false
+    }
+}
+
+private struct CirculationRouteLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var animal: CirculationAnimal = .fish
+    @State private var predictedPasses: Int?
+    @State private var didCheck = false
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.circulation.title", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.circulation.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Picker(L10n.text("lab.circulation.animalTitle", store.language), selection: $animal) {
+                ForEach(CirculationAnimal.allCases) { option in
+                    Text(L10n.text(option.titleKey, store.language)).tag(option)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("lab.circulation.animal")
+
+            VStack(alignment: .leading, spacing: 6) {
+                Label(L10n.text(animal.routeKey, store.language), systemImage: "arrow.triangle.2.circlepath")
+                    .font(.callout.weight(.medium))
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(L10n.text(animal.heartKey, store.language))
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(L10n.text(animal.exchangeKey, store.language))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            .accessibilityElement(children: .combine)
+
+            Text(L10n.text("lab.circulation.predict", store.language))
+                .font(.headline)
+                .fixedSize(horizontal: false, vertical: true)
+            Picker(L10n.text("lab.circulation.predict", store.language), selection: $predictedPasses) {
+                Text(L10n.text("lab.circulation.choose", store.language)).tag(nil as Int?)
+                ForEach(CirculationRouteModel.passOptions, id: \.self) { passes in
+                    Text("\(passes)").tag(passes as Int?)
+                }
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: predictedPasses) { _ in didCheck = false }
+
+            Button(L10n.text("lab.circulation.check", store.language)) {
+                didCheck = true
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(predictedPasses == nil)
+
+            if didCheck, let predictedPasses {
+                let correct = CirculationRouteModel.isCorrect(passes: predictedPasses, for: animal)
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(
+                        L10n.text(correct ? "lab.circulation.correct" : "lab.circulation.review", store.language),
+                        systemImage: correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
+                    )
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(correct ? .green : .orange)
+                    if correct {
+                        Text(L10n.text(animal.explanationKey, store.language))
+                            .font(.callout)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                .accessibilityIdentifier("lab.circulation.feedback")
+            }
+
+            Text(L10n.text("lab.circulation.limit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .onChange(of: animal) { _ in
+            predictedPasses = nil
+            didCheck = false
+        }
+    }
+}
+
+private struct GradientDescentLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var learningRateIndex = 1
+    @State private var steps = 5.0
+
+    private var learningRate: Double {
+        GradientDescentPractice.learningRates[min(max(learningRateIndex, 0), GradientDescentPractice.learningRates.count - 1)]
+    }
+
+    private var trajectory: [GradientDescentStep] {
+        GradientDescentPractice.trajectory(learningRate: learningRate, steps: Int(steps.rounded()))
+    }
+
+    private var verdictKey: String {
+        if !GradientDescentPractice.converges(learningRate: learningRate) {
+            return "lab.gd.diverges"
+        }
+        return GradientDescentPractice.oscillates(learningRate: learningRate) ? "lab.gd.oscillates" : "lab.gd.converges"
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.gd.title", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.gd.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Picker(L10n.text("lab.gd.rate", store.language), selection: $learningRateIndex) {
+                ForEach(Array(GradientDescentPractice.learningRates.enumerated()), id: \.offset) { index, rate in
+                    Text(String(format: "η = %.2f", rate)).tag(index)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("lab.gd.rate")
+
+            VStack(alignment: .leading, spacing: 7) {
+                Text(String(format: L10n.text("lab.gd.steps", store.language), Int(steps.rounded())))
+                    .font(.headline.monospacedDigit())
+                Slider(value: $steps, in: 0...Double(GradientDescentPractice.maximumSteps), step: 1)
+                    .accessibilityLabel(L10n.text("lab.gd.stepsLabel", store.language))
+                    .accessibilityValue(String(Int(steps.rounded())))
+            }
+
+            if let last = trajectory.last {
+                Text(String(format: L10n.text("lab.gd.state", store.language), last.weight, last.loss))
+                    .font(.callout.monospacedDigit())
+                    .accessibilityIdentifier("lab.gd.state")
+            }
+
+            lossChart
+                .frame(height: 90)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(L10n.text("lab.gd.chart", store.language))
+
+            Label(L10n.text(verdictKey, store.language), systemImage: verdictKey == "lab.gd.diverges" ? "exclamationmark.triangle" : "checkmark.seal")
+                .font(.callout.weight(.medium))
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("lab.gd.verdict")
+            Text(L10n.text("lab.gd.optimum", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            Text(L10n.text("lab.gd.limit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    // Loss spans about seven decades across the offered rates, so bars use a logarithmic scale above the minimum.
+    private var lossChart: some View {
+        let minimumLoss = GradientDescentPractice.loss(weight: GradientDescentPractice.optimalWeight)
+        return GeometryReader { geometry in
+            HStack(alignment: .bottom, spacing: 3) {
+                ForEach(trajectory, id: \.step) { point in
+                    let decades = log10(max(point.loss / minimumLoss, 1))
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color.accentColor.gradient)
+                        .frame(height: max(3, geometry.size.height * CGFloat(min(decades / 7, 1))))
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+        }
+    }
+}
+
+private struct SynapticSummationLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var excitatory = 2
+    @State private var inhibitory = 0
+
+    private var potential: Double {
+        SynapticSummationModel.membranePotential(excitatory: excitatory, inhibitory: inhibitory)
+    }
+
+    private var fires: Bool {
+        SynapticSummationModel.reachesThreshold(excitatory: excitatory, inhibitory: inhibitory)
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.synapse.title", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.synapse.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Stepper(value: $excitatory, in: SynapticSummationModel.inputRange) {
+                Text(String(format: L10n.text("lab.synapse.excitatory", store.language), excitatory))
+                    .monospacedDigit()
+            }
+            .accessibilityIdentifier("lab.synapse.excitatory")
+            Stepper(value: $inhibitory, in: SynapticSummationModel.inputRange) {
+                Text(String(format: L10n.text("lab.synapse.inhibitory", store.language), inhibitory))
+                    .monospacedDigit()
+            }
+            .accessibilityIdentifier("lab.synapse.inhibitory")
+
+            Text(String(format: L10n.text("lab.synapse.potential", store.language), Int(potential.rounded())))
+                .font(.headline.monospacedDigit())
+                .accessibilityIdentifier("lab.synapse.potential")
+            potentialScale
+                .frame(height: 26)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(L10n.text("lab.synapse.scale", store.language))
+                .accessibilityValue(String(format: L10n.text("lab.synapse.potential", store.language), Int(potential.rounded())))
+
+            Label(L10n.text(fires ? "lab.synapse.fires" : "lab.synapse.noFire", store.language), systemImage: fires ? "bolt.fill" : "minus.circle")
+                .font(.callout.weight(.medium))
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("lab.synapse.outcome")
+            Text(L10n.text("lab.synapse.limit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    // The scale spans the lab's reachable range, −94 to −46 mV, with the −55 mV threshold marked.
+    private var potentialScale: some View {
+        GeometryReader { geometry in
+            let lower = -94.0
+            let upper = -46.0
+            let fraction = (potential - lower) / (upper - lower)
+            let thresholdFraction = (SynapticSummationModel.thresholdPotential - lower) / (upper - lower)
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.secondary.opacity(0.12))
+                Capsule()
+                    .fill((fires ? Color.green : Color.accentColor).gradient)
+                    .frame(width: max(8, geometry.size.width * CGFloat(fraction)))
+                Rectangle()
+                    .fill(Color.orange)
+                    .frame(width: 2)
+                    .offset(x: geometry.size.width * CGFloat(thresholdFraction))
+            }
+        }
+    }
+}
+
+private struct PendulumLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var length = 1.0
+    @State private var mass = 0.5
+    @State private var isSwinging = false
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.pendulum.title", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.pendulum.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(alignment: .top, spacing: 20) {
+                pendulum
+                    .frame(width: 170, height: 170)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(L10n.text("lab.pendulum.diagram", store.language))
+                VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(String(format: L10n.text("lab.pendulum.length", store.language), length))
+                            .monospacedDigit()
+                        Slider(value: $length, in: PendulumModel.lengthRange, step: 0.25)
+                            .accessibilityLabel(L10n.text("lab.pendulum.lengthLabel", store.language))
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(String(format: L10n.text("lab.pendulum.mass", store.language), mass))
+                            .monospacedDigit()
+                        Slider(value: $mass, in: PendulumModel.massRange, step: 0.1)
+                            .accessibilityLabel(L10n.text("lab.pendulum.massLabel", store.language))
+                    }
+                    Text(String(
+                        format: L10n.text("lab.pendulum.reading", store.language),
+                        PendulumModel.period(length: length, mass: mass),
+                        PendulumModel.frequency(length: length)
+                    ))
+                    .font(.headline.monospacedDigit())
+                    .accessibilityIdentifier("lab.pendulum.reading")
+                    if !reduceMotion {
+                        Toggle(L10n.text("lab.pendulum.swing", store.language), isOn: $isSwinging)
+                            .toggleStyle(.switch)
+                    }
+                }
+            }
+
+            Text(L10n.text("lab.pendulum.challenge", store.language))
+                .font(.callout)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            Text(L10n.text("lab.pendulum.limit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    @ViewBuilder
+    private var pendulum: some View {
+        if isSwinging && !reduceMotion {
+            TimelineView(.animation) { context in
+                PendulumDrawing(
+                    lengthFraction: length / PendulumModel.lengthRange.upperBound,
+                    massFraction: mass / PendulumModel.massRange.upperBound,
+                    angle: PendulumModel.angle(atSeconds: context.date.timeIntervalSinceReferenceDate, length: length)
+                )
+            }
+        } else {
+            PendulumDrawing(
+                lengthFraction: length / PendulumModel.lengthRange.upperBound,
+                massFraction: mass / PendulumModel.massRange.upperBound,
+                angle: PendulumModel.amplitudeDegrees * Double.pi / 180
+            )
+        }
+    }
+}
+
+private struct PendulumDrawing: View {
+    let lengthFraction: Double
+    let massFraction: Double
+    let angle: Double
+
+    var body: some View {
+        Canvas { context, size in
+            let pivot = CGPoint(x: size.width / 2, y: 8)
+            let stringLength = (size.height - 30) * CGFloat(lengthFraction)
+            let bob = CGPoint(
+                x: pivot.x + stringLength * CGFloat(sin(angle)),
+                y: pivot.y + stringLength * CGFloat(cos(angle))
+            )
+            var support = Path()
+            support.move(to: CGPoint(x: pivot.x - 30, y: pivot.y))
+            support.addLine(to: CGPoint(x: pivot.x + 30, y: pivot.y))
+            context.stroke(support, with: .color(.secondary), lineWidth: 2)
+            var string = Path()
+            string.move(to: pivot)
+            string.addLine(to: bob)
+            context.stroke(string, with: .color(.secondary), lineWidth: 1.5)
+            let radius = 6 + 8 * CGFloat(massFraction)
+            context.fill(Path(ellipseIn: CGRect(x: bob.x - radius, y: bob.y - radius, width: radius * 2, height: radius * 2)), with: .color(.accentColor))
+        }
+    }
+}
+
+private struct HeatMixingLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var coldMass = 1.0
+    @State private var coldTemperature = 20.0
+    @State private var hotMass = 1.0
+    @State private var hotTemperature = 80.0
+
+    private var finalTemperature: Double {
+        HeatMixingModel.finalTemperature(
+            coldMass: coldMass,
+            coldTemperature: coldTemperature,
+            hotMass: hotMass,
+            hotTemperature: hotTemperature
+        )
+    }
+
+    private var transferredHeat: Double {
+        abs(HeatMixingModel.heat(mass: coldMass, from: coldTemperature, to: finalTemperature))
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.heat.title", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.heat.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            portionControls(titleKey: "lab.heat.first", mass: $coldMass, temperature: $coldTemperature)
+            portionControls(titleKey: "lab.heat.second", mass: $hotMass, temperature: $hotTemperature)
+
+            Text(String(format: L10n.text("lab.heat.result", store.language), finalTemperature))
+                .font(.headline.monospacedDigit())
+                .accessibilityIdentifier("lab.heat.result")
+            Text(String(format: L10n.text("lab.heat.transfer", store.language), transferredHeat / 1000))
+                .font(.callout.monospacedDigit())
+                .foregroundStyle(.secondary)
+            temperatureScale
+                .frame(height: 28)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(L10n.text("lab.heat.scale", store.language))
+                .accessibilityValue(String(format: L10n.text("lab.heat.result", store.language), finalTemperature))
+
+            Text(L10n.text("lab.heat.challenge", store.language))
+                .font(.callout)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            Text(L10n.text("lab.heat.limit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func portionControls(titleKey: String, mass: Binding<Double>, temperature: Binding<Double>) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(L10n.text(titleKey, store.language))
+                .font(.callout.weight(.semibold))
+            HStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(format: L10n.text("lab.heat.mass", store.language), mass.wrappedValue))
+                        .font(.caption.monospacedDigit())
+                    Slider(value: mass, in: HeatMixingModel.massRange, step: 0.5)
+                        .accessibilityLabel(L10n.text(titleKey, store.language) + ", " + L10n.text("lab.heat.massLabel", store.language))
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(format: L10n.text("lab.heat.temperature", store.language), temperature.wrappedValue))
+                        .font(.caption.monospacedDigit())
+                    Slider(value: temperature, in: HeatMixingModel.temperatureRange, step: 1)
+                        .accessibilityLabel(L10n.text(titleKey, store.language) + ", " + L10n.text("lab.heat.temperatureLabel", store.language))
+                }
+            }
+        }
+    }
+
+    // Markers for both starting temperatures and the mixture on a 0–100 °C scale.
+    private var temperatureScale: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(LinearGradient(colors: [.blue.opacity(0.5), .red.opacity(0.5)], startPoint: .leading, endPoint: .trailing))
+                    .frame(height: 8)
+                marker(at: coldTemperature, width: geometry.size.width, color: .secondary)
+                marker(at: hotTemperature, width: geometry.size.width, color: .secondary)
+                marker(at: finalTemperature, width: geometry.size.width, color: .accentColor)
+            }
+            .frame(maxHeight: .infinity)
+        }
+    }
+
+    private func marker(at temperature: Double, width: CGFloat, color: Color) -> some View {
+        Circle()
+            .fill(color)
+            .frame(width: 12, height: 12)
+            .offset(x: width * CGFloat(temperature / HeatMixingModel.temperatureRange.upperBound) - 6)
+    }
+}
+
+private struct ShortMessageLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var stepIndex = 0
+    @State private var selectedDisplayIndex: Int?
+    @State private var feedbackCorrect: Bool?
+    @State private var choiceOrder = AnswerChoiceOrder(optionCount: 3)
+
+    private var currentStep: ShortMessageStep? {
+        ShortMessagePractice.steps.indices.contains(stepIndex) ? ShortMessagePractice.steps[stepIndex] : nil
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.message.title", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.message.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let step = currentStep {
+                Text(String(format: L10n.text("lab.message.progress", store.language), stepIndex + 1, ShortMessagePractice.steps.count))
+                    .font(.caption.weight(.medium).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                Text(L10n.text(step.promptKey, store.language))
+                    .font(.callout.weight(.medium))
+                    .fixedSize(horizontal: false, vertical: true)
+                Picker(L10n.text("lab.message.choose", store.language), selection: $selectedDisplayIndex) {
+                    ForEach(Array(choiceOrder.displayedOriginalIndices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                        Text(L10n.text(step.optionKeys[originalIndex], store.language)).tag(displayIndex as Int?)
+                    }
+                }
+                .pickerStyle(.radioGroup)
+                .disabled(feedbackCorrect == true)
+                .accessibilityIdentifier("lab.message.options")
+
+                if feedbackCorrect == true {
+                    Button(L10n.text("lab.message.next", store.language)) { advance() }
+                        .buttonStyle(.borderedProminent)
+                } else {
+                    Button(L10n.text("lab.message.check", store.language)) { check(step) }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(selectedDisplayIndex == nil)
+                }
+
+                if let feedbackCorrect {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label(
+                            L10n.text(feedbackCorrect ? "lab.message.correct" : "lab.message.review", store.language),
+                            systemImage: feedbackCorrect ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
+                        )
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(feedbackCorrect ? .green : .orange)
+                        if feedbackCorrect {
+                            Text(L10n.text(step.explanationKey, store.language))
+                                .font(.callout)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .accessibilityIdentifier("lab.message.feedback")
+                }
+            } else {
+                Text(L10n.text("lab.message.result", store.language))
+                    .font(.callout.weight(.medium))
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(ShortMessagePractice.assembledMessageKeys, id: \.self) { key in
+                        Text(L10n.text(key, store.language))
+                    }
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                .textSelection(.enabled)
+                .accessibilityIdentifier("lab.message.assembled")
+                Button(L10n.text("lab.message.restart", store.language)) { restart() }
+            }
+
+            Text(L10n.text("lab.message.limit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func check(_ step: ShortMessageStep) {
+        guard let selectedDisplayIndex, let original = choiceOrder.originalIndex(forDisplayedIndex: selectedDisplayIndex) else { return }
+        let correct = ShortMessagePractice.isCorrect(original, stepID: step.id)
+        feedbackCorrect = correct
+        if !correct {
+            // After a wrong answer the options are reshuffled so the retry is a fresh choice.
+            choiceOrder.reshuffle()
+            self.selectedDisplayIndex = nil
+        }
+    }
+
+    private func advance() {
+        stepIndex += 1
+        selectedDisplayIndex = nil
+        feedbackCorrect = nil
+        choiceOrder = AnswerChoiceOrder(optionCount: 3)
+    }
+
+    private func restart() {
+        stepIndex = 0
+        selectedDisplayIndex = nil
+        feedbackCorrect = nil
+        choiceOrder = AnswerChoiceOrder(optionCount: 3)
     }
 }
 

@@ -12,7 +12,8 @@
 | Трение и начало движения / Friction and the onset of motion | Различать трение покоя и скольжения и находить порог начала движения. / Distinguish static and kinetic friction and find the threshold for motion. | lesson:static_and_kinetic_friction |
 | Работа, энергия, импульс / Work, energy, momentum | Выбирать закон сохранения по границам системы и характеру взаимодействия. / Choose conservation laws from system boundaries and interactions. | lesson:work_and_kinetic_energy |
 | Импульс силы и столкновения / Impulse and collisions | Связывать силу с изменением импульса и решать одномерные задачи на сохранение импульса. / Relate force to momentum change and solve one-dimensional momentum-conservation problems. | lesson:impulse_and_momentum |
-| Колебания, волны и температура / Oscillations, waves, temperature | Объяснять периодичность, перенос энергии и тепловое равновесие на примерах. / Explain periodic behavior, energy transfer, and thermal equilibrium. |
+| Колебания и волны / Oscillations and waves | Объяснять периодичность и перенос энергии волной через период, частоту, длину волны и скорость. / Explain periodic motion and wave energy transfer through period, frequency, wavelength, and speed. | lesson:oscillations_and_waves |
+| Температура и теплота / Temperature and heat | Отличать температуру от теплоты и находить тепловое равновесие при смешивании. / Distinguish temperature from heat and find thermal equilibrium when mixing. | lesson:temperature_and_heat |
 
 ## Углубление / Intermediate
 

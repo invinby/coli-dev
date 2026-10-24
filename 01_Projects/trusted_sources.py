@@ -39,7 +39,9 @@ _MARKDOWN_LINK_RE = re.compile(r"\[([^\]]{1,200})\]\(\s*(https://[^)\s]+)\s*\)",
 _TRAILING_PUNCTUATION = ".,;:!?"
 _MAX_LESSON_FILES = 200
 _MAX_LESSON_FILE_BYTES = 256 * 1024
-_MAX_SOURCES = 150
+# Bounds the daily automatic check (at most five requests at a time). Raised from 150 when the
+# bundled lessons outgrew it; keep headroom so a new lesson's sources are not silently omitted.
+_MAX_SOURCES = 200
 _MAX_CONCURRENT_REQUESTS = 5
 _MAX_TITLE_LENGTH = 200
 _MAX_PAGE_DESCRIPTION_LENGTH = 500
