@@ -3,7 +3,7 @@ subject: mathematics
 lesson_id: mathematics.domain_and_range
 level: foundations
 languages: ru, en
-source_checked: 2026-10-05
+source_checked: 2026-10-12
 source_review_interval_days: 365
 ---
 
@@ -41,7 +41,7 @@ source_review_interval_days: 365
 
 ### Ответ
 
-1
+2
 
 ### Разбор
 
@@ -83,7 +83,7 @@ What is the domain of f(x) = √(8 − x) over the real numbers?
 
 ### Answer
 
-1
+2
 
 ### Explanation
 

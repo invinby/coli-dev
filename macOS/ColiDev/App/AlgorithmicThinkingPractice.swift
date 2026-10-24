@@ -1,0 +1,589 @@
+import Foundation
+
+enum AlgorithmicMaximumDebuggingStage: String, Equatable {
+    case findCounterexample
+    case repairInitialization
+}
+
+struct AlgorithmicThinkingQuestion: Equatable, Identifiable {
+    let id: String
+    let choiceKeys: [String]
+    let correctOptionIndex: Int
+    let contextKey: String
+    let averageTestCaseID: String?
+    let maximumTestCaseID: String?
+    let maximumDebuggingStage: AlgorithmicMaximumDebuggingStage?
+    let decompositionScenarioID: String?
+    let eligibilityTestCaseID: String?
+
+    init(
+        id: String,
+        choiceKeys: [String],
+        correctOptionIndex: Int,
+        contextKey: String = "lab.algorithm.context.maximum",
+        averageTestCaseID: String? = nil,
+        maximumTestCaseID: String? = nil,
+        maximumDebuggingStage: AlgorithmicMaximumDebuggingStage? = nil,
+        decompositionScenarioID: String? = nil,
+        eligibilityTestCaseID: String? = nil
+    ) {
+        self.id = id
+        self.choiceKeys = choiceKeys
+        self.correctOptionIndex = correctOptionIndex
+        self.contextKey = contextKey
+        self.averageTestCaseID = averageTestCaseID
+        self.maximumTestCaseID = maximumTestCaseID
+        self.maximumDebuggingStage = maximumDebuggingStage
+        self.decompositionScenarioID = decompositionScenarioID
+        self.eligibilityTestCaseID = eligibilityTestCaseID
+    }
+}
+
+enum AlgorithmicTestCaseCategory: Int, CaseIterable, Equatable {
+    case typical
+    case boundary
+    case invalid
+
+    var key: String {
+        switch self {
+        case .typical: "typical"
+        case .boundary: "boundary"
+        case .invalid: "invalid"
+        }
+    }
+}
+
+struct AlgorithmicAverageTestCase: Equatable, Identifiable {
+    let id: String
+    let values: [Int]
+    let correctCategory: AlgorithmicTestCaseCategory
+    let explanationKey: String
+}
+
+struct AlgorithmicMaximumTestCase: Equatable, Identifiable {
+    let id: String
+    let values: [Int]
+    let answerChoiceKeys: [String]
+    let expectedMaximum: Int?
+    let correctOptionIndex: Int
+    let explanationKey: String
+}
+
+struct AlgorithmicPythonTestCase: Equatable, Identifiable {
+    let id: String
+    let values: [Int]
+    let expectedMaximum: Int?
+
+    var evidenceID: String { "programming.computational_thinking.python_runner.\(id)" }
+    var titleKey: String { "lab.pythonRunner.case.\(id)" }
+}
+
+struct AlgorithmicDecompositionScenario: Equatable, Identifiable {
+    let id: String
+    let promptKey: String
+    let inputKey: String
+    let solutionKey: String
+}
+
+struct AlgorithmicEligibilityTestCase: Equatable, Identifiable {
+    let id: String
+    let age: Int
+    let correctCategory: AlgorithmicTestCaseCategory
+    let expectedResultKey: String
+    let explanationKey: String
+}
+
+enum AlgorithmicThinkingPractice {
+    static let maximumListValues = [-8, -2, -5]
+    static let maximumDebuggingCounterexampleValues = [-1]
+
+    static let maximumTestCases = [
+        AlgorithmicMaximumTestCase(
+            id: "typical_maximum_at_end",
+            values: [2, 4, 9],
+            answerChoiceKeys: ["lab.algorithmMaximumResult2", "lab.algorithmMaximumResult9", "lab.algorithmEmptyError"],
+            expectedMaximum: 9,
+            correctOptionIndex: 1,
+            explanationKey: "lab.algorithmMaximumTypicalExplanation"
+        ),
+        AlgorithmicMaximumTestCase(
+            id: "single_value",
+            values: [7],
+            answerChoiceKeys: ["lab.algorithmMaximumResult7", "lab.algorithmMaximumResult0", "lab.algorithmEmptyError"],
+            expectedMaximum: 7,
+            correctOptionIndex: 0,
+            explanationKey: "lab.algorithmMaximumSingleExplanation"
+        ),
+        AlgorithmicMaximumTestCase(
+            id: "all_negative",
+            values: [-8, -2, -5],
+            answerChoiceKeys: ["lab.algorithmMaximumResult0", "lab.algorithmMaximumResultMinus2", "lab.algorithmMaximumResultMinus8"],
+            expectedMaximum: -2,
+            correctOptionIndex: 1,
+            explanationKey: "lab.algorithmMaximumNegativeExplanation"
+        ),
+        AlgorithmicMaximumTestCase(
+            id: "repeated_maximum",
+            values: [3, 9, 9],
+            answerChoiceKeys: ["lab.algorithmMaximumResult3", "lab.algorithmMaximumResult9", "lab.algorithmEmptyError"],
+            expectedMaximum: 9,
+            correctOptionIndex: 1,
+            explanationKey: "lab.algorithmMaximumRepeatedExplanation"
+        ),
+        AlgorithmicMaximumTestCase(
+            id: "empty_list",
+            values: [],
+            answerChoiceKeys: ["lab.algorithmMaximumResult0", "lab.algorithmMaximumResultMinus1", "lab.algorithmEmptyError"],
+            expectedMaximum: nil,
+            correctOptionIndex: 2,
+            explanationKey: "lab.algorithmMaximumEmptyExplanation"
+        )
+    ]
+
+    static let averageTestCases = [
+        AlgorithmicAverageTestCase(
+            id: "typical",
+            values: [2, 4, 6],
+            correctCategory: .typical,
+            explanationKey: "lab.algorithmTestCaseTypicalExplanation"
+        ),
+        AlgorithmicAverageTestCase(
+            id: "single_value",
+            values: [7],
+            correctCategory: .boundary,
+            explanationKey: "lab.algorithmTestCaseSingleExplanation"
+        ),
+        AlgorithmicAverageTestCase(
+            id: "empty_list",
+            values: [],
+            correctCategory: .invalid,
+            explanationKey: "lab.algorithmTestCaseEmptyExplanation"
+        ),
+        AlgorithmicAverageTestCase(
+            id: "negative_cancellation",
+            values: [-2, 2],
+            correctCategory: .typical,
+            explanationKey: "lab.algorithmTestCaseNegativeCancellationExplanation"
+        )
+    ]
+
+    static let decompositionScenarios = [
+        AlgorithmicDecompositionScenario(
+            id: "hot_days",
+            promptKey: "lab.algorithm.hotDays.prompt",
+            inputKey: "lab.algorithm.hotDays.input",
+            solutionKey: "lab.algorithm.hotDays.solution"
+        ),
+        AlgorithmicDecompositionScenario(
+            id: "recipe",
+            promptKey: "lab.algorithm.recipe.prompt",
+            inputKey: "lab.algorithm.recipe.input",
+            solutionKey: "lab.algorithm.recipe.solution"
+        )
+    ]
+
+    static let eligibilityTestCases = [
+        AlgorithmicEligibilityTestCase(
+            id: "typical_below",
+            age: 40,
+            correctCategory: .typical,
+            expectedResultKey: "lab.algorithmEligibilityDenied",
+            explanationKey: "lab.algorithmEligibilityTypicalBelowExplanation"
+        ),
+        AlgorithmicEligibilityTestCase(
+            id: "below_threshold",
+            age: 64,
+            correctCategory: .boundary,
+            expectedResultKey: "lab.algorithmEligibilityDenied",
+            explanationKey: "lab.algorithmEligibilityBelowExplanation"
+        ),
+        AlgorithmicEligibilityTestCase(
+            id: "at_threshold",
+            age: 65,
+            correctCategory: .boundary,
+            expectedResultKey: "lab.algorithmEligibilityAllowed",
+            explanationKey: "lab.algorithmEligibilityAtExplanation"
+        ),
+        AlgorithmicEligibilityTestCase(
+            id: "typical_above",
+            age: 66,
+            correctCategory: .typical,
+            expectedResultKey: "lab.algorithmEligibilityAllowed",
+            explanationKey: "lab.algorithmEligibilityTypicalAboveExplanation"
+        ),
+        AlgorithmicEligibilityTestCase(
+            id: "invalid_below_domain",
+            age: -1,
+            correctCategory: .invalid,
+            expectedResultKey: "lab.algorithmEligibilityInvalid",
+            explanationKey: "lab.algorithmEligibilityInvalidBelowExplanation"
+        ),
+        AlgorithmicEligibilityTestCase(
+            id: "invalid_above_domain",
+            age: 121,
+            correctCategory: .invalid,
+            expectedResultKey: "lab.algorithmEligibilityInvalid",
+            explanationKey: "lab.algorithmEligibilityInvalidAboveExplanation"
+        )
+    ]
+
+    private static let maximumQuestions = [
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.step.input",
+            choiceKeys: ["compare", "input", "display"],
+            correctOptionIndex: 1
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.step.compare",
+            choiceKeys: ["otherwise", "compare", "display"],
+            correctOptionIndex: 1
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.step.otherwise",
+            choiceKeys: ["display", "otherwise", "input"],
+            correctOptionIndex: 1
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.step.display",
+            choiceKeys: ["display", "compare", "input"],
+            correctOptionIndex: 0
+        )
+    ]
+
+    private static let maximumListQuestions = [
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.maximum_list.check_nonempty",
+            choiceKeys: ["checkNonemptyList", "initializeCurrentMaximum", "returnMaximum"],
+            correctOptionIndex: 0,
+            contextKey: "lab.algorithm.context.maximumList"
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.maximum_list.initialize_current_maximum",
+            choiceKeys: ["initializeCurrentMaximum", "initializeFromZero", "inspectRemainingValues"],
+            correctOptionIndex: 0,
+            contextKey: "lab.algorithm.context.maximumList"
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.maximum_list.inspect_remaining_values",
+            choiceKeys: ["returnMaximum", "inspectRemainingValues", "checkNonemptyList"],
+            correctOptionIndex: 1,
+            contextKey: "lab.algorithm.context.maximumList"
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.maximum_list.update_if_greater",
+            choiceKeys: ["updateIfGreater", "initializeFromZero", "returnMaximum"],
+            correctOptionIndex: 0,
+            contextKey: "lab.algorithm.context.maximumList"
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.maximum_list.return_maximum",
+            choiceKeys: ["returnMaximum", "inspectRemainingValues", "checkNonemptyList"],
+            correctOptionIndex: 0,
+            contextKey: "lab.algorithm.context.maximumList"
+        )
+    ]
+
+    private static let maximumTestCaseQuestions = maximumTestCases.map { testCase in
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.tests.maximum_list.\(testCase.id)",
+            choiceKeys: testCase.answerChoiceKeys,
+            correctOptionIndex: testCase.correctOptionIndex,
+            contextKey: "lab.algorithm.context.maximumListTests",
+            maximumTestCaseID: testCase.id
+        )
+    }
+
+    private static let maximumDebuggingQuestions = [
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.debugging.find_counterexample",
+            choiceKeys: [
+                "lab.algorithmDebugInputNegativeSingleton",
+                "lab.algorithmDebugInputPositiveSingleton",
+                "lab.algorithmDebugInputTypical"
+            ],
+            correctOptionIndex: 0,
+            contextKey: "lab.algorithm.context.maximumDebuggingFindCounterexample",
+            maximumDebuggingStage: .findCounterexample
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.debugging.repair_initialization",
+            choiceKeys: ["initializeFromZero", "initializeFromLast", "initializeCurrentMaximum"],
+            correctOptionIndex: 2,
+            contextKey: "lab.algorithm.context.maximumDebuggingRepairInitialization",
+            maximumDebuggingStage: .repairInitialization
+        )
+    ]
+
+    private static let averageQuestions = [
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.average.check_nonempty",
+            choiceKeys: ["initializeTotal", "checkNonempty", "returnAverage"],
+            correctOptionIndex: 1,
+            contextKey: "lab.algorithm.context.average"
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.average.initialize_total",
+            choiceKeys: ["initializeTotal", "accumulateValues", "divideByCount"],
+            correctOptionIndex: 0,
+            contextKey: "lab.algorithm.context.average"
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.average.accumulate_values",
+            choiceKeys: ["divideByCount", "accumulateValues", "returnAverage"],
+            correctOptionIndex: 1,
+            contextKey: "lab.algorithm.context.average"
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.average.divide_by_count",
+            choiceKeys: ["returnAverage", "divideByCount", "initializeTotal"],
+            correctOptionIndex: 1,
+            contextKey: "lab.algorithm.context.average"
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.average.return_average",
+            choiceKeys: ["returnAverage", "accumulateValues", "checkNonempty"],
+            correctOptionIndex: 0,
+            contextKey: "lab.algorithm.context.average"
+        )
+    ]
+
+    private static let testCaseQuestions = averageTestCases.map { testCase in
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.tests.average.\(testCase.id)",
+            choiceKeys: AlgorithmicTestCaseCategory.allCases.map(\.key),
+            correctOptionIndex: testCase.correctCategory.rawValue,
+            contextKey: "lab.algorithm.context.testDesign",
+            averageTestCaseID: testCase.id
+        )
+    }
+
+    private static let decompositionQuestions = [
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.decompose.hot_days.initialize",
+            choiceKeys: ["initializeHotDayCount", "initializeCountAtOne", "returnHotDayCount"],
+            correctOptionIndex: 0,
+            contextKey: "lab.algorithm.context.hotDays",
+            decompositionScenarioID: "hot_days"
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.decompose.hot_days.scan",
+            choiceKeys: ["scanEveryReading", "scanFirstReadingOnly", "sortReadingsFirst"],
+            correctOptionIndex: 0,
+            contextKey: "lab.algorithm.context.hotDays",
+            decompositionScenarioID: "hot_days"
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.decompose.hot_days.threshold",
+            choiceKeys: ["countAboveThreshold", "countAtOrAboveThreshold", "countEveryReading"],
+            correctOptionIndex: 1,
+            contextKey: "lab.algorithm.context.hotDays",
+            decompositionScenarioID: "hot_days"
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.decompose.hot_days.return",
+            choiceKeys: ["returnHotDayCount", "returnAverage", "returnReadings"],
+            correctOptionIndex: 0,
+            contextKey: "lab.algorithm.context.hotDays",
+            decompositionScenarioID: "hot_days"
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.decompose.recipe.validate_servings",
+            choiceKeys: ["validateServings", "computeServingFactor", "presentAdjustedRecipe"],
+            correctOptionIndex: 0,
+            contextKey: "lab.algorithm.context.recipe",
+            decompositionScenarioID: "recipe"
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.decompose.recipe.compute_factor",
+            choiceKeys: ["computeServingFactor", "scaleEachIngredient", "validateServings"],
+            correctOptionIndex: 0,
+            contextKey: "lab.algorithm.context.recipe",
+            decompositionScenarioID: "recipe"
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.decompose.recipe.scale_ingredients",
+            choiceKeys: ["presentAdjustedRecipe", "scaleEachIngredient", "computeServingFactor"],
+            correctOptionIndex: 1,
+            contextKey: "lab.algorithm.context.recipe",
+            decompositionScenarioID: "recipe"
+        ),
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.decompose.recipe.present_result",
+            choiceKeys: ["presentAdjustedRecipe", "returnServingFactor", "validateServings"],
+            correctOptionIndex: 0,
+            contextKey: "lab.algorithm.context.recipe",
+            decompositionScenarioID: "recipe"
+        )
+    ]
+
+    private static let eligibilityQuestions = eligibilityTestCases.map { testCase in
+        AlgorithmicThinkingQuestion(
+            id: "programming.computational_thinking.tests.senior_discount.\(testCase.id)",
+            choiceKeys: AlgorithmicTestCaseCategory.allCases.map(\.key),
+            correctOptionIndex: testCase.correctCategory.rawValue,
+            contextKey: "lab.algorithm.context.eligibilityTestDesign",
+            eligibilityTestCaseID: testCase.id
+        )
+    }
+
+    static let maximumAlgorithmQuestionCount = maximumQuestions.count + maximumListQuestions.count
+    static let maximumSectionQuestionCount = maximumAlgorithmQuestionCount + maximumTestCaseQuestions.count
+    static let questions = maximumQuestions + maximumListQuestions + maximumTestCaseQuestions + maximumDebuggingQuestions + averageQuestions + testCaseQuestions + decompositionQuestions + eligibilityQuestions
+
+    static func showsMaximumExperiment(completedQuestionCount: Int) -> Bool {
+        completedQuestionCount >= maximumAlgorithmQuestionCount
+    }
+
+    static func showsMaximumTestResults(completedQuestionCount: Int) -> Bool {
+        completedQuestionCount >= maximumSectionQuestionCount
+    }
+
+    static func maximum(of values: [Int]) -> Int? {
+        values.max()
+    }
+
+    static func faultyMaximumInitializedAtZero(of values: [Int]) -> Int? {
+        guard !values.isEmpty else { return nil }
+        return values.reduce(0, max)
+    }
+
+    static func maximumDebuggingStage(forQuestionID questionID: String) -> AlgorithmicMaximumDebuggingStage? {
+        questions.first(where: { $0.id == questionID })?.maximumDebuggingStage
+    }
+
+    static func average(of values: [Int]) -> Double? {
+        guard !values.isEmpty else { return nil }
+        let total = values.reduce(0.0) { partial, value in partial + Double(value) }
+        return total / Double(values.count)
+    }
+
+    static func averageTestCase(id: String) -> AlgorithmicAverageTestCase? {
+        averageTestCases.first { $0.id == id }
+    }
+
+    static func averageTestCase(forQuestionID questionID: String) -> AlgorithmicAverageTestCase? {
+        guard let testCaseID = questions.first(where: { $0.id == questionID })?.averageTestCaseID else { return nil }
+        return averageTestCase(id: testCaseID)
+    }
+
+    static func maximumTestCase(forQuestionID questionID: String) -> AlgorithmicMaximumTestCase? {
+        guard let testCaseID = questions.first(where: { $0.id == questionID })?.maximumTestCaseID else { return nil }
+        return maximumTestCases.first { $0.id == testCaseID }
+    }
+
+    static func decompositionScenario(id: String) -> AlgorithmicDecompositionScenario? {
+        decompositionScenarios.first { $0.id == id }
+    }
+
+    static func decompositionScenario(forQuestionID questionID: String) -> AlgorithmicDecompositionScenario? {
+        guard let scenarioID = questions.first(where: { $0.id == questionID })?.decompositionScenarioID else { return nil }
+        return decompositionScenario(id: scenarioID)
+    }
+
+    static func eligibilityTestCase(id: String) -> AlgorithmicEligibilityTestCase? {
+        eligibilityTestCases.first { $0.id == id }
+    }
+
+    static func eligibilityTestCase(forQuestionID questionID: String) -> AlgorithmicEligibilityTestCase? {
+        guard let testCaseID = questions.first(where: { $0.id == questionID })?.eligibilityTestCaseID else { return nil }
+        return eligibilityTestCase(id: testCaseID)
+    }
+
+    static func answerOrders<Generator: RandomNumberGenerator>(using generator: inout Generator) -> [QuizAnswerOrder] {
+        QuizAnswerOrder.balancedSequence(
+            optionCount: 3,
+            answerOriginalIndices: questions.map(\.correctOptionIndex),
+            using: &generator
+        )
+    }
+
+    static func makeAnswerOrders() -> [QuizAnswerOrder] {
+        var generator = SystemRandomNumberGenerator()
+        return answerOrders(using: &generator)
+    }
+}
+
+enum AlgorithmicPythonPractice {
+    static let testCases = [
+        AlgorithmicPythonTestCase(id: "typical", values: [2, 4, 9], expectedMaximum: 9),
+        AlgorithmicPythonTestCase(id: "single", values: [7], expectedMaximum: 7),
+        AlgorithmicPythonTestCase(id: "negative", values: [-8, -2, -5], expectedMaximum: -2),
+        AlgorithmicPythonTestCase(id: "repeated", values: [3, 9, 9], expectedMaximum: 9),
+        AlgorithmicPythonTestCase(id: "empty", values: [], expectedMaximum: nil),
+    ]
+
+    static let startingCode = """
+    def solve(values):
+        if not values:
+            raise ValueError("values must not be empty")
+        current_maximum = 0
+        for value in values:
+            if value > current_maximum:
+                current_maximum = value
+        return current_maximum
+    """
+}
+
+struct AlgorithmicThinkingSubmission: Equatable {
+    let questionID: String
+    let stepKey: String
+    let isCorrect: Bool
+    let evidence: StudyAssessmentEvidence?
+}
+
+struct AlgorithmicThinkingPracticeSession {
+    private(set) var completedStepKeys: [String] = []
+    private(set) var answerOrders: [QuizAnswerOrder]
+    private var assessmentTracker: InteractiveChoiceAssessmentTracker
+
+    var isComplete: Bool { completedStepKeys.count == AlgorithmicThinkingPractice.questions.count }
+    var currentQuestion: AlgorithmicThinkingQuestion? {
+        AlgorithmicThinkingPractice.questions.indices.contains(completedStepKeys.count)
+            ? AlgorithmicThinkingPractice.questions[completedStepKeys.count]
+            : nil
+    }
+
+    var displayedChoiceKeys: [String] {
+        let index = completedStepKeys.count
+        guard let question = currentQuestion, answerOrders.indices.contains(index) else { return [] }
+        return answerOrders[index].displayedOriginalIndices.map { question.choiceKeys[$0] }
+    }
+
+    init(answerOrders: [QuizAnswerOrder] = AlgorithmicThinkingPractice.makeAnswerOrders()) {
+        precondition(answerOrders.count == AlgorithmicThinkingPractice.questions.count)
+        self.answerOrders = answerOrders
+        assessmentTracker = InteractiveChoiceAssessmentTracker(
+            itemIDs: AlgorithmicThinkingPractice.questions.map(\.id)
+        )
+    }
+
+    mutating func submit(displayedIndex: Int) -> AlgorithmicThinkingSubmission? {
+        let stepIndex = completedStepKeys.count
+        guard let question = currentQuestion,
+              answerOrders.indices.contains(stepIndex),
+              answerOrders[stepIndex].displayedOriginalIndices.indices.contains(displayedIndex) else { return nil }
+
+        let selectedOriginalIndex = answerOrders[stepIndex].displayedOriginalIndices[displayedIndex]
+        let isCorrect = selectedOriginalIndex == question.correctOptionIndex
+        let evidence = assessmentTracker.recordSubmission(
+            selectedAnswerIndex: selectedOriginalIndex,
+            correctAnswerIndex: question.correctOptionIndex,
+            optionCount: question.choiceKeys.count,
+            itemID: question.id
+        )
+        let stepKey = question.choiceKeys[selectedOriginalIndex]
+        if isCorrect { completedStepKeys.append(stepKey) }
+        return AlgorithmicThinkingSubmission(
+            questionID: question.id,
+            stepKey: stepKey,
+            isCorrect: isCorrect,
+            evidence: evidence
+        )
+    }
+
+    mutating func restart() {
+        completedStepKeys = []
+        answerOrders = AlgorithmicThinkingPractice.makeAnswerOrders()
+        assessmentTracker.reset()
+    }
+}

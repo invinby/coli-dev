@@ -8,6 +8,7 @@ import uuid
 import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Callable
 
@@ -23,11 +24,12 @@ _RETENTION_DAYS = 90
 
 @dataclass(frozen=True)
 class TokenUsage:
-    """Exact token counts reported by an upstream provider; missing stays unknown."""
+    """Usage metadata reported by an upstream provider; missing stays unknown."""
 
     input_tokens: int | None = None
     output_tokens: int | None = None
     total_tokens: int | None = None
+    cost_usd: Decimal | None = None
 
     @property
     def has_reported_counts(self) -> bool:
@@ -36,7 +38,6 @@ class TokenUsage:
             self.output_tokens,
             self.total_tokens,
         ))
-
 
 def _counter(value: Any) -> int | None:
     if isinstance(value, bool) or not isinstance(value, int):
@@ -64,6 +65,41 @@ def openai_compatible_usage(value: Any) -> TokenUsage:
         value.get("prompt_tokens"),
         value.get("completion_tokens"),
         value.get("total_tokens"),
+    )
+
+
+def _reported_cost_usd(value: Any) -> Decimal | None:
+    """Accept only a finite non-negative numeric USD amount from the provider."""
+    if isinstance(value, bool) or not isinstance(value, (int, float, Decimal)):
+        return None
+    try:
+        amount = value if isinstance(value, Decimal) else Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return None
+    if (
+        not amount.is_finite()
+        or amount < 0
+        or amount.as_tuple().exponent < -18
+        or amount.adjusted() > 18
+    ):
+        return None
+    return Decimal(0) if amount.is_zero() else amount
+
+
+def openrouter_usage(value: Any) -> TokenUsage:
+    """Read OpenRouter token counts and the actual USD cost it reports."""
+    if not isinstance(value, dict):
+        return TokenUsage()
+    usage = _usage(
+        value.get("prompt_tokens"),
+        value.get("completion_tokens"),
+        value.get("total_tokens"),
+    )
+    return TokenUsage(
+        usage.input_tokens,
+        usage.output_tokens,
+        usage.total_tokens,
+        _reported_cost_usd(value.get("cost")),
     )
 
 
@@ -141,9 +177,17 @@ class ProviderUsageStore:
                 input_tokens INTEGER CHECK (input_tokens IS NULL OR input_tokens >= 0),
                 output_tokens INTEGER CHECK (output_tokens IS NULL OR output_tokens >= 0),
                 total_tokens INTEGER CHECK (total_tokens IS NULL OR total_tokens >= 0),
-                usage_reported INTEGER NOT NULL CHECK (usage_reported IN (0, 1))
+                usage_reported INTEGER NOT NULL CHECK (usage_reported IN (0, 1)),
+                reported_cost_usd TEXT
             )"""
         )
+        columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(provider_usage_events)")
+        }
+        if "reported_cost_usd" not in columns:
+            connection.execute(
+                "ALTER TABLE provider_usage_events ADD COLUMN reported_cost_usd TEXT"
+            )
         connection.execute(
             """CREATE INDEX IF NOT EXISTS provider_usage_date_idx
                ON provider_usage_events (occurred_at)"""
@@ -193,12 +237,15 @@ class ProviderUsageStore:
         """Atomically count one outbound cloud-model attempt before sending it."""
         if not isinstance(provider, str) or provider not in _CLOUD_PROVIDERS:
             raise ValueError("unsupported cloud provider")
-        if isinstance(daily_limit, bool) or not isinstance(daily_limit, int) or daily_limit < 1:
-            raise ValueError("daily_limit must be a positive integer")
-        now = self._now()
-        start_text = _timestamp(now.replace(hour=0, minute=0, second=0, microsecond=0))
+        if isinstance(daily_limit, bool) or not isinstance(daily_limit, int) or daily_limit < 0:
+            raise ValueError("daily_limit must be a non-negative integer")
         with self._lock, self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
+            # Capture the time only after acquiring both the in-process lock and
+            # SQLite's write lock. Otherwise an older timestamp can wait while a
+            # newer request commits first, hiding that attempt from the daily count.
+            now = self._now()
+            start_text = _timestamp(now.replace(hour=0, minute=0, second=0, microsecond=0))
             self._prune(connection, now=now)
             used = int(connection.execute(
                 "SELECT COUNT(*) FROM cloud_call_attempts WHERE occurred_at >= ? AND occurred_at <= ?",
@@ -226,8 +273,8 @@ class ProviderUsageStore:
 
     def cloud_call_status(self, daily_limit: int) -> dict[str, int]:
         """Return today's local cloud-call attempts, including failed requests."""
-        if isinstance(daily_limit, bool) or not isinstance(daily_limit, int) or daily_limit < 1:
-            raise ValueError("daily_limit must be a positive integer")
+        if isinstance(daily_limit, bool) or not isinstance(daily_limit, int) or daily_limit < 0:
+            raise ValueError("daily_limit must be a non-negative integer")
         now = self._now()
         start_text = _timestamp(now.replace(hour=0, minute=0, second=0, microsecond=0))
         with self._lock, self._connect() as connection:
@@ -271,6 +318,9 @@ class ProviderUsageStore:
             total_tokens = input_tokens + output_tokens
             if total_tokens > _MAX_COUNTER:
                 raise ValueError("total token count exceeds the supported range")
+        reported_cost = _reported_cost_usd(usage.cost_usd)
+        if usage.cost_usd is not None and reported_cost is None:
+            raise ValueError("reported cost must be a finite non-negative USD amount")
 
         now = self._now()
         with self._lock, self._connect() as connection:
@@ -279,8 +329,9 @@ class ProviderUsageStore:
             connection.execute(
                 """INSERT INTO provider_usage_events (
                        event_id, occurred_at, provider, model, usage_format,
-                       input_tokens, output_tokens, total_tokens, usage_reported
-                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                       input_tokens, output_tokens, total_tokens, usage_reported,
+                       reported_cost_usd
+                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     uuid.uuid4().hex,
                     _timestamp(now),
@@ -291,6 +342,7 @@ class ProviderUsageStore:
                     output_tokens,
                     total_tokens,
                     int(usage.has_reported_counts),
+                    format(reported_cost.normalize(), "f") if reported_cost is not None else None,
                 ),
             )
 
@@ -331,8 +383,38 @@ class ProviderUsageStore:
                    ORDER BY responses DESC, provider, model""",
                 (start_text, end_text),
             ).fetchall()
+            cost_rows = connection.execute(
+                """SELECT provider, model, reported_cost_usd
+                   FROM provider_usage_events
+                   WHERE occurred_at >= ? AND occurred_at <= ?""",
+                (start_text, end_text),
+            ).fetchall()
 
-        def counts(row: sqlite3.Row) -> dict[str, int]:
+        reported_cost_total = Decimal(0)
+        cost_response_count = 0
+        model_costs: dict[tuple[str, str], tuple[int, Decimal]] = {}
+        for row in cost_rows:
+            raw_cost = row["reported_cost_usd"]
+            if not isinstance(raw_cost, str):
+                continue
+            try:
+                cost = Decimal(raw_cost)
+            except InvalidOperation:
+                continue
+            if not cost.is_finite() or cost < 0:
+                continue
+            reported_cost_total += cost
+            cost_response_count += 1
+            key = (str(row["provider"]), str(row["model"]))
+            count, subtotal = model_costs.get(key, (0, Decimal(0)))
+            model_costs[key] = (count + 1, subtotal + cost)
+
+        def counts(
+            row: sqlite3.Row,
+            *,
+            cost_responses: int,
+            cost_total: Decimal,
+        ) -> dict[str, Any]:
             responses = int(row["responses"])
             reported = int(row["reported"])
             return {
@@ -345,23 +427,43 @@ class ProviderUsageStore:
                 "responses_with_input_count": int(row["input_responses"]),
                 "responses_with_output_count": int(row["output_responses"]),
                 "responses_with_total_count": int(row["total_responses"]),
+                "responses_with_reported_cost": cost_responses,
+                "responses_without_reported_cost": responses - cost_responses,
+                "reported_cost_usd": (
+                    format(cost_total.normalize(), "f") if cost_responses else None
+                ),
             }
 
         return {
             "generated_at": _timestamp(now),
             "period_days": days,
             "period_start": start_text,
-            "totals": counts(totals),
+            "totals": {
+                **counts(
+                    totals,
+                    cost_responses=cost_response_count,
+                    cost_total=reported_cost_total,
+                ),
+            },
             "providers": [
                 {
                     "provider": row["provider"],
                     "model": row["model"],
-                    **counts(row),
+                    **counts(
+                        row,
+                        cost_responses=model_costs.get(
+                            (str(row["provider"]), str(row["model"])), (0, Decimal(0))
+                        )[0],
+                        cost_total=model_costs.get(
+                            (str(row["provider"]), str(row["model"])), (0, Decimal(0))
+                        )[1],
+                    ),
                 }
                 for row in providers
             ],
             "note": (
                 "Token counts are included only when returned by the provider. "
-                "Missing counters are not estimated; provider charges are not calculated."
+                "Missing counters or costs are not estimated; reported costs may differ "
+                "from the provider invoice."
             ),
         }

@@ -15,6 +15,25 @@ enum AlgorithmComplexityVerification {
         precondition(AlgorithmComplexityPractice.binarySearchWorstCaseComparisons(for: 0) == 0)
         precondition(AlgorithmComplexityPractice.binarySearchApplies(isSorted: true))
         precondition(!AlgorithmComplexityPractice.binarySearchApplies(isSorted: false))
-        print("Algorithm complexity checks passed.")
+
+        let scenarios = DataStructureChoicePractice.scenarios
+        let expectedScenarioIDs = [
+            "programming.data_structures.keep_order_and_duplicates",
+            "programming.data_structures.unique_membership",
+            "programming.data_structures.lookup_by_key"
+        ]
+        precondition(scenarios.map(\.id) == expectedScenarioIDs)
+        precondition(Set(scenarios.map(\.id)).count == scenarios.count)
+        for scenario in scenarios {
+            precondition(scenario.optionKeys.count == 3)
+            precondition(scenario.optionKeys.indices.contains(scenario.correctOptionIndex))
+            precondition(DataStructureChoicePractice.isCorrect(scenario.correctOptionIndex, for: scenario.id))
+            for option in scenario.optionKeys.indices where option != scenario.correctOptionIndex {
+                precondition(!DataStructureChoicePractice.isCorrect(option, for: scenario.id))
+            }
+        }
+        precondition(!DataStructureChoicePractice.isCorrect(-1, for: expectedScenarioIDs[0]))
+        precondition(!DataStructureChoicePractice.isCorrect(0, for: "programming.data_structures.unknown"))
+        print("Algorithm complexity and data structure choice checks passed.")
     }
 }

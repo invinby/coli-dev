@@ -20,6 +20,8 @@ obsidian_worker.py — интеграция с Obsidian Local REST API.
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
+from math import isfinite
 import re
 from typing import Any
 from urllib.parse import quote, unquote
@@ -288,6 +290,41 @@ class ObsidianWorker:
     async def read(self, path: str) -> dict[str, Any]:
         """Прочитать содержимое файла."""
         return await self._request("GET", f"vault/{self._vault_path(path)}")
+
+    async def note_metadata(self, path: str) -> dict[str, str | None]:
+        """Return filesystem freshness metadata without exposing the note body."""
+        data = await self._request(
+            "GET",
+            f"vault/{self._vault_path(path)}",
+            headers={"Accept": "application/vnd.olrapi.note+json"},
+            timeout=2.0,
+        )
+        stat = data.get("stat") if isinstance(data, dict) else None
+        raw_mtime = stat.get("mtime") if isinstance(stat, dict) else None
+
+        try:
+            mtime_ms = (
+                float(raw_mtime)
+                if isinstance(raw_mtime, (int, float)) and not isinstance(raw_mtime, bool)
+                else None
+            )
+        except (OverflowError, ValueError):
+            mtime_ms = None
+
+        modified_at: str | None = None
+        if (
+            mtime_ms is not None
+            and isfinite(mtime_ms)
+            and mtime_ms >= 0
+        ):
+            try:
+                modified_at = datetime.fromtimestamp(
+                    mtime_ms / 1000, tz=timezone.utc
+                ).isoformat(timespec="seconds").replace("+00:00", "Z")
+            except (OverflowError, OSError, ValueError):
+                modified_at = None
+
+        return {"modified_at": modified_at}
 
     async def write(
         self,

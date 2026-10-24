@@ -3,7 +3,7 @@ subject: mathematics
 lesson_id: mathematics.rational_expressions_and_restrictions
 level: intermediate
 languages: ru, en
-source_checked: 2026-10-06
+source_checked: 2026-10-12
 source_review_interval_days: 365
 ---
 
@@ -91,6 +91,6 @@ The trainer explores one example with a linear excluded factor; it does not simp
 
 ## Sources
 
-- OpenStax, *College Algebra 2e*, §1.6 “Rational Expressions” (consulted 2026-10-06): <https://openstax.org/books/college-algebra-2e/pages/1-6-rational-expressions>
-- OpenStax, *College Algebra 2e*, §5.6 “Rational Functions” (consulted 2026-10-06): <https://openstax.org/books/college-algebra-2e/pages/5-6-rational-functions>
+- OpenStax, *College Algebra 2e*, §1.6 “Rational Expressions” (checked 2026-10-12): <https://openstax.org/books/college-algebra-2e/pages/1-6-rational-expressions>
+- OpenStax, *College Algebra 2e*, §5.6 “Rational Functions” (checked 2026-10-12): <https://openstax.org/books/college-algebra-2e/pages/5-6-rational-functions>
 - OpenStax textbooks use CC BY-NC-SA 4.0; this lesson is a new explanation, not copied source text. The source monitor tracks metadata only and does not cache these pages for RAG.

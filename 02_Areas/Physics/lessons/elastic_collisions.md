@@ -3,7 +3,7 @@ subject: physics
 lesson_id: physics.elastic_collisions
 level: intermediate
 languages: ru, en
-source_checked: 2026-10-06
+source_checked: 2026-10-12
 source_review_interval_days: 365
 ---
 
@@ -29,7 +29,7 @@ source_review_interval_days: 365
 
 `v₂ = (2m₁u₁ + (m₂ − m₁)u₂) / (m₁ + m₂)`
 
-При равных массах тела обмениваются скоростями. Если второе тело покоится, первое может отскочить назад, а второе — продолжить движение вперёд. В слипании сохраняется импульс, но кинетическая энергия системы уменьшается и переходит в другие формы.
+При равных массах тела обмениваются скоростями. Если второе тело покоится, первое может отскочить назад, а второе — продолжить движение вперёд. При слипании импульс сохраняется, а кинетическая энергия уменьшается, если начальные скорости тел различаются; при одинаковых скоростях её потеря равна нулю.
 
 ### Пример
 
@@ -37,7 +37,7 @@ source_review_interval_days: 365
 
 ### Исследуй и потренируйся
 
-В лаборатории выбери «Упругое», задай массы и знаковые скорости и сначала предскажи направление тележки 1. Затем открой состояние «После». Проверь для каждой пары параметров, что импульс и кинетическая энергия до и после совпадают. Переключись на «Слипание»: импульс останется тем же, но конечные скорости сравняются, а кинетическая энергия уменьшится.
+В лаборатории выбери «Упругое», задай массы и знаковые скорости и сначала предскажи направление тележки 1. Затем открой состояние «После». Проверь для каждой пары параметров, что импульс и кинетическая энергия до и после совпадают. Переключись на «Слипание»: импульс останется тем же, конечные скорости сравняются, а кинетическая энергия уменьшится, если начальные скорости различались. При одинаковых начальных скоростях она не изменится.
 
 Практика: две тележки одинаковой массы движутся навстречу друг другу: `u₁ = 4 м/с`, `u₂ = −2 м/с`. Найди обе скорости после идеального упругого столкновения. Ответ: `v₁ = −2 м/с`, `v₂ = 4 м/с` — равные массы обмениваются скоростями.
 
@@ -83,7 +83,7 @@ Here `u` is velocity before impact and `v` is velocity after it; every signed ve
 
 `v₂ = (2m₁u₁ + (m₂ − m₁)u₂) / (m₁ + m₂)`
 
-For equal masses, the objects exchange velocities. If the second object starts at rest, the first can rebound while the second moves forward. When objects stick together, momentum is conserved but the system's kinetic energy decreases and changes into other forms.
+For equal masses, the objects exchange velocities. If the second object starts at rest, the first can rebound while the second moves forward. When objects stick together, momentum is conserved and kinetic energy decreases if their initial velocities differ; with equal initial velocities, there is no kinetic-energy loss.
 
 ### Example
 
@@ -91,7 +91,7 @@ A `1 kg` cart moves right at `4 m/s`; a `3 kg` cart is at rest. Take right as po
 
 ### Explore and practise
 
-Choose “Elastic” in the lab, set the masses and signed velocities, and predict cart 1's direction before switching to “After.” Check that both momentum and kinetic energy match before and after. Switch to “Stick together”: momentum stays the same, but the final velocities become equal and kinetic energy decreases.
+Choose “Elastic” in the lab, set the masses and signed velocities, and predict cart 1's direction before switching to “After.” Check that both momentum and kinetic energy match before and after. Switch to “Stick together”: momentum stays the same and the final velocities become equal. Kinetic energy decreases if the initial velocities differed; if they were equal, it is unchanged.
 
 Practice: two equal-mass carts approach one another with `u₁ = 4 m/s` and `u₂ = −2 m/s`. Find both final velocities after an ideal elastic collision. Answer: `v₁ = −2 m/s`, `v₂ = 4 m/s`; equal masses exchange velocities.
 
@@ -122,3 +122,4 @@ This is a one-dimensional classical model of two objects with constant mass. It 
 - OpenStax, *College Physics 2e*, [8.3 Conservation of Momentum](https://openstax.org/books/college-physics-2e/pages/8-3-conservation-of-momentum)
 - OpenStax, *College Physics 2e*, [8.4 Elastic Collisions in One Dimension](https://openstax.org/books/college-physics-2e/pages/8-4-elastic-collisions-in-one-dimension)
 - OpenStax, *College Physics 2e*, [8.5 Inelastic Collisions in One Dimension](https://openstax.org/books/college-physics-2e/pages/8-5-inelastic-collisions-in-one-dimension)
+- OpenStax, *University Physics Volume 1*, [9.4 Types of Collisions](https://openstax.org/books/university-physics-volume-1/pages/9-4-types-of-collisions) (explicit one-dimensional elastic-collision velocity formulas; source checked 2026-10-12)

@@ -1,0 +1,76 @@
+import Foundation
+
+@main
+enum QuadraticFunctionVerification {
+    static func main() {
+        let upward = QuadraticFunctionPractice(a: 2, h: 1, k: -8)!
+        precondition(close(upward.value(at: 0), -6), "Evaluate vertex form from parameters. / Вычислить значение вершинной формы по параметрам.")
+        precondition(upward.vertexX == 1 && upward.vertexY == -8, "Read the vertex from vertex form. / Найти вершину по вершинной форме.")
+        precondition(upward.opensUp && upward.width == .narrower, "Classify an upward narrow parabola. / Определить параболу, направленную вверх и более узкую.")
+        precondition(upward.realRoots().count == 2, "Find two real x-intercepts. / Найти два действительных корня.")
+        precondition(close(upward.realRoots()[0], -1) && close(upward.realRoots()[1], 3), "Sort the two roots. / Расположить два корня по возрастанию.")
+
+        let downward = QuadraticFunctionPractice(a: -0.5, h: -2, k: 3)!
+        precondition(!downward.opensUp && downward.width == .wider, "Classify a downward wide parabola. / Определить параболу, направленную вниз и более широкую.")
+        precondition(close(downward.realRoots()[0], -4.449489742783178), "Find the first non-integer root. / Найти первый нецелый корень.")
+        precondition(close(downward.realRoots()[1], 0.449489742783178), "Find the second non-integer root. / Найти второй нецелый корень.")
+
+        let tangent = QuadraticFunctionPractice(a: 1, h: 2, k: 0)!
+        precondition(
+            tangent.width == .standard,
+            "Classify the parent parabola width. / Определить ширину исходной параболы."
+        )
+        precondition(tangent.realRoots() == [2], "Report one root when the vertex lies on the x-axis. / Вернуть один корень, если вершина лежит на оси x.")
+        let noRealRoots = QuadraticFunctionPractice(a: 1, h: 0, k: 1)!
+        precondition(noRealRoots.realRoots().isEmpty, "Report no real roots above the x-axis. / Не возвращать действительные корни, если вершина выше оси x.")
+
+        precondition(QuadraticFunctionPractice(a: 0, h: 1, k: 2) == nil, "Reject a degenerate constant function. / Отклонить вырожденную постоянную функцию.")
+        precondition(QuadraticFunctionPractice(a: .infinity, h: 1, k: 2) == nil, "Reject non-finite parameters. / Отклонить не конечные параметры.")
+        precondition(QuadraticFunctionPractice(a: 1, h: .nan, k: 2) == nil, "Reject a non-finite vertex. / Отклонить не конечную координату вершины.")
+
+        var assessment = QuadraticPredictionAssessment()
+        let firstAttempt = assessment.recordAnswer(isCorrect: false)
+        precondition(firstAttempt.taskType == "interactive_prediction", "Classify a quadratic prediction assessment. / Определить тип проверки прогноза параболы.")
+        precondition(firstAttempt.attempts == 1 && !firstAttempt.firstTryCorrect, "Save the first incorrect prediction. / Сохранить первую неверную попытку.")
+        precondition(firstAttempt.itemID == "mathematics.quadratic_functions_and_transformations.parabola_width_prediction", "Retain the quadratic prediction question identity. / Сохранить идентификатор вопроса о ширине параболы.")
+        precondition(QuadraticPredictionAssessment.lessonID == "mathematics.quadratic_functions_and_transformations", "Link evidence to the quadratic lesson. / Связать свидетельство с уроком о квадратичной функции.")
+
+        let retry = assessment.recordAnswer(isCorrect: true)
+        precondition(retry.attempts == 2 && !retry.firstTryCorrect, "Keep first-try evidence across a successful retry. / Сохранить результат первой попытки после успешного повтора.")
+        precondition(retry.hintsUsed == 0, "Record the current hint count. / Сохранить число использованных подсказок.")
+
+        var correctOnFirstTry = QuadraticPredictionAssessment()
+        let correctEvidence = correctOnFirstTry.recordAnswer(isCorrect: true)
+        precondition(correctEvidence.attempts == 1 && correctEvidence.firstTryCorrect, "Save a correct first prediction. / Сохранить верный прогноз с первой попытки.")
+
+        let firstRoundOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: 1)
+        var round = QuadraticPredictionRound(answerOrder: firstRoundOrder)
+        let wrongDisplayIndex = firstRoundOrder.displayedOriginalIndices.firstIndex(where: { $0 != 1 })!
+        precondition(
+            round.submit(displayedIndex: wrongDisplayIndex) == false
+                && round.selectedDisplayedIndex == wrongDisplayIndex,
+            "A wrong prediction must show its result for the current graph. / Неверный прогноз должен показать результат для текущего графика."
+        )
+        precondition(
+            round.submit(displayedIndex: firstRoundOrder.correctDisplayedIndex) == nil
+                && round.selectedDisplayedIndex == wrongDisplayIndex,
+            "Do not replace the submitted answer before the next graph. / Не заменяй отправленный ответ до перехода к следующему графику."
+        )
+
+        let nextRoundOrder = QuizAnswerOrder(optionCount: 3, answerOriginalIndex: 1)
+        round.beginNewQuestion(answerOrder: nextRoundOrder)
+        precondition(
+            round.answerOrder == nextRoundOrder && round.selectedDisplayedIndex == nil,
+            "Retrying after feedback must clear the submitted choice and start a fresh prediction. / При повторе после обратной связи нужно сбросить отправленный выбор и начать новый прогноз."
+        )
+        precondition(
+            round.submit(displayedIndex: nextRoundOrder.correctDisplayedIndex) == true,
+            "A fresh prediction must use the updated answer order. / Новый прогноз должен использовать обновлённый порядок ответов."
+        )
+        print("Quadratic function checks passed. / Проверки квадратичной функции прошли.")
+    }
+
+    private static func close(_ lhs: Double, _ rhs: Double) -> Bool {
+        abs(lhs - rhs) < 1e-9
+    }
+}

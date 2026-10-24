@@ -3,7 +3,7 @@ subject: programming
 lesson_id: programming.sql_transactions
 level: intermediate
 languages: ru, en
-source_checked: 2026-10-06
+source_checked: 2026-10-13
 source_review_interval_days: 90
 ---
 
@@ -13,9 +13,49 @@ source_review_interval_days: 90
 
 ### Цель
 
-Понять, как транзакция группирует связанные изменения, чтобы подтвердить их вместе или отменить незавершённый перевод.
+Спроектировать простую таблицу с ограничениями, выбрать и отфильтровать строки запросом `SELECT`, понять роль индекса и объяснить, как транзакция сохраняет или отменяет связанные изменения.
 
 ### Идея и механизм
+
+В реляционной базе таблица задаёт форму записей, запрос выбирает нужные строки, а индекс может помочь поиску. Если несколько изменений должны сохраниться как одна операция, их объединяют транзакцией. Ниже разберём эти части на небольшой учебной модели.
+
+### Схема задаёт правила
+
+Перед SQL-запросами опиши, какие данные хранятся в строке и что нельзя принимать. В учебной таблице одна строка хранит длительность занятия и его тему:
+
+```sql
+CREATE TABLE study_sessions (
+    id INTEGER PRIMARY KEY,
+    topic TEXT NOT NULL,
+    minutes INTEGER NOT NULL CHECK (minutes >= 0)
+);
+```
+
+`PRIMARY KEY` различает записи, `NOT NULL` требует значение, а `CHECK` отвергает отрицательную длительность. `NOT NULL` нужен отдельно: в SQLite условие `CHECK`, которое вычислилось в `NULL`, само по себе не считается нарушением. Это пример для SQLite; детали типов и ограничений отличаются в других СУБД.
+
+### SELECT: выбрать, отфильтровать, упорядочить
+
+Запрос ниже возвращает только тему и длительность, оставляет занятия от 30 минут и сортирует их от длинных к коротким:
+
+```sql
+SELECT topic, minutes
+FROM study_sessions
+WHERE minutes >= 30
+ORDER BY minutes DESC;
+```
+
+На учебных данных ожидаемый результат: `SQLite | 50`, затем `while | 35`. Для чтения запроса удобно мысленно пройти `FROM` → `WHERE` → список `SELECT` → `ORDER BY`; документация SQLite описывает этот порядок как объяснительную модель, а не обязательный алгоритм выполнения движком.
+
+### Индекс помогает искать, но имеет цену
+
+```sql
+CREATE INDEX idx_study_sessions_minutes
+ON study_sessions(minutes);
+```
+
+Индекс хранит упорядоченный путь от значений `minutes` к соответствующим строкам. Он может помочь повторяющемуся фильтру по длительности на достаточно больших данных, но не меняет правильный результат запроса и не гарантирует ускорение: планировщик может предпочесть просмотр всей маленькой таблицы. Индекс занимает место и должен обновляться при изменениях строк, поэтому создавай его под реальный запрос и проверяй план выполнения.
+
+### Транзакция объединяет связанные изменения
 
 Банковский перевод — одна логическая операция из двух изменений: уменьшить один счёт и увеличить другой. Если программа остановится между ними и сохранит только первое изменение, деньги «исчезнут». Транзакция задаёт границу работы: начать, внести согласованные изменения, затем выполнить `COMMIT` или `ROLLBACK`.
 
@@ -37,7 +77,7 @@ COMMIT;
 
 ### Исследуй и потренируйся
 
-В пошаговой модели продвинь перевод через `BEGIN`, дебет, кредит и `COMMIT`. Сравни текущие значения с сохранёнными. Затем выбери сбой после дебета: пока транзакция открыта, данные отличаются, а `ROLLBACK` возвращает оба счёта к последней сохранённой паре. Симулятор не открывает настоящую базу и не запускает SQL.
+В тренажёре сначала подбери ограничения для таблицы, затем запрос для фильтрации и сортировки и индекс для того же фильтра. Сравни результат до и после индекса: строки должны остаться теми же. После этого продвинь банковский перевод через `BEGIN`, дебет, кредит и `COMMIT`. Сравни рабочие значения с сохранёнными; при сбое до кредита `ROLLBACK` возвращает последнюю сохранённую пару. Тренажёр показывает фиксированные данные и состояния, не открывает настоящую базу и не запускает SQL.
 
 Измени на бумаге сумму перевода на 120 при балансе 80. Опиши, какое предусловие надо проверить до дебета и почему одного `ROLLBACK` недостаточно для проверки бизнес-правил.
 
@@ -67,9 +107,49 @@ COMMIT;
 
 ### Goal
 
-Understand how a transaction groups related changes so they can be committed together or an incomplete transfer can be undone.
+Design a simple table with constraints, select and filter rows with `SELECT`, understand an index, and explain how a transaction saves or cancels related changes.
 
 ### Idea and mechanism
+
+In a relational database, a table defines the shape of records, a query selects the rows needed, and an index may help lookup. When several changes must persist as one operation, a transaction groups them. We will study these parts with a small teaching model.
+
+### Schema states the rules
+
+Before querying, describe which data each row stores and what values should be rejected. In this teaching table, each row stores a study topic and its duration:
+
+```sql
+CREATE TABLE study_sessions (
+    id INTEGER PRIMARY KEY,
+    topic TEXT NOT NULL,
+    minutes INTEGER NOT NULL CHECK (minutes >= 0)
+);
+```
+
+`PRIMARY KEY` identifies rows, `NOT NULL` requires a value, and `CHECK` rejects a negative duration. Keep `NOT NULL` separate: in SQLite, a `CHECK` expression that evaluates to `NULL` is not itself a constraint violation. This is a SQLite example; type and constraint details differ across database systems.
+
+### SELECT: choose, filter, and order
+
+This query returns only the topic and duration, keeps sessions of at least 30 minutes, and sorts from longest to shortest:
+
+```sql
+SELECT topic, minutes
+FROM study_sessions
+WHERE minutes >= 30
+ORDER BY minutes DESC;
+```
+
+For the teaching data, the expected result is `SQLite | 50`, then `while | 35`. To read the query, mentally follow `FROM` → `WHERE` → the `SELECT` list → `ORDER BY`; SQLite documents this as an explanatory model, not as a required execution algorithm for the engine.
+
+### An index can help lookup, at a cost
+
+```sql
+CREATE INDEX idx_study_sessions_minutes
+ON study_sessions(minutes);
+```
+
+An index stores an ordered path from `minutes` values to matching rows. It can help repeated duration filters on sufficiently large data, but it does not change the correct query result and does not guarantee a speedup: the planner may prefer a full scan of a tiny table. An index uses storage and must be maintained as rows change, so create it for a real query and inspect the query plan.
+
+### A transaction groups related changes
 
 A bank transfer is one logical operation with two changes: subtract from one account and add to another. If a program stops between them and saves only the first change, money appears to disappear. A transaction marks the boundary: begin, apply related changes, then `COMMIT` or `ROLLBACK`.
 
@@ -91,7 +171,7 @@ Before `COMMIT`, changes belong to the unfinished transaction; after an error, a
 
 ### Explore and practise
 
-Advance the transfer through `BEGIN`, debit, credit, and `COMMIT` in the step-by-step model. Compare working balances with saved balances. Then choose a failure after the debit: while the transaction is open, the values differ; `ROLLBACK` returns both accounts to the last saved pair. The simulator does not open a real database or run SQL.
+In the trainer, first choose constraints for the table, then the query for filtering and sorting, and an index for that filter. Compare results before and after adding the index: the rows should stay the same. Then advance the bank transfer through `BEGIN`, debit, credit, and `COMMIT`. Compare working values with saved values; if failure happens before the credit, `ROLLBACK` restores the last saved pair. The trainer displays fixed data and states, opens no real database, and executes no SQL.
 
 On paper, change the transfer amount to 120 when the source balance is 80. State which precondition to check before debiting and why `ROLLBACK` alone does not validate business rules.
 
@@ -119,4 +199,8 @@ The trainer shows one sequential writer and simplified balances; it does not mod
 
 ## Sources
 
-- SQLite Documentation, “Transaction”: <https://www.sqlite.org/lang_transaction.html> — page updated 2026-02-18; checked 2026-10-06 / последнее обновление страницы 2026-02-18; проверено 2026-10-06.
+- SQLite Documentation, “Transaction”: <https://www.sqlite.org/lang_transaction.html> — page updated 2026-02-18; checked 2026-10-13 / последнее обновление страницы 2026-02-18; проверено 2026-10-13.
+- SQLite Documentation, “CREATE TABLE”: <https://www.sqlite.org/lang_createtable.html> — schema and constraints / схема и ограничения.
+- SQLite Documentation, “SELECT”: <https://www.sqlite.org/lang_select.html> — selecting, filtering, and ordering result rows / выбор, фильтрация и сортировка строк результата.
+- SQLite Documentation, “Query Planning”: <https://www.sqlite.org/queryplanner.html> — index use, query plans, and tradeoffs / использование индексов, планы запросов и компромиссы.
+- SQLite, “Copyright”: <https://sqlite.org/copyright.html> — authors dedicate SQLite code and documentation to the public domain / авторы посвятили код и документацию SQLite общественному достоянию.

@@ -3,7 +3,7 @@ subject: biology
 lesson_id: biology.biomolecules_and_building_blocks
 level: foundations
 languages: ru, en
-source_checked: 2026-10-06
+source_checked: 2026-10-12
 source_review_interval_days: 365
 ---
 
@@ -25,7 +25,7 @@ source_review_interval_days: 365
 
 В тренажёре сопоставь молекулярный пример с основной группой и выбери подходящую строительную часть или роль. Затем переключайся между «соединить» и «расщепить» и проследи, появляется или расходуется ли вода в упрощённой схеме реакции.
 
-Задача: аминокислотная цепь сворачивается в фермент. К какой группе относится молекула и из каких малых единиц построена её цепь? Ответ: это белок, а единицы цепи — аминокислоты. Форма белка влияет на работу, поэтому одна лишь последовательность категорий не предсказывает конкретную функцию.
+Задача: аминокислотная цепь сворачивается в белковый фермент. К какой группе относится молекула и из каких малых единиц построена её цепь? Ответ: это белок, а единицы цепи — аминокислоты. Форма белка влияет на работу, поэтому одна лишь последовательность категорий не предсказывает конкретную функцию.
 
 ### Вопрос
 
@@ -65,7 +65,7 @@ Many large molecules are assembled from smaller components. Proteins, for exampl
 
 In the trainer, match a molecular example to its main group and choose a suitable building component or role. Then switch between “join” and “split” and track whether water appears or is used in the simplified reaction diagram.
 
-Challenge: an amino-acid chain folds into an enzyme. Which group does the molecule belong to, and what small units build its chain? It is a protein, and its chain is built from amino acids. Protein shape affects function, so a category label alone cannot predict a specific role.
+Challenge: an amino-acid chain folds into a protein enzyme. Which group does the molecule belong to, and what small units build its chain? It is a protein, and its chain is built from amino acids. Protein shape affects function, so a category label alone cannot predict a specific role.
 
 ### Question
 
@@ -91,6 +91,6 @@ Group names help compare molecules, but they do not mean that every member has o
 
 ## Sources
 
-- Clark, M. A., Douglas, M., & Choi, J. (2018). *Biology 2e*, §§ 3.1–3.5, OpenStax. <https://openstax.org/books/biology-2e/pages/3-1-synthesis-of-biological-macromolecules>
-- OpenStax, *Biology 2e*, chapter 3 sections 3.2–3.5: <https://openstax.org/books/biology-2e/pages/3-introduction>
+- Clark, M. A., Douglas, M., & Choi, J. (2018). *Biology 2e*, [3.1 Synthesis of Biological Macromolecules / 3.1 «Синтез биологических макромолекул»](https://openstax.org/books/biology-2e/pages/3-1-synthesis-of-biological-macromolecules) — обезвоживающий синтез и гидролиз / dehydration synthesis and hydrolysis.
+- OpenStax, *Biology 2e*: [3.2 Carbohydrates / «Углеводы»](https://openstax.org/books/biology-2e/pages/3-2-carbohydrates), [3.3 Lipids / «Липиды»](https://openstax.org/books/biology-2e/pages/3-3-lipids), [3.4 Proteins / «Белки»](https://openstax.org/books/biology-2e/pages/3-4-proteins), and [3.5 Nucleic Acids / «Нуклеиновые кислоты»](https://openstax.org/books/biology-2e/pages/3-5-nucleic-acids) — точные разделы для утверждений о свойствах и функциях каждой группы / the specific sections supporting the descriptions and functions of each group. Checked / проверено 2026-10-08.
 - OpenStax reuse terms: <https://openstax.org/terms-of-use>

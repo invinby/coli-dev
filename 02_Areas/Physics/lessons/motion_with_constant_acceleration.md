@@ -3,7 +3,7 @@ subject: physics
 lesson_id: physics.motion_with_constant_acceleration
 level: intermediate
 languages: ru, en
-source_checked: 2026-10-06
+source_checked: 2026-10-12
 source_review_interval_days: 365
 ---
 
@@ -97,4 +97,10 @@ These equations assume one axis, a Newtonian regime, an inertial frame, constant
 
 ## Sources
 
-- OpenStax, *College Physics 2e*, §2.5, “Motion Equations for Constant Acceleration in One Dimension”: https://openstax.org/books/college-physics-2e/pages/2-5-motion-equations-for-constant-acceleration-in-one-dimension — reference for independent fact-checking of the constant-acceleration equations. Lesson wording and exercise are original; no textbook passage, figure, worked example, or assessment has been copied. OpenStax states that the book is CC BY-NC-SA and prohibits ingestion of its content into generative-AI offerings without prior written permission. Do not include the linked page body in AI/RAG ingestion unless rights have been cleared.
+- OpenStax, *College Physics 2e*, §2.2, “Vectors, Scalars, and Coordinate Systems”: https://openstax.org/books/college-physics-2e/pages/2-2-vectors-scalars-and-coordinate-systems — choosing a consistent positive direction and distinguishing vector displacement from scalar distance / выбор неизменного положительного направления и различие между векторным перемещением и скалярным путём.
+- OpenStax, *College Physics 2e*, §2.5, “Motion Equations for Constant Acceleration in One Dimension”: https://openstax.org/books/college-physics-2e/pages/2-5-motion-equations-for-constant-acceleration-in-one-dimension — the constant-acceleration assumption and kinematics equations / допущение о постоянном ускорении и кинематические формулы.
+- OpenStax, *College Physics 2e*, §4.3, “Newton’s Second Law of Motion: Concept of a System”: https://openstax.org/books/college-physics-2e/pages/4-3-newtons-second-law-of-motion-concept-of-a-system — `a = F_net/m`, net external force, and the SI newton / `a = F_net/m`, равнодействующая внешних сил и ньютон в СИ.
+- OpenStax, *College Physics 2e*, Chapter 4 introduction, “Dynamics: Newton’s Laws of Motion”: https://openstax.org/books/college-physics-2e/pages/4-introduction-to-dynamics-newtons-laws-of-motion — the domain of classical/Newtonian mechanics / область применимости классической, ньютоновской механики.
+- OpenStax, *College Physics 2e*, §4.5, “Normal, Tension, and Other Examples of Forces”: https://openstax.org/books/college-physics-2e/pages/4-5-normal-tension-and-other-examples-of-forces — extended topic defining inertial frames, where Newton’s laws take their simple form / дополнительный раздел с определением инерциальной системы, в которой законы Ньютона принимают простую форму.
+
+Lesson wording and exercise are original; no textbook passage, figure, worked example, or assessment has been copied. OpenStax states that the book is CC BY-NC-SA and prohibits ingestion of its content into generative-AI offerings without prior written permission. Do not include the linked page bodies in AI/RAG ingestion unless rights have been cleared.

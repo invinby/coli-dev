@@ -19,19 +19,20 @@
 | Беспозвоночные: разнообразие и функциональная морфология / Invertebrates: diversity and functional morphology | Сравнивать крупные группы беспозвоночных по строению, жизненному циклу и экологии. / Compare invertebrate groups by anatomy and ecology. | |
 | Позвоночные и сравнительная анатомия / Vertebrates and comparative anatomy | Сопоставлять основные системы позвоночных, отмечая общие признаки и специализации. / Compare vertebrate systems and specializations. | |
 | Газообмен и кровообращение животных / Gas exchange and animal circulation | Сопоставлять диффузию, открытые и закрытые системы и контуры кровообращения позвоночных, не превращая общие схемы в универсальное правило. / Compare diffusion, open and closed systems, and vertebrate circuits without treating broad patterns as universal. | lesson:comparative_gas_exchange_and_circulation |
+| Терморегуляция и стратегии теплообмена / Thermoregulation and heat-exchange strategies | Различать источник тепла и стабильность температуры тела; выбирать возможный ответ на условия среды и объяснять его ограничения. / Separate heat source from temperature stability and explain context-dependent responses. | lesson:thermoregulation_and_heat_exchange |
 | Этология и когнитивное поведение / Ethology, animal behavior, and cognition | Формулировать несколько объяснений поведения и проверять их через наблюдение и эксперимент. / Generate and test animal behavior hypotheses. | |
 | Популяции, сообщества и биогеография / Populations, communities, biogeography | Связывать ареалы, численность, взаимодействия видов и факторы среды. / Relate range, abundance, interactions, and environment. | |
 | Жизненные циклы, паразиты и симбиоз / Life cycles, parasites, symbiosis | Строить схемы жизненного цикла и анализировать отношения хозяина и организма-партнёра. / Diagram life cycles and host interactions. | |
 
 ## Продвинутый уровень / Advanced
 
-| Модуль / Module | Результат обучения / Learning outcome |
-|---|---|
-| Систематика, филогенетика и идентификация / Systematics, phylogenetics, identification | Использовать диагностические признаки и данные происхождения, указывая неопределённость идентификации. / Identify organisms with explicit uncertainty. |
-| Сравнительная физиология и экологические ниши / Comparative physiology and ecological niches | Объяснять ограничения физиологических стратегий в конкретных условиях среды. / Explain tradeoffs of physiological strategies. |
-| Методы полевых наблюдений и благополучие животных / Field methods and animal welfare | Планировать наблюдение без лишнего вмешательства и соблюдать требования безопасности и этики. / Plan low-impact, ethical observations. |
-| Охрана видов и управление средой / Conservation and habitat management | Читать данные о риске и выбирать меры с учётом масштаба, неопределённости и конфликта интересов. / Match conservation action to evidence and constraints. |
-| Специализации: энтомология, ихтиология, орнитология, маммалогия / Specializations: entomology, ichthyology, ornithology, mammalogy | Переносить общие методы на конкретный отряд или экосистему. / Apply shared methods to a focused group or ecosystem. |
+| Модуль / Module | Результат обучения / Learning outcome | Урок / Lesson |
+|---|---|---|
+| Систематика, филогенетика и идентификация / Systematics, phylogenetics, identification | Использовать диагностические признаки и данные происхождения, указывая неопределённость идентификации. / Identify organisms with explicit uncertainty. | |
+| Сравнительная физиология и экологические ниши / Comparative physiology and ecological niches | Объяснять ограничения физиологических стратегий в конкретных условиях среды. / Explain tradeoffs of physiological strategies. | lesson:comparative_thermoregulation_and_heat_stress |
+| Методы полевых наблюдений и благополучие животных / Field methods and animal welfare | Планировать наблюдение без лишнего вмешательства и соблюдать требования безопасности и этики. / Plan low-impact, ethical observations. | |
+| Охрана видов и управление средой / Conservation and habitat management | Читать данные о риске и выбирать меры с учётом масштаба, неопределённости и конфликта интересов. / Match conservation action to evidence and constraints. | |
+| Специализации: энтомология, ихтиология, орнитология, маммалогия / Specializations: entomology, ichthyology, ornithology, mammalogy | Переносить общие методы на конкретный отряд или экосистему. / Apply shared methods to a focused group or ecosystem. | |
 
 ## Форматы практики / Practice formats
 

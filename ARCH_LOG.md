@@ -1,5 +1,9 @@
 # 📋 ARCH_LOG — Бортовой журнал экосистемы coli-dev
 
+> **Исторический документ / Historical document:** Этот журнал создан 2026-07-13 для прежней конфигурации ColiDev. Упоминания Freebuff и Claude ниже описывают тогдашние роли/планы, а не подключённые компоненты текущего приложения. Для актуальной архитектуры см. `project-plan/WHOLE_PROJECT_AUDIT_RU_EN.md` и `project-plan/CURRENT_TASK_AND_LEARNING_PATH_RU_EN.md`.
+>
+> This log was created on 2026-07-13 for an earlier ColiDev setup. Freebuff and Claude references below describe historical roles/plans, not components integrated into the current app. For current architecture, see `project-plan/WHOLE_PROJECT_AUDIT_RU_EN.md` and `project-plan/CURRENT_TASK_AND_LEARNING_PATH_RU_EN.md`.
+
 > **Единый журнал координации между Freebuff (Главный Архитектор) и Claude Code (Дебаггер/Рефактор)**
 
 ---
@@ -63,7 +67,7 @@
 - ✅ Старый ключ отозван, новый установлен
 - ✅ Модель обновлена: `gemini-2.5-pro-exp-03-25` → `gemini-3.5-flash`
 
-### OpenRouter + Gemini 3.5 Flash (2026-07-14)
+### OpenRouter + Gemini 3.5 Flash / OpenRouter и Gemini 3.5 Flash (2026-07-14)
 - ❌ Google AI Studio напрямую НЕСОВМЕСТИМ с Claude Code (разные API форматы)
 - ❌ OpenRouter тоже не переводит Anthropic → Gemini формат
 - ✅ Переписано на LiteLLM — локальный прокси-переводчик
@@ -112,7 +116,7 @@
 - ✅ **Уровень 2: Локальный Критик**
   - Freebuff (Mimo 2.5) → строгий код-ревью, оптимизация для Mac M1
   - Qwen 2.5 Coder 7B (Ollama) → мгновенная верификация синтаксиса
-- ✅ **Split-View UI (50/50)**
+- ✅ **Split-View UI (50/50) / Интерфейс с разделённой областью (50/50)**
   - Левая панель: неоновый чат консилиума (pink accent #ff6b9d)
   - Правая панель: живой iframe NotebookLM
 - ✅ **Obsidian авто-саммари** — фоновая задача через asyncio.create_task()

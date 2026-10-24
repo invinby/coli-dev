@@ -364,8 +364,16 @@ def test_priority_curriculum_roadmaps_are_retrievable(
         "Physics/lessons/net_force_and_acceleration.md",
     ),
     (
+        "12.4 plus minus 0.2 centimetres exact conversion to metres relative measurement uncertainty",
+        "Physics/lessons/measurement_units_and_uncertainty.md",
+    ),
+    (
         "work-energy theorem net work changes kinetic energy mass speed joules",
         "Physics/lessons/work_and_kinetic_energy.md",
+    ),
+    (
+        "displacement vector magnitude direction components east north x y cosine sine coordinate axes",
+        "Physics/lessons/vectors_and_kinematics.md",
     ),
     (
         "signed velocity perfectly inelastic collision carts stick total momentum impulse",
@@ -436,10 +444,14 @@ def test_programming_variables_lesson_rag_returns_python_docs_source(tmp_path: P
         source for source in results
         if source["path"] == "02_Areas/Programming/lessons/variables_and_types.md"
     )
-    assert lesson["source_checked_at"] == "2026-10-06"
+    assert lesson["source_checked_at"] == "2026-10-15"
     assert {
-        "title": "Python 3.14 Tutorial, “An Informal Introduction to Python” (official Python documentation; consulted 2026-10-06)",
-        "url": "https://docs.python.org/3/tutorial/introduction.html",
+        "title": "Python 3 built-in functions, input() and int() (official Python documentation; consulted 2026-10-15)",
+        "url": "https://docs.python.org/3/builtins/functions.html",
+    } in lesson["official_references"]
+    assert {
+        "title": "Python 3 built-in exceptions, ValueError (official Python documentation; consulted 2026-10-15)",
+        "url": "https://docs.python.org/3/builtins/exceptions.html",
     } in lesson["official_references"]
 
 
@@ -458,14 +470,36 @@ def test_programming_collections_lesson_rag_returns_official_python_tutorial_pag
         source for source in results
         if source["path"] == "02_Areas/Programming/lessons/collections_and_loops.md"
     )
-    assert lesson["source_checked_at"] == "2026-10-06"
+    assert lesson["source_checked_at"] == "2026-10-13"
     assert {
-        "title": "Python Tutorial: Lists and sequences — Python Software Foundation",
+        "title": "Python Tutorial: Lists and sequences — Python Software Foundation / Учебник Python: списки и последовательности — Фонд Python",
         "url": "https://docs.python.org/3/tutorial/introduction.html",
     } in lesson["official_references"]
     assert {
-        "title": "Python Tutorial: for Statements and range — Python Software Foundation",
+        "title": "Python Tutorial: `for` Statements and `range` — Python Software Foundation / Учебник Python: оператор `for` и `range` — Фонд Python",
         "url": "https://docs.python.org/3/tutorial/controlflow.html",
+    } in lesson["official_references"]
+    assert {
+        "title": "Python Language Reference: The `while` statement — Python Software Foundation / Справочник по языку Python: оператор `while` — Фонд Python",
+        "url": "https://docs.python.org/3/reference/compound_stmts.html",
+    } in lesson["official_references"]
+
+
+def test_programming_git_workflow_lesson_rag_returns_pro_git_reference(tmp_path: Path) -> None:
+    project = Path(__file__).resolve().parent.parent
+    index = KnowledgeIndex(project, tmp_path / "knowledge.sqlite3")
+
+    results = index.refresh_and_search("git status diff stage staging index commit local history")
+
+    assert results
+    lesson = next(
+        source for source in results
+        if source["path"] == "02_Areas/Programming/lessons/debugging_tests_and_git.md"
+    )
+    assert lesson["source_checked_at"] == "2026-10-13"
+    assert {
+        "title": "Pro Git: Recording Changes to the Repository — Git Project / Pro Git: сохранение изменений в репозитории — проект Git",
+        "url": "https://git-scm.com/book/en/v2/Git-Basics-Recording-Changes-to-the-Repository",
     } in lesson["official_references"]
 
 
@@ -507,6 +541,23 @@ def test_bundled_photosynthesis_lesson_links_openstax_primary_material(tmp_path:
     assert "https://openstax.org/books/biology-2e/pages/8-1-overview-of-photosynthesis" in reference_urls
     assert "https://openstax.org/books/biology-2e/pages/8-2-the-light-dependent-reactions-of-photosynthesis" in reference_urls
     assert "https://openstax.org/books/biology-2e/pages/8-3-using-light-energy-to-make-organic-molecules" in reference_urls
+
+
+def test_physics_measurement_lesson_cites_conversion_and_uncertainty_sources(tmp_path: Path) -> None:
+    project = Path(__file__).resolve().parent.parent
+    index = KnowledgeIndex(project, tmp_path / "knowledge.sqlite3")
+
+    results = index.refresh_and_search("centimetres convert value uncertainty metres relative percent")
+    lesson = next(
+        source for source in results
+        if source["path"] == "02_Areas/Physics/lessons/measurement_units_and_uncertainty.md"
+    )
+
+    assert lesson["source_checked_at"] == "2026-10-07"
+    reference_urls = {reference["url"] for reference in lesson["official_references"]}
+    assert "https://openstax.org/books/university-physics-volume-1/pages/1-3-unit-conversion" in reference_urls
+    assert "https://openstax.org/books/university-physics-volume-1/pages/1-6-significant-figures" in reference_urls
+    assert lesson["source_review_status"] in {"due", "scheduled"}
 
 
 def test_bundled_cell_lesson_links_primary_eukaryotic_and_membrane_references(tmp_path: Path) -> None:
@@ -670,6 +721,41 @@ def test_zoology_animal_function_foundations_lesson_is_linked() -> None:
     assert "### Limits and safe execution" in content
 
 
+def test_zoology_thermoregulation_intermediate_lesson_is_linked() -> None:
+    project = Path(__file__).resolve().parent.parent
+    curriculum = (project / "02_Areas/Zoology/curriculum.md").read_text(encoding="utf-8")
+    lesson = project / "02_Areas/Zoology/lessons/thermoregulation_and_heat_exchange.md"
+
+    assert "lesson:thermoregulation_and_heat_exchange" in curriculum
+    assert lesson.is_file()
+    content = lesson.read_text(encoding="utf-8")
+    assert "lesson_id: zoology.thermoregulation_and_heat_exchange" in content
+    assert "level: intermediate" in content
+    assert "languages: ru, en" in content
+    assert "### Границы модели" in content
+    assert "### Limits and safe execution" in content
+    assert "https://openstax.org/books/biology-2e/pages/33-3-homeostasis" in content
+
+
+def test_zoology_thermoregulation_trainer_has_bilingual_choices() -> None:
+    project = Path(__file__).resolve().parent.parent
+    localization = (project / "macOS/ColiDev/App/L10n.swift").read_text(encoding="utf-8")
+
+    for key in (
+        "lab.zoology.thermal.mode.ectotherm",
+        "lab.zoology.thermal.mode.endotherm",
+        "lab.zoology.thermal.environment.cool",
+        "lab.zoology.thermal.environment.mild",
+        "lab.zoology.thermal.environment.hot",
+        "lab.zoology.thermal.response.externalHeat",
+        "lab.zoology.thermal.response.coolerMicrohabitat",
+        "lab.zoology.thermal.response.conserveHeat",
+        "lab.zoology.thermal.response.dissipateHeat",
+        "lab.zoology.thermal.response.observe",
+    ):
+        assert f'"{key}"' in localization, f"Missing RU/EN localization for {key}"
+
+
 def test_zoology_function_trainer_has_all_bilingual_labels() -> None:
     project = Path(__file__).resolve().parent.parent
     localization = (project / "macOS/ColiDev/App/L10n.swift").read_text(encoding="utf-8")
@@ -679,6 +765,46 @@ def test_zoology_function_trainer_has_all_bilingual_labels() -> None:
         for group in ["function", "example", "mechanism", "limitation"]:
             key = f'"lab.zoology.{group}.{raw_value}"'
             assert key in localization, f"Missing RU/EN localization for {key}"
+
+
+def test_statistics_lab_explains_correct_and_incorrect_predictions_bilingually() -> None:
+    project = Path(__file__).resolve().parent.parent
+    localization = (project / "macOS/ColiDev/App/L10n.swift").read_text(encoding="utf-8")
+    view = (project / "macOS/ColiDev/App/StatisticsPracticeLab.swift").read_text(encoding="utf-8")
+
+    required_keys = {
+        "lab.statistics.showExplanation",
+        "lab.statistics.explanation.above",
+        "lab.statistics.explanation.within",
+    }
+    for key in required_keys:
+        match = re.search(rf'"{re.escape(key)}": \("([^"]+)", "([^"]+)"\)', localization)
+        assert match, f"Expected a nonempty Russian and English localization for {key}"
+
+    assert "LessonAnswerFeedback.presentation(" in view
+    assert "feedback.canRevealExplanation" in view
+    assert "if let explanation = feedback.explanation" in view
+
+
+def test_trigonometry_lab_offers_angle_specific_bilingual_feedback_after_wrong_answer() -> None:
+    project = Path(__file__).resolve().parent.parent
+    localization = (project / "macOS/ColiDev/App/L10n.swift").read_text(encoding="utf-8")
+    view = (project / "macOS/ColiDev/App/TrigonometryUnitCircleLab.swift").read_text(encoding="utf-8")
+
+    required_keys = {
+        "lab.trigonometry.showExplanation",
+        "lab.trigonometry.explanation.negative",
+        "lab.trigonometry.explanation.zero",
+        "lab.trigonometry.explanation.positive",
+    }
+    for key in required_keys:
+        match = re.search(rf'"{re.escape(key)}": \("([^\"]+)", "([^\"]+)"\)', localization)
+        assert match, f"Expected a nonempty Russian and English localization for {key}"
+
+    assert "LessonAnswerFeedback.presentation(" in view
+    assert "feedback.canRevealExplanation" in view
+    assert "if let explanation = feedback.explanation" in view
+    assert "model.sineSign.explanationKey" in view
 
 
 def test_bundled_lessons_have_a_complete_bilingual_learning_structure() -> None:
@@ -823,3 +949,22 @@ def test_ollama_embedding_provider_uses_local_embed_api_without_proxy() -> None:
         "http://127.0.0.1:11434/api/embed",
         json={"model": "embeddinggemma", "input": ["local study text"]},
     )
+
+
+def test_statistics_path_links_to_bilingual_source_cited_lesson() -> None:
+    project = Path(__file__).resolve().parent.parent
+    curriculum = (project / "02_Areas/Mathematics/curriculum.md").read_text(encoding="utf-8")
+    resource = "descriptive_statistics_and_potential_outliers"
+    lesson = project / f"02_Areas/Mathematics/lessons/{resource}.md"
+
+    assert f"lesson:{resource}" in curriculum
+    assert lesson.is_file()
+    lesson_text = lesson.read_text(encoding="utf-8")
+    assert f"lesson_id: mathematics.{resource}" in lesson_text
+    assert "## Русский" in lesson_text
+    assert "## English" in lesson_text
+    assert "### Исследуй и потренируйся" in lesson_text
+    assert "### Explore and practise" in lesson_text
+    assert "https://openstax.org/books/introductory-statistics-2e/pages/2-3-measures-of-the-location-of-the-data" in lesson_text
+    assert "https://openstax.org/books/introductory-statistics-2e/pages/2-5-measures-of-the-center-of-the-data" in lesson_text
+    assert "## Sources" in lesson_text

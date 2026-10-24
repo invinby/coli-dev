@@ -11,18 +11,27 @@ enum SafeWebReferenceURLVerification {
             "https://openstax.org/books/college-algebra-2e/pages/1-6-rational-expressions",
             "https://openstax.org/books/college-algebra-2e/pages/5-6-rational-functions",
             "https://openstax.org/books/college-algebra-2e/pages/7-1-systems-of-linear-equations-two-variables",
+            "https://openstax.org/books/university-physics-volume-1/pages/2-2-coordinate-systems-and-components-of-a-vector",
+            "https://openstax.org/books/college-physics-2e/pages/2-1-displacement",
+            "https://openstax.org/books/college-physics-2e/pages/2-2-vectors-scalars-and-coordinate-systems",
+            "https://openstax.org/books/biology-2e/pages/33-3-homeostasis",
             "https://docs.python.org/3/library/bisect.html",
             "https://www.genome.gov/genetics-glossary/genotype",
             "https://www.genome.gov/genetics-glossary/Gene-Expression",
             "https://www.genome.gov/genetics-glossary/Gene-Regulation",
             "https://www.genome.gov/genetics-glossary/Promoter",
             "https://www.genome.gov/genetics-glossary/Chromatid",
+            "https://www.ncbi.nlm.nih.gov/books/NBK26854/",
+            "https://www.ncbi.nlm.nih.gov/books/NBK550206/",
+            "https://www.ncbi.nlm.nih.gov/books/NBK9842/",
             "https://openstax.org/books/biology-2e/pages/10-2-the-cell-cycle",
             "https://openstax.org/books/biology-2e/pages/33-1-animal-form-and-function",
             "https://openstax.org/books/biology-2e/pages/34-1-digestive-systems",
             "https://openstax.org/books/biology-2e/pages/38-1-types-of-skeletal-systems",
             "https://openstax.org/books/biology-2e/pages/39-1-systems-of-gas-exchange",
             "https://openstax.org/books/biology-2e/pages/43-2-fertilization",
+            "https://www.sciencedirect.com/science/article/pii/S1095643325000789",
+            "https://pubmed.ncbi.nlm.nih.gov/40393560/",
             "https://csrc.nist.gov/glossary/term/algorithm",
             "https://www.nist.gov/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b9",
             "https://www.sqlite.org/lang_transaction.html",
@@ -36,6 +45,8 @@ enum SafeWebReferenceURLVerification {
         precondition(SafeWebReferenceURL.parse("https://example.org/source#private") == nil, "fragments should be rejected")
         precondition(SafeWebReferenceURL.parse("https://raw.githubusercontent.com/someone/another-repo/main/README.md") == nil, "arbitrary GitHub raw pages should not be linkable")
         precondition(SafeWebReferenceURL.parse("https://example.org/source") == nil, "unknown hosts should not be linkable")
+        precondition(SafeWebReferenceURL.parse("https://www.sciencedirect.com/science/article/pii/S0000000000000000") == nil, "unreviewed publisher paths should not be linkable")
+        precondition(SafeWebReferenceURL.parse("https://pubmed.ncbi.nlm.nih.gov/40393561/") == nil, "unreviewed PubMed records should not be linkable")
         precondition(SafeWebReferenceURL.parse("not a URL") == nil, "malformed references should be rejected")
         print("Safe web reference URL checks passed.")
     }

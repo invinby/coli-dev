@@ -3,7 +3,7 @@ subject: mathematics
 lesson_id: mathematics.functions_as_models
 level: foundations
 languages: ru, en
-source_checked: 2026-10-05
+source_checked: 2026-10-12
 source_review_interval_days: 365
 ---
 
@@ -97,3 +97,4 @@ The linear model assumes a constant price per kilometre and ignores traffic, wai
 
 - OpenStax, *Algebra and Trigonometry 2e*, “Functions and Function Notation”: <https://openstax.org/books/algebra-and-trigonometry-2e/pages/3-1-functions-and-function-notation>
 - OpenStax, *Algebra and Trigonometry 2e*, “Domain and Range”: <https://openstax.org/books/algebra-and-trigonometry-2e/pages/3-2-domain-and-range>
+- OpenStax, *College Algebra 2e*, “Linear Functions”: <https://openstax.org/books/college-algebra-2e/pages/4-1-linear-functions>

@@ -3,7 +3,7 @@ subject: biology
 lesson_id: biology.cell_cycle_and_differentiation
 level: intermediate
 languages: ru, en
-source_checked: 2026-10-06
+source_checked: 2026-10-14
 source_review_interval_days: 180
 ---
 
@@ -19,9 +19,9 @@ source_review_interval_days: 180
 
 Клеточный цикл — последовательность роста и деления клетки. В интерфазе клетка растёт и готовится к делению: в G₁ растёт и выполняет обычные функции, в S копирует ДНК, а в G₂ продолжает подготовку. Интерфаза — не «пауза»: в ней происходят важные процессы, хотя хромосомы обычно не выглядят как компактные структуры митоза.
 
-Во время митоза ядро распределяет скопированные хромосомы между двумя будущими ядрами. В упрощённой последовательности хромосомы уплотняются и прикрепляются к веретену, выстраиваются, сестринские хроматиды расходятся к разным полюсам, затем формируются два ядра. Цитокинез обычно разделяет цитоплазму и завершает образование двух клеток. Митоз и цитокинез связаны, но это разные процессы.
+Во время митоза ядро распределяет скопированные хромосомы между двумя будущими ядрами. В упрощённой последовательности хромосомы уплотняются и прикрепляются к веретену, выстраиваются, сестринские хроматиды расходятся к разным полюсам, затем формируются два ядра. Цитокинез разделяет цитоплазму, но его начало не обязано ждать завершения телофазы: у животных он обычно начинается в поздней анафазе, а у растений во время телофазы формируется клеточная пластинка. Митоз и цитокинез связаны, но это разные процессы.
 
-После деления клетки не обязаны навсегда оставаться одинаковыми. На специализацию влияют активность генов и сигналы окружения; дифференцировка — изменение набора используемых программ и функций, а не ещё одна фаза митоза. Учебный тренажёр показывает общую последовательность, не все исключения и регуляторные детали.
+Клеточная идентичность может различаться уже после асимметричного деления или меняться позднее под влиянием сигналов соседних клеток. У разных типов клеток отличаются активные наборы генов; регулирование экспрессии помогает поддерживать и менять их функции. Дифференцировка — один из возможных процессов специализации, а не обязательная следующая фаза каждого цикла. Учебный тренажёр показывает общие механизмы, а не все исключения и регуляторные детали.
 
 ### Исследуй и потренируйся
 
@@ -59,9 +59,9 @@ Distinguish interphase, mitosis, and cytokinesis; trace DNA replication and expl
 
 The cell cycle is an ordered sequence of cell growth and division. During interphase, a cell grows and prepares: it grows and performs its usual functions in G₁, copies DNA in S, and continues preparation in G₂. Interphase is not a pause; important processes take place even though chromosomes usually do not appear as the compact structures seen during mitosis.
 
-During mitosis, the nucleus distributes copied chromosomes between two future nuclei. In a simplified sequence, chromosomes condense and attach to the spindle, line up, sister chromatids move to opposite poles, and two nuclei form. Cytokinesis usually divides the cytoplasm and completes the formation of two cells. Mitosis and cytokinesis are connected, but they are distinct processes.
+During mitosis, the nucleus distributes copied chromosomes between two future nuclei. In a simplified sequence, chromosomes condense and attach to the spindle, line up, sister chromatids move to opposite poles, and two nuclei form. Cytokinesis divides the cytoplasm, but it does not always wait for telophase to finish: in animal cells it usually begins during late anaphase, while a cell plate forms during telophase in plants. Mitosis and cytokinesis are connected, but they are distinct processes.
 
-After division, cells do not have to remain identical forever. Gene activity and environmental signals influence specialization; differentiation changes which programs and functions a cell uses, rather than adding another mitotic phase. The trainer shows the broad sequence, not every exception or regulatory detail.
+Cell identities can differ from the time of asymmetric division or change later in response to signals from neighboring cells. Different cell types use different sets of active genes; regulated gene expression helps maintain and change their functions. Differentiation is one possible process of specialization, not a required next phase in every cycle. The trainer shows broad mechanisms, not every exception or regulatory detail.
 
 ### Explore and practice
 
@@ -91,5 +91,8 @@ This is a standard overview of a dividing eukaryotic cell. It does not assign un
 
 ## Sources
 
-- OpenStax Biology 2e, [10.2 The Cell Cycle](https://openstax.org/books/biology-2e/pages/10-2-the-cell-cycle) — overview of interphase, mitosis, and cytokinesis; checked 2026-10-06.
-- NHGRI, [Chromatid](https://www.genome.gov/genetics-glossary/Chromatid) — sister chromatids and their separation; checked 2026-10-06.
+- OpenStax Biology 2e, [10.2 The Cell Cycle / 10.2 «Клеточный цикл»](https://openstax.org/books/biology-2e/pages/10-2-the-cell-cycle) — интерфаза, митоз, цитокинез и его начало в поздней анафазе животных клеток / interphase, mitosis, cytokinesis, and its onset in late anaphase in animal cells; checked / проверено 2026-10-14.
+- NHGRI, [Chromatid / «Хроматида»](https://www.genome.gov/genetics-glossary/Chromatid) — сестринские хроматиды и их расхождение / sister chromatids and their separation; checked / проверено 2026-10-14.
+- NCBI Bookshelf, [The Molecular Genetic Mechanisms That Create Specialized Cell Types / «Молекулярно-генетические механизмы формирования специализированных типов клеток»](https://www.ncbi.nlm.nih.gov/books/NBK26854/) — поддержание идентичности специализированных типов клеток и роль экспрессии генов / maintenance of specialized cell identity and gene expression; checked / проверено 2026-10-14.
+- NCBI Bookshelf, [Universal Mechanisms of Animal Development / «Универсальные механизмы развития животных»](https://www.ncbi.nlm.nih.gov/books/NBK26825/) — асимметричное деление и сигналы соседних клеток как возможные пути различия клеточных судеб / asymmetric division and neighboring-cell signals as routes to different cell fates; checked / проверено 2026-10-14.
+- NHGRI, [Gene Expression / «Экспрессия генов»](https://www.genome.gov/genetics-glossary/Gene-Expression) — регуляция экспрессии и её различия между типами клеток и условиями; это источник о регуляции генов, а не прямое описание всего процесса дифференцировки / regulation and variation of gene expression across cell types and conditions; this supports gene regulation, not the whole differentiation process; checked / проверено 2026-10-14.

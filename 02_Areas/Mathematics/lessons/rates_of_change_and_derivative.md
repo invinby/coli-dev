@@ -3,7 +3,7 @@ subject: mathematics
 lesson_id: mathematics.rates_of_change_and_derivative
 level: intermediate
 languages: ru, en
-source_checked: 2026-10-06
+source_checked: 2026-10-12
 source_review_interval_days: 180
 ---
 

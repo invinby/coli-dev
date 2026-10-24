@@ -22,6 +22,7 @@
 | SQL и транзакции / SQL and transactions | Проектировать таблицы, запросы, индексы и транзакции с учётом целостности. / Build relational schemas and queries with integrity. | lesson:sql_transactions |
 | HTTP, API и backend-приложение / HTTP, APIs, backend services | Строить и документировать API, понимать статусы, валидацию и ошибки сети. / Implement and document APIs with validation and failure handling. | |
 | Зависимости, упаковка и конфигурация / Dependencies, packaging, configuration | Создавать воспроизводимую среду, управлять версиями и безопасно конфигурировать приложение. / Create reproducible environments and safe configuration. | |
+| Машинное обучение: baseline и отложенная проверка / Machine learning: baselines and held-out evaluation | Оценивать модель на данных, которых она не видела, сравнивать её с простым baseline и распознавать переобучение. / Evaluate a model on unseen data, compare it with a simple baseline, and recognize overfitting. | lesson:ml_baseline_and_holdout |
 
 ## Продвинутый уровень / Advanced
 

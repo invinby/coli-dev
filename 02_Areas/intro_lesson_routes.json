@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "routes": [
+    {
+      "subject_id": "mathematics",
+      "resource": "intro",
+      "progress_lesson_id": "intro.mathematics"
+    },
+    {
+      "subject_id": "english",
+      "resource": "intro",
+      "progress_lesson_id": "intro.english"
+    },
+    {
+      "subject_id": "physics",
+      "resource": "intro",
+      "progress_lesson_id": "intro.physics"
+    },
+    {
+      "subject_id": "biology",
+      "resource": "intro",
+      "progress_lesson_id": "intro.biology"
+    },
+    {
+      "subject_id": "zoology",
+      "resource": "intro",
+      "progress_lesson_id": "intro.zoology"
+    },
+    {
+      "subject_id": "programming",
+      "resource": "intro",
+      "progress_lesson_id": "intro.programming"
+    }
+  ]
+}
