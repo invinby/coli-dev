@@ -1827,6 +1827,10 @@ private struct PracticeLab: View {
             HeldOutEvaluationLab()
         } else if subject == .biology, moduleResource == "neurons_and_action_potentials" {
             NeuronSignalLab()
+        } else if subject == .zoology, moduleResource == "comparative_gas_exchange_and_circulation" {
+            CirculationRouteLab()
+        } else if subject == .programming, moduleResource == "gradient_descent_and_learning_rate" {
+            GradientDescentLab()
         } else {
             switch subject {
         case .mathematics:
@@ -10613,6 +10617,183 @@ private struct ThermalStrategyLab: View {
     private func resetPrediction() {
         selectedResponse = nil
         didCheck = false
+    }
+}
+
+private struct CirculationRouteLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var animal: CirculationAnimal = .fish
+    @State private var predictedPasses: Int?
+    @State private var didCheck = false
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.circulation.title", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.circulation.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Picker(L10n.text("lab.circulation.animalTitle", store.language), selection: $animal) {
+                ForEach(CirculationAnimal.allCases) { option in
+                    Text(L10n.text(option.titleKey, store.language)).tag(option)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("lab.circulation.animal")
+
+            VStack(alignment: .leading, spacing: 6) {
+                Label(L10n.text(animal.routeKey, store.language), systemImage: "arrow.triangle.2.circlepath")
+                    .font(.callout.weight(.medium))
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(L10n.text(animal.heartKey, store.language))
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(L10n.text(animal.exchangeKey, store.language))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            .accessibilityElement(children: .combine)
+
+            Text(L10n.text("lab.circulation.predict", store.language))
+                .font(.headline)
+                .fixedSize(horizontal: false, vertical: true)
+            Picker(L10n.text("lab.circulation.predict", store.language), selection: $predictedPasses) {
+                Text(L10n.text("lab.circulation.choose", store.language)).tag(nil as Int?)
+                ForEach(CirculationRouteModel.passOptions, id: \.self) { passes in
+                    Text("\(passes)").tag(passes as Int?)
+                }
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: predictedPasses) { _ in didCheck = false }
+
+            Button(L10n.text("lab.circulation.check", store.language)) {
+                didCheck = true
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(predictedPasses == nil)
+
+            if didCheck, let predictedPasses {
+                let correct = CirculationRouteModel.isCorrect(passes: predictedPasses, for: animal)
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(
+                        L10n.text(correct ? "lab.circulation.correct" : "lab.circulation.review", store.language),
+                        systemImage: correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
+                    )
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(correct ? .green : .orange)
+                    if correct {
+                        Text(L10n.text(animal.explanationKey, store.language))
+                            .font(.callout)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                .accessibilityIdentifier("lab.circulation.feedback")
+            }
+
+            Text(L10n.text("lab.circulation.limit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .onChange(of: animal) { _ in
+            predictedPasses = nil
+            didCheck = false
+        }
+    }
+}
+
+private struct GradientDescentLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var learningRateIndex = 1
+    @State private var steps = 5.0
+
+    private var learningRate: Double {
+        GradientDescentPractice.learningRates[min(max(learningRateIndex, 0), GradientDescentPractice.learningRates.count - 1)]
+    }
+
+    private var trajectory: [GradientDescentStep] {
+        GradientDescentPractice.trajectory(learningRate: learningRate, steps: Int(steps.rounded()))
+    }
+
+    private var verdictKey: String {
+        if !GradientDescentPractice.converges(learningRate: learningRate) {
+            return "lab.gd.diverges"
+        }
+        return GradientDescentPractice.oscillates(learningRate: learningRate) ? "lab.gd.oscillates" : "lab.gd.converges"
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.gd.title", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.gd.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Picker(L10n.text("lab.gd.rate", store.language), selection: $learningRateIndex) {
+                ForEach(Array(GradientDescentPractice.learningRates.enumerated()), id: \.offset) { index, rate in
+                    Text(String(format: "η = %.2f", rate)).tag(index)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("lab.gd.rate")
+
+            VStack(alignment: .leading, spacing: 7) {
+                Text(String(format: L10n.text("lab.gd.steps", store.language), Int(steps.rounded())))
+                    .font(.headline.monospacedDigit())
+                Slider(value: $steps, in: 0...Double(GradientDescentPractice.maximumSteps), step: 1)
+                    .accessibilityLabel(L10n.text("lab.gd.stepsLabel", store.language))
+                    .accessibilityValue(String(Int(steps.rounded())))
+            }
+
+            if let last = trajectory.last {
+                Text(String(format: L10n.text("lab.gd.state", store.language), last.weight, last.loss))
+                    .font(.callout.monospacedDigit())
+                    .accessibilityIdentifier("lab.gd.state")
+            }
+
+            lossChart
+                .frame(height: 90)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(L10n.text("lab.gd.chart", store.language))
+
+            Label(L10n.text(verdictKey, store.language), systemImage: verdictKey == "lab.gd.diverges" ? "exclamationmark.triangle" : "checkmark.seal")
+                .font(.callout.weight(.medium))
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("lab.gd.verdict")
+            Text(L10n.text("lab.gd.optimum", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            Text(L10n.text("lab.gd.limit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    // Loss spans about seven decades across the offered rates, so bars use a logarithmic scale above the minimum.
+    private var lossChart: some View {
+        let minimumLoss = GradientDescentPractice.loss(weight: GradientDescentPractice.optimalWeight)
+        return GeometryReader { geometry in
+            HStack(alignment: .bottom, spacing: 3) {
+                ForEach(trajectory, id: \.step) { point in
+                    let decades = log10(max(point.loss / minimumLoss, 1))
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color.accentColor.gradient)
+                        .frame(height: max(3, geometry.size.height * CGFloat(min(decades / 7, 1))))
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+        }
     }
 }
 

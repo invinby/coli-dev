@@ -365,9 +365,9 @@ private enum CauseAndCorseLearningJourney {
         .init(
             id: "scientific_method",
             title: .init(ru: "Научное мышление: вопрос → проверка → вывод", en: "Scientific thinking: question → test → conclusion"),
-            description: .init(ru: "Сначала сформулируй проверяемую гипотезу, измени один фактор, запиши наблюдения и ограничения вывода.", en: "State a testable hypothesis, change one factor, record observations, and describe the limits of the conclusion."),
+            description: .init(ru: "Сначала сформулируй проверяемую гипотезу, измени один фактор, запиши наблюдения и ограничения вывода. В приложении — уроки «Научный вопрос и план эксперимента» в биологии и «Измерения, единицы и неопределённость» в физике.", en: "State a testable hypothesis, change one factor, record observations, and describe the limits of the conclusion. In the app, see “Scientific questions and experimental design” in Biology and “Measurement, units, and uncertainty” in Physics."),
             projectOutput: .init(ru: "Проведи три измерения одного простого явления и запиши гипотезу, данные и возможную погрешность.", en: "Take three measurements of a simple phenomenon and record the hypothesis, data, and possible measurement error."),
-            subjects: [],
+            subjects: [.biology, .physics],
             sources: [.init(id: "science.stepik", title: .init(ru: "Stepik · «Научное мышление» · бесплатно", en: "Stepik · Scientific Thinking · free, Russian"), url: "https://stepik.org/course/578/promo")]
         ),
         .init(
@@ -413,7 +413,7 @@ private enum CauseAndCorseLearningJourney {
         .init(
             id: "machine_learning",
             title: .init(ru: "Машинное обучение: алгоритмы и эксперименты", en: "Machine learning: algorithms and experiments"),
-            description: .init(ru: "После Python и математики: собери baseline, проверь модель на новых данных, изучи ошибки и ограничения. Первый урок в приложении — «Машинное обучение: baseline и отложенная проверка» в программировании.", en: "After Python and mathematics: build a baseline, evaluate on held-out data, and inspect errors and limits. The first in-app lesson is “Machine learning: baselines and held-out evaluation” in Programming."),
+            description: .init(ru: "После Python и математики: собери baseline, проверь модель на новых данных, изучи ошибки и ограничения. В приложении — уроки «Машинное обучение: baseline и отложенная проверка» и «Градиентный спуск и шаг обучения» в программировании.", en: "After Python and mathematics: build a baseline, evaluate on held-out data, and inspect errors and limits. In the app, see “Machine learning: baselines and held-out evaluation” and “Gradient descent and the learning rate” in Programming."),
             projectOutput: .init(ru: "Обучи один простой baseline, оцени его на отложенных данных и запиши ошибки, а не только точность.", en: "Train one simple baseline, evaluate it on held-out data, and record its errors as well as its score."),
             subjects: [.programming],
             sources: [

@@ -23,6 +23,7 @@
 | HTTP, API и backend-приложение / HTTP, APIs, backend services | Строить и документировать API, понимать статусы, валидацию и ошибки сети. / Implement and document APIs with validation and failure handling. | |
 | Зависимости, упаковка и конфигурация / Dependencies, packaging, configuration | Создавать воспроизводимую среду, управлять версиями и безопасно конфигурировать приложение. / Create reproducible environments and safe configuration. | |
 | Машинное обучение: baseline и отложенная проверка / Machine learning: baselines and held-out evaluation | Оценивать модель на данных, которых она не видела, сравнивать её с простым baseline и распознавать переобучение. / Evaluate a model on unseen data, compare it with a simple baseline, and recognize overfitting. | lesson:ml_baseline_and_holdout |
+| Градиентный спуск и шаг обучения / Gradient descent and the learning rate | Объяснять, как градиентный спуск уменьшает ошибку, и выбирать шаг обучения, при котором обучение сходится. / Explain how gradient descent lowers the error and choose a learning rate that converges. | lesson:gradient_descent_and_learning_rate |
 
 ## Продвинутый уровень / Advanced
 

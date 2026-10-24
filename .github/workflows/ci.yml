@@ -382,6 +382,18 @@ jobs:
             -o "$RUNNER_TEMP/verify-thermal-strategy"
           "$RUNNER_TEMP/verify-thermal-strategy"
 
+      - name: Verify circulation route model / Проверка модели кровообращения
+        run: |
+          swiftc macOS/ColiDev/App/CirculationRoute.swift macOS/ColiDev/scripts/verify_circulation_route.swift \
+            -o "$RUNNER_TEMP/verify-circulation-route"
+          "$RUNNER_TEMP/verify-circulation-route"
+
+      - name: Verify gradient descent model / Проверка модели градиентного спуска
+        run: |
+          swiftc macOS/ColiDev/App/GradientDescent.swift macOS/ColiDev/scripts/verify_gradient_descent.swift \
+            -o "$RUNNER_TEMP/verify-gradient-descent"
+          "$RUNNER_TEMP/verify-gradient-descent"
+
       - name: Verify linear system practice model
         run: |
           swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/LinearSystemPractice.swift macOS/ColiDev/scripts/verify_linear_system_practice.swift \
