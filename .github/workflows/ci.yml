@@ -370,6 +370,18 @@ jobs:
             -o "$RUNNER_TEMP/verify-neuron-signal"
           "$RUNNER_TEMP/verify-neuron-signal"
 
+      - name: Verify vector kinematics model / Проверка модели векторов
+        run: |
+          swiftc macOS/ColiDev/App/VectorKinematics.swift macOS/ColiDev/scripts/verify_vector_kinematics.swift \
+            -o "$RUNNER_TEMP/verify-vector-kinematics"
+          "$RUNNER_TEMP/verify-vector-kinematics"
+
+      - name: Verify thermal strategy model / Проверка модели теплообмена
+        run: |
+          swiftc macOS/ColiDev/App/ThermalStrategy.swift macOS/ColiDev/scripts/verify_thermal_strategy.swift \
+            -o "$RUNNER_TEMP/verify-thermal-strategy"
+          "$RUNNER_TEMP/verify-thermal-strategy"
+
       - name: Verify linear system practice model
         run: |
           swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/LinearSystemPractice.swift macOS/ColiDev/scripts/verify_linear_system_practice.swift \

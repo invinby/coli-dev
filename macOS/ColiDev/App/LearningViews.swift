@@ -1775,6 +1775,8 @@ private struct PracticeLab: View {
             NaturalSelectionLab(lessonID: "zoology.adaptation_and_behavior")
         } else if subject == .zoology, moduleResource == "animal_function_and_environment" {
             AnimalFunctionLab()
+        } else if subject == .zoology, moduleResource == "thermoregulation_and_heat_exchange" {
+            ThermalStrategyLab()
         } else if subject == .zoology, moduleResource == "comparative_thermoregulation_and_heat_stress" {
             ThermoregulationLab()
         } else if subject == .biology, moduleResource == "cell_cycle_and_differentiation" {
@@ -1795,6 +1797,8 @@ private struct PracticeLab: View {
             MomentumCollisionLab(initialMode: .elastic)
         } else if subject == .physics, moduleResource == "projectile_motion" {
             ProjectileMotionLab()
+        } else if subject == .physics, moduleResource == "vectors_and_kinematics" {
+            VectorKinematicsLab()
         } else if subject == .physics, moduleResource == "intro" {
             ForceLab(lessonID: "intro.physics")
         } else if subject == .physics, moduleResource == "net_force_and_acceleration" {
@@ -10351,6 +10355,264 @@ private struct MembraneTraceView: View {
                 path.addLine(to: CGPoint(x: x(for: point.milliseconds, width: size.width), y: y(for: point.millivolts, height: size.height)))
             }
         }
+    }
+}
+
+private struct VectorKinematicsLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var magnitude = 10.0
+    @State private var angleDegrees = 30.0
+    @State private var showsComponents = false
+
+    private var vector: VectorKinematics {
+        VectorKinematics(magnitude: magnitude, angleDegrees: angleDegrees)
+    }
+
+    private var vectorAccessibilityValue: String {
+        var value = "r \(Int(vector.magnitude)) m, θ \(Int(vector.angleDegrees))°"
+        if showsComponents {
+            value += String(format: ", Δx %.2f m, Δy %.2f m", vector.xComponent, vector.yComponent)
+        }
+        return value
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(L10n.text("lab.vector.title", store.language))
+                .font(.title3.weight(.semibold))
+            Text(L10n.text("lab.vector.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            HStack(alignment: .center, spacing: 24) {
+                vectorDiagram
+                    .frame(minWidth: 260, idealWidth: 340, maxWidth: 420, minHeight: 240)
+                VStack(alignment: .leading, spacing: 14) {
+                    vectorSlider(
+                        title: L10n.text("lab.vector.magnitude", store.language),
+                        value: $magnitude,
+                        range: 1...20,
+                        step: 1,
+                        suffix: " m"
+                    )
+                    vectorSlider(
+                        title: L10n.text("lab.vector.angle", store.language),
+                        value: $angleDegrees,
+                        range: 0...359,
+                        step: 1,
+                        suffix: "°"
+                    )
+                    Toggle(isOn: $showsComponents) {
+                        Text(L10n.text("lab.vector.showComponents", store.language))
+                    }
+                    .toggleStyle(.switch)
+                    .help(L10n.text("lab.vector.revealHelp", store.language))
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        if showsComponents {
+                            vectorReading("lab.vector.xComponent", value: vector.xComponent)
+                            vectorReading("lab.vector.yComponent", value: vector.yComponent)
+                            vectorReading("lab.vector.magnitudeResult", value: vector.reconstructedMagnitude)
+                        } else {
+                            Text(L10n.text("lab.vector.predictFirst", store.language))
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, minHeight: 78, alignment: .leading)
+                    .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 12))
+                }
+                .frame(maxWidth: 280)
+            }
+
+            Text(L10n.text("lab.vector.challenge", store.language))
+                .font(.callout)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            Text(L10n.text("lab.vector.limits", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 8)
+    }
+
+    private var vectorDiagram: some View {
+        Canvas { context, size in
+            let inset: CGFloat = 28
+            let origin = CGPoint(x: size.width / 2, y: size.height / 2)
+            let scale = min((size.width - inset * 2) / 40, (size.height - inset * 2) / 40)
+            let tip = CGPoint(
+                x: origin.x + vector.xComponent * scale,
+                y: origin.y - vector.yComponent * scale
+            )
+            var axes = Path()
+            axes.move(to: CGPoint(x: inset, y: origin.y))
+            axes.addLine(to: CGPoint(x: size.width - inset, y: origin.y))
+            axes.move(to: CGPoint(x: origin.x, y: size.height - inset))
+            axes.addLine(to: CGPoint(x: origin.x, y: inset))
+            context.stroke(axes, with: .color(.secondary.opacity(0.6)), lineWidth: 1)
+
+            if showsComponents {
+                var projections = Path()
+                projections.move(to: origin)
+                projections.addLine(to: CGPoint(x: tip.x, y: origin.y))
+                projections.addLine(to: tip)
+                context.stroke(projections, with: .color(.orange.opacity(0.8)), style: StrokeStyle(lineWidth: 2, dash: [5, 4]))
+            }
+
+            var arrow = Path()
+            arrow.move(to: origin)
+            arrow.addLine(to: tip)
+            context.stroke(arrow, with: .color(.accentColor), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+            let direction = CGVector(dx: tip.x - origin.x, dy: tip.y - origin.y)
+            let length = max(hypot(direction.dx, direction.dy), 1)
+            let unit = CGVector(dx: direction.dx / length, dy: direction.dy / length)
+            let perpendicular = CGVector(dx: -unit.dy, dy: unit.dx)
+            var head = Path()
+            head.move(to: tip)
+            head.addLine(to: CGPoint(x: tip.x - unit.dx * 12 + perpendicular.dx * 6, y: tip.y - unit.dy * 12 + perpendicular.dy * 6))
+            head.move(to: tip)
+            head.addLine(to: CGPoint(x: tip.x - unit.dx * 12 - perpendicular.dx * 6, y: tip.y - unit.dy * 12 - perpendicular.dy * 6))
+            context.stroke(head, with: .color(.accentColor), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+            context.fill(Path(ellipseIn: CGRect(x: origin.x - 3, y: origin.y - 3, width: 6, height: 6)), with: .color(.primary))
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(L10n.text("lab.vector.diagram", store.language)))
+        .accessibilityValue(Text(verbatim: vectorAccessibilityValue))
+    }
+
+    private func vectorSlider(
+        title: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double>,
+        step: Double,
+        suffix: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(title)
+                Spacer()
+                Text("\(value.wrappedValue, specifier: "%.0f")\(suffix)").monospacedDigit()
+            }
+            Slider(value: value, in: range, step: step)
+                .accessibilityLabel(Text(title))
+        }
+    }
+
+    private func vectorReading(_ key: String, value: Double) -> some View {
+        HStack {
+            Text(L10n.text(key, store.language)).foregroundStyle(.secondary)
+            Spacer()
+            Text("\(value, specifier: "%.2f") m").monospacedDigit()
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct ThermalStrategyLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var selectedAnimal: ThermalAnimalMode = .ectotherm
+    @State private var selectedEnvironment: ThermalEnvironment = .cool
+    @State private var selectedResponse: ThermoregulatoryResponse?
+    @State private var didCheck = false
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.zoology.thermal.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(L10n.text("lab.zoology.thermal.modeTitle", store.language))
+                    .font(.headline)
+                Picker(L10n.text("lab.zoology.thermal.modeTitle", store.language), selection: $selectedAnimal) {
+                    ForEach(ThermalAnimalMode.allCases) { animal in
+                        Text(L10n.text(animal.titleKey, store.language)).tag(animal)
+                    }
+                }
+                .pickerStyle(.segmented)
+                Text(L10n.text(selectedAnimal.heatSourceKey, store.language))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(L10n.text("lab.zoology.thermal.environmentTitle", store.language))
+                    .font(.headline)
+                Picker(L10n.text("lab.zoology.thermal.environmentTitle", store.language), selection: $selectedEnvironment) {
+                    ForEach(ThermalEnvironment.allCases) { environment in
+                        Text(L10n.text(environment.titleKey, store.language)).tag(environment)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+
+            Label(
+                L10n.text(selectedAnimal == .ectotherm ? "lab.zoology.thermal.icon.ectotherm" : "lab.zoology.thermal.icon.endotherm", store.language),
+                systemImage: selectedAnimal == .ectotherm ? "sun.max" : "thermometer.medium"
+            )
+            .font(.callout.weight(.medium))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            .accessibilityElement(children: .combine)
+
+            Text(L10n.text("lab.zoology.thermal.responseTitle", store.language))
+                .font(.headline)
+            Picker(L10n.text("lab.zoology.thermal.responseTitle", store.language), selection: $selectedResponse) {
+                Text(L10n.text("lab.zoology.thermal.chooseResponse", store.language)).tag(nil as ThermoregulatoryResponse?)
+                ForEach(ThermoregulatoryResponse.allCases) { response in
+                    Text(L10n.text(response.titleKey, store.language)).tag(response as ThermoregulatoryResponse?)
+                }
+            }
+            .pickerStyle(.menu)
+            .onChange(of: selectedResponse) { _ in didCheck = false }
+
+            Button(L10n.text("lab.zoology.thermal.check", store.language)) {
+                didCheck = true
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(selectedResponse == nil)
+
+            if didCheck, let selectedResponse {
+                let correct = ThermoregulationModel.isCorrect(
+                    selectedAnimal,
+                    environment: selectedEnvironment,
+                    response: selectedResponse
+                )
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(
+                        L10n.text(correct ? "lab.zoology.thermal.correct" : "lab.zoology.thermal.review", store.language),
+                        systemImage: correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle"
+                    )
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(correct ? .green : .orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                    Text(L10n.text(ThermoregulationModel.recommendedResponse(for: selectedAnimal, in: selectedEnvironment).explanationKey, store.language))
+                        .font(.callout)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            }
+
+            Text(L10n.text("lab.zoology.thermal.limit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .onChange(of: selectedAnimal) { _ in resetPrediction() }
+        .onChange(of: selectedEnvironment) { _ in resetPrediction() }
+    }
+
+    private func resetPrediction() {
+        selectedResponse = nil
+        didCheck = false
     }
 }
 
