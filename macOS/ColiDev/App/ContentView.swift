@@ -62,6 +62,7 @@ struct ContentView: View {
     @State private var practiceFocusRoute: StudyLessonRoute?
     @State private var didOpenCell3DUITestRoute = false
     @State private var didOpenFrictionUITestRoute = false
+    @AppStorage(StudyProgressionPolicy.previewLockedLessonsDefaultsKey) private var previewLockedLessons = false
 
     var body: some View {
         NavigationSplitView {
@@ -268,7 +269,8 @@ struct ContentView: View {
 
     private func openCourseLesson(subject: Subject, resource: String, focusPractice: Bool) {
         let route = StudyLessonRoute(subjectID: subject.rawValue, resource: resource)
-        if let roadmap = CurriculumCatalog.studyRoadmaps().first(where: { $0.subjectID == subject.rawValue }),
+        if !previewLockedLessons, !StudyProgressionPolicy.previewLockedLessonsForUITest,
+           let roadmap = CurriculumCatalog.studyRoadmaps().first(where: { $0.subjectID == subject.rawValue }),
            !StudyProgressionPolicy.isAvailable(route, in: roadmap, evidence: store.studyProgressionEvidence) {
             practiceFocusRoute = nil
             selection = .subject(subject)
@@ -1529,6 +1531,7 @@ private struct SettingsView: View {
     @EnvironmentObject private var store: LearningStore
     @EnvironmentObject private var backendSupervisor: LocalBackendSupervisor
     @AppStorage(ColiDevVisualSystem.soundPreferenceKey) private var soundEffectsEnabled = false
+    @AppStorage(StudyProgressionPolicy.previewLockedLessonsDefaultsKey) private var previewLockedLessons = false
     @State private var showingStudyFormatClearConfirmation = false
     @State private var isEffectiveAIRoutesExpanded = false
     @State private var isLoadingEffectiveAIRoutes = false
@@ -1552,6 +1555,18 @@ private struct SettingsView: View {
                     .foregroundStyle(.secondary)
             } header: {
                 Text(L10n.text("settings.feedback", store.language))
+            }
+            Section {
+                Toggle(isOn: $previewLockedLessons) {
+                    Text(L10n.text("settings.previewLocked", store.language))
+                }
+                .accessibilityIdentifier("settings.previewLocked")
+                Text(L10n.text("settings.previewLockedHelp", store.language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } header: {
+                Text(L10n.text("settings.learningPath", store.language))
             }
             Section {
                 let profile = store.studyFormatPreferenceProfile

@@ -14,6 +14,7 @@ struct SubjectOverviewView: View {
     @State private var customTopicParentID: UUID?
     @State private var pendingCustomTopicID: UUID?
     @State private var showingCustomTopicDelete = false
+    @AppStorage(StudyProgressionPolicy.previewLockedLessonsDefaultsKey) private var previewLockedLessons = false
 
     let subject: Subject
     let openCourseLesson: (String) -> Void
@@ -111,18 +112,20 @@ struct SubjectOverviewView: View {
                                         .fixedSize(horizontal: false, vertical: true)
                                     if let lessonResource = topic.lessonResource {
                                         let isAvailable = isCourseLessonAvailable(lessonResource)
+                                        let isPreview = !isAvailable
+                                            && (previewLockedLessons || StudyProgressionPolicy.previewLockedLessonsForUITest)
                                         Button { openCourseLesson(lessonResource) } label: {
                                             Label(
-                                                L10n.text("roadmap.openFullLesson", store.language),
+                                                L10n.text(isPreview ? "roadmap.previewLesson" : "roadmap.openFullLesson", store.language),
                                                 systemImage: isAvailable
                                                     ? (store.isComplete(lessonID: "\(subject.rawValue).\(lessonResource)")
                                                         ? "checkmark.circle.fill"
                                                         : "book.closed")
-                                                    : "lock.fill"
+                                                    : (isPreview ? "eye" : "lock.fill")
                                             )
                                         }
                                         .buttonStyle(.borderless)
-                                        .disabled(!isAvailable)
+                                        .disabled(!isAvailable && !isPreview)
                                         .padding(.top, 3)
                                         .accessibilityIdentifier("roadmap.lesson.\(subject.rawValue).\(lessonResource)")
                                     }
