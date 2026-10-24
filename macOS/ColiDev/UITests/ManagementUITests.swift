@@ -61,12 +61,8 @@ final class ManagementUITests: XCTestCase {
         XCTAssertTrue(settingsScrollView.waitForExistence(timeout: 5))
         scrollUntilHittable(release, in: settingsScrollView)
 
-        // The release title row is a button that expands the row; the DisclosureGroup chevron alone ignores synthesized clicks.
-        let releaseToggle = app.buttons["settings.updates.release.toggle.v0.1.0-beta.9"]
-        XCTAssertTrue(
-            releaseToggle.waitForExistence(timeout: 5),
-            "The release title must expand its row. / Заголовок версии должен раскрывать строку.\n\(release.debugDescription)")
-        releaseToggle.click()
+        // Each release title is a button that expands its row.
+        release.click()
 
         let download = app.links["settings.updates.download.v0.1.0-beta.9"]
         XCTAssertTrue(

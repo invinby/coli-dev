@@ -1509,6 +1509,8 @@ enum L10n {
         "updates.noBuild": ("Для этой версии нет архива для архитектуры этого Mac.", "This release has no archive for this Mac architecture."),
         "updates.github": ("Открыть страницу версии на GitHub", "Open release page on GitHub"),
         "updates.beta": ("Тестовая версия", "Pre-release"),
+        "updates.expanded": ("Развёрнуто", "Expanded"),
+        "updates.collapsed": ("Свёрнуто", "Collapsed"),
         "updates.unknownVersion": ("Версия не указана", "Version unavailable"),
         "management.title": ("Центр управления ColiDev", "ColiDev Control Center"),
         "management.subtitle": ("Курсы, официальные источники и состояние локального ИИ в одном месте.", "Courses, official sources, and local AI status in one place."),

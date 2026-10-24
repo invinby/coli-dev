@@ -248,65 +248,68 @@ struct UpdatesSettingsSection: View {
         }
     }
 
+    // A grouped Form merges a DisclosureGroup row into one accessibility element that ignores clicks on its title
+    // and drops the title from VoiceOver, so each release row is an explicit button with its own expanded state.
     @ViewBuilder
     private func releaseRow(_ release: GitHubRelease) -> some View {
-        DisclosureGroup(
-            isExpanded: Binding(
-                get: { expandedReleaseIDs.contains(release.id) },
-                set: { expanded in
-                    if expanded { expandedReleaseIDs.insert(release.id) }
-                    else { expandedReleaseIDs.remove(release.id) }
-                }
-            )
-        ) {
-            VStack(alignment: .leading, spacing: 8) {
-                if let body = release.body, !body.isEmpty {
-                    Text(markdown(body))
-                        .textSelection(.enabled)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                if let asset = release.currentArchitectureAsset {
-                    Link(destination: asset.browserDownloadURL) {
-                        Label(downloadTitle, systemImage: "arrow.down.circle")
-                    }
-                    .accessibilityIdentifier("settings.updates.download.\(release.tagName)")
-                } else {
-                    Label(noArchitectureBuild, systemImage: "exclamationmark.triangle")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                if let releaseURL = release.trustedReleasePageURL {
-                    Link(githubReleaseTitle, destination: releaseURL).font(.caption)
-                }
-            }
-            .padding(.vertical, 6)
-        } label: {
-            // In a grouped Form only the small chevron toggles a DisclosureGroup, so the whole title row is a button too.
+        let isExpanded = expandedReleaseIDs.contains(release.id)
+        VStack(alignment: .leading, spacing: 6) {
             Button { toggleRelease(release.id) } label: {
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack {
-                        Text(release.name.flatMap { $0.isEmpty ? nil : $0 } ?? release.tagName)
-                            .font(.body.weight(.semibold))
-                        Spacer()
-                        if release.prerelease {
-                            Text(betaLabel).font(.caption2).foregroundStyle(.secondary)
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack {
+                            Text(release.name.flatMap { $0.isEmpty ? nil : $0 } ?? release.tagName)
+                                .font(.body.weight(.semibold))
+                            Spacer()
+                            if release.prerelease {
+                                Text(betaLabel).font(.caption2).foregroundStyle(.secondary)
+                            }
                         }
-                    }
-                    HStack(spacing: 8) {
-                        Text(release.tagName).font(.caption.monospaced()).foregroundStyle(.secondary)
-                        if let publishedAt = release.publishedAt {
-                            Text(publishedAt.formatted(.dateTime.locale(locale).month(.abbreviated).day()))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                        HStack(spacing: 8) {
+                            Text(release.tagName).font(.caption.monospaced()).foregroundStyle(.secondary)
+                            if let publishedAt = release.publishedAt {
+                                Text(publishedAt.formatted(.dateTime.locale(locale).month(.abbreviated).day()))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
                 }
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityIdentifier("settings.updates.release.toggle.\(release.tagName)")
+            .accessibilityIdentifier("settings.updates.release.\(release.tagName)")
+            .accessibilityValue(Text(isExpanded ? expandedState : collapsedState))
+
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 8) {
+                    if let body = release.body, !body.isEmpty {
+                        Text(markdown(body))
+                            .textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if let asset = release.currentArchitectureAsset {
+                        Link(destination: asset.browserDownloadURL) {
+                            Label(downloadTitle, systemImage: "arrow.down.circle")
+                        }
+                        .accessibilityIdentifier("settings.updates.download.\(release.tagName)")
+                    } else {
+                        Label(noArchitectureBuild, systemImage: "exclamationmark.triangle")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let releaseURL = release.trustedReleasePageURL {
+                        Link(githubReleaseTitle, destination: releaseURL).font(.caption)
+                    }
+                }
+                .padding(.leading, 20)
+                .padding(.vertical, 6)
+            }
         }
-        .accessibilityIdentifier("settings.updates.release.\(release.tagName)")
     }
 
     private func toggleRelease(_ id: Int) {
@@ -355,5 +358,7 @@ struct UpdatesSettingsSection: View {
     private var noArchitectureBuild: String { L10n.text("updates.noBuild", language) }
     private var githubReleaseTitle: String { L10n.text("updates.github", language) }
     private var betaLabel: String { L10n.text("updates.beta", language) }
+    private var expandedState: String { L10n.text("updates.expanded", language) }
+    private var collapsedState: String { L10n.text("updates.collapsed", language) }
     private var unknownVersion: String { L10n.text("updates.unknownVersion", language) }
 }
