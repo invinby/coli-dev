@@ -1819,6 +1819,10 @@ private struct PracticeLab: View {
             VariablesTypesLab()
         } else if subject == .programming, moduleResource == "computational_thinking" {
             AlgorithmicThinkingLab()
+        } else if subject == .programming, moduleResource == "ml_baseline_and_holdout" {
+            HeldOutEvaluationLab()
+        } else if subject == .biology, moduleResource == "neurons_and_action_potentials" {
+            NeuronSignalLab()
         } else {
             switch subject {
         case .mathematics:
@@ -10153,6 +10157,200 @@ private struct AlgorithmComplexityLab: View {
                 .frame(width: 82, alignment: .trailing)
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+private struct HeldOutEvaluationLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var neighbourIndex = 0.0
+
+    private var neighbourCount: Int {
+        let counts = HeldOutEvaluationPractice.neighbourCounts
+        return counts[min(max(Int(neighbourIndex.rounded()), 0), counts.count - 1)]
+    }
+
+    private var verdictKey: String {
+        if HeldOutEvaluationPractice.showsOverfitting(neighbours: neighbourCount) {
+            return "lab.holdout.overfit"
+        }
+        if HeldOutEvaluationPractice.matchesBaseline(neighbours: neighbourCount) {
+            return "lab.holdout.atBaseline"
+        }
+        return "lab.holdout.generalizes"
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.holdout.title", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.holdout.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 7) {
+                Text(String(format: L10n.text("lab.holdout.neighbours", store.language), neighbourCount))
+                    .font(.headline.monospacedDigit())
+                Slider(value: $neighbourIndex, in: 0...Double(HeldOutEvaluationPractice.neighbourCounts.count - 1), step: 1)
+                    .accessibilityLabel(L10n.text("lab.holdout.neighboursLabel", store.language))
+                    .accessibilityValue(String(neighbourCount))
+            }
+
+            accuracyBar(
+                title: L10n.text("lab.holdout.training", store.language),
+                accuracy: HeldOutEvaluationPractice.accuracy(of: HeldOutEvaluationPractice.trainingExamples, neighbours: neighbourCount),
+                tint: .blue
+            )
+            accuracyBar(
+                title: L10n.text("lab.holdout.heldOut", store.language),
+                accuracy: HeldOutEvaluationPractice.accuracy(of: HeldOutEvaluationPractice.heldOutExamples, neighbours: neighbourCount),
+                tint: .green
+            )
+            accuracyBar(
+                title: L10n.text("lab.holdout.baseline", store.language),
+                accuracy: HeldOutEvaluationPractice.baselineAccuracy(on: HeldOutEvaluationPractice.heldOutExamples),
+                tint: .gray
+            )
+
+            Label(L10n.text(verdictKey, store.language), systemImage: verdictKey == "lab.holdout.generalizes" ? "checkmark.seal" : "exclamationmark.triangle")
+                .font(.callout.weight(.medium))
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("lab.holdout.verdict")
+            Text(L10n.text("lab.holdout.limit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func accuracyBar(title: String, accuracy: HeldOutAccuracy, tint: Color) -> some View {
+        HStack(spacing: 10) {
+            Text(title)
+                .font(.caption.weight(.medium))
+                .frame(width: 150, alignment: .leading)
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.secondary.opacity(0.12))
+                    Capsule()
+                        .fill(tint.gradient)
+                        .frame(width: max(8, geometry.size.width * CGFloat(accuracy.percent) / 100))
+                }
+            }
+            .frame(height: 14)
+            Text(String(format: L10n.text("lab.holdout.score", store.language), accuracy.correct, accuracy.total, accuracy.percent))
+                .font(.caption.monospacedDigit())
+                .frame(width: 104, alignment: .trailing)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct NeuronSignalLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var depolarization = 10.0
+
+    private var potential: Int {
+        Int(NeuronSignalModel.membranePotential(afterDepolarization: depolarization).rounded())
+    }
+
+    private var fires: Bool {
+        NeuronSignalModel.firesActionPotential(afterDepolarization: depolarization)
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.neuron.title", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.neuron.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 7) {
+                Text(String(format: L10n.text("lab.neuron.stimulus", store.language), Int(depolarization.rounded()), potential))
+                    .font(.headline.monospacedDigit())
+                Slider(value: $depolarization, in: NeuronSignalModel.stimulusRange, step: 1)
+                    .accessibilityLabel(L10n.text("lab.neuron.stimulusLabel", store.language))
+                    .accessibilityValue(String(format: L10n.text("lab.neuron.potentialValue", store.language), potential))
+            }
+
+            MembraneTraceView(
+                points: NeuronSignalModel.trace(afterDepolarization: depolarization),
+                thresholdLabel: L10n.text("lab.neuron.thresholdLine", store.language),
+                restLabel: L10n.text("lab.neuron.restLine", store.language)
+            )
+            .frame(height: 170)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(L10n.text(fires ? "lab.neuron.traceFires" : "lab.neuron.traceNoFire", store.language))
+
+            Label(L10n.text(fires ? "lab.neuron.fires" : "lab.neuron.noFire", store.language), systemImage: fires ? "bolt.fill" : "minus.circle")
+                .font(.callout.weight(.medium))
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("lab.neuron.outcome")
+            Text(L10n.text("lab.neuron.limit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+private struct MembraneTraceView: View {
+    let points: [MembraneTracePoint]
+    let thresholdLabel: String
+    let restLabel: String
+
+    private let voltageRange = -90.0...50.0
+    private let timeRange = 0.0...8.0
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.secondary.opacity(0.08))
+                horizontalLine(at: NeuronSignalModel.restingPotential, in: geometry.size)
+                    .stroke(Color.secondary.opacity(0.5), style: StrokeStyle(lineWidth: 1))
+                horizontalLine(at: NeuronSignalModel.thresholdPotential, in: geometry.size)
+                    .stroke(Color.orange, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+                tracePath(in: geometry.size)
+                    .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+                Text(thresholdLabel)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.orange)
+                    .position(x: geometry.size.width - 60, y: y(for: NeuronSignalModel.thresholdPotential, height: geometry.size.height) - 9)
+                Text(restLabel)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .position(x: geometry.size.width - 60, y: y(for: NeuronSignalModel.restingPotential, height: geometry.size.height) + 9)
+            }
+        }
+    }
+
+    private func x(for milliseconds: Double, width: CGFloat) -> CGFloat {
+        CGFloat((milliseconds - timeRange.lowerBound) / (timeRange.upperBound - timeRange.lowerBound)) * width
+    }
+
+    private func y(for millivolts: Double, height: CGFloat) -> CGFloat {
+        let fraction = (millivolts - voltageRange.lowerBound) / (voltageRange.upperBound - voltageRange.lowerBound)
+        return height - CGFloat(fraction) * height
+    }
+
+    private func horizontalLine(at millivolts: Double, in size: CGSize) -> Path {
+        Path { path in
+            let lineY = y(for: millivolts, height: size.height)
+            path.move(to: CGPoint(x: 0, y: lineY))
+            path.addLine(to: CGPoint(x: size.width, y: lineY))
+        }
+    }
+
+    private func tracePath(in size: CGSize) -> Path {
+        Path { path in
+            guard let first = points.first else { return }
+            path.move(to: CGPoint(x: x(for: first.milliseconds, width: size.width), y: y(for: first.millivolts, height: size.height)))
+            for point in points.dropFirst() {
+                path.addLine(to: CGPoint(x: x(for: point.milliseconds, width: size.width), y: y(for: point.millivolts, height: size.height)))
+            }
+        }
     }
 }
 

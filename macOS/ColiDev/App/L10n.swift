@@ -2042,7 +2042,31 @@ enum L10n {
         "lab.transaction.action.rollback": ("Выполнить ROLLBACK", "Run ROLLBACK"),
         "lab.transaction.action.commit": ("Выполнить COMMIT", "Run COMMIT"),
         "lab.transaction.done": ("Операция завершена", "Transaction complete"),
-        "lab.transaction.reset": ("Сбросить модель", "Reset model")
+        "lab.transaction.reset": ("Сбросить модель", "Reset model"),
+        "lab.holdout.title": ("Отложенная проверка: k ближайших соседей", "Held-out check: k nearest neighbours"),
+        "lab.holdout.hint": ("Данные придуманы для упражнения: минуты практики и пройдена ли проверка. Меняй k и сравни точность на обучающих примерах и на отложенных, которых модель не видела.", "The data are invented for this exercise: practice minutes and whether a check was passed. Change k and compare accuracy on the training examples and on held-out examples the model has not seen."),
+        "lab.holdout.neighbours": ("Число соседей k = %d", "Number of neighbours k = %d"),
+        "lab.holdout.neighboursLabel": ("Число соседей k", "Number of neighbours k"),
+        "lab.holdout.training": ("Обучающие данные", "Training data"),
+        "lab.holdout.heldOut": ("Отложенные данные", "Held-out data"),
+        "lab.holdout.baseline": ("Baseline: частый класс", "Baseline: most frequent class"),
+        "lab.holdout.score": ("%d из %d · %d%%", "%d of %d · %d%%"),
+        "lab.holdout.overfit": ("Разрыв большой: модель почти идеально повторяет обучающие примеры, но заметно хуже работает на новых. Это признак переобучения.", "The gap is large: the model almost perfectly repeats the training examples but does noticeably worse on new ones. This is a sign of overfitting."),
+        "lab.holdout.atBaseline": ("Модель не лучше baseline, который всегда называет самый частый класс обучающих данных: при таком k голосуют почти все примеры.", "The model is no better than the baseline that always predicts the most frequent training class: with this k almost every example votes."),
+        "lab.holdout.generalizes": ("На отложенных данных модель лучше baseline. Это ещё не итог: k, выбранный по этим данным, нужно проверить на отдельной тестовой выборке.", "On held-out data the model beats the baseline. This is not the final result: a k chosen on these data still needs a separate test set."),
+        "lab.holdout.limit": ("12 отложенных примеров — слишком мало для надёжного вывода: один пример меняет точность примерно на 8 процентных пунктов. В настоящем эксперименте берут больше данных и кросс-валидацию.", "Twelve held-out examples are too few for a reliable conclusion: one example changes accuracy by about 8 percentage points. Real experiments use more data and cross-validation."),
+        "lab.neuron.title": ("Порог и потенциал действия", "Threshold and the action potential"),
+        "lab.neuron.hint": ("Стимул сдвигает мембрану от потенциала покоя −70 мВ. Сначала предскажи, возникнет ли потенциал действия, затем двигай ползунок.", "A stimulus shifts the membrane from the −70 mV resting potential. Predict whether an action potential will fire, then move the slider."),
+        "lab.neuron.stimulus": ("Стимул +%d мВ → мембрана %d мВ", "Stimulus +%d mV → membrane %d mV"),
+        "lab.neuron.stimulusLabel": ("Сила стимула", "Stimulus strength"),
+        "lab.neuron.potentialValue": ("мембрана %d мВ", "membrane %d mV"),
+        "lab.neuron.thresholdLine": ("порог −55 мВ", "threshold −55 mV"),
+        "lab.neuron.restLine": ("покой −70 мВ", "rest −70 mV"),
+        "lab.neuron.fires": ("Порог достигнут: возникает потенциал действия с пиком около +40 мВ. Более сильный стимул в этой модели не делает пик выше — это принцип «всё или ничего».", "Threshold reached: an action potential fires with a peak near +40 mV. In this model a stronger stimulus does not raise the peak; this is the all-or-none principle."),
+        "lab.neuron.noFire": ("Порог не достигнут: в этой модели сдвиг затухает, и потенциал действия не возникает.", "Threshold not reached: in this model the shift fades and no action potential fires."),
+        "lab.neuron.traceFires": ("График: мембрана доходит до порога, быстро поднимается примерно до +40 мВ, затем опускается ниже потенциала покоя и восстанавливается.", "Chart: the membrane reaches threshold, rises quickly to about +40 mV, then dips below the resting potential and recovers."),
+        "lab.neuron.traceNoFire": ("График: мембрана немного поднимается, не доходит до порога −55 мВ и возвращается к −70 мВ.", "Chart: the membrane rises slightly, stays below the −55 mV threshold, and returns to −70 mV."),
+        "lab.neuron.limit": ("Схема упрощена: значения типичны, но зависят от типа нейрона и вида. Ось времени и глубина следовой гиперполяризации условны; суммация сигналов и рефрактерный период не моделируются.", "The schematic is simplified: the values are typical but vary by neuron type and species. The time axis and undershoot depth are illustrative; signal summation and the refractory period are not modelled.")
     ]
 
     static func text(_ key: String, _ language: AppLanguage) -> String {

@@ -358,6 +358,18 @@ jobs:
             -o "$RUNNER_TEMP/verify-algorithm-complexity"
           "$RUNNER_TEMP/verify-algorithm-complexity"
 
+      - name: Verify held-out evaluation model / Проверка модели отложенной проверки
+        run: |
+          swiftc macOS/ColiDev/App/HeldOutEvaluation.swift macOS/ColiDev/scripts/verify_held_out_evaluation.swift \
+            -o "$RUNNER_TEMP/verify-held-out-evaluation"
+          "$RUNNER_TEMP/verify-held-out-evaluation"
+
+      - name: Verify neuron signal model / Проверка модели сигнала нейрона
+        run: |
+          swiftc macOS/ColiDev/App/NeuronSignal.swift macOS/ColiDev/scripts/verify_neuron_signal.swift \
+            -o "$RUNNER_TEMP/verify-neuron-signal"
+          "$RUNNER_TEMP/verify-neuron-signal"
+
       - name: Verify linear system practice model
         run: |
           swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/LinearSystemPractice.swift macOS/ColiDev/scripts/verify_linear_system_practice.swift \

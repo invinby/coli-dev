@@ -25,6 +25,7 @@
 | Деление клетки, развитие и ткани / Cell division, development, tissues | Описывать деление и специализацию клеток, не смешивая этапы и их функции. / Describe division and differentiation accurately. | lesson:cell_cycle_and_differentiation |
 | Микробиология и взаимодействие организмов / Microbiology and organism interactions | Сравнивать микробные группы и их роль в организмах и окружающей среде. / Compare microbial groups and their ecological roles. | |
 | Физиология растений и животных / Plant and animal physiology | Связывать строение систем органов с обменом, регуляцией и средой. / Relate organ systems to metabolism, regulation, and environment. | |
+| Нейрон и потенциал действия / Neurons and the action potential | Объяснять потенциал покоя, порог и принцип «всё или ничего», отличая упрощённую модель от реального нейрона. / Explain the resting potential, threshold, and all-or-none firing while distinguishing a simplified model from a real neuron. | lesson:neurons_and_action_potentials |
 | Популяционная генетика и экология / Population genetics and ecology | Использовать простые модели для описания изменения частот признаков и популяций. / Use simple models for trait and population change. | |
 
 ## Продвинутый уровень / Advanced

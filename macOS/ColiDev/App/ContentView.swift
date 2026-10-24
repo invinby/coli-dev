@@ -413,7 +413,7 @@ private enum CauseAndCorseLearningJourney {
         .init(
             id: "machine_learning",
             title: .init(ru: "Машинное обучение: алгоритмы и эксперименты", en: "Machine learning: algorithms and experiments"),
-            description: .init(ru: "После Python и математики: собери baseline, проверь модель на новых данных, изучи ошибки и ограничения.", en: "After Python and mathematics: build a baseline, evaluate on held-out data, and inspect errors and limits."),
+            description: .init(ru: "После Python и математики: собери baseline, проверь модель на новых данных, изучи ошибки и ограничения. Первый урок в приложении — «Машинное обучение: baseline и отложенная проверка» в программировании.", en: "After Python and mathematics: build a baseline, evaluate on held-out data, and inspect errors and limits. The first in-app lesson is “Machine learning: baselines and held-out evaluation” in Programming."),
             projectOutput: .init(ru: "Обучи один простой baseline, оцени его на отложенных данных и запиши ошибки, а не только точность.", en: "Train one simple baseline, evaluate it on held-out data, and record its errors as well as its score."),
             subjects: [.programming],
             sources: [
@@ -424,9 +424,9 @@ private enum CauseAndCorseLearningJourney {
         .init(
             id: "brain_science",
             title: .init(ru: "Нейронаука, когнитивистика и сознание", en: "Neuroscience, cognitive science, and consciousness"),
-            description: .init(ru: "Переходи к исследованиям после биологии и ML. Сознание и возможность создания жизни — дальние научные вопросы, не обещанный результат.", en: "Move into research after biology and ML. Consciousness and creating life are long-term scientific questions, not promised outcomes."),
+            description: .init(ru: "Переходи к исследованиям после биологии и ML; первый урок в приложении — «Нейрон и потенциал действия» в биологии. Сознание и возможность создания жизни — дальние научные вопросы, не обещанный результат.", en: "Move into research after biology and ML; the first in-app lesson is “Neurons and the action potential” in Biology. Consciousness and creating life are long-term scientific questions, not promised outcomes."),
             projectOutput: .init(ru: "Подготовь карточку одного научного утверждения: источник, метод, результат и что пока неизвестно.", en: "Create an evidence card for one scientific claim: source, method, result, and what remains unknown."),
-            subjects: [],
+            subjects: [.biology],
             sources: [.init(id: "brain.hse", title: .init(ru: "ВШЭ · «Мозг и психика» · 13 недель, русский", en: "HSE · Brain and Psyche · 13 weeks, Russian"), url: "https://openedu.ru/course/hse/BRAPS/?session=2022")]
         ),
         .init(
@@ -435,7 +435,7 @@ private enum CauseAndCorseLearningJourney {
             description: .init(ru: "Выбери реальную задачу, собери прототип, проверь его на данных и объясни источники, выводы и ограничения.", en: "Choose a real problem, build a prototype, test it with data, and explain sources, findings, and limitations."),
             projectOutput: .init(ru: "Собери небольшой работающий прототип, приложи проверку и кратко запиши следующий шаг.", en: "Build a small working prototype, include a check, and note the next step."),
             subjects: [.programming],
-            sources: []
+            sources: [.init(id: "projects.turing_way", title: .init(ru: "The Turing Way · воспроизводимые исследования · англ., CC BY 4.0", en: "The Turing Way · reproducible research · CC BY 4.0"), url: "https://book.the-turing-way.org/reproducible-research/reproducible-research")]
         )
     ]
 }

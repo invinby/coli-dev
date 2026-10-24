@@ -61,13 +61,14 @@ final class ManagementUITests: XCTestCase {
         XCTAssertTrue(settingsScrollView.waitForExistence(timeout: 5))
         scrollUntilHittable(release, in: settingsScrollView)
 
-        // Clicking the row centre does not toggle a DisclosureGroup; only its chevron does. A grouped Form puts the
-        // chevron at the trailing edge, so try that first and fall back to the leading edge.
+        // The release title row is a button that expands the row; the DisclosureGroup chevron alone ignores synthesized clicks.
+        let releaseToggle = app.buttons["settings.updates.release.toggle.v0.1.0-beta.9"]
+        XCTAssertTrue(
+            releaseToggle.waitForExistence(timeout: 5),
+            "The release title must expand its row. / Заголовок версии должен раскрывать строку.\n\(release.debugDescription)")
+        releaseToggle.click()
+
         let download = app.links["settings.updates.download.v0.1.0-beta.9"]
-        for edge in [0.98, 0.02] where !download.exists {
-            release.coordinate(withNormalizedOffset: CGVector(dx: edge, dy: 0.5)).click()
-            _ = download.waitForExistence(timeout: 3)
-        }
         XCTAssertTrue(
             download.waitForExistence(timeout: 10),
             "The catalog must expose the archive for the running Mac architecture. / Каталог должен показывать архив для архитектуры этого Mac.\n\(app.debugDescription)")

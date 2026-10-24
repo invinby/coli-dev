@@ -281,26 +281,40 @@ struct UpdatesSettingsSection: View {
             }
             .padding(.vertical, 6)
         } label: {
-            VStack(alignment: .leading, spacing: 3) {
-                HStack {
-                    Text(release.name.flatMap { $0.isEmpty ? nil : $0 } ?? release.tagName)
-                        .font(.body.weight(.semibold))
-                    Spacer()
-                    if release.prerelease {
-                        Text(betaLabel).font(.caption2).foregroundStyle(.secondary)
+            // In a grouped Form only the small chevron toggles a DisclosureGroup, so the whole title row is a button too.
+            Button { toggleRelease(release.id) } label: {
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack {
+                        Text(release.name.flatMap { $0.isEmpty ? nil : $0 } ?? release.tagName)
+                            .font(.body.weight(.semibold))
+                        Spacer()
+                        if release.prerelease {
+                            Text(betaLabel).font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
+                    HStack(spacing: 8) {
+                        Text(release.tagName).font(.caption.monospaced()).foregroundStyle(.secondary)
+                        if let publishedAt = release.publishedAt {
+                            Text(publishedAt.formatted(.dateTime.locale(locale).month(.abbreviated).day()))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
-                HStack(spacing: 8) {
-                    Text(release.tagName).font(.caption.monospaced()).foregroundStyle(.secondary)
-                    if let publishedAt = release.publishedAt {
-                        Text(publishedAt.formatted(.dateTime.locale(locale).month(.abbreviated).day()))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("settings.updates.release.toggle.\(release.tagName)")
         }
         .accessibilityIdentifier("settings.updates.release.\(release.tagName)")
+    }
+
+    private func toggleRelease(_ id: Int) {
+        if expandedReleaseIDs.contains(id) {
+            expandedReleaseIDs.remove(id)
+        } else {
+            expandedReleaseIDs.insert(id)
+        }
     }
 
     private func markdown(_ source: String) -> AttributedString {
