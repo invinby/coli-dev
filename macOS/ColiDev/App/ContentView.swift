@@ -424,7 +424,7 @@ private enum CauseAndCorseLearningJourney {
         .init(
             id: "brain_science",
             title: .init(ru: "Нейронаука, когнитивистика и сознание", en: "Neuroscience, cognitive science, and consciousness"),
-            description: .init(ru: "Переходи к исследованиям после биологии и ML; первый урок в приложении — «Нейрон и потенциал действия» в биологии. Сознание и возможность создания жизни — дальние научные вопросы, не обещанный результат.", en: "Move into research after biology and ML; the first in-app lesson is “Neurons and the action potential” in Biology. Consciousness and creating life are long-term scientific questions, not promised outcomes."),
+            description: .init(ru: "Переходи к исследованиям после биологии и ML; в приложении — уроки «Нейрон и потенциал действия» и «Синапс и суммация сигналов» в биологии. Сознание и возможность создания жизни — дальние научные вопросы, не обещанный результат.", en: "Move into research after biology and ML; in the app, see “Neurons and the action potential” and “Synapses and signal summation” in Biology. Consciousness and creating life are long-term scientific questions, not promised outcomes."),
             projectOutput: .init(ru: "Подготовь карточку одного научного утверждения: источник, метод, результат и что пока неизвестно.", en: "Create an evidence card for one scientific claim: source, method, result, and what remains unknown."),
             subjects: [.biology],
             sources: [.init(id: "brain.hse", title: .init(ru: "ВШЭ · «Мозг и психика» · 13 недель, русский", en: "HSE · Brain and Psyche · 13 weeks, Russian"), url: "https://openedu.ru/course/hse/BRAPS/?session=2022")]

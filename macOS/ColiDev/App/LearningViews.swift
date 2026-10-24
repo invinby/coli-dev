@@ -1831,6 +1831,10 @@ private struct PracticeLab: View {
             CirculationRouteLab()
         } else if subject == .programming, moduleResource == "gradient_descent_and_learning_rate" {
             GradientDescentLab()
+        } else if subject == .biology, moduleResource == "synapses_and_signal_summation" {
+            SynapticSummationLab()
+        } else if subject == .physics, moduleResource == "oscillations_and_waves" {
+            PendulumLab()
         } else {
             switch subject {
         case .mathematics:
@@ -10793,6 +10797,187 @@ private struct GradientDescentLab: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+        }
+    }
+}
+
+private struct SynapticSummationLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @State private var excitatory = 2
+    @State private var inhibitory = 0
+
+    private var potential: Double {
+        SynapticSummationModel.membranePotential(excitatory: excitatory, inhibitory: inhibitory)
+    }
+
+    private var fires: Bool {
+        SynapticSummationModel.reachesThreshold(excitatory: excitatory, inhibitory: inhibitory)
+    }
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.synapse.title", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.synapse.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Stepper(value: $excitatory, in: SynapticSummationModel.inputRange) {
+                Text(String(format: L10n.text("lab.synapse.excitatory", store.language), excitatory))
+                    .monospacedDigit()
+            }
+            .accessibilityIdentifier("lab.synapse.excitatory")
+            Stepper(value: $inhibitory, in: SynapticSummationModel.inputRange) {
+                Text(String(format: L10n.text("lab.synapse.inhibitory", store.language), inhibitory))
+                    .monospacedDigit()
+            }
+            .accessibilityIdentifier("lab.synapse.inhibitory")
+
+            Text(String(format: L10n.text("lab.synapse.potential", store.language), Int(potential.rounded())))
+                .font(.headline.monospacedDigit())
+                .accessibilityIdentifier("lab.synapse.potential")
+            potentialScale
+                .frame(height: 26)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(L10n.text("lab.synapse.scale", store.language))
+                .accessibilityValue(String(format: L10n.text("lab.synapse.potential", store.language), Int(potential.rounded())))
+
+            Label(L10n.text(fires ? "lab.synapse.fires" : "lab.synapse.noFire", store.language), systemImage: fires ? "bolt.fill" : "minus.circle")
+                .font(.callout.weight(.medium))
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("lab.synapse.outcome")
+            Text(L10n.text("lab.synapse.limit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    // The scale spans the lab's reachable range, −94 to −46 mV, with the −55 mV threshold marked.
+    private var potentialScale: some View {
+        GeometryReader { geometry in
+            let lower = -94.0
+            let upper = -46.0
+            let fraction = (potential - lower) / (upper - lower)
+            let thresholdFraction = (SynapticSummationModel.thresholdPotential - lower) / (upper - lower)
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.secondary.opacity(0.12))
+                Capsule()
+                    .fill((fires ? Color.green : Color.accentColor).gradient)
+                    .frame(width: max(8, geometry.size.width * CGFloat(fraction)))
+                Rectangle()
+                    .fill(Color.orange)
+                    .frame(width: 2)
+                    .offset(x: geometry.size.width * CGFloat(thresholdFraction))
+            }
+        }
+    }
+}
+
+private struct PendulumLab: View {
+    @EnvironmentObject private var store: LearningStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var length = 1.0
+    @State private var mass = 0.5
+    @State private var isSwinging = false
+
+    var body: some View {
+        LabCard {
+            Text(L10n.text("lab.pendulum.title", store.language))
+                .font(.headline)
+            Text(L10n.text("lab.pendulum.hint", store.language))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(alignment: .top, spacing: 20) {
+                pendulum
+                    .frame(width: 170, height: 170)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(L10n.text("lab.pendulum.diagram", store.language))
+                VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(String(format: L10n.text("lab.pendulum.length", store.language), length))
+                            .monospacedDigit()
+                        Slider(value: $length, in: PendulumModel.lengthRange, step: 0.25)
+                            .accessibilityLabel(L10n.text("lab.pendulum.lengthLabel", store.language))
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(String(format: L10n.text("lab.pendulum.mass", store.language), mass))
+                            .monospacedDigit()
+                        Slider(value: $mass, in: PendulumModel.massRange, step: 0.1)
+                            .accessibilityLabel(L10n.text("lab.pendulum.massLabel", store.language))
+                    }
+                    Text(String(
+                        format: L10n.text("lab.pendulum.reading", store.language),
+                        PendulumModel.period(length: length, mass: mass),
+                        PendulumModel.frequency(length: length)
+                    ))
+                    .font(.headline.monospacedDigit())
+                    .accessibilityIdentifier("lab.pendulum.reading")
+                    if !reduceMotion {
+                        Toggle(L10n.text("lab.pendulum.swing", store.language), isOn: $isSwinging)
+                            .toggleStyle(.switch)
+                    }
+                }
+            }
+
+            Text(L10n.text("lab.pendulum.challenge", store.language))
+                .font(.callout)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            Text(L10n.text("lab.pendulum.limit", store.language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    @ViewBuilder
+    private var pendulum: some View {
+        if isSwinging && !reduceMotion {
+            TimelineView(.animation) { context in
+                PendulumDrawing(
+                    lengthFraction: length / PendulumModel.lengthRange.upperBound,
+                    massFraction: mass / PendulumModel.massRange.upperBound,
+                    angle: PendulumModel.angle(atSeconds: context.date.timeIntervalSinceReferenceDate, length: length)
+                )
+            }
+        } else {
+            PendulumDrawing(
+                lengthFraction: length / PendulumModel.lengthRange.upperBound,
+                massFraction: mass / PendulumModel.massRange.upperBound,
+                angle: PendulumModel.amplitudeDegrees * Double.pi / 180
+            )
+        }
+    }
+}
+
+private struct PendulumDrawing: View {
+    let lengthFraction: Double
+    let massFraction: Double
+    let angle: Double
+
+    var body: some View {
+        Canvas { context, size in
+            let pivot = CGPoint(x: size.width / 2, y: 8)
+            let stringLength = (size.height - 30) * CGFloat(lengthFraction)
+            let bob = CGPoint(
+                x: pivot.x + stringLength * CGFloat(sin(angle)),
+                y: pivot.y + stringLength * CGFloat(cos(angle))
+            )
+            var support = Path()
+            support.move(to: CGPoint(x: pivot.x - 30, y: pivot.y))
+            support.addLine(to: CGPoint(x: pivot.x + 30, y: pivot.y))
+            context.stroke(support, with: .color(.secondary), lineWidth: 2)
+            var string = Path()
+            string.move(to: pivot)
+            string.addLine(to: bob)
+            context.stroke(string, with: .color(.secondary), lineWidth: 1.5)
+            let radius = 6 + 8 * CGFloat(massFraction)
+            context.fill(Path(ellipseIn: CGRect(x: bob.x - radius, y: bob.y - radius, width: radius * 2, height: radius * 2)), with: .color(.accentColor))
         }
     }
 }

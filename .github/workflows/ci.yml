@@ -394,6 +394,18 @@ jobs:
             -o "$RUNNER_TEMP/verify-gradient-descent"
           "$RUNNER_TEMP/verify-gradient-descent"
 
+      - name: Verify synaptic summation model / Проверка модели суммации сигналов
+        run: |
+          swiftc macOS/ColiDev/App/SynapticSummation.swift macOS/ColiDev/scripts/verify_synaptic_summation.swift \
+            -o "$RUNNER_TEMP/verify-synaptic-summation"
+          "$RUNNER_TEMP/verify-synaptic-summation"
+
+      - name: Verify pendulum model / Проверка модели маятника
+        run: |
+          swiftc macOS/ColiDev/App/Pendulum.swift macOS/ColiDev/scripts/verify_pendulum.swift \
+            -o "$RUNNER_TEMP/verify-pendulum"
+          "$RUNNER_TEMP/verify-pendulum"
+
       - name: Verify linear system practice model
         run: |
           swiftc macOS/ColiDev/App/AnswerChoiceOrder.swift macOS/ColiDev/App/LinearSystemPractice.swift macOS/ColiDev/scripts/verify_linear_system_practice.swift \

@@ -2145,7 +2145,27 @@ enum L10n {
         "lab.gd.oscillates": ("Сходится с колебаниями: шаг перепрыгивает минимум, но каждый раз всё ближе к нему.", "Converges with oscillation: each step overshoots the minimum but lands closer to it."),
         "lab.gd.diverges": ("Расходится: шаг слишком большой, w перескакивает минимум всё дальше, и ошибка растёт.", "Diverges: the rate is too large, w overshoots the minimum further each time, and the error grows."),
         "lab.gd.optimum": ("Минимум ошибки для этих данных: w ≈ 1,99, MSE ≈ 0,024.", "Minimum error for these data: w ≈ 1.99, MSE ≈ 0.024."),
-        "lab.gd.limit": ("Одна переменная, четыре точки и модель без свободного члена. Настоящие модели обучают много параметров, а шаг подбирают по ошибке на валидационных данных.", "One variable, four points, and no intercept. Real models train many parameters and tune the rate by the error on validation data.")
+        "lab.gd.limit": ("Одна переменная, четыре точки и модель без свободного члена. Настоящие модели обучают много параметров, а шаг подбирают по ошибке на валидационных данных.", "One variable, four points, and no intercept. Real models train many parameters and tune the rate by the error on validation data."),
+        "lab.synapse.title": ("Суммация сигналов у аксонного холмика", "Signal summation at the axon hillock"),
+        "lab.synapse.hint": ("Задай, сколько возбуждающих и тормозящих синапсов сработало почти одновременно. Сначала предскажи, дойдёт ли мембрана до порога −55 мВ.", "Set how many excitatory and inhibitory synapses fire at about the same time. Predict first whether the membrane reaches the −55 mV threshold."),
+        "lab.synapse.excitatory": ("Возбуждающие сигналы (+4 мВ): %d", "Excitatory inputs (+4 mV): %d"),
+        "lab.synapse.inhibitory": ("Тормозящие сигналы (−4 мВ): %d", "Inhibitory inputs (−4 mV): %d"),
+        "lab.synapse.potential": ("Мембрана у аксонного холмика: %d мВ", "Membrane at the axon hillock: %d mV"),
+        "lab.synapse.scale": ("Шкала мембранного потенциала от −94 до −46 мВ, оранжевая метка — порог −55 мВ.", "Membrane potential scale from −94 to −46 mV; the orange mark is the −55 mV threshold."),
+        "lab.synapse.fires": ("Порог достигнут: суммарный сдвиг запускает потенциал действия.", "Threshold reached: the net shift fires an action potential."),
+        "lab.synapse.noFire": ("Порог не достигнут: тормозящие сигналы или слишком малое число возбуждающих не дают дойти до −55 мВ.", "Threshold not reached: inhibitory inputs or too few excitatory ones keep the membrane below −55 mV."),
+        "lab.synapse.limit": ("Величина ±4 мВ на один сигнал условная: реальные сигналы различаются по силе, затухают со временем и расстоянием. Модель складывает только сигналы, пришедшие почти одновременно.", "The ±4 mV per input is illustrative: real inputs differ in size and fade with time and distance. The model adds only inputs that arrive at about the same time."),
+        "lab.pendulum.title": ("Период маятника", "Pendulum period"),
+        "lab.pendulum.hint": ("Меняй длину нити и массу груза. Сначала предскажи, от чего зависит период малых колебаний, затем проверь по числам и по качанию.", "Change the string length and the bob's mass. Predict first what the period of small swings depends on, then check the numbers and the swing."),
+        "lab.pendulum.diagram": ("Маятник: длина нити показана в масштабе, размер груза — его масса.", "Pendulum: string length is drawn to scale, and the bob's size shows its mass."),
+        "lab.pendulum.length": ("Длина нити L = %.2f м", "String length L = %.2f m"),
+        "lab.pendulum.lengthLabel": ("Длина нити", "String length"),
+        "lab.pendulum.mass": ("Масса груза m = %.1f кг", "Bob mass m = %.1f kg"),
+        "lab.pendulum.massLabel": ("Масса груза", "Bob mass"),
+        "lab.pendulum.reading": ("Период T = %.2f с · частота f = %.2f Гц", "Period T = %.2f s · frequency f = %.2f Hz"),
+        "lab.pendulum.swing": ("Показать качание", "Show the swing"),
+        "lab.pendulum.challenge": ("Задача: сравни L = 0,25 м и L = 1,00 м. Предскажи, во сколько раз изменится период, затем проверь: 1,00 с и 2,01 с — ровно вдвое, потому что T ∝ √L.", "Challenge: compare L = 0.25 m and L = 1.00 m. Predict how many times the period changes, then check: 1.00 s and 2.01 s — exactly twice, because T ∝ √L."),
+        "lab.pendulum.limit": ("Формула T = 2π√(L/g) верна для малых углов, примерно до 15°; здесь амплитуда 10°. Нить считается нерастяжимой и невесомой, сопротивление воздуха не учитывается, g = 9,81 м/с².", "T = 2π√(L/g) holds for small angles, up to about 15°; the amplitude here is 10°. The string is treated as massless and inextensible, air resistance is ignored, and g = 9.81 m/s².")
     ]
 
     static func text(_ key: String, _ language: AppLanguage) -> String {
