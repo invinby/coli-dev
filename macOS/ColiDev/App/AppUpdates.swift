@@ -84,6 +84,14 @@ final class ReleaseCatalog: ObservableObject {
         do {
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
+
+            // UI tests supply a fixed release list: CI runners share IPs and hit the unauthenticated GitHub API rate limit.
+            if let fixture = ProcessInfo.processInfo.environment["COLIDEV_UI_TEST_RELEASES_JSON"] {
+                releases = try decoder.decode([GitHubRelease].self, from: Data(fixture.utf8)).filter { !$0.draft }
+                lastUpdated = Date()
+                return
+            }
+
             var allReleases: [GitHubRelease] = []
             var page = 1
 

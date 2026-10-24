@@ -33,6 +33,19 @@ final class ManagementUITests: XCTestCase {
     @MainActor
     func testReleaseCatalogOffersBetaArchiveForCurrentMacArchitecture() async throws {
         let app = XCUIApplication()
+        // A fixed catalog keeps the test off the rate-limited GitHub API. / Фиксированный каталог не зависит от лимитов GitHub API.
+        app.launchEnvironment["COLIDEV_UI_TEST_RELEASES_JSON"] = """
+        [{"id": 9, "name": "ColiDev 0.1.0 Beta 9 / Бета 9", "tag_name": "v0.1.0-beta.9", "body": "",
+          "published_at": "2026-10-22T19:17:33Z",
+          "html_url": "https://github.com/mirazizmamatkulov1-create/coli-dev/releases/tag/v0.1.0-beta.9",
+          "draft": false, "prerelease": true,
+          "assets": [
+            {"id": 91, "name": "ColiDev-beta-AppleSilicon.zip",
+             "browser_download_url": "https://github.com/mirazizmamatkulov1-create/coli-dev/releases/download/v0.1.0-beta.9/ColiDev-beta-AppleSilicon.zip"},
+            {"id": 92, "name": "ColiDev-beta-Intel.zip",
+             "browser_download_url": "https://github.com/mirazizmamatkulov1-create/coli-dev/releases/download/v0.1.0-beta.9/ColiDev-beta-Intel.zip"}
+          ]}]
+        """
         app.launch()
 
         let settingsItem = app.staticTexts["sidebar.settings"]
@@ -47,9 +60,14 @@ final class ManagementUITests: XCTestCase {
         let settingsScrollView = app.windows.firstMatch.scrollViews.element(boundBy: 1)
         XCTAssertTrue(settingsScrollView.waitForExistence(timeout: 5))
         scrollUntilHittable(release, in: settingsScrollView)
-        release.click()
 
+        // Clicking the row centre does not toggle a DisclosureGroup; only its chevron does. A grouped Form puts the
+        // chevron at the trailing edge, so try that first and fall back to the leading edge.
         let download = app.links["settings.updates.download.v0.1.0-beta.9"]
+        for edge in [0.98, 0.02] where !download.exists {
+            release.coordinate(withNormalizedOffset: CGVector(dx: edge, dy: 0.5)).click()
+            _ = download.waitForExistence(timeout: 3)
+        }
         XCTAssertTrue(
             download.waitForExistence(timeout: 10),
             "The catalog must expose the archive for the running Mac architecture. / Каталог должен показывать архив для архитектуры этого Mac.\n\(app.debugDescription)")
